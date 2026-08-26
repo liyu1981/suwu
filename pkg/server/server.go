@@ -1,0 +1,146 @@
+// Package server implements the HTTP routes, static asset serving, and the
+// WebSocket PTY bridge for the ghostty-web demo server.
+package server
+
+import (
+	"io"
+	"io/fs"
+	"net/http"
+	"path"
+	"strconv"
+	"strings"
+
+	"ghostty-web-demo/pkg/auth"
+)
+
+var mimeTypes = map[string]string{
+	".html": "text/html",
+	".js":   "application/javascript",
+	".mjs":  "application/javascript",
+	".css":  "text/css",
+	".json": "application/json",
+	".wasm": "application/wasm",
+	".png":  "image/png",
+	".svg":  "image/svg+xml",
+	".ico":  "image/x-icon",
+}
+
+// Server is the demo HTTP + WebSocket server.
+type Server struct {
+	cfg    *auth.Config
+	assets fs.FS
+}
+
+// New creates a Server serving static assets from assetsFS (the web tree).
+func New(cfg *auth.Config, assetsFS fs.FS) *Server {
+	return &Server{cfg: cfg, assets: assetsFS}
+}
+
+func (s *Server) Handler() http.Handler {
+	return http.HandlerFunc(s.route)
+}
+
+func (s *Server) route(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/ws" {
+		s.handleWS(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/token" {
+		s.handleToken(w, r)
+		return
+	}
+
+	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+		s.serveAsset(w, r, "index.html")
+		return
+	}
+
+	// Static assets produced by the Vite build live under /assets/.
+	name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+	if name != "" && fileExists(s.assets, name) {
+		s.serveAsset(w, r, name)
+		return
+	}
+
+	if path.Ext(r.URL.Path) == "" {
+		// Client-side route handled by the TanStack Router app.
+		s.serveAsset(w, r, "index.html")
+		return
+	}
+
+	http.NotFound(w, r)
+}
+
+func fileExists(fsys fs.FS, name string) bool {
+	f, err := fsys.Open(name)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	return err == nil && !info.IsDir()
+}
+
+func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string) {
+	name = path.Clean("/" + name)
+	file, err := s.assets.Open(strings.TrimPrefix(name, "/"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer file.Close()
+
+	if info, err := file.Stat(); err == nil && info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if ctype, ok := mimeTypes[path.Ext(name)]; ok {
+		w.Header().Set("Content-Type", ctype)
+	}
+	_, _ = w.Write(data)
+}
+
+func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"))
+	if !d.OK {
+		writePlain(w, d.Status, d.Reason)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write([]byte(`{"token":` + strconv.Quote(s.cfg.Token) + `}`))
+}
+
+func writePlain(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(status)
+	_, _ = w.Write([]byte(msg))
+}
+
+func atoiDefault(s string, def int) int {
+	if s == "" {
+		return def
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 {
+		return def
+	}
+	return n
+}

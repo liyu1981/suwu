@@ -1,0 +1,23 @@
+# Build artifacts
+/demo
+*.exe
+*.test
+*.out
+
+# Local environment (secrets). Committed template is .env.example.
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+
+# Editor / OS
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Logs
+*.log

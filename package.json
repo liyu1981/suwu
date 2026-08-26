@@ -1,0 +1,16 @@
+{
+  "name": "ghostty-web-demo",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Standalone Go server + Vite/React frontend for the ghostty-web terminal emulator",
+  "scripts": {
+    "build": "go build -o demo ./cmd/demo",
+    "build:web": "pnpm --dir frontend build",
+    "start": "pnpm run build:web && pnpm run build && ./demo",
+    "dev": "go run ./cmd/demo --dev",
+    "dev:web": "pnpm --dir frontend dev",
+    "typecheck": "pnpm --dir frontend typecheck",
+    "test": "go test ./...",
+    "vet": "go vet ./..."
+  }
+}

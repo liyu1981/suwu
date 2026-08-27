@@ -7,7 +7,7 @@
     "build": "go build -o suwu ./cmd/Suwu",
     "build:web": "pnpm --dir frontend build",
     "start": "pnpm run build:web && pnpm run build && ./suwu",
-    "dev": "go run ./cmd/Suwu --dev",
+    "dev": "air -c .air.toml",
     "dev:web": "pnpm --dir frontend dev",
     "typecheck": "pnpm --dir frontend typecheck",
     "test": "go test ./...",

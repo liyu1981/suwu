@@ -20,11 +20,19 @@ VAR=./var
 LOG="$VAR/suwu.log"
 PID="$VAR/suwu.pid"
 
+# PID file stores the process-group leader (see start()). stop() kills that
+# group (pnpm -> air) and then sweeps the server binary: air starts its child
+# in a separate session, so it survives a plain group kill.
+ROOT="$(pwd)"
+SERVER_RE="^(/bin/sh -c )?${ROOT}/tmp/suwu( --dev)?$"
+
+stray_server_pids() { pgrep -f "$ROOT/tmp/suwu" || true; }
+
 is_running() {
   [[ -f "$PID" ]] || return 1
   local pid
   pid=$(cat "$PID" 2>/dev/null || true)
-  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+  [[ -n "$pid" ]] && kill -0 "-$pid" 2>/dev/null
 }
 
 rotate() {
@@ -48,36 +56,58 @@ web_build() {
 }
 
 start() {
+  # Reap leftover server binaries from a crashed/killed previous run before
+  # anything else binds the port.
+  local strays
+  strays=$(stray_server_pids)
+  if [[ -n "$strays" ]]; then
+    echo "reaping stray server processes: $(echo "$strays" | tr '\n' ' ')"
+    pkill -9 -f "$SERVER_RE" 2>/dev/null || true
+    sleep 0.3
+  fi
   if is_running; then
-    echo "already running (pid $(cat "$PID"))"
+    echo "already running (pgid $(cat "$PID"))"
     return 0
   fi
   web_build
   rotate
-  nohup pnpm dev >>"$LOG" 2>&1 &
+  # setsid: new process group so stop() can signal pnpm, air, and the server
+  # (children + grandchildren) with one group kill.
+  nohup setsid pnpm dev >>"$LOG" 2>&1 &
   echo $! >"$PID"
   echo "started (pid $!) -> http://${DEMO_HOST}:${DEMO_PORT}"
   echo "log: $LOG"
 }
 
 stop() {
-  if ! is_running; then
+  local pid
+  if ! is_running && [[ -z "$(stray_server_pids)" ]]; then
     echo "not running"
     return 0
   fi
-  local pid
-  pid=$(cat "$PID")
-  kill "$pid" 2>/dev/null || true
-  for _ in $(seq 1 50); do
-    kill -0 "$pid" 2>/dev/null || break
+  pid=$(cat "$PID" 2>/dev/null || echo 0)
+  # Escalate gracefully: SIGINT (air is built around Ctrl+C semantics and
+  # forwards a graceful shutdown; SIGTERM makes it hang), then SIGTERM,
+  # then SIGKILL. The air-spawned server lives in its own session outside
+  # the group, so signal the SERVER_RE processes directly as well.
+  if [[ "$pid" != 0 ]]; then kill -INT "-$pid" 2>/dev/null || true; fi
+  pkill -INT -f "$SERVER_RE" 2>/dev/null || true
+  for _ in $(seq 1 30); do
+    if ! (kill -0 "-$pid" 2>/dev/null || pkill -0 -f "$SERVER_RE" 2>/dev/null); then break; fi
     sleep 0.1
   done
-  if kill -0 "$pid" 2>/dev/null; then
-    echo "graceful stop timed out, forcing"
-    kill -9 "$pid" 2>/dev/null || true
+  if kill -0 "-$pid" 2>/dev/null || pkill -0 -f "$SERVER_RE" 2>/dev/null; then
+    kill -TERM "-$pid" 2>/dev/null || true
+    pkill -TERM -f "$SERVER_RE" 2>/dev/null || true
+    sleep 1
+    if kill -0 "-$pid" 2>/dev/null || pkill -0 -f "$SERVER_RE" 2>/dev/null; then
+      echo "graceful stop timed out, forcing"
+      kill -9 "-$pid" 2>/dev/null || true
+      pkill -9 -f "$SERVER_RE" 2>/dev/null || true
+    fi
   fi
   rm -f "$PID"
-  echo "stopped (pid $pid)"
+  echo "stopped"
 }
 
 status() {

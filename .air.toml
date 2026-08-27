@@ -1,0 +1,30 @@
+# air dev configuration: watch Go + frontend sources, rebuild web assets,
+# rebuild the server, and restart on any change.
+#
+# Loop safety: vite writes its bundle into pkg/assets/web and air builds into
+# tmp/ — both directories are excluded below so build outputs never retrigger
+# a cycle. Only source edits fire a rebuild.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Order matters: the web tree must be fresh before `go build` embeds it.
+cmd = "pnpm build:web && go build -o ./tmp/suwu ./cmd/Suwu"
+bin = "./tmp/suwu"
+args_bin = ["--dev"]
+include_ext = ["go", "ts", "tsx", "css", "html", "mod", "sum"]
+exclude_dir = [
+  "tmp",
+  "var",
+  "pkg/assets",
+  "node_modules",
+  "origin_demo_ts",
+]
+delay = 1000
+stop_on_error = false
+
+[log]
+time = true
+
+[misc]
+clean_on_exit = true

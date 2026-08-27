@@ -5,7 +5,7 @@
 // Usage:
 //
 //	suwu                # production, single binary, port 8080
-//	suwu --dev          # dev mode with Go hot reload, port 8000
+//	suwu --dev          # dev defaults, port 8000 (hot reload via air)
 //	PORT=3000 suwu      # custom port
 //	HOST=0.0.0.0 GHOSTTY_ALLOWED_HOSTS=example.com suwu
 package main
@@ -30,23 +30,15 @@ import (
 	"suwu/pkg/envfile"
 	"suwu/pkg/pty"
 	"suwu/pkg/server"
-	"suwu/pkg/supervisor"
 )
 
 func main() {
-	dev := flag.Bool("dev", false, "dev mode: hot reload on Go source changes")
+	dev := flag.Bool("dev", false, "dev mode: dev defaults (port 8000); run via air for hot reload")
 	envFile := flag.String("env-file", ".env", "path to a .env file to load (missing file is ignored)")
 	flag.Parse()
 
 	if err := envfile.Load(*envFile); err != nil {
 		log.Fatalf("envfile: %v", err)
-	}
-
-	// Dev mode: unless we are the supervised child, run the hot-reload
-	// supervisor which owns this process tree.
-	if *dev && os.Getenv(supervisor.ChildEnv) != "1" {
-		supervisor.Run(signalContext(), os.Args)
-		return
 	}
 
 	if err := run(*dev); err != nil {
@@ -62,12 +54,13 @@ func run(dev bool) error {
 		return err
 	}
 
-	assetsFS, err := assetFS(dev)
+	// Assets are always embedded: dev hot reload (air) rebuilds the web tree
+	// and the binary together before restarting.
+	sub, err := fs.Sub(assets.FS, "web")
 	if err != nil {
 		return err
 	}
-
-	srv := server.New(cfg, assetsFS)
+	srv := server.New(cfg, sub)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)),
@@ -99,19 +92,6 @@ func run(dev bool) error {
 	defer cancel()
 	_ = httpServer.Shutdown(shutdownCtx)
 	return nil
-}
-
-func assetFS(dev bool) (fs.FS, error) {
-	if dev {
-		// Serve from disk so HTML/asset edits apply without a rebuild.
-		return os.DirFS(assets.DevDir), nil
-	}
-	// Single binary: serve from the embedded web/ tree.
-	sub, err := fs.Sub(assets.FS, "web")
-	if err != nil {
-		return nil, err
-	}
-	return sub, nil
 }
 
 func parsePort(value string, def int) int {
@@ -151,7 +131,7 @@ func printBanner(dev bool, cfg *auth.Config, port int) {
 	fmt.Printf("  🐚 Shell: %s\n", pty.ShellPath())
 	fmt.Printf("  📁 Home: %s\n", home)
 	if dev {
-		fmt.Println("  🔥 Hot reload enabled (watching .go files)")
+		fmt.Println("  🔥 Hot reload enabled (air: web + go rebuild on change)")
 	}
 	fmt.Println("\n  ⚠️  This server provides shell access.")
 	fmt.Printf("     It binds to %s and rejects cross-origin WebSockets.\n", cfg.BindHost)
@@ -170,7 +150,3 @@ func devLabel(dev bool) string {
 	return ""
 }
 
-func signalContext() context.Context {
-	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	return ctx
-}

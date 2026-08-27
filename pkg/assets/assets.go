@@ -1,8 +1,8 @@
 // Package assets embeds the static web assets served by the demo server.
 //
-// The web/ tree is embedded for single-binary production deployments. In dev
-// mode the server instead reads the same tree from disk so edits apply without
-// a rebuild.
+// The web/ tree is embedded into the binary at build time. In dev mode air
+// rebuilds this tree (pnpm build:web) together with the server binary before
+// restarting, so the served assets always match the sources.
 package assets
 
 import "embed"
@@ -12,7 +12,3 @@ import "embed"
 //
 //go:embed web
 var FS embed.FS
-
-// DevDir is the filesystem path of the web tree relative to the module root.
-// Dev mode serves from this directory on disk so edits apply without a rebuild.
-const DevDir = "pkg/assets/web"

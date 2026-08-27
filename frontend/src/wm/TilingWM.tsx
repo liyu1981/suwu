@@ -89,7 +89,11 @@ export default function TilingWM() {
     (off: number) => {
       const cur = store.get(layoutAtom)
       const f = store.get(focusedIdAtom)
-      store.set(focusedIdAtom, focusByOffset(cur, f, off))
+      const next = focusByOffset(cur, f, off)
+      store.set(focusedIdAtom, next)
+      // Move real keyboard focus with the border, or typing would keep
+      // landing in the previously focused terminal.
+      if (next) document.querySelector<HTMLElement>(`iframe[data-pane="${next}"]`)?.focus()
     },
     [store],
   )
@@ -113,16 +117,22 @@ export default function TilingWM() {
     return () => window.removeEventListener('keydown', onKey)
   }, [split, close, focusOffset])
 
-  // Shortcuts relayed from a focused terminal iframe.
+  // Focus changes reported by a pane iframe (its own window focus event is
+  // reliable, unlike parent-side focusin between two iframes).
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const a = e.data?.type === 'wm-shortcut' ? (e.data.action as WmAction) : undefined
+      const d = e.data as { type?: string; pane?: unknown; action?: WmAction } | undefined
+      if (d?.type === 'pane-focus') {
+        if (typeof d.pane === 'string') store.set(focusedIdAtom, d.pane)
+        return
+      }
+      const a = d?.type === 'wm-shortcut' ? d.action : undefined
       if (!a) return
       action(a, split, close, focusOffset)
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [split, close, focusOffset])
+  }, [store, split, close, focusOffset])
 
   // Detect clicks into an iframe: the parent's document.activeElement becomes
   // the focused <iframe>, so we can track which pane is focused.
@@ -212,8 +222,12 @@ export default function TilingWM() {
       {panes.map(({ id, x, y, w, h }) => (
         <div
           key={id}
-          className={`absolute overflow-hidden rounded-[6px] shadow-[0_8px_32px_rgb(0_0_0/0.25)] ring-1 ring-inset ${
-            focused === id ? 'ring-sky-400/90' : 'ring-white/15'
+          className={`absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] transition ${
+            focused === id
+              // Header chrome tone (apple-panel is white 10% over the page),
+              // brightened well above it so the focused tile clearly reads.
+              ? 'border-[color-mix(in_oklch,white_45%,var(--background))]'
+              : 'border-white/5'
           }`}
           style={{ left: x, top: y, width: w, height: h }}
           onMouseDown={() => setFocused(id)}

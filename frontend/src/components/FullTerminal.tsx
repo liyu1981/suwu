@@ -51,6 +51,22 @@ export default function FullTerminal() {
   usePtySession(term)
   useTermCopy(term)
 
+  // Clicks inside an iframe never reach the parent, and Chrome does not fire
+  // focusin in the parent when focus moves directly between two iframes — so
+  // tell the window manager this pane is focused whenever the iframe gains
+  // focus, and hand keyboard focus to the terminal right away.
+  useEffect(() => {
+    const onFocus = () => {
+      window.parent?.postMessage(
+        { type: 'pane-focus', pane: window.frameElement?.getAttribute('data-pane') },
+        '*',
+      )
+      term?.focus()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [term])
+
   // Track the shared appearance settings (parent page edits them; panes
   // receive the change via storage events).
   useEffect(() => {

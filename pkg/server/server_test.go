@@ -12,6 +12,7 @@ import (
 
 	"suwu/pkg/assets"
 	"suwu/pkg/auth"
+	"suwu/pkg/session"
 
 	"github.com/coder/websocket"
 )
@@ -27,7 +28,12 @@ func testServer(t *testing.T) (*httptest.Server, *auth.Config) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := New(cfg, sub)
+	sessions, err := session.NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { sessions.Close() })
+	srv := New(cfg, sub, sessions)
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	return ts, cfg
@@ -113,15 +119,6 @@ func TestWebSocketSession(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// First message should be the welcome banner.
-	_, data, err := conn.Read(ctx)
-	if err != nil {
-		t.Fatalf("read welcome: %v", err)
-	}
-	if !strings.Contains(string(data), "Welcome to Suwu") {
-		t.Fatalf("welcome banner missing, got: %q", data)
-	}
-
 	// Send a command; expect its output back on the PTY.
 	if err := conn.Write(ctx, websocket.MessageText, []byte("echo hello-ghostty\r")); err != nil {
 		t.Fatalf("write: %v", err)
@@ -155,22 +152,11 @@ func TestWebSocketBinaryFrames(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Every server->client frame carries raw PTY bytes, so all of them must be
-	// binary: browsers abort connections whose text frames are not valid UTF-8,
-	// and apps like htop split multi-byte sequences across read boundaries.
-	mt, data, err := conn.Read(ctx)
-	if err != nil {
-		t.Fatalf("read banner: %v", err)
-	}
-	if mt != websocket.MessageBinary {
-		t.Fatalf("banner frame type = %v, want binary", mt)
-	}
-	if !strings.Contains(string(data), "Welcome to Suwu") {
-		t.Fatalf("welcome banner missing, got: %q", data)
-	}
-
-	// Emit raw non-UTF-8 bytes plus a marker; the session must survive and the
-	// marker must come back on a binary frame.
+	// Emit raw non-UTF-8 bytes plus a marker; the session must survive and
+	// the marker must come back on a binary frame. Every server->client
+	// frame carries raw PTY bytes, so all of them must be binary: browsers
+	// abort connections whose text frames are not valid UTF-8, and apps like
+	// htop split multi-byte sequences across read boundaries.
 	if err := conn.Write(ctx, websocket.MessageText, []byte("printf '\\377\\376\\375'; echo RAWBINARY-OK\\r")); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -211,13 +197,6 @@ func TestWebSocketMultipleSessions(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Both sessions welcome banners arrive.
-	for _, c := range []*websocket.Conn{a, b} {
-		if _, data, err := c.Read(ctx); err != nil || !strings.Contains(string(data), "Welcome to Suwu") {
-			t.Fatalf("session banner missing (err=%v): %q", err, data)
-		}
-	}
-
 	// Interleave commands between the two sessions; each must see its own output.
 	if err := a.Write(ctx, websocket.MessageText, []byte("echo AAA-123\r")); err != nil {
 		t.Fatal(err)
@@ -244,6 +223,102 @@ func TestWebSocketMultipleSessions(t *testing.T) {
 	if !got["AAA-123"] || !got["BBB-456"] {
 		t.Fatalf("did not receive both sessions' output: %v", got)
 	}
+}
+
+func TestWebSocketSessionRestore(t *testing.T) {
+	ts, cfg := testServer(t)
+	origin := "http://" + hostOf(ts)
+
+	connect := func(key string) *websocket.Conn {
+		q := url.Values{}
+		q.Set("cols", "80")
+		q.Set("rows", "24")
+		q.Set("token", cfg.Token)
+		q.Set("session", key)
+		return dialWS(t, ts, origin, q)
+	}
+
+	key := "test-restore-pane"
+	conn := connect(key)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Run a command whose marker should end up on the restored screen.
+	if err := conn.Write(ctx, websocket.MessageText, []byte("echo RESTORE-MARK-12345\r")); err != nil {
+		t.Fatal(err)
+	}
+	if !waitForFrame(t, conn, ctx, "RESTORE-MARK-12345", 8*time.Second) {
+		t.Fatal("marker output not received before disconnect")
+	}
+	conn.Close(websocket.StatusNormalClosure, "refresh")
+
+	// Reattach with the same key: the server must replay the screen state
+	// (including the marker) without any further input.
+	reattached := connect(key)
+	defer reattached.CloseNow()
+	if !waitForFrame(t, reattached, ctx, "RESTORE-MARK-12345", 8*time.Second) {
+		t.Fatal("reattached session did not replay restored screen with marker")
+	}
+
+	// The reattached shell must still be interactive.
+	if err := reattached.Write(ctx, websocket.MessageText, []byte("echo AFTER-REATTACH-67890\r")); err != nil {
+		t.Fatal(err)
+	}
+	if !waitForFrame(t, reattached, ctx, "AFTER-REATTACH-67890", 8*time.Second) {
+		t.Fatal("reattached session not interactive")
+	}
+}
+
+func TestWebSocketSessionKeyIsolation(t *testing.T) {
+	ts, cfg := testServer(t)
+	origin := "http://" + hostOf(ts)
+
+	connect := func(key string) *websocket.Conn {
+		q := url.Values{}
+		q.Set("cols", "80")
+		q.Set("rows", "24")
+		q.Set("token", cfg.Token)
+		q.Set("session", key)
+		return dialWS(t, ts, origin, q)
+	}
+
+	a := connect("isolation-a")
+	defer a.CloseNow()
+	b := connect("isolation-b")
+	defer b.CloseNow()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := a.Write(ctx, websocket.MessageText, []byte("echo ONLY-IN-A-111\r")); err != nil {
+		t.Fatal(err)
+	}
+	if !waitForFrame(t, a, ctx, "ONLY-IN-A-111", 8*time.Second) {
+		t.Fatal("marker not seen in session A")
+	}
+
+	// Session B must not receive A's output (separate shell and emulator).
+	if data, err := readWithTimeout(t, b, ctx); err == nil && strings.Contains(string(data), "ONLY-IN-A-111") {
+		t.Fatalf("session B received session A's output: %q", data)
+	}
+}
+
+// waitForFrame reads frames until one contains substr or the timeout passes.
+func waitForFrame(t *testing.T, c *websocket.Conn, ctx context.Context, substr string, timeout time.Duration) bool {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		frameCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		_, data, err := c.Read(frameCtx)
+		cancel()
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(data), substr) {
+			return true
+		}
+	}
+	return false
 }
 
 func readWithTimeout(t *testing.T, c *websocket.Conn, ctx context.Context) ([]byte, error) {

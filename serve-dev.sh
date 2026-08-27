@@ -54,7 +54,7 @@ start() {
   fi
   web_build
   rotate
-  nohup go run ./cmd/demo >>"$LOG" 2>&1 &
+  nohup pnpm dev >>"$LOG" 2>&1 &
   echo $! >"$PID"
   echo "started (pid $!) -> http://${DEMO_HOST}:${DEMO_PORT}"
   echo "log: $LOG"

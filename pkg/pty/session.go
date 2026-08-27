@@ -34,6 +34,7 @@ func Start(cols, rows uint16) (*Session, error) {
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
 		"COLORTERM=truecolor",
+		"COLORFGBG=15;0",
 	)
 
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{

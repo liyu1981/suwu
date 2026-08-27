@@ -13,6 +13,11 @@ const demoTarget = `http://127.0.0.1:${demoPort}`
 // into the Go binary, so `npm run build` produces what `go build` serves.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   build: {
     outDir: fileURLToPath(new URL('../pkg/assets/web', import.meta.url)),
     emptyOutDir: true,

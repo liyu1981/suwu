@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback } from 'react'
 import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import { useAtomValue, useStore } from 'jotai'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { AmbientBackground } from '../components/AmbientBackground'
 import { focusedIdAtom, layoutAtom } from '../wm/atoms'
 import {
@@ -17,8 +23,6 @@ const wmBase =
 const wmBtn = `${wmBase} text-slate-300 hover:bg-white/10 hover:text-white`
 const wmClose = `${wmBase} text-slate-300 hover:bg-rose-500/20 hover:text-rose-300`
 
-const menuItem =
-  'block rounded px-3 py-1.5 text-sm font-medium transition text-slate-400 hover:bg-white/10 hover:text-white'
 const menuActive = 'bg-white/10 text-white'
 
 function MenuIcon() {
@@ -71,28 +75,6 @@ export default function AppShell() {
   const layout = useAtomValue(layoutAtom)
   const paneCount = leaves(layout).length
 
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onPointerDown = (e: PointerEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
-    }
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false)
-    }
-    window.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [menuOpen])
-
-  // Close the menu whenever navigation happens through any link inside it.
-  const closeMenu = useCallback(() => setMenuOpen(false), [])
-
   const split = useCallback(
     (dir: Direction, side: SplitSide = 'after') => {
       const cur = store.get(layoutAtom)
@@ -129,31 +111,26 @@ export default function AppShell() {
       <div className="relative z-10 grid h-dvh grid-rows-[auto_1fr] gap-2 px-3 pt-2">
         <header className="apple-panel rounded-[6px]">
           <div className="flex items-center gap-2 px-2 py-1">
-            <div ref={menuRef} className="relative">
-              <button
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                aria-label="Open menu"
-                onClick={() => setMenuOpen((o) => !o)}
-                className={`${wmBtn} ${menuOpen ? 'bg-white/10 text-white' : ''}`}
-              >
-                <MenuIcon />
-              </button>
-              {menuOpen && (
-                <div
-                  role="menu"
-                  className="menu-pop absolute left-0 top-full z-50 mt-1.5 flex min-w-44 flex-col bg-clip-padding p-1 glass-control"
-                >
-                  <Link role="menuitem" to="/" onClick={closeMenu} activeProps={{ className: `${menuItem} ${menuActive}` }}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" aria-label="Open menu" className={wmBtn}>
+                  <MenuIcon />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {/* Item asChild: the Link renders as the menuitem anchor; items auto-close on select */}
+                <DropdownMenuItem asChild>
+                  <Link to="/" activeProps={{ className: menuActive }}>
                     Tiling
                   </Link>
-                  <Link role="menuitem" to="/colors" onClick={closeMenu} activeProps={{ className: `${menuItem} ${menuActive}` }}>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/colors" activeProps={{ className: menuActive }}>
                     Colors
                   </Link>
-                </div>
-              )}
-            </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <span className="text-xs font-semibold tracking-tight">Suwu</span>
 

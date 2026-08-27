@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
 
 @theme {
   --color-background: #0f0f11;
@@ -143,15 +144,75 @@ body {
   transform: scale(0.98);
 }
 
-/* Dropdown materialize: scale in from the trigger, not just fade */
-.menu-pop {
-  transform-origin: top left;
-  animation: menu-pop-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+/* ============================================================================
+   Dropdown (Radix/shadcn) — glass material + Apple-style motion.
+   Motion is keyed off Radix data-state so exit animations keep Presence
+   alive; transform-origin comes from the trigger (scale from source).
+   ============================================================================ */
+
+/* Readable fill: near-opaque dark base plus a subtle white-glass sheen
+   (dark-mode white-based glass, per the design system). Heavier shadow
+   than a plain control: menus float over busy terminal content. */
+.menu-glass {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, white 13%, transparent),
+      color-mix(in oklch, white 7%, transparent)
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--background) 96%, transparent),
+      color-mix(in oklch, var(--background) 90%, transparent)
+    );
+  box-shadow:
+    0 12px 40px rgb(0 0 0 / 0.35),
+    inset 0 1px 0 color-mix(in oklch, white 22%, transparent);
 }
-@keyframes menu-pop-in {
+
+[data-slot='dropdown-menu-content'] {
+  /* Pop out of the trigger, not the center of the popup */
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+}
+
+/* Materialize in: blur radius and scale travel together so the surface
+   reads as glass arriving under the trigger (not a ghost fading in).
+   Exponential-out curve = graceful deceleration, no bounce needed. */
+[data-slot='dropdown-menu-content'][data-state='open'] {
+  animation: menu-materialize-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Exit mirrors entry along the same path back into the trigger */
+[data-slot='dropdown-menu-content'][data-state='closed'] {
+  animation: menu-materialize-out 0.12s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes menu-materialize-in {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(-3px);
+    transform: translateY(-4px) scale(0.96);
+    filter: blur(6px);
+  }
+}
+
+@keyframes menu-materialize-out {
+  to {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.97);
+    filter: blur(4px);
+  }
+}
+
+/* Reduced transparency: frostier, near-solid surface, blur dropped */
+@media (prefers-reduced-transparency: reduce) {
+  .menu-glass {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--background) 99%, transparent),
+      color-mix(in oklch, var(--background) 97%, transparent)
+    );
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 

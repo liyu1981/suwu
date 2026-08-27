@@ -2,33 +2,34 @@ import { useEffect } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import type { Terminal } from '@xterm/xterm'
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
-import { useToken } from '../lib/api'
+import { fetchToken } from '../lib/api'
 
 const RECONNECT_DELAY_MS = 2000
 
 /**
  * Bridges an xterm.js Terminal to the Go server's WebSocket PTY endpoint.
- * Handles authentication via /api/token, input/output forwarding, resize, and
- * automatic reconnection. Connection state lives in Jotai atoms. Mouse
- * reporting sequences arrive via onData as well (xterm encodes them natively).
+ * Input/output forwarding, resize, and automatic reconnection. Connection
+ * state lives in Jotai atoms. Mouse reporting sequences arrive via onData as
+ * well (xterm encodes them natively).
+ *
+ * Every attempt (initial connect or reconnect) fetches a fresh token via
+ * /api/token first: the server mints a new token on each start, so reusing a
+ * cached one after a dev restart would be rejected with HTTP 401.
  */
 export function usePtySession(term: Terminal | null) {
-  const tokenQuery = useToken()
   const [, setStatus] = useAtom(connectionStatusAtom)
   const setMessage = useSetAtom(connectionMessageAtom)
 
   useEffect(() => {
-    if (!term || !tokenQuery.data) return
+    if (!term) return
 
-    const token = tokenQuery.data
     let ws: WebSocket | null = null
     let reconnectTimer: number | undefined
     let disposed = false
 
-    const connect = () => {
-      if (disposed) return
+    const open = (token: string) => {
       setStatus('connecting')
-      setMessage('Authenticating...')
+      setMessage('Connecting...')
 
       const params = new URLSearchParams({
         cols: String(term.cols),
@@ -53,15 +54,38 @@ export function usePtySession(term: Terminal | null) {
 
       ws.onclose = () => {
         if (disposed) return
-        setStatus('disconnected')
-        setMessage('Disconnected')
-        term.write('\r\n\x1b[31mConnection closed. Reconnecting in 2s...\x1b[0m\r\n')
-        reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY_MS)
+        scheduleReconnect()
       }
 
       ws.onerror = () => {
+        if (disposed) return
+        // onclose always follows onerror; keep status visible without
+        // double-scheduling the retry.
         setStatus('disconnected')
         setMessage('Error')
+      }
+    }
+
+    const scheduleReconnect = () => {
+      setStatus('disconnected')
+      setMessage('Disconnected')
+      term.write('\r\n\x1b[31mConnection closed. Reconnecting in 2s...\x1b[0m\r\n')
+      reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY_MS)
+    }
+
+    const connect = async () => {
+      if (disposed) return
+      setStatus('connecting')
+      setMessage('Authenticating...')
+      try {
+        const token = await fetchToken()
+        if (!disposed) open(token)
+      } catch {
+        if (disposed) return
+        setStatus('disconnected')
+        setMessage('Token request failed')
+        term.write('\r\n\x1b[31mAuth failed. Retrying in 2s...\x1b[0m\r\n')
+        reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY_MS)
       }
     }
 
@@ -75,7 +99,7 @@ export function usePtySession(term: Terminal | null) {
       }
     })
 
-    connect()
+    void connect()
 
     return () => {
       disposed = true
@@ -84,7 +108,5 @@ export function usePtySession(term: Terminal | null) {
       onData.dispose()
       onResize.dispose()
     }
-  }, [term, tokenQuery.data, setStatus, setMessage])
-
-  return tokenQuery
+  }, [term, setStatus, setMessage])
 }

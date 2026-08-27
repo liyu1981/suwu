@@ -51,9 +51,8 @@ export default function FullTerminal() {
   return (
     <div className="relative h-screen w-screen overflow-hidden rounded-[6px] bg-[#1e1e1e]/80 p-2">
       <div ref={containerRef} className="terminal-canvas h-full w-full" />
-      <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1.5 rounded-md bg-black/40 px-2 py-1 text-[10px] text-white/70">
+      <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1.5 rounded-md bg-black/40 px-2 py-1 text-[10px] text-white/70" tooltip={message}>
         <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
-        {message}
       </div>
     </div>
   )

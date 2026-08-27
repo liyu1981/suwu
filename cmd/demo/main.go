@@ -25,12 +25,12 @@ import (
 	"strings"
 	"syscall"
 
-	"ghostty-web-demo/pkg/assets"
-	"ghostty-web-demo/pkg/auth"
-	"ghostty-web-demo/pkg/envfile"
-	"ghostty-web-demo/pkg/pty"
-	"ghostty-web-demo/pkg/server"
-	"ghostty-web-demo/pkg/supervisor"
+	"suwu/pkg/assets"
+	"suwu/pkg/auth"
+	"suwu/pkg/envfile"
+	"suwu/pkg/pty"
+	"suwu/pkg/server"
+	"suwu/pkg/supervisor"
 )
 
 func main() {
@@ -143,7 +143,7 @@ func printBanner(dev bool, cfg *auth.Config, port int) {
 	home, _ := pty.Home()
 
 	fmt.Println("\n" + strings.Repeat("═", 60))
-	fmt.Printf("  🚀 ghostty-web demo server%s\n", devLabel(dev))
+	fmt.Printf("  🚀 Suwu server%s\n", devLabel(dev))
 	fmt.Println(strings.Repeat("═", 60))
 	fmt.Printf("\n  📺 Open: http://%s:%d\n", formatURLHost(cfg.BindHost), port)
 	fmt.Println("  📡 WebSocket PTY: same endpoint /ws")

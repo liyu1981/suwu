@@ -7,6 +7,9 @@
 
 export type Direction = 'horizontal' | 'vertical'
 
+/** Which side of the focused pane the new pane lands on. */
+export type SplitSide = 'before' | 'after'
+
 export type SplitChild = { node: LayoutNode; size: number }
 
 export type LayoutNode =
@@ -37,11 +40,19 @@ export function createSplit(direction: Direction, a: LayoutNode, b: LayoutNode):
 }
 
 /** Replace the leaf `targetId` with a split containing it plus a new leaf. */
-export function splitAt(root: LayoutNode, targetId: string, direction: Direction): LayoutNode {
+export function splitAt(
+  root: LayoutNode,
+  targetId: string,
+  direction: Direction,
+  side: SplitSide = 'after',
+): LayoutNode {
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf') {
       if (node.id !== targetId) return node
-      return createSplit(direction, node, createLeaf())
+      const peer = createLeaf()
+      return side === 'before'
+        ? createSplit(direction, peer, node)
+        : createSplit(direction, node, peer)
     }
     return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
   }

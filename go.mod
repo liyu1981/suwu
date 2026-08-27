@@ -1,4 +1,4 @@
-module ghostty-web-demo
+module suwu
 
 go 1.25.7
 

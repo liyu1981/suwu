@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"ghostty-web-demo/pkg/auth"
+	"suwu/pkg/auth"
 )
 
 var mimeTypes = map[string]string{

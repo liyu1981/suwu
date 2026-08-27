@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"sync"
 
-	"ghostty-web-demo/pkg/auth"
-	"ghostty-web-demo/pkg/pty"
+	"suwu/pkg/auth"
+	"suwu/pkg/pty"
 
 	"github.com/coder/websocket"
 )
@@ -16,7 +16,7 @@ import (
 var (
 	welcomeBanner = "" +
 		"\x1b[1;36m╔══════════════════════════════════════════════════════════════╗\x1b[0m\r\n" +
-		"\x1b[1;36m║\x1b[0m  \x1b[1;32mWelcome to ghostty-web!\x1b[0m                                     \x1b[1;36m║\x1b[0m\r\n" +
+		"\x1b[1;36m║\x1b[0m  \x1b[1;32mWelcome to Suwu!\x1b[0m                                            \x1b[1;36m║\x1b[0m\r\n" +
 		"\x1b[1;36m║\x1b[0m                                                              \x1b[1;36m║\x1b[0m\r\n" +
 		"\x1b[1;36m║\x1b[0m  You have a real shell session with full PTY support.        \x1b[1;36m║\x1b[0m\r\n" +
 		"\x1b[1;36m║\x1b[0m  Try: \x1b[1;33mls\x1b[0m, \x1b[1;33mcd\x1b[0m, \x1b[1;33mtop\x1b[0m, \x1b[1;33mvim\x1b[0m, or any command!                      \x1b[1;36m║\x1b[0m\r\n" +

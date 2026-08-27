@@ -1,8 +1,8 @@
 {
-  "name": "ghostty-web-demo",
+  "name": "suwu",
   "version": "0.4.0",
   "private": true,
-  "description": "Standalone Go server + Vite/React frontend for the ghostty-web terminal emulator",
+  "description": "Suwu — standalone Go server + Vite/React frontend for the ghostty-web terminal emulator",
   "scripts": {
     "build": "go build -o demo ./cmd/demo",
     "build:web": "pnpm --dir frontend build",

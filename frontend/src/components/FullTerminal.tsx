@@ -27,7 +27,7 @@ export default function FullTerminal() {
     cursorBlink: true,
     fontSize: 14,
     fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
-    theme: { background: '#1e1e1e', foreground: '#d4d4d4' },
+    theme: { background: '#1e1e1e', foreground: '#d4d4d4', cursor: '#d4d4d4' },
   })
   usePtySession(term)
   useMouseReporting(term, containerRef)

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"ghostty-web-demo/pkg/assets"
-	"ghostty-web-demo/pkg/auth"
+	"suwu/pkg/assets"
+	"suwu/pkg/auth"
 
 	"github.com/coder/websocket"
 )
@@ -118,7 +118,7 @@ func TestWebSocketSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read welcome: %v", err)
 	}
-	if !strings.Contains(string(data), "Welcome to ghostty-web") {
+	if !strings.Contains(string(data), "Welcome to Suwu") {
 		t.Fatalf("welcome banner missing, got: %q", data)
 	}
 
@@ -162,7 +162,7 @@ func TestWebSocketMultipleSessions(t *testing.T) {
 
 	// Both sessions welcome banners arrive.
 	for _, c := range []*websocket.Conn{a, b} {
-		if _, data, err := c.Read(ctx); err != nil || !strings.Contains(string(data), "Welcome to ghostty-web") {
+		if _, data, err := c.Read(ctx); err != nil || !strings.Contains(string(data), "Welcome to Suwu") {
 			t.Fatalf("session banner missing (err=%v): %q", err, data)
 		}
 	}

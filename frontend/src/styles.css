@@ -143,6 +143,18 @@ body {
   transform: scale(0.98);
 }
 
+/* Dropdown materialize: scale in from the trigger, not just fade */
+.menu-pop {
+  transform-origin: top left;
+  animation: menu-pop-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes menu-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-3px);
+  }
+}
+
 /* ============================================================================
    Reduced motion
    ============================================================================ */

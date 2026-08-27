@@ -232,7 +232,7 @@ export default function TilingWM() {
           style={{ left: x, top: y, width: w, height: h }}
           onMouseDown={() => setFocused(id)}
         >
-          <iframe src="/term" title={`terminal-${id}`} data-pane={id} className="h-full w-full border-0 bg-transparent" />
+          <iframe src={`/term?pane=${id}`} title={`terminal-${id}`} data-pane={id} className="h-full w-full border-0 bg-transparent" />
         </div>
       ))}
       {dividers.map((seg) => (

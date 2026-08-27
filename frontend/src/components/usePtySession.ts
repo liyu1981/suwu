@@ -7,10 +7,34 @@ import { fetchToken } from '../lib/api'
 const RECONNECT_DELAY_MS = 2000
 
 /**
+ * The reattach key sent as the `session` query param. Tiling panes load
+ * `/term?pane=<id>` with a stable pane id (persisted across reloads), so a
+ * page refresh reattaches to the same server-side PTY session and gets its
+ * screen replayed. Standalone /term visits fall back to a per-tab random key
+ * in sessionStorage, which also survives refresh.
+ */
+function sessionKey(): string {
+  const pane = new URLSearchParams(window.location.search).get('pane')
+  if (pane) return pane
+  let key = sessionStorage.getItem('suwu-session-key')
+  if (!key) {
+    key =
+      typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+    sessionStorage.setItem('suwu-session-key', key)
+  }
+  return key
+}
+
+/**
  * Bridges an xterm.js Terminal to the Go server's WebSocket PTY endpoint.
- * Input/output forwarding, resize, and automatic reconnection. Connection
- * state lives in Jotai atoms. Mouse reporting sequences arrive via onData as
- * well (xterm encodes them natively).
+ * Input/output forwarding, resize, automatic reconnection, and keyed session
+ * reattach: the server keeps the shell and a libghostty-vt model of its
+ * screen alive across disconnects, so reconnecting (after refresh or a
+ * dropped socket) replays the current screen state before live output
+ * resumes. Connection state lives in Jotai atoms. Mouse reporting sequences
+ * arrive via onData as well (xterm encodes them natively).
  *
  * Every attempt (initial connect or reconnect) fetches a fresh token via
  * /api/token first: the server mints a new token on each start, so reusing a
@@ -35,6 +59,7 @@ export function usePtySession(term: Terminal | null) {
         cols: String(term.cols),
         rows: String(term.rows),
         token,
+        session: sessionKey(),
       })
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       ws = new WebSocket(`${protocol}//${window.location.host}/ws?${params}`)

@@ -30,6 +30,7 @@ import (
 	"suwu/pkg/envfile"
 	"suwu/pkg/pty"
 	"suwu/pkg/server"
+	"suwu/pkg/session"
 )
 
 func main() {
@@ -60,7 +61,16 @@ func run(dev bool) error {
 	if err != nil {
 		return err
 	}
-	srv := server.New(cfg, sub)
+
+	// Keyed PTY sessions with server-side terminal state (libghostty-vt), so
+	// a browser refresh reattaches to the same shell with its screen intact.
+	sessions, err := session.NewManager()
+	if err != nil {
+		return err
+	}
+	defer sessions.Close()
+
+	srv := server.New(cfg, sub, sessions)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)),
@@ -149,4 +159,3 @@ func devLabel(dev bool) string {
 	}
 	return ""
 }
-

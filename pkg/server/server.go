@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"suwu/pkg/auth"
+	"suwu/pkg/session"
 )
 
 var mimeTypes = map[string]string{
@@ -27,13 +28,15 @@ var mimeTypes = map[string]string{
 
 // Server is the demo HTTP + WebSocket server.
 type Server struct {
-	cfg    *auth.Config
-	assets fs.FS
+	cfg      *auth.Config
+	assets   fs.FS
+	sessions *session.Manager
 }
 
-// New creates a Server serving static assets from assetsFS (the web tree).
-func New(cfg *auth.Config, assetsFS fs.FS) *Server {
-	return &Server{cfg: cfg, assets: assetsFS}
+// New creates a Server serving static assets from assetsFS (the web tree)
+// and managing keyed PTY sessions through mgr.
+func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager) *Server {
+	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions}
 }
 
 func (s *Server) Handler() http.Handler {

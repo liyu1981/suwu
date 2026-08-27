@@ -48,8 +48,8 @@ export function splitAt(root: LayoutNode, targetId: string, direction: Direction
   return walk(root)
 }
 
-/** Remove the leaf `targetId`, collapsing splits that drop below two children. */
-export function closeAt(root: LayoutNode, targetId: string): LayoutNode {
+/** Remove the leaf `targetId`, collapsing splits that drop below two children. Returns null when empty. */
+export function closeAt(root: LayoutNode, targetId: string): LayoutNode | null {
   const walk = (node: LayoutNode): LayoutNode | null => {
     if (node.type === 'leaf') {
       return node.id === targetId ? null : node
@@ -63,17 +63,18 @@ export function closeAt(root: LayoutNode, targetId: string): LayoutNode {
     if (children.length === 1) return children[0].node
     return { type: 'split', id: node.id, direction: node.direction, children }
   }
-  return walk(root) ?? createLeaf()
+  return walk(root)
 }
 
 /** Leaf ids in rendering order (for focus navigation). */
-export function leaves(node: LayoutNode): string[] {
+export function leaves(node: LayoutNode | null): string[] {
+  if (!node) return []
   if (node.type === 'leaf') return [node.id]
   return node.children.flatMap((c) => leaves(c.node))
 }
 
 /** Focus a sibling of `currentId`, wrapping around; -1 / +1 offset. */
-export function focusByOffset(root: LayoutNode, currentId: string, offset: number): string {
+export function focusByOffset(root: LayoutNode | null, currentId: string, offset: number): string {
   const ids = leaves(root)
   if (ids.length === 0) return ''
   const idx = ids.indexOf(currentId)

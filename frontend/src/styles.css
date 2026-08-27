@@ -16,10 +16,24 @@
     'Courier New', monospace;
 }
 
+:root {
+  --background: var(--color-background);
+  --foreground: var(--color-foreground);
+  --border: var(--color-border);
+  --primary: var(--color-primary);
+  --ring: var(--color-ring);
+  --popover-foreground: var(--color-popover-foreground);
+  --muted-foreground: var(--color-muted-foreground);
+}
+
 html,
 body,
 #root {
   height: 100%;
+}
+
+html {
+  background-color: var(--background);
 }
 
 body {
@@ -31,7 +45,7 @@ body {
 
 .terminal-canvas canvas {
   display: block;
-  opacity: 0.92;
+  opacity: 1;
   border-radius: 6px;
 }
 
@@ -47,7 +61,7 @@ body {
     color-mix(in oklch, var(--background) 45%, transparent),
     color-mix(in oklch, var(--background) 14%, transparent)
   );
-  border: 1px solid color-mix(in oklch, var(--border), transparent 45%);
+  border: 1px solid color-mix(in oklch, white 12%, transparent);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   box-shadow:
@@ -56,12 +70,8 @@ body {
 }
 
 .apple-panel {
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklch, var(--background) 68%, transparent),
-    color-mix(in oklch, var(--background) 34%, transparent)
-  );
-  border: 1px solid color-mix(in oklch, var(--border), transparent 55%);
+  background: color-mix(in oklch, white 10%, transparent);
+  border: 1px solid color-mix(in oklch, white 10%, transparent);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   box-shadow:
@@ -84,18 +94,19 @@ body {
 }
 
 .ambient-bg {
-  background:
-    radial-gradient(
-      ellipse at 20% 20%,
-      color-mix(in oklch, var(--primary) 15%, transparent),
-      transparent 60%
-    ),
-    radial-gradient(
-      ellipse at 80% 80%,
-      color-mix(in oklch, var(--ring) 12%, transparent),
-      transparent 60%
-    ),
-    var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(130% 110% at 6% -12%, color-mix(in oklch, var(--primary) 9%, transparent) 0%, transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--ring) 8%, transparent) 0%, transparent 50%),
+    radial-gradient(130% 90% at 50% 125%, color-mix(in oklch, var(--primary) 7%, transparent) 0%, transparent 60%);
+}
+
+.dark .ambient-bg {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(130% 110% at 6% -12%, color-mix(in oklch, var(--primary) 25%, transparent) 0%, transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--ring) 20%, transparent) 0%, transparent 50%),
+    radial-gradient(130% 90% at 50% 125%, color-mix(in oklch, var(--primary) 18%, transparent) 0%, transparent 60%);
 }
 
 .apple-scrim {

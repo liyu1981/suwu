@@ -9,8 +9,8 @@ function LeafPane({ id }: { id: string }) {
 
   return (
     <div
-      className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden rounded-[6px] transition-shadow ${
-        focused ? 'ring-2 ring-inset ring-sky-400/90' : 'ring-1 ring-inset ring-white/10'
+      className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden rounded-[6px] shadow-[0_8px_32px_rgb(0_0_0/0.25)] transition-shadow ${
+        focused ? 'ring-2 ring-inset ring-sky-400/90' : 'ring-1 ring-inset ring-white/15'
       }`}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) setFocused(id)
@@ -52,11 +52,11 @@ function Divider({ split, index }: { split: { id: string; direction: Direction; 
       const na = clamp(a.size + deltaFlex, min, totalFlex - min)
       const nb = totalFlex - na
       setLayout((layout) =>
-        updateSplitAt(layout, split.id, (children) =>
+        layout ? updateSplitAt(layout, split.id, (children) =>
           children.map((c, i) =>
             i === index ? { ...c, size: na } : i === index + 1 ? { ...c, size: nb } : c,
           ),
-        ),
+        ) : layout,
       )
     }
     const onUp = () => {
@@ -70,7 +70,7 @@ function Divider({ split, index }: { split: { id: string; direction: Direction; 
   return (
     <div
       className={`shrink-0 bg-white/5 hover:bg-sky-400/60 active:bg-sky-400 ${
-        horizontal ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize'
+        horizontal ? 'w-2 cursor-col-resize' : 'h-2 cursor-row-resize'
       }`}
       onPointerDown={onPointerDown}
     />
@@ -93,7 +93,8 @@ function SplitPane({ split }: { split: { id: string; direction: Direction; child
   )
 }
 
-export default function TilingNode({ node }: { node: LayoutNode }) {
+export default function TilingNode({ node }: { node: LayoutNode | null }) {
+  if (!node) return null
   if (node.type === 'leaf') return <LeafPane id={node.id} />
   return <SplitPane split={node} />
 }

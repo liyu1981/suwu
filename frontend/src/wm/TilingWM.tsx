@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { focusedIdAtom, layoutAtom } from './atoms'
-import { closeAt, focusByOffset, leaves, splitAt, type Direction } from './layout'
+import { closeAt, createLeaf, focusByOffset, leaves, splitAt, type Direction } from './layout'
 import { wmAction, type WmAction } from './shortcuts'
 import TilingNode from './TilingNode'
 
@@ -39,6 +39,13 @@ export default function TilingWM() {
   const split = useCallback(
     (dir: Direction) => {
       const cur = store.get(layoutAtom)
+      // Empty layout: create first tile
+      if (!cur) {
+        const leaf = createLeaf()
+        store.set(layoutAtom, leaf)
+        store.set(focusedIdAtom, leaf.id)
+        return
+      }
       const f = store.get(focusedIdAtom)
       const target = f && leaves(cur).includes(f) ? f : leaves(cur)[0]
       if (!target) return
@@ -52,6 +59,7 @@ export default function TilingWM() {
 
   const close = useCallback(() => {
     const cur = store.get(layoutAtom)
+    if (!cur) return
     const f = store.get(focusedIdAtom)
     if (!f) return
     const next = closeAt(cur, f)
@@ -113,8 +121,18 @@ export default function TilingWM() {
   }, [store])
 
   return (
-    <div className="h-full w-full">
-      <TilingNode node={layout} />
+    <div className="flex h-full w-full items-center justify-center">
+      {layout ? (
+        <TilingNode node={layout} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => split('horizontal')}
+          className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
+        >
+          + New tile
+        </button>
+      )}
     </div>
   )
 }

@@ -75,7 +75,7 @@ func Run(ctx context.Context, args []string) {
 	start := func() {
 		killCurrent()
 
-		tmp, err := os.CreateTemp("", "ghostty-demo-*.bin")
+		tmp, err := os.CreateTemp("", "suwu-*.bin")
 		if err != nil {
 			log.Printf("supervisor: create temp: %v", err)
 			return
@@ -84,7 +84,7 @@ func Run(ctx context.Context, args []string) {
 		tmp.Close()
 		_ = os.Remove(binPath)
 
-		build := exec.Command("go", "build", "-o", binPath, "./cmd/demo")
+		build := exec.Command("go", "build", "-o", binPath, "./cmd/Suwu")
 		build.Dir = wd
 		if out, err := build.CombinedOutput(); err != nil {
 			log.Printf("supervisor: build failed: %v\n%s", err, out)

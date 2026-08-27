@@ -1,13 +1,13 @@
-// Command demo is the standalone ghostty-web terminal demo server. It serves a
-// full terminal emulator in the browser, backed by a real shell PTY over
+// Command suwu is the standalone Suwu terminal server. It serves a full
+// terminal emulator in the browser, backed by a real shell PTY over
 // WebSocket, protected by a per-run same-origin token.
 //
 // Usage:
 //
-//	demo                # production, single binary, port 8080
-//	demo --dev          # dev mode with Go hot reload, port 8000
-//	PORT=3000 demo      # custom port
-//	HOST=0.0.0.0 GHOSTTY_ALLOWED_HOSTS=example.com demo
+//	suwu                # production, single binary, port 8080
+//	suwu --dev          # dev mode with Go hot reload, port 8000
+//	PORT=3000 suwu      # custom port
+//	HOST=0.0.0.0 GHOSTTY_ALLOWED_HOSTS=example.com suwu
 package main
 
 import (
@@ -88,7 +88,7 @@ func run(dev bool) error {
 
 	select {
 	case err := <-errCh:
-		return fmt.Errorf("%w\nhint: another demo server may already be running on %s; stop it or set a different PORT",
+		return fmt.Errorf("%w\nhint: another Suwu server may already be running on %s; stop it or set a different PORT",
 			err, httpServer.Addr)
 	case <-ctx.Done():
 	}

@@ -1,5 +1,5 @@
 # Build artifacts
-/demo
+/suwu
 *.exe
 *.test
 *.out

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the demo server with live reload.
+# Start the Suwu dev server with live reload.
 #
 # Usage: ./serve-dev.sh {start|stop|restart|status|logs|build|web}
 #
@@ -17,8 +17,8 @@ export DEMO_PORT="${DEMO_PORT:-8000}"
 MAX_LOG_BYTES="${MAX_LOG_BYTES:-5242880}"
 
 VAR=./var
-LOG="$VAR/demo.log"
-PID="$VAR/demo.pid"
+LOG="$VAR/suwu.log"
+PID="$VAR/suwu.pid"
 
 is_running() {
   [[ -f "$PID" ]] || return 1
@@ -82,10 +82,10 @@ stop() {
 
 status() {
   if is_running; then
-    echo "demo server: running (pid $(cat "$PID")) -> http://${DEMO_HOST}:${DEMO_PORT}"
+    echo "Suwu server: running (pid $(cat "$PID")) -> http://${DEMO_HOST}:${DEMO_PORT}"
     echo "log: $LOG"
   else
-    echo "demo server: not running"
+    echo "Suwu server: not running"
   fi
 }
 

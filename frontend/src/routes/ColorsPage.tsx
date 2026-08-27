@@ -337,7 +337,7 @@ export default function ColorsPage() {
 
   return (
     <div className="mx-auto h-full w-full max-w-5xl overflow-auto">
-      <div className="rounded-lg bg-white/5 p-4 text-sm text-slate-200">
+      <div className="glass-control p-4 text-sm text-slate-200">
         <p>
           This demo showcases all ANSI color capabilities supported by the terminal:{' '}
           <strong>16 standard colors</strong>, <strong>256-color palette</strong>,{' '}
@@ -350,7 +350,7 @@ export default function ColorsPage() {
             key={label}
             type="button"
             onClick={() => run(fn)}
-            className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow transition hover:-translate-y-px hover:bg-indigo-400"
+            className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow glass-btn transition hover:-translate-y-px hover:bg-indigo-400"
           >
             {label}
           </button>
@@ -358,12 +358,12 @@ export default function ColorsPage() {
         <button
           type="button"
           onClick={() => term && clearTerminal(term)}
-          className="rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-500"
+          className="rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white glass-btn transition hover:bg-slate-500"
         >
           Clear
         </button>
       </div>
-      <div className="mt-4 rounded-lg bg-[#1e1e1e] p-4">
+      <div className="mt-4 rounded-[6px] bg-[#1e1e1e]/85 p-4">
         <div ref={containerRef} className="terminal-canvas min-h-[400px]" />
       </div>
     </div>

@@ -112,40 +112,9 @@ export default function TilingWM() {
     return () => window.removeEventListener('focusin', onFocus)
   }, [store])
 
-  const paneCount = leaves(layout).length
-
   return (
-    <div className="flex h-full w-full flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
-        <button
-          type="button"
-          onClick={() => split('horizontal')}
-          className="rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-sky-500"
-        >
-          Split right
-        </button>
-        <button
-          type="button"
-          onClick={() => split('vertical')}
-          className="rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-sky-500"
-        >
-          Split below
-        </button>
-        <button
-          type="button"
-          onClick={close}
-          disabled={paneCount <= 1}
-          className="rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Close focused
-        </button>
-        <span className="ml-auto hidden text-xs text-slate-400 sm:inline">
-          Alt+Enter split · Alt+Shift+Enter split below · Alt+Q close · Alt+J/K focus · drag dividers to resize
-        </span>
-      </div>
-      <div className="min-h-0 min-w-0 flex-1">
-        <TilingNode node={layout} />
-      </div>
+    <div className="h-full w-full">
+      <TilingNode node={layout} />
     </div>
   )
 }

@@ -9,7 +9,7 @@ function LeafPane({ id }: { id: string }) {
 
   return (
     <div
-      className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden transition-shadow ${
+      className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden rounded-[6px] transition-shadow ${
         focused ? 'ring-2 ring-inset ring-sky-400/90' : 'ring-1 ring-inset ring-white/10'
       }`}
       onMouseDown={(e) => {
@@ -20,7 +20,7 @@ function LeafPane({ id }: { id: string }) {
         src="/term"
         title={`terminal-${id}`}
         data-pane={id}
-        className="h-full w-full border-0 bg-[#1e1e1e]"
+        className="h-full w-full border-0 bg-transparent rounded-[6px] overflow-hidden"
       />
     </div>
   )

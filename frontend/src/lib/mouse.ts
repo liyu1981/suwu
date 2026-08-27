@@ -21,6 +21,10 @@ function modifiers(e: MouseEvent): number {
  * listeners on the terminal surface and feed encoded sequences back through
  * `term.input(data, true)` (which triggers onData -> WebSocket -> PTY).
  *
+ * While Shift is held the events are left untouched so they fall through to
+ * ghostty-web's SelectionManager, making Shift+drag always select & copy text
+ * regardless of the app's mouse tracking state.
+ *
  * Returns a cleanup function.
  */
 export function installMouseReporting(term: Terminal, container: HTMLElement): () => void {
@@ -47,6 +51,7 @@ export function installMouseReporting(term: Terminal, container: HTMLElement): (
   const active = () => term.hasMouseTracking()
 
   const onMouseDown = (e: MouseEvent) => {
+    if (e.shiftKey) return
     if (!active()) return
     e.preventDefault()
     e.stopPropagation()
@@ -58,6 +63,7 @@ export function installMouseReporting(term: Terminal, container: HTMLElement): (
   }
 
   const onMouseUp = (e: MouseEvent) => {
+    if (e.shiftKey) return
     if (!active()) return
     e.preventDefault()
     e.stopPropagation()
@@ -68,6 +74,7 @@ export function installMouseReporting(term: Terminal, container: HTMLElement): (
   }
 
   const onMouseMove = (e: MouseEvent) => {
+    if (e.shiftKey) return
     if (!active()) return
     e.preventDefault()
     e.stopPropagation()
@@ -95,6 +102,7 @@ export function installMouseReporting(term: Terminal, container: HTMLElement): (
   }
 
   const onContextMenu = (e: MouseEvent) => {
+    if (e.shiftKey) return
     if (active()) e.preventDefault()
   }
 

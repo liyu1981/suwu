@@ -1,20 +1,80 @@
-import { Link, Outlet } from '@tanstack/react-router'
+import { useCallback } from 'react'
+import { Link, Outlet, useLocation } from '@tanstack/react-router'
+import { useAtomValue, useStore } from 'jotai'
+import { focusedIdAtom, layoutAtom } from '../wm/atoms'
+import { closeAt, leaves, splitAt, type Direction } from '../wm/layout'
 
-const base = 'rounded-md px-3 py-1.5 text-sm font-medium transition'
-const idle = 'text-slate-300 hover:bg-slate-700/40 hover:text-white'
-const active = 'bg-slate-700/60 text-white'
+const nav = 'rounded px-2 py-0.5 text-xs font-medium transition'
+const navIdle = 'text-slate-400 hover:text-white hover:brightness-[1.06]'
+const navActive = 'bg-white/10 text-white'
+
+const actionBtn = 'rounded px-2 py-0.5 text-xs font-medium transition glass-btn'
 
 export default function AppShell() {
+  const { pathname } = useLocation()
+  const isTiling = pathname === '/'
+  const store = useStore()
+  const layout = useAtomValue(layoutAtom)
+
+  const paneCount = leaves(layout).length
+
+  const split = useCallback(
+    (dir: Direction) => {
+      const cur = store.get(layoutAtom)
+      const f = store.get(focusedIdAtom)
+      const target = f && leaves(cur).includes(f) ? f : leaves(cur)[0]
+      if (!target) return
+      const next = splitAt(cur, target, dir)
+      store.set(layoutAtom, next)
+      const ids = leaves(next).filter((id) => id !== target)
+      store.set(focusedIdAtom, ids[ids.length - 1] ?? target)
+    },
+    [store],
+  )
+
+  const close = useCallback(() => {
+    const cur = store.get(layoutAtom)
+    const f = store.get(focusedIdAtom)
+    if (!f) return
+    const next = closeAt(cur, f)
+    store.set(layoutAtom, next)
+    store.set(focusedIdAtom, leaves(next)[0] ?? '')
+  }, [store])
+
   return (
-    <div className="grid h-dvh grid-rows-[auto_1fr] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
-      <header className="border-b border-white/10 bg-slate-900/60 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-4 px-4 py-3">
-          <span className="font-semibold tracking-tight">ghostty-web</span>
+    <div className="grid h-dvh grid-rows-[auto_1fr] ambient-bg text-slate-100">
+      <header className="apple-panel">
+        <div className="flex items-center gap-3 px-3 py-1">
+          <span className="text-xs font-semibold tracking-tight">ghostty-web</span>
+
+          {isTiling && (
+            <>
+              <div className="h-3 w-px bg-white/10" />
+              <button type="button" onClick={() => split('horizontal')} className={`${actionBtn} bg-sky-600 text-white hover:bg-sky-500`}>
+                Split →
+              </button>
+              <button type="button" onClick={() => split('vertical')} className={`${actionBtn} bg-sky-600 text-white hover:bg-sky-500`}>
+                Split ↓
+              </button>
+              <button
+                type="button"
+                onClick={close}
+                disabled={paneCount <= 1}
+                className={`${actionBtn} bg-rose-600 text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                Close
+              </button>
+              <span className="hidden text-[10px] text-slate-500 sm:inline">
+                Alt+Enter split · Alt+Q close · Alt+J/K focus
+              </span>
+            </>
+          )}
+
           <nav className="ml-auto flex items-center gap-1">
-            <Link to="/" className={`${base} ${idle}`} activeProps={{ className: `${base} ${active}` }}>
+            <Link to="/" className={`${nav} ${navIdle}`} activeProps={{ className: `${nav} ${navActive}` }}>
               Tiling
             </Link>
-            <Link to="/colors" className={`${base} ${idle}`} activeProps={{ className: `${base} ${active}` }}>
+            <Link to="/colors" className={`${nav} ${navIdle}`} activeProps={{ className: `${nav} ${navActive}` }}>
               Colors
             </Link>
           </nav>

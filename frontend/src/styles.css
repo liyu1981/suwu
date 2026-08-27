@@ -1,6 +1,14 @@
 @import 'tailwindcss';
 
 @theme {
+  --color-background: #0f0f11;
+  --color-foreground: #d4d4d8;
+  --color-border: #27272a;
+  --color-primary: #0ea5e9;
+  --color-ring: #6366f1;
+  --color-popover-foreground: #fafafa;
+  --color-muted-foreground: #a1a1aa;
+
   --color-terminal-bg: #1e1e1e;
   --color-titlebar: #2d2d2d;
   --color-terminal-fg: #d4d4d4;
@@ -23,4 +31,125 @@ body {
 
 .terminal-canvas canvas {
   display: block;
+  opacity: 0.92;
+  border-radius: 6px;
+}
+
+/* ============================================================================
+   Glass Design System
+   Liquid-glass (Apple-style frosted material) — adapted from mindx.
+   border-radius is intentionally omitted per project convention.
+   ============================================================================ */
+
+.glass-control {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--background) 45%, transparent),
+    color-mix(in oklch, var(--background) 14%, transparent)
+  );
+  border: 1px solid color-mix(in oklch, var(--border), transparent 45%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow:
+    0 8px 32px rgb(0 0 0 / 0.12),
+    inset 0 1px 0 color-mix(in oklch, white 28%, transparent);
+}
+
+.apple-panel {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--background) 68%, transparent),
+    color-mix(in oklch, var(--background) 34%, transparent)
+  );
+  border: 1px solid color-mix(in oklch, var(--border), transparent 55%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow:
+    0 4px 16px rgb(0 0 0 / 0.10),
+    inset 0 1px 0 color-mix(in oklch, white 22%, transparent);
+}
+
+.apple-panel-dark {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, white 16%, transparent),
+    color-mix(in oklch, white 5%, transparent)
+  );
+  border: 1px solid color-mix(in oklch, white 10%, transparent);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  box-shadow:
+    0 12px 48px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 color-mix(in oklch, white 14%, transparent);
+}
+
+.ambient-bg {
+  background:
+    radial-gradient(
+      ellipse at 20% 20%,
+      color-mix(in oklch, var(--primary) 15%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse at 80% 80%,
+      color-mix(in oklch, var(--ring) 12%, transparent),
+      transparent 60%
+    ),
+    var(--background);
+}
+
+.apple-scrim {
+  background: linear-gradient(
+    transparent,
+    color-mix(in oklch, var(--background) 80%, transparent)
+  );
+}
+
+/* Glass button variant: brightness feedback for physicality */
+.glass-btn {
+  transition: filter 0.15s ease;
+}
+.glass-btn:hover {
+  filter: brightness(1.06);
+}
+.glass-btn:active {
+  filter: brightness(0.95);
+}
+.glass-btn[aria-expanded='true'] {
+  filter: brightness(1.10);
+}
+
+/* Interactive surface: grab-off / press-down feel */
+.glass-interactive {
+  transition: filter 0.15s ease, transform 0.2s ease;
+}
+.glass-interactive:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+.glass-interactive:active {
+  filter: brightness(0.95);
+  transform: scale(0.98);
+}
+
+/* ============================================================================
+   Reduced motion
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .glass-interactive:hover {
+    transform: none;
+  }
+  .glass-interactive:active {
+    transform: none;
+  }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Terminal } from 'ghostty-web'
+import type { Terminal } from '@xterm/xterm'
 import { useTerminal } from '../components/useTerminal'
 
 function writeln(term: Terminal, text: string) {
@@ -296,34 +296,35 @@ const BUTTONS: { label: string; fn: (term: Terminal) => void }[] = [
 
 export default function ColorsPage() {
   const [ready, setReady] = useState(false)
-  const { containerRef, term } = useTerminal({
-    cols: 120,
-    rows: 40,
-    fontSize: 14,
-    fontFamily: "'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace",
-    scrollback: 10000,
-    theme: {
-      background: '#1e1e1e',
-      foreground: '#d4d4d4',
-      cursor: '#ffffff',
-      black: '#000000',
-      red: '#cd3131',
-      green: '#0dbc79',
-      yellow: '#e5e510',
-      blue: '#2472c8',
-      magenta: '#bc3fbc',
-      cyan: '#11a8cd',
-      white: '#e5e5e5',
-      brightBlack: '#666666',
-      brightRed: '#f14c4c',
-      brightGreen: '#23d18b',
-      brightYellow: '#f5f543',
-      brightBlue: '#3b8eea',
-      brightMagenta: '#d670d6',
-      brightCyan: '#29b8db',
-      brightWhite: '#ffffff',
+  const { containerRef, term } = useTerminal(
+    {
+      fontSize: 14,
+      fontFamily: "'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace",
+      scrollback: 10000,
+      theme: {
+        background: '#1e1e1e',
+        foreground: '#d4d4d4',
+        cursor: '#ffffff',
+        black: '#000000',
+        red: '#cd3131',
+        green: '#0dbc79',
+        yellow: '#e5e510',
+        blue: '#2472c8',
+        magenta: '#bc3fbc',
+        cyan: '#11a8cd',
+        white: '#e5e5e5',
+        brightBlack: '#666666',
+        brightRed: '#f14c4c',
+        brightGreen: '#23d18b',
+        brightYellow: '#f5f543',
+        brightBlue: '#3b8eea',
+        brightMagenta: '#d670d6',
+        brightCyan: '#29b8db',
+        brightWhite: '#ffffff',
+      },
     },
-  })
+    { cols: 120, rows: 40 },
+  )
 
   const run = (fn: (t: Terminal) => void) => {
     if (term) fn(term)

@@ -27,7 +27,7 @@ function action(name: WmAction, split: (d: Direction) => void, close: () => void
 
 /**
  * A tiling window-manager-style page: a tree of terminal panes rendered as
- * same-origin iframes (each loading `/term` with a full-space ghostty
+ * same-origin iframes (each loading `/term` with a full-space xterm
  * terminal), with split / close / focus / resize controls.
  */
 export default function TilingWM() {

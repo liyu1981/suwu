@@ -4,7 +4,7 @@ import { connectionMessageAtom, connectionStatusAtom } from '../store/connection
 import { wmAction } from '../wm/shortcuts'
 import { useTerminal } from './useTerminal'
 import { usePtySession } from './usePtySession'
-import { useMouseReporting } from './useMouseReporting'
+import { useTermCopy } from './useTermCopy'
 
 const STATUS_DOT = {
   connecting: 'bg-amber-400 animate-pulse',
@@ -13,7 +13,7 @@ const STATUS_DOT = {
 } as const
 
 /**
- * A ghostty terminal that fills the entire viewport. This is the page each
+ * An xterm terminal that fills the entire viewport. This is the page each
  * tiling pane loads in an iframe (`/term`); every iframe gets its own
  * WebSocket PTY session on the server.
  */
@@ -21,16 +21,18 @@ export default function FullTerminal() {
   const status = useAtomValue(connectionStatusAtom)
   const message = useAtomValue(connectionMessageAtom)
 
-  const { containerRef, term } = useTerminal({
-    cols: 80,
-    rows: 24,
-    cursorBlink: true,
-    fontSize: 14,
-    fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
-    theme: { background: '#1e1e1e', foreground: '#d4d4d4', cursor: '#d4d4d4' },
-  })
+  const { containerRef, term } = useTerminal(
+    {
+      cursorBlink: true,
+      fontSize: 14,
+      fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
+      scrollback: 5000,
+      theme: { background: '#1e1e1e', foreground: '#d4d4d4', cursor: '#d4d4d4' },
+    },
+    { cols: 80, rows: 24 },
+  )
   usePtySession(term)
-  useMouseReporting(term, containerRef)
+  useTermCopy(term)
 
   // Relay window-manager shortcuts to the parent page, and stop them from
   // reaching the shell (these keys are chosen to be harmless to readline).

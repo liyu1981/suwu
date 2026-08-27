@@ -64,7 +64,11 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer sess.Kill()
 
-	if err := conn.Write(ctx, websocket.MessageText, []byte(welcomeBanner)); err != nil {
+	// PTY output is arbitrary bytes (apps may split multi-byte UTF-8 across
+	// read boundaries or emit invalid UTF-8), so it must be relayed as binary
+	// frames — text frames make browsers abort the connection with "Could not
+	// decode a text frame as UTF-8". xterm handles partial sequences itself.
+	if err := conn.Write(ctx, websocket.MessageBinary, []byte(welcomeBanner)); err != nil {
 		return
 	}
 
@@ -76,7 +80,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		for {
 			n, err := sess.Read(buf)
 			if n > 0 {
-				if werr := conn.Write(ctx, websocket.MessageText, buf[:n]); werr != nil {
+				if werr := conn.Write(ctx, websocket.MessageBinary, buf[:n]); werr != nil {
 					return
 				}
 			}
@@ -91,7 +95,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		<-done
 		code := sess.Wait()
 		msg := "\r\n\x1b[33mShell exited (code: " + strconv.Itoa(code) + ")\x1b[0m\r\n"
-		_ = conn.Write(context.Background(), websocket.MessageText, []byte(msg))
+		_ = conn.Write(context.Background(), websocket.MessageBinary, []byte(msg))
 		_ = conn.Close(websocket.StatusNormalClosure, "shell exited")
 	}()
 

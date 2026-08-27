@@ -50,6 +50,11 @@ body {
   border-radius: 6px;
 }
 
+/* Let the fit addon measure and fill the host container */
+.terminal-canvas .xterm {
+  height: 100%;
+}
+
 /* ============================================================================
    Glass Design System
    Liquid-glass (Apple-style frosted material) — adapted from mindx.

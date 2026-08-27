@@ -3,6 +3,7 @@
 *.exe
 *.test
 *.out
+/var
 
 # Local environment (secrets). Committed template is .env.example.
 .env

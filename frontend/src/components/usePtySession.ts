@@ -1,15 +1,16 @@
 import { useEffect } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
-import type { Terminal } from 'ghostty-web'
+import type { Terminal } from '@xterm/xterm'
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
 import { useToken } from '../lib/api'
 
 const RECONNECT_DELAY_MS = 2000
 
 /**
- * Bridges a ghostty-web Terminal to the Go server's WebSocket PTY endpoint.
+ * Bridges an xterm.js Terminal to the Go server's WebSocket PTY endpoint.
  * Handles authentication via /api/token, input/output forwarding, resize, and
- * automatic reconnection. Connection state lives in Jotai atoms.
+ * automatic reconnection. Connection state lives in Jotai atoms. Mouse
+ * reporting sequences arrive via onData as well (xterm encodes them natively).
  */
 export function usePtySession(term: Terminal | null) {
   const tokenQuery = useToken()
@@ -36,6 +37,9 @@ export function usePtySession(term: Terminal | null) {
       })
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       ws = new WebSocket(`${protocol}//${window.location.host}/ws?${params}`)
+      // PTY output arrives as binary frames (raw bytes, possibly invalid or
+      // split UTF-8); xterm's write path reassembles partial sequences.
+      ws.binaryType = 'arraybuffer'
 
       ws.onopen = () => {
         setStatus('connected')
@@ -43,7 +47,8 @@ export function usePtySession(term: Terminal | null) {
       }
 
       ws.onmessage = (event) => {
-        term.write(event.data as string)
+        const data = event.data
+        term.write(typeof data === 'string' ? data : new Uint8Array(data))
       }
 
       ws.onclose = () => {

@@ -140,6 +140,57 @@ func TestWebSocketSession(t *testing.T) {
 	t.Fatal("did not receive command output in time")
 }
 
+func TestWebSocketBinaryFrames(t *testing.T) {
+	ts, cfg := testServer(t)
+	origin := "http://" + hostOf(ts)
+
+	q := url.Values{}
+	q.Set("cols", "80")
+	q.Set("rows", "24")
+	q.Set("token", cfg.Token)
+
+	conn := dialWS(t, ts, origin, q)
+	defer conn.CloseNow()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Every server->client frame carries raw PTY bytes, so all of them must be
+	// binary: browsers abort connections whose text frames are not valid UTF-8,
+	// and apps like htop split multi-byte sequences across read boundaries.
+	mt, data, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read banner: %v", err)
+	}
+	if mt != websocket.MessageBinary {
+		t.Fatalf("banner frame type = %v, want binary", mt)
+	}
+	if !strings.Contains(string(data), "Welcome to Suwu") {
+		t.Fatalf("welcome banner missing, got: %q", data)
+	}
+
+	// Emit raw non-UTF-8 bytes plus a marker; the session must survive and the
+	// marker must come back on a binary frame.
+	if err := conn.Write(ctx, websocket.MessageText, []byte("printf '\\377\\376\\375'; echo RAWBINARY-OK\\r")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	deadline := time.Now().Add(8 * time.Second)
+	for time.Now().Before(deadline) {
+		mt, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("connection did not survive raw bytes: %v", err)
+		}
+		if mt != websocket.MessageBinary {
+			t.Fatalf("frame type = %v, want binary (payload %q)", mt, data)
+		}
+		if strings.Contains(string(data), "RAWBINARY-OK") {
+			return
+		}
+	}
+	t.Fatal("did not receive RAWBINARY-OK marker in time")
+}
+
 func TestWebSocketMultipleSessions(t *testing.T) {
 	ts, cfg := testServer(t)
 	origin := "http://" + hostOf(ts)

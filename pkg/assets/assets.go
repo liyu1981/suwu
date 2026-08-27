@@ -7,8 +7,8 @@ package assets
 
 import "embed"
 
-// FS is the embedded web/ directory (contains index.html, dist/, and the
-// ghostty-vt.wasm file when populated before building).
+// FS is the embedded web/ directory (contains index.html and the bundled JS/CSS
+// assets when populated before building).
 //
 //go:embed web
 var FS embed.FS

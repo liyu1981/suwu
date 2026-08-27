@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { router } from './router'
 import { RouterProvider } from '@tanstack/react-router'
+import '@xterm/xterm/css/xterm.css'
 import './styles.css'
 
 const queryClient = new QueryClient({

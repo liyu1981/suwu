@@ -55,6 +55,19 @@ body {
   height: 100%;
 }
 
+/* xterm keeps `overflow-y: scroll` on its viewport, which paints a scrollbar
+   track (and corner) at the pane's bottom-right even when there is nothing to
+   scroll. Hide it entirely — wheel scrollback still works because xterm
+   scrolls the viewport programmatically in response to wheel events. */
+.terminal-canvas .xterm-viewport {
+  overflow-x: hidden;
+  scrollbar-width: none; /* Firefox */
+}
+.terminal-canvas .xterm-viewport::-webkit-scrollbar,
+.terminal-canvas .xterm-viewport::-webkit-scrollbar-corner {
+  display: none; /* Chromium/Safari, includes the scrollbar corner */
+}
+
 /* ============================================================================
    Glass Design System
    Liquid-glass (Apple-style frosted material) — adapted from mindx.

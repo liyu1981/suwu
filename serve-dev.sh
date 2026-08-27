@@ -3,22 +3,67 @@
 #
 # Usage: ./serve-dev.sh {start|stop|restart|status|logs|build|web}
 #
-# Env overrides (optional):
-#   DEMO_HOST       bind host        (default 127.0.0.1)
-#   DEMO_PORT       listen port      (default 8000)
-#   MAX_LOG_BYTES   rotate threshold (default 5242880 = 5 MiB)
+# The displayed URL mirrors what the server binary actually binds, resolving
+# host/port exactly like cmd/Suwu does:
+#   1. shell environment HOST/PORT (always win — the binary loads .env only
+#      for variables not already set)
+#   2. ./.env (first occurrence of a key wins, like envfile.Load)
+#   3. dev defaults: 127.0.0.1:8000 (air runs the server with --dev)
+# RESOLVED_HOST/RESOLVED_PORT and DEMO_HOST/DEMO_PORT are exported for child
+# processes (e.g. vite.config.ts proxies to DEMO_PORT).
 set -euo pipefail
 cd "$(dirname "$0")"
 
 CMD="${1:-start}"
 
-export DEMO_HOST="${DEMO_HOST:-127.0.0.1}"
-export DEMO_PORT="${DEMO_PORT:-8000}"
 MAX_LOG_BYTES="${MAX_LOG_BYTES:-5242880}"
 
 VAR=./var
 LOG="$VAR/suwu.log"
 PID="$VAR/suwu.pid"
+
+# Print the value of KEY from ./.env (first occurrence, quotes stripped), or
+# nothing when the file/key is missing. Mirrors envfile.Load parsing.
+env_file_value() {
+  local key="$1" line
+  [[ -f .env ]] || return 0
+  line=$(grep -E "^[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=" .env 2>/dev/null | head -n 1) || return 0
+  line=${line#*=}
+  line="${line#\"}"; line="${line%\"}"
+  line="${line#\'}"; line="${line%\'}"
+  printf '%s' "$line"
+}
+
+# Effective host: shell env beats .env, then the dev default.
+if [[ -n "${HOST:-}" ]]; then
+  RESOLVED_HOST="$HOST"
+else
+  RESOLVED_HOST="$(env_file_value HOST)"
+  RESOLVED_HOST="${RESOLVED_HOST:-127.0.0.1}"
+fi
+
+# Effective port: shell env beats .env, then the dev default (8000, since
+# air starts the server with --dev).
+if [[ -n "${PORT:-}" ]]; then
+  RESOLVED_PORT="$PORT"
+else
+  RESOLVED_PORT="$(env_file_value PORT)"
+  RESOLVED_PORT="${RESOLVED_PORT:-8000}"
+fi
+
+# Wildcard binds are reachable via loopback; display a clickable URL but
+# note the actual bind address.
+DISPLAY_HOST="$RESOLVED_HOST"
+BIND_NOTE=""
+case "$RESOLVED_HOST" in
+  0.0.0.0|::|'*'|'')
+    [[ -n "$RESOLVED_HOST" ]] && BIND_NOTE=" (bound to $RESOLVED_HOST)"
+    DISPLAY_HOST="127.0.0.1"
+    ;;
+esac
+export DEMO_HOST="$RESOLVED_HOST" DEMO_PORT="$RESOLVED_PORT"
+
+url() { printf 'http://%s:%s%s' "$DISPLAY_HOST" "$RESOLVED_PORT" "$BIND_NOTE"; }
 
 # PID file stores the process-group leader (see start()). stop() kills that
 # group (pnpm -> air) and then sweeps the server binary: air starts its child
@@ -75,7 +120,7 @@ start() {
   # (children + grandchildren) with one group kill.
   nohup setsid pnpm dev >>"$LOG" 2>&1 &
   echo $! >"$PID"
-  echo "started (pid $!) -> http://${DEMO_HOST}:${DEMO_PORT}"
+  echo "started (pid $!) -> $(url)"
   echo "log: $LOG"
 }
 
@@ -112,7 +157,7 @@ stop() {
 
 status() {
   if is_running; then
-    echo "Suwu server: running (pid $(cat "$PID")) -> http://${DEMO_HOST}:${DEMO_PORT}"
+    echo "Suwu server: running (pid $(cat "$PID")) -> $(url)"
     echo "log: $LOG"
   else
     echo "Suwu server: not running"

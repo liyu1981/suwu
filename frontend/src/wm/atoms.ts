@@ -7,3 +7,6 @@ export const layoutAtom = atomWithStorage<LayoutNode | null>('tiling-layout', cr
 
 /** The id of the currently focused terminal leaf. */
 export const focusedIdAtom = atom('')
+
+/** Whether the keyboard-shortcuts help dialog is open. */
+export const shortcutsOpenAtom = atom(false)

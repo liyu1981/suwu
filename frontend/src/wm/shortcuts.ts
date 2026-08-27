@@ -1,4 +1,14 @@
-export type WmAction = 'split-right' | 'split-below' | 'close' | 'focus-next' | 'focus-prev'
+export type WmAction =
+  | 'split-right'
+  | 'split-below'
+  | 'close'
+  | 'focus-next'
+  | 'focus-prev'
+  | 'move-left'
+  | 'move-right'
+  | 'move-up'
+  | 'move-down'
+  | 'help'
 
 /**
  * Maps a keydown event to a window-manager action, or null.
@@ -20,6 +30,16 @@ export function wmAction(e: KeyboardEvent): WmAction | null {
     case 'k':
     case 'K':
       return 'focus-prev'
+    case 'ArrowLeft':
+      return 'move-left'
+    case 'ArrowRight':
+      return 'move-right'
+    case 'ArrowUp':
+      return 'move-up'
+    case 'ArrowDown':
+      return 'move-down'
+    case '/':
+      return 'help'
     default:
       return null
   }

@@ -1,40 +1,101 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
-import { focusedIdAtom, layoutAtom } from './atoms'
+import { focusedIdAtom, layoutAtom, shortcutsOpenAtom } from './atoms'
 import {
   clamp,
   closeAt,
   computeTiling,
   createLeaf,
+  findNeighborRect,
   findSplit,
   focusByOffset,
   leaves,
   splitAt,
+  swapLeaves,
   updateSplitAt,
   type Direction,
   type DividerSpec,
+  type MoveDir,
+  type Rect,
 } from './layout'
 import { wmAction, type WmAction } from './shortcuts'
 
-function action(name: WmAction, split: (d: Direction) => void, close: () => void, focusOffset: (o: number) => void) {
+function action(
+  name: WmAction,
+  h: {
+    split: (d: Direction) => void
+    close: () => void
+    focusOffset: (o: number) => void
+    moveFocused: (d: MoveDir) => void
+    openHelp: () => void
+  },
+) {
   switch (name) {
     case 'split-right':
-      split('horizontal')
+      h.split('horizontal')
       break
     case 'split-below':
-      split('vertical')
+      h.split('vertical')
       break
     case 'close':
-      close()
+      h.close()
       break
     case 'focus-next':
-      focusOffset(1)
+      h.focusOffset(1)
       break
     case 'focus-prev':
-      focusOffset(-1)
+      h.focusOffset(-1)
+      break
+    case 'move-left':
+      h.moveFocused('left')
+      break
+    case 'move-right':
+      h.moveFocused('right')
+      break
+    case 'move-up':
+      h.moveFocused('up')
+      break
+    case 'move-down':
+      h.moveFocused('down')
+      break
+    case 'help':
+      h.openHelp()
       break
   }
 }
+
+function ChevronIcon({ dir }: { dir: MoveDir }) {
+  const d =
+    dir === 'left'
+      ? 'M15 6l-6 6 6 6'
+      : dir === 'right'
+        ? 'M9 6l6 6-6 6'
+        : dir === 'up'
+          ? 'M6 15l6-6 6 6'
+          : 'M6 9l6 6 6-6'
+  return (
+    <svg
+      className="h-3 w-3"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={d} />
+    </svg>
+  )
+}
+
+const MOVE_DIRS: MoveDir[] = ['left', 'right', 'up', 'down']
+const ARROW_KEY: Record<MoveDir, string> = { left: '←', right: '→', up: '↑', down: '↓' }
+
+const moveBtn =
+  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300'
+
+/** A vanished tile rendered at its last rect while it fades out. */
+type PaneGhost = { key: string; rect: Rect }
 
 /**
  * A tiling window-manager-style page: a tree of terminal panes rendered as
@@ -98,6 +159,46 @@ export default function TilingWM() {
     [store],
   )
 
+  // Measure the tiling viewport so pane rects can be laid out in px.
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  // True while a divider drag is in progress (suspends rect transitions).
+  const [dragging, setDragging] = useState(false)
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Swap the tile with its nearest geometric neighbor in a direction; a
+  // no-op when there is no neighbor (edge of the layout).
+  const move = useCallback(
+    (id: string, dir: MoveDir) => {
+      const cur = store.get(layoutAtom)
+      if (!cur || size.w <= 0 || size.h <= 0) return
+      const { panes } = computeTiling(cur, size.w, size.h)
+      const neighbor = findNeighborRect(panes, id, dir)
+      if (!neighbor) return
+      store.set(layoutAtom, swapLeaves(cur, id, neighbor.id))
+      store.set(focusedIdAtom, id)
+    },
+    [store, size],
+  )
+
+  const moveFocused = useCallback(
+    (dir: MoveDir) => {
+      const f = store.get(focusedIdAtom)
+      if (f) move(f, dir)
+    },
+    [store, move],
+  )
+
+  const openHelp = useCallback(() => store.set(shortcutsOpenAtom, true), [store])
+
   // Keep a valid focused leaf (initial state, after close, after storage load).
   useEffect(() => {
     const ids = leaves(layout)
@@ -111,11 +212,11 @@ export default function TilingWM() {
       const a = wmAction(e)
       if (!a) return
       e.preventDefault()
-      action(a, split, close, focusOffset)
+      action(a, { split, close, focusOffset, moveFocused, openHelp })
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [split, close, focusOffset])
+  }, [split, close, focusOffset, moveFocused, openHelp])
 
   // Focus changes reported by a pane iframe (its own window focus event is
   // reliable, unlike parent-side focusin between two iframes).
@@ -128,11 +229,11 @@ export default function TilingWM() {
       }
       const a = d?.type === 'wm-shortcut' ? d.action : undefined
       if (!a) return
-      action(a, split, close, focusOffset)
+      action(a, { split, close, focusOffset, moveFocused, openHelp })
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [store, split, close, focusOffset])
+  }, [store, split, close, focusOffset, moveFocused, openHelp])
 
   // Detect clicks into an iframe: the parent's document.activeElement becomes
   // the focused <iframe>, so we can track which pane is focused.
@@ -148,28 +249,40 @@ export default function TilingWM() {
     return () => window.removeEventListener('focusin', onFocus)
   }, [store])
 
-  // Measure the tiling viewport so pane rects can be laid out in px.
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState({ w: 0, h: 0 })
-  useEffect(() => {
-    const el = viewportRef.current
-    if (!el) return
-    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight })
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
   const { panes, dividers } = useMemo(
     () => computeTiling(layout, size.w, size.h),
     [layout, size.w, size.h],
   )
 
+  // Whether a move in `dir` has a neighbor to swap with (drives the disabled
+  // state of the per-tile hover buttons).
+  const canMove = useCallback(
+    (id: string, dir: MoveDir) => findNeighborRect(panes, id, dir) !== null,
+    [panes],
+  )
+
+  // When tiles vanish (close), render ghosts at their last rects that fade
+  // out; React unmounts instantly, so the ghost is what animates the exit.
+  const prevRectsRef = useRef(new Map<string, Rect>())
+  const [ghosts, setGhosts] = useState<PaneGhost[]>([])
+  useEffect(() => {
+    const cur = new Map(panes.map((p) => [p.id, { x: p.x, y: p.y, w: p.w, h: p.h }]))
+    const vanished: PaneGhost[] = []
+    for (const [id, rect] of prevRectsRef.current) {
+      if (!cur.has(id)) vanished.push({ key: `${id}-${Date.now()}-${Math.random()}`, rect })
+    }
+    prevRectsRef.current = cur
+    if (vanished.length > 0) setGhosts((all) => [...all, ...vanished])
+  }, [panes])
+
   const startDividerDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>, seg: DividerSpec) => {
       e.preventDefault()
       e.stopPropagation()
+
+      // Rect transitions chase the pointer and break 1:1 tracking; during a
+      // drag the panes must follow exactly, so suspend the animation.
+      setDragging(true)
 
       const root = store.get(layoutAtom)
       const sp = findSplit(root, seg.splitId)
@@ -199,6 +312,7 @@ export default function TilingWM() {
       const onUp = () => {
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
+        setDragging(false)
       }
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
@@ -207,7 +321,16 @@ export default function TilingWM() {
   )
 
   return (
-    <div ref={viewportRef} className="relative h-full w-full overflow-hidden">
+    <div ref={viewportRef} className={`relative h-full w-full overflow-hidden ${dragging ? 'wm-dragging' : ''}`}>
+      {/* Ghosts of just-closed tiles, fading out underneath the live panes. */}
+      {ghosts.map((g) => (
+        <div
+          key={g.key}
+          className="pane-out absolute rounded-[6px] border border-white/5 bg-black/20 shadow-[0_8px_32px_rgb(0_0_0/0.25)]"
+          style={{ left: g.rect.x, top: g.rect.y, width: g.rect.w, height: g.rect.h }}
+          onAnimationEnd={() => setGhosts((all) => all.filter((x) => x.key !== g.key))}
+        />
+      ))}
       {!layout && (
         <div className="flex h-full w-full items-center justify-center">
           <button
@@ -222,7 +345,7 @@ export default function TilingWM() {
       {panes.map(({ id, x, y, w, h }) => (
         <div
           key={id}
-          className={`absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] transition ${
+          className={`pane-anim pane-in group absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
             focused === id
               // Header chrome tone (apple-panel is white 10% over the page),
               // brightened well above it so the focused tile clearly reads.
@@ -233,6 +356,29 @@ export default function TilingWM() {
           onMouseDown={() => setFocused(id)}
         >
           <iframe src={`/term?pane=${id}`} title={`terminal-${id}`} data-pane={id} className="h-full w-full border-0 bg-transparent" />
+          {/* Move controls: revealed while the pointer is over the tile;
+              disabled when no neighbor exists that way. Keyboard users have
+              Alt+Arrows, so the pill stays hover-only and never obstructs
+              the focused terminal. */}
+          <div
+            className="pointer-events-none absolute right-1.5 top-1.5 z-10 flex gap-0.5 rounded-[6px] glass-control p-0.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 motion-reduce:transition-none"
+            role="toolbar"
+            aria-label={`Move tile ${id}`}
+          >
+            {MOVE_DIRS.map((dir) => (
+              <button
+                key={dir}
+                type="button"
+                disabled={!canMove(id, dir)}
+                onClick={() => move(id, dir)}
+                aria-label={`Move tile ${dir}`}
+                title={`Move tile ${dir} (Alt+${ARROW_KEY[dir]})`}
+                className={moveBtn}
+              >
+                <ChevronIcon dir={dir} />
+              </button>
+            ))}
+          </div>
         </div>
       ))}
       {dividers.map((seg) => (

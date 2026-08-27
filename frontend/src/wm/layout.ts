@@ -93,6 +93,74 @@ export function focusByOffset(root: LayoutNode | null, currentId: string, offset
   return ids[(idx + offset + ids.length) % ids.length]
 }
 
+/** Direction to move a tile in. */
+export type MoveDir = 'left' | 'right' | 'up' | 'down'
+
+/**
+ * Swap the positions of two leaves anywhere in the tree, keeping the size
+ * weights attached to their slots: after a swap each leaf occupies the
+ * other's exact rect. Only leaf ids change, so the pane renderer (keyed by
+ * leaf id) repositions the existing iframes instead of remounting them.
+ */
+export function swapLeaves(root: LayoutNode, a: string, b: string): LayoutNode {
+  const walk = (node: LayoutNode): LayoutNode => {
+    if (node.type === 'leaf') {
+      if (node.id === a) return { ...node, id: b }
+      if (node.id === b) return { ...node, id: a }
+      return node
+    }
+    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+  }
+  return walk(root)
+}
+
+/**
+ * Find the nearest tile geometrically adjacent to `id` in the given
+ * direction: entirely beyond its edge, overlapping it along the perpendicular
+ * axis, with the smallest gap. Returns null when no neighbor exists (the
+ * tile is already at that edge), which callers treat as a no-op.
+ */
+export function findNeighborRect(
+  panes: PaneLayout[],
+  id: string,
+  dir: MoveDir,
+): PaneLayout | null {
+  const self = panes.find((p) => p.id === id)
+  if (!self) return null
+  // Rounding tolerance: computeTiling rounds shared seams to identical px.
+  const EPS = 1
+  let best: PaneLayout | null = null
+  let bestDist = Infinity
+  for (const r of panes) {
+    if (r.id === id) continue
+    let ok = false
+    let dist = 0
+    switch (dir) {
+      case 'left':
+        ok = r.x + r.w <= self.x + EPS && r.y < self.y + self.h - EPS && r.y + r.h > self.y + EPS
+        dist = self.x - (r.x + r.w)
+        break
+      case 'right':
+        ok = r.x >= self.x + self.w - EPS && r.y < self.y + self.h - EPS && r.y + r.h > self.y + EPS
+        dist = r.x - (self.x + self.w)
+        break
+      case 'up':
+        ok = r.y + r.h <= self.y + EPS && r.x < self.x + self.w - EPS && r.x + r.w > self.x + EPS
+        dist = self.y - (r.y + r.h)
+        break
+      case 'down':
+        ok = r.y >= self.y + self.h - EPS && r.x < self.x + self.w - EPS && r.x + r.w > self.x + EPS
+        dist = r.y - (self.y + self.h)
+        break
+    }
+    if (ok && dist < bestDist) {
+      bestDist = dist
+      best = r
+    }
+  }
+  return best
+}
+
 /** Apply `fn` to the children of the split with the given id. */
 export function updateSplitAt(
   root: LayoutNode,

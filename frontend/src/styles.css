@@ -287,6 +287,58 @@ body {
 }
 
 /* ============================================================================
+   Tiling panes
+   ============================================================================ */
+
+/*
+ * Rect transitions for tiling panes (move / split / close reflow). The curve
+ * approximates a critically damped spring (apple-design: move/reposition ≈
+ * response 0.4s, no bounce). Disabled while a divider is being dragged so
+ * the panes track the pointer 1:1 instead of chasing it.
+ */
+.pane-anim {
+  transition:
+    left 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+    top 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+    width 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+    height 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.wm-dragging .pane-anim {
+  transition: none;
+}
+
+/* A newly mounted tile materializes: scale up from slightly smaller while
+   fading in ("materialize, don't just fade"). Runs once per mount; the
+   class stays on the element afterwards without re-triggering. */
+@keyframes pane-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.pane-in {
+  animation: pane-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
+
+/* Stand-in for a tile that just unmounted: React removes the element
+   instantly, so TilingWM renders a ghost at the old rect that fades out.
+   Enter and exit mirror each other (same path, reversed). */
+@keyframes pane-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.pane-out {
+  animation: pane-out 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* ============================================================================
    Reduced motion
    ============================================================================ */
 

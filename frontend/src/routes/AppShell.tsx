@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { AmbientBackground } from '../components/AmbientBackground'
 import SettingsDialog from '../components/SettingsDialog'
-import { focusedIdAtom, layoutAtom } from '../wm/atoms'
+import ShortcutsDialog from '../components/ShortcutsDialog'
+import { focusedIdAtom, layoutAtom, shortcutsOpenAtom } from '../wm/atoms'
 import { FONT_MIN, FONT_MAX, clampFont, fontDefaultAtom, fontSizeAtom } from '../store/fonts'
 import {
   closeAt,
@@ -80,6 +81,7 @@ export default function AppShell() {
   const [fontSize, setFontSize] = useAtom(fontSizeAtom)
   const defaultSize = useAtomValue(fontDefaultAtom)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useAtom(shortcutsOpenAtom)
 
   const split = useCallback(
     (dir: Direction, side: SplitSide = 'after') => {
@@ -155,6 +157,9 @@ export default function AppShell() {
                   Reset font ({defaultSize}px)
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setShortcutsOpen(true)}>
+                  Keyboard shortcuts…
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
                   Settings…
                 </DropdownMenuItem>
@@ -166,7 +171,8 @@ export default function AppShell() {
             {isTiling && (
               <>
                 <span className="hidden text-[10px] text-slate-500 sm:inline sm:ml-2">
-                  Alt+Enter split right · Alt+Shift+Enter split down · Alt+Q close · Alt+J/K focus
+                  Alt+Enter split · Alt+Shift+Enter split down · Alt+Q close · Alt+J/K focus · Alt+Arrows move ·
+                  Alt+/ shortcuts
                 </span>
                 <div className="ml-auto flex items-center gap-0.5">
                   <button type="button" onClick={() => split('horizontal', 'before')} aria-label="Split left" title="Split left of focused pane" className={wmBtn}>
@@ -199,6 +205,7 @@ export default function AppShell() {
         </main>
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   )
 }

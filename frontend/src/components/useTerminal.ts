@@ -40,6 +40,12 @@ export function useTerminal(
       webgl = null
     }
 
+    // Suppress the browser's native context menu inside the terminal so
+    // right-click stays available for copy/paste handling.
+    const suppressMenu = (e: MouseEvent) => e.preventDefault()
+    const el = containerRef.current
+    el.addEventListener('contextmenu', suppressMenu)
+
     // The fit addon has no built-in observer: refit on container box changes.
     const ro = new ResizeObserver(() => fit.fit())
     ro.observe(containerRef.current)
@@ -49,6 +55,7 @@ export function useTerminal(
     ;(window as unknown as Record<string, unknown>).__term = t
 
     return () => {
+      el.removeEventListener('contextmenu', suppressMenu)
       ro.disconnect()
       webgl?.dispose()
       t.dispose()

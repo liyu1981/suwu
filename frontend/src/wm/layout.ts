@@ -12,9 +12,9 @@ export type SplitSide = 'before' | 'after'
 
 export type SplitChild = { node: LayoutNode; size: number }
 
-export type LayoutNode =
-  | { type: 'leaf'; id: string }
-  | { type: 'split'; id: string; direction: Direction; children: SplitChild[] }
+export type SplitNode = { type: 'split'; id: string; direction: Direction; children: SplitChild[] }
+
+export type LayoutNode = { type: 'leaf'; id: string } | SplitNode
 
 let counter = 0
 
@@ -106,4 +106,100 @@ export function updateSplitAt(
 
 export function clamp(v: number, lo: number, hi: number): number {
   return Math.min(Math.max(v, lo), hi)
+}
+
+/** Width of the draggable strip between two siblings, in px. */
+export const GUTTER = 8
+
+/** Pixel-space rectangle relative to the tiling viewport. */
+export type Rect = { x: number; y: number; w: number; h: number }
+
+export type PaneLayout = Rect & { id: string }
+
+export type DividerSpec = {
+  splitId: string
+  /** Index of the left/top sibling of this divider inside its split. */
+  index: number
+  /** Main axis of the owning split: 'x' = side-by-side, 'y' = stacked. */
+  axis: 'x' | 'y'
+  rect: Rect
+  /** Full main-axis extent of the owning split in px (for drag deltas). */
+  length: number
+}
+
+/** Find the split node with the given id anywhere in the tree. */
+export function findSplit(root: LayoutNode | null, id: string): SplitNode | null {
+  if (!root) return null
+  if (root.type === 'split') {
+    if (root.id === id) return root
+    for (const c of root.children) {
+      const hit = findSplit(c.node, id)
+      if (hit) return hit
+    }
+  }
+  return null
+}
+
+/**
+ * Flatten the layout tree into absolute pixel rects for rendering.
+ *
+ * Panes and dividers are positioned absolutely relative to a viewport of the
+ * given size; edge coordinates are rounded so neighboring rects share exact
+ * seams instead of leaving sub-pixel gaps or overlaps.
+ */
+export function computeTiling(
+  root: LayoutNode | null,
+  width: number,
+  height: number,
+): { panes: PaneLayout[]; dividers: DividerSpec[] } {
+  const panes: PaneLayout[] = []
+  const dividers: DividerSpec[] = []
+  if (!root || width <= 0 || height <= 0) return { panes, dividers }
+
+  const rd = Math.round
+  const walk = (node: LayoutNode, x: number, y: number, w: number, h: number) => {
+    if (node.type === 'leaf') {
+      panes.push({
+        id: node.id,
+        x: rd(x),
+        y: rd(y),
+        w: rd(x + w) - rd(x),
+        h: rd(y + h) - rd(y),
+      })
+      return
+    }
+
+    const kids = node.children
+    const n = kids.length
+    if (n === 0) return
+    // 'horizontal' means side-by-side siblings, i.e. the main axis is x.
+    const horizontal = node.direction === 'horizontal'
+    const start = horizontal ? x : y
+    const span = horizontal ? w : h
+    const totalWeight = kids.reduce((acc, k) => acc + k.size, 0)
+    if (totalWeight <= 0) return
+
+    let used = 0
+    kids.forEach((child, i) => {
+      const offset = start + used
+      const share =
+        i === n - 1
+          ? start + span - offset
+          : ((span - (n - 1) * GUTTER) * child.size) / totalWeight
+
+      walk(child.node, horizontal ? offset : x, horizontal ? y : offset, horizontal ? share : w, horizontal ? h : share)
+
+      used += share + GUTTER
+
+      if (i < n - 1) {
+        const bx = horizontal ? offset + share : x
+        const by = horizontal ? y : offset + share
+        const bw = horizontal ? rd(offset + share + GUTTER) - rd(offset + share) : rd(x + w) - rd(x)
+        const bh = horizontal ? rd(y + h) - rd(y) : rd(offset + share + GUTTER) - rd(offset + share)
+        dividers.push({ splitId: node.id, index: i, axis: horizontal ? 'x' : 'y', rect: { x: rd(bx), y: rd(by), w: bw, h: bh }, length: span })
+      }
+    })
+  }
+  walk(root, 0, 0, width, height)
+  return { panes, dividers }
 }

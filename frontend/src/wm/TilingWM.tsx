@@ -1,9 +1,20 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { focusedIdAtom, layoutAtom } from './atoms'
-import { closeAt, createLeaf, focusByOffset, leaves, splitAt, type Direction } from './layout'
+import {
+  clamp,
+  closeAt,
+  computeTiling,
+  createLeaf,
+  findSplit,
+  focusByOffset,
+  leaves,
+  splitAt,
+  updateSplitAt,
+  type Direction,
+  type DividerSpec,
+} from './layout'
 import { wmAction, type WmAction } from './shortcuts'
-import TilingNode from './TilingNode'
 
 function action(name: WmAction, split: (d: Direction) => void, close: () => void, focusOffset: (o: number) => void) {
   switch (name) {
@@ -29,12 +40,19 @@ function action(name: WmAction, split: (d: Direction) => void, close: () => void
  * A tiling window-manager-style page: a tree of terminal panes rendered as
  * same-origin iframes (each loading `/term` with a full-space xterm
  * terminal), with split / close / focus / resize controls.
+ *
+ * Rendering detail that matters: panes are NOT nested flex boxes mirroring
+ * the layout tree — they are a flat list keyed by leaf id and positioned
+ * absolutely from rects computed by `computeTiling`. Splitting or closing
+ * then only mutates inline styles; an iframe's DOM node is never recreated
+ * or reparented, so its PTY session survives layout changes.
  */
 export default function TilingWM() {
   const store = useStore()
   const layout = useAtomValue(layoutAtom)
   const focused = useAtomValue(focusedIdAtom)
   const setFocused = useSetAtom(focusedIdAtom)
+  const setLayout = useSetAtom(layoutAtom)
 
   const split = useCallback(
     (dir: Direction) => {
@@ -120,19 +138,103 @@ export default function TilingWM() {
     return () => window.removeEventListener('focusin', onFocus)
   }, [store])
 
+  // Measure the tiling viewport so pane rects can be laid out in px.
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const { panes, dividers } = useMemo(
+    () => computeTiling(layout, size.w, size.h),
+    [layout, size.w, size.h],
+  )
+
+  const startDividerDrag = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>, seg: DividerSpec) => {
+      e.preventDefault()
+      e.stopPropagation()
+
+      const root = store.get(layoutAtom)
+      const sp = findSplit(root, seg.splitId)
+      const a = sp?.children[seg.index]?.size ?? 0
+      const b = sp?.children[seg.index + 1]?.size ?? 0
+      const totalFlex = a + b
+      if (!(totalFlex > 0) || !(seg.length > 0)) return
+
+      const target = e.currentTarget
+      target.setPointerCapture(e.pointerId)
+      const startPx = seg.axis === 'x' ? e.clientX : e.clientY
+      const min = Math.min(0.15, totalFlex / 4)
+
+      const onMove = (ev: PointerEvent) => {
+        const delta = (seg.axis === 'x' ? ev.clientX : ev.clientY) - startPx
+        const na = clamp(a + (delta / seg.length) * totalFlex, min, totalFlex - min)
+        setLayout((layout) =>
+          layout
+            ? updateSplitAt(layout, seg.splitId, (children) =>
+                children.map((c, i) =>
+                  i === seg.index ? { ...c, size: na } : i === seg.index + 1 ? { ...c, size: totalFlex - na } : c,
+                ),
+              )
+            : layout,
+        )
+      }
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    },
+    [store, setLayout],
+  )
+
   return (
-    <div className="flex h-full w-full items-center justify-center">
-      {layout ? (
-        <TilingNode node={layout} />
-      ) : (
-        <button
-          type="button"
-          onClick={() => split('horizontal')}
-          className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
-        >
-          + New tile
-        </button>
+    <div ref={viewportRef} className="relative h-full w-full overflow-hidden">
+      {!layout && (
+        <div className="flex h-full w-full items-center justify-center">
+          <button
+            type="button"
+            onClick={() => split('horizontal')}
+            className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
+          >
+            + New tile
+          </button>
+        </div>
       )}
+      {panes.map(({ id, x, y, w, h }) => (
+        <div
+          key={id}
+          className={`absolute overflow-hidden rounded-[6px] shadow-[0_8px_32px_rgb(0_0_0/0.25)] ring-1 ring-inset ${
+            focused === id ? 'ring-sky-400/90' : 'ring-white/15'
+          }`}
+          style={{ left: x, top: y, width: w, height: h }}
+          onMouseDown={() => setFocused(id)}
+        >
+          <iframe src="/term" title={`terminal-${id}`} data-pane={id} className="h-full w-full border-0 bg-transparent" />
+        </div>
+      ))}
+      {dividers.map((seg) => (
+        <div
+          key={`${seg.splitId}-${seg.index}`}
+          className="absolute z-10 bg-white/5 hover:bg-sky-400/60 active:bg-sky-400"
+          style={{
+            left: seg.rect.x,
+            top: seg.rect.y,
+            width: seg.rect.w,
+            height: seg.rect.h,
+            cursor: seg.axis === 'x' ? 'col-resize' : 'row-resize',
+          }}
+          onPointerDown={(e) => startDividerDrag(e, seg)}
+        />
+      ))}
     </div>
   )
 }

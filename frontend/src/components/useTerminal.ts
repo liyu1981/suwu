@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal, type ITerminalOptions } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -8,6 +8,9 @@ import { WebglAddon } from '@xterm/addon-webgl'
  * prefers the accelerated WebGL renderer (transparently falling back to the
  * built-in renderer when no GL context is available), and keeps the grid
  * fitted to the container size via a ResizeObserver.
+ *
+ * Returns setFontSize(size) to change the terminal font at runtime (the fit
+ * addon re-measures the grid for the new glyph size).
  */
 export function useTerminal(
   options: ITerminalOptions,
@@ -15,12 +18,16 @@ export function useTerminal(
 ) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [term, setTerm] = useState<Terminal | null>(null)
+  const termRef = useRef<Terminal | null>(null)
+  const fitRef = useRef<FitAddon | null>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
 
     const t = new Terminal(options)
+    termRef.current = t
     const fit = new FitAddon()
+    fitRef.current = fit
     t.loadAddon(fit)
     t.open(containerRef.current)
     // xterm 6 has no cols/rows options; set them explicitly before fitting so
@@ -64,6 +71,15 @@ export function useTerminal(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return { containerRef, term }
+  // Runtime font change: update the option, then re-fit the grid since the
+  // container box is unchanged but glyph metrics are not.
+  const setFontSize = useCallback((size: number) => {
+    const t = termRef.current
+    if (!t || t.options.fontSize === size) return
+    t.options.fontSize = size
+    fitRef.current?.fit()
+  }, [])
+
+  return { containerRef, term, setFontSize }
 }
 

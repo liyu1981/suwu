@@ -1,14 +1,17 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, Outlet, useLocation } from '@tanstack/react-router'
-import { useAtomValue, useStore } from 'jotai'
+import { useAtomValue, useAtom, useStore } from 'jotai'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { AmbientBackground } from '../components/AmbientBackground'
+import SettingsDialog from '../components/SettingsDialog'
 import { focusedIdAtom, layoutAtom } from '../wm/atoms'
+import { FONT_MIN, FONT_MAX, clampFont, fontDefaultAtom, fontSizeAtom } from '../store/fonts'
 import {
   closeAt,
   createLeaf,
@@ -74,6 +77,9 @@ export default function AppShell() {
   const store = useStore()
   const layout = useAtomValue(layoutAtom)
   const paneCount = leaves(layout).length
+  const [fontSize, setFontSize] = useAtom(fontSizeAtom)
+  const defaultSize = useAtomValue(fontDefaultAtom)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const split = useCallback(
     (dir: Direction, side: SplitSide = 'after') => {
@@ -129,6 +135,29 @@ export default function AppShell() {
                     Colors
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={fontSize >= FONT_MAX}
+                  onSelect={() => setFontSize(clampFont(fontSize + 1))}
+                >
+                  Increase font size
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={fontSize <= FONT_MIN}
+                  onSelect={() => setFontSize(clampFont(fontSize - 1))}
+                >
+                  Decrease font size
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={fontSize === defaultSize}
+                  onSelect={() => setFontSize(defaultSize)}
+                >
+                  Reset font ({defaultSize}px)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+                  Settings…
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -169,6 +198,7 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   )
 }

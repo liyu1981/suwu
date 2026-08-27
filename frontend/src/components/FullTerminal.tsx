@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useAtomValue } from 'jotai'
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
+import { fontSizeAtom } from '../store/fonts'
 import { wmAction } from '../wm/shortcuts'
 import { useTerminal } from './useTerminal'
 import { usePtySession } from './usePtySession'
@@ -20,11 +21,13 @@ const STATUS_DOT = {
 export default function FullTerminal() {
   const status = useAtomValue(connectionStatusAtom)
   const message = useAtomValue(connectionMessageAtom)
+  const fontSize = useAtomValue(fontSizeAtom)
 
-  const { containerRef, term } = useTerminal(
+  const { containerRef, term, setFontSize } = useTerminal(
     {
       cursorBlink: true,
-      fontSize: 14,
+      // Only consumed on mount; live changes flow through setFontSize below.
+      fontSize,
       fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
       scrollback: 5000,
       theme: { background: '#1e1e1e', foreground: '#d4d4d4', cursor: '#d4d4d4' },
@@ -33,6 +36,12 @@ export default function FullTerminal() {
   )
   usePtySession(term)
   useTermCopy(term)
+
+  // Track the shared font-size setting (parent page edits it; panes receive
+  // the change via storage events).
+  useEffect(() => {
+    setFontSize(fontSize)
+  }, [fontSize, setFontSize])
 
   // Relay window-manager shortcuts to the parent page, and stop them from
   // reaching the shell (these keys are chosen to be harmless to readline).
@@ -51,7 +60,7 @@ export default function FullTerminal() {
   return (
     <div className="relative h-screen w-screen overflow-hidden rounded-[6px] bg-[#1e1e1e]/80 p-2">
       <div ref={containerRef} className="terminal-canvas h-full w-full" />
-      <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1.5 rounded-md bg-black/40 px-2 py-1 text-[10px] text-white/70" tooltip={message}>
+      <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1.5 rounded-md bg-black/40 px-2 py-1 text-[10px] text-white/70" title={message}>
         <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
       </div>
     </div>

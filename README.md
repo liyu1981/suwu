@@ -58,7 +58,7 @@ Or build and run manually:
 ```sh
 pnpm build:web        # vite build -> pkg/assets/web (embedded via go:embed)
 pnpm build            # go build -o suwu ./cmd/Suwu
-./suwu                # production: http://127.0.0.1:8080
+./suwu serve          # production: http://127.0.0.1:8080
 ```
 
 The web assets are always embedded in the binary — a single `suwu` binary is
@@ -71,10 +71,37 @@ precedence over `.env`.
 
 | Variable                | Default            | Description                                                        |
 | ----------------------- | ------------------ | ------------------------------------------------------------------ |
+| `SUWU_DEV`              | `false`            | Dev mode: air hot-reload defaults (port 8000, dev banner in `serve`). |
 | `HOST`                  | `127.0.0.1`        | Bind address. `0.0.0.0` exposes on all interfaces.                 |
-| `PORT`                  | `8080` (`8000` dev) | HTTP/WebSocket port.                                               |
+| `PORT`                  | `8080`             | HTTP/WebSocket port.                                               |
 | `DEMO_PORT`             | `8000`             | Port the Vite dev server proxies `/api` and `/ws` to.               |
-| `GHOSTTY_ALLOWED_HOSTS` | —                  | Extra browser-visible hostnames allowed through auth (comma-separated). Required when binding to a non-loopback address. |
+| `TLS_CERT_FILE`         | —                  | TLS certificate (enables `https://`). `suwu gencerts` writes both paths into `~/.config/suwu/.env`. |
+| `TLS_KEY_FILE`          | —                  | TLS private key. Must be set together with `TLS_CERT_FILE`.        |
+
+Browser-visible hostnames need no configuration: loopback names plus the
+machine's own hostname and interface addresses are always accepted, so the
+terminal works via `localhost`, the LAN IP, or the hostname out of the box.
+
+### Configuration locations
+
+`suwu serve` loads, in order of precedence: shell environment → `./.env`
+(project) → `~/.config/suwu/.env` (user-global, created by `suwu gencerts`).
+
+## HTTPS certificates
+
+Browsers only expose clipboard APIs (terminal paste) on secure contexts, so
+non-localhost HTTP access cannot paste into the terminal. To enable HTTPS:
+
+```sh
+suwu gencerts        # interactive: pick hosts (auto-detected) and output dir
+suwu serve           # now serves https://, certs picked up automatically
+```
+
+`gencerts` creates a persistent local CA under `~/.config/suwu/CA/` and signs
+a server certificate for the hosts you select (default
+`~/.config/suwu/tls-cert.pem` + `tls-key.pem`). Client devices only need to
+trust the CA once (`~/.config/suwu/CA/rootCA.pem`). Flags allow non-interactive
+use: `--hosts a.com,192.168.0.5 --out <dir> --no-env --force`.
 
 ## Development
 
@@ -162,6 +189,8 @@ The menu (☰) also exposes splits, settings, shortcuts, and about screens.
 
 - Suwu grants **shell access** to anyone who can reach the server and obtain
   the per-run token. It is designed for local development.
-- Cross-origin WebSocket connections are rejected; binding to a wildcard or
-  non-loopback address additionally requires `GHOSTTY_ALLOWED_HOSTS`.
+- Cross-origin WebSocket connections are rejected; browser-visible hosts are
+  limited to loopback and the machine's own hostname/interface addresses.
+- Binding beyond loopback exposes the shell to everyone who can reach the
+  machine's network.
 - Only run Suwu on networks and machines you trust.

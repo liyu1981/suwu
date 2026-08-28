@@ -9,9 +9,9 @@ tmp_dir = "tmp"
 
 [build]
 # Order matters: the web tree must be fresh before `go build` embeds it.
-cmd = "pnpm build:web && go build -o ./tmp/suwu ./cmd/Suwu"
+cmd = "pnpm build:web && go build -ldflags \"-s -w -X suwu/pkg/version.Version=$(node -p 'require(\"./package.json\").version')\" -o ./tmp/suwu ./cmd/Suwu"
 bin = "./tmp/suwu"
-args_bin = ["--dev"]
+args_bin = ["serve", "--env-file", ".env"]
 include_ext = ["go", "ts", "tsx", "css", "html", "mod", "sum"]
 exclude_dir = [
   "tmp",

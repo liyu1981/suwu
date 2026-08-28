@@ -51,6 +51,29 @@ func TestLoopbackWildcard(t *testing.T) {
 	}
 }
 
+func TestCreateConfigAllowsLocalMachineHosts(t *testing.T) {
+	t.Setenv("HOST", "0.0.0.0")
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Every detected name of this machine must be accepted as a
+	// browser-visible host, without any extra configuration.
+	for _, h := range localMachineHosts() {
+		normalized := normalizeHostname(h)
+		if normalized == "" {
+			continue
+		}
+		if !contains(cfg.AllowedHosts, normalized) {
+			t.Errorf("local host %q missing from allowed hosts %v", normalized, cfg.AllowedHosts)
+		}
+	}
+	if !contains(cfg.AllowedHosts, "localhost") {
+		t.Errorf("localhost missing from allowed hosts %v", cfg.AllowedHosts)
+	}
+}
+
 func TestValidateWebSocketRequest(t *testing.T) {
 	cfg := &Config{Token: "secret", AllowedHosts: []string{"localhost", "127.0.0.1"}}
 

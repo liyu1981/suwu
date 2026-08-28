@@ -8,7 +8,10 @@
 #   1. shell environment HOST/PORT (always win — the binary loads .env only
 #      for variables not already set)
 #   2. ./.env (first occurrence of a key wins, like envfile.Load)
-#   3. dev defaults: 127.0.0.1:8000 (air runs the server with --dev)
+#   3. ~/.config/suwu/.env (user-global, fills keys the project .env unset)
+#   4. dev defaults: 127.0.0.1:8000 (air runs the server with --dev)
+# TLS scheme mirrors resolveTLS: TLS_CERT_FILE/TLS_KEY_FILE from the env
+# chain, else the default pair `suwu gencerts` writes into ~/.config/suwu/.
 # RESOLVED_HOST/RESOLVED_PORT and DEMO_HOST/DEMO_PORT are exported for child
 # processes (e.g. vite.config.ts proxies to DEMO_PORT).
 set -euo pipefail
@@ -22,16 +25,31 @@ VAR=./var
 LOG="$VAR/suwu.log"
 PID="$VAR/suwu.pid"
 
-# Print the value of KEY from ./.env (first occurrence, quotes stripped), or
+# User-global config dir (mirror of certs.DefaultDir in cmd/Suwu).
+GLOBAL_CFG="${SUWU_CONFIG_DIR:-$HOME/.config/suwu}"
+
+# Print the value of KEY from FILE (first occurrence, quotes stripped), or
 # nothing when the file/key is missing. Mirrors envfile.Load parsing.
-env_file_value() {
-  local key="$1" line
-  [[ -f .env ]] || return 0
-  line=$(grep -E "^[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=" .env 2>/dev/null | head -n 1) || return 0
+env_file_value_from() {
+  local file="$1" key="$2" line
+  [[ -f "$file" ]] || return 0
+  line=$(grep -E "^[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=" "$file" 2>/dev/null | head -n 1) || return 0
   line=${line#*=}
   line="${line#\"}"; line="${line%\"}"
   line="${line#\'}"; line="${line%\'}"
   printf '%s' "$line"
+}
+
+# Effective file value: project ./.env wins, then the user-global
+# ~/.config/suwu/.env — same chain the server binary loads.
+env_file_value() {
+  local key="$1" v
+  v=$(env_file_value_from .env "$key")
+  if [[ -n "$v" ]]; then
+    printf '%s' "$v"
+    return 0
+  fi
+  env_file_value_from "$GLOBAL_CFG/.env" "$key"
 }
 
 # Effective host: shell env beats .env, then the dev default.
@@ -51,9 +69,15 @@ else
   RESOLVED_PORT="${RESOLVED_PORT:-8000}"
 fi
 
-# Scheme mirrors the server's TLS_CERT_FILE/TLS_KEY_FILE handling.
+# Scheme mirrors the server's resolveTLS: env chain first, then the default
+# pair `suwu gencerts` writes into the global config dir.
 TLS_CERT_FILE="${TLS_CERT_FILE:-$(env_file_value TLS_CERT_FILE)}"
 TLS_KEY_FILE="${TLS_KEY_FILE:-$(env_file_value TLS_KEY_FILE)}"
+if [[ -z "$TLS_CERT_FILE" && -z "$TLS_KEY_FILE" ]] \
+   && [[ -f "$GLOBAL_CFG/tls-cert.pem" && -f "$GLOBAL_CFG/tls-key.pem" ]]; then
+  TLS_CERT_FILE="$GLOBAL_CFG/tls-cert.pem"
+  TLS_KEY_FILE="$GLOBAL_CFG/tls-key.pem"
+fi
 SCHEME=https
 [[ -z "$TLS_CERT_FILE" || -z "$TLS_KEY_FILE" ]] && SCHEME=http
 
@@ -75,7 +99,7 @@ url() { printf '%s://%s:%s%s' "$SCHEME" "$DISPLAY_HOST" "$RESOLVED_PORT" "$BIND_
 # group (pnpm -> air) and then sweeps the server binary: air starts its child
 # in a separate session, so it survives a plain group kill.
 ROOT="$(pwd)"
-SERVER_RE="^(/bin/sh -c )?${ROOT}/tmp/suwu( --dev)?$"
+SERVER_RE="^(/bin/sh -c )?${ROOT}/tmp/suwu( serve)?$"
 
 stray_server_pids() { pgrep -f "$ROOT/tmp/suwu" || true; }
 

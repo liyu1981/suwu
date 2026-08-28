@@ -57,20 +57,6 @@ func GenerateSessionToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
-func parseAllowedHosts(value string) []string {
-	if value == "" {
-		return nil
-	}
-	var out []string
-	for _, h := range strings.Split(value, ",") {
-		h = strings.TrimSpace(h)
-		if h != "" {
-			out = append(out, h)
-		}
-	}
-	return out
-}
-
 // NormalizeHostname lowercases and validates a hostname or IP literal.
 // Returns "" (zero value) if invalid.
 func normalizeHostname(hostname string) string {
@@ -338,12 +324,13 @@ func CreateConfig(env func(string) string) (*Config, error) {
 		return nil, err
 	}
 
+	// The server belongs to the machine it runs on: loopback names plus the
+	// machine's own hostname and interface addresses are always accepted as
+	// browser-visible hosts, so the terminal is reachable via any of the
+	// machine's own names without extra configuration.
 	allowed := append([]string{}, loopbackHosts...)
-	for _, h := range parseAllowedHosts(get("GHOSTTY_ALLOWED_HOSTS")) {
-		allowed, err = addAllowedHost(allowed, h)
-		if err != nil {
-			return nil, err
-		}
+	for _, h := range localMachineHosts() {
+		allowed, _ = addAllowedHost(allowed, h) // invalid auto-detected names are skipped
 	}
 
 	if !IsWildcardBindHost(bindHost) {
@@ -354,6 +341,39 @@ func CreateConfig(env func(string) string) (*Config, error) {
 	}
 
 	return &Config{Token: token, BindHost: bindHost, AllowedHosts: allowed}, nil
+}
+
+// localMachineHosts lists the hostnames and addresses of the machine the
+// server runs on: the OS hostname plus every non-link-local interface
+// address.
+func localMachineHosts() []string {
+	var hosts []string
+	if hostname, err := os.Hostname(); err == nil && hostname != "" {
+		hosts = append(hosts, hostname)
+	}
+	if interfaces, err := net.Interfaces(); err == nil {
+		for _, iface := range interfaces {
+			if iface.Flags&net.FlagUp == 0 {
+				continue
+			}
+			addrs, err := iface.Addrs()
+			if err != nil {
+				continue
+			}
+			for _, addr := range addrs {
+				ipNet, ok := addr.(*net.IPNet)
+				if !ok {
+					continue
+				}
+				ip := ipNet.IP
+				if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+					continue
+				}
+				hosts = append(hosts, ip.String())
+			}
+		}
+	}
+	return hosts
 }
 
 // ValidateTokenRequest validates a /api/token request. Origin is optional.

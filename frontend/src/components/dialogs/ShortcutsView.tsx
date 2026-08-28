@@ -1,5 +1,3 @@
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-
 const kbd =
   'inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/15 bg-white/10 px-1.5 font-mono text-[10px] leading-none text-popover-foreground'
 const rowLabel = 'text-xs text-popover-foreground'
@@ -42,47 +40,46 @@ const navSection = [
   { label: 'Move tile down', keys: [['Alt', '↓']] },
 ]
 
-const metaSection = [{ label: 'Toggle this help', keys: [['Alt', '/']] }]
+const metaSection = [
+  { label: 'Open this list', keys: [['Alt', '⇧', '/']] },
+  { label: 'Open the menu', keys: [['Alt', '/']] },
+]
 
 const sectionTitle = 'mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'
 const sectionBox = 'mt-1 divide-y divide-white/5'
 
 /**
- * Keyboard-shortcuts help for the tiling workspace. Opened with Alt+/ from
- * anywhere on the tiling page (parent window or a focused terminal pane) or
- * from the app menu; state lives in shortcutsOpenAtom so both entry points
- * share it.
+ * Keyboard-shortcuts help screen of the unified Suwu menu dialog. Opened with
+ * Alt+/ from anywhere (parent window or a focused terminal pane) or from the
+ * menu list; bindings apply to the focused tile.
  */
-export default function ShortcutsDialog(props: React.ComponentProps<typeof Dialog>) {
+export default function ShortcutsView() {
   return (
-    <Dialog {...props}>
-      <DialogContent aria-describedby={undefined} className="w-[min(92vw,22rem)]">
-        <DialogTitle>Keyboard shortcuts</DialogTitle>
-        <DialogDescription>
-          Work on any tile from the keyboard; actions apply to the focused tile.
-        </DialogDescription>
+    <>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Work on any tile from the keyboard; actions apply to the focused tile.
+      </p>
 
-        <div className={sectionTitle}>Tiles</div>
-        <div className={sectionBox}>
-          {tileSection.map((r) => (
-            <Row key={r.label} {...r} />
-          ))}
-        </div>
+      <div className={sectionTitle}>Tiles</div>
+      <div className={sectionBox}>
+        {tileSection.map((r) => (
+          <Row key={r.label} {...r} />
+        ))}
+      </div>
 
-        <div className={sectionTitle}>Focus &amp; movement</div>
-        <div className={sectionBox}>
-          {navSection.map((r) => (
-            <Row key={r.label} {...r} />
-          ))}
-        </div>
+      <div className={sectionTitle}>Focus &amp; movement</div>
+      <div className={sectionBox}>
+        {navSection.map((r) => (
+          <Row key={r.label} {...r} />
+        ))}
+      </div>
 
-        <div className={sectionTitle}>Help</div>
-        <div className={sectionBox}>
-          {metaSection.map((r) => (
-            <Row key={r.label} {...r} />
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
+      <div className={sectionTitle}>Help</div>
+      <div className={sectionBox}>
+        {metaSection.map((r) => (
+          <Row key={r.label} {...r} />
+        ))}
+      </div>
+    </>
   )
 }

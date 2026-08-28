@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
-import { focusedIdAtom, layoutAtom, shortcutsOpenAtom } from './atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from './atoms'
 import { FONT_MAX, FONT_MIN, clampFont, fontDefaultAtom, fontSizeAtom } from '../store/fonts'
 import {
   clamp,
@@ -28,7 +28,8 @@ function action(
     close: () => void
     focusOffset: (o: number) => void
     moveFocused: (d: MoveDir) => void
-    openHelp: () => void
+    openMenu: () => void
+    openShortcuts: () => void
   },
 ) {
   switch (name) {
@@ -59,8 +60,11 @@ function action(
     case 'move-down':
       h.moveFocused('down')
       break
-    case 'help':
-      h.openHelp()
+    case 'menu':
+      h.openMenu()
+      break
+    case 'shortcuts':
+      h.openShortcuts()
       break
   }
 }
@@ -242,7 +246,16 @@ export default function TilingWM() {
     [store, move],
   )
 
-  const openHelp = useCallback(() => store.set(shortcutsOpenAtom, true), [store])
+  // Alt+/ opens the unified Suwu dialog at the root menu; Alt+Shift+/
+  // jumps straight to the keyboard-shortcuts screen.
+  const openMenu = useCallback(() => {
+    store.set(menuViewAtom, 'menu')
+    store.set(menuOpenAtom, true)
+  }, [store])
+  const openShortcuts = useCallback(() => {
+    store.set(menuViewAtom, 'shortcuts')
+    store.set(menuOpenAtom, true)
+  }, [store])
 
   // Shared terminal font size: the hover tools adjust the global size so
   // every pane picks it up (same atoms the Settings dialog writes).
@@ -263,11 +276,11 @@ export default function TilingWM() {
       const a = wmAction(e)
       if (!a) return
       e.preventDefault()
-      action(a, { split, close, focusOffset, moveFocused, openHelp })
+      action(a, { split, close, focusOffset, moveFocused, openMenu, openShortcuts })
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [split, close, focusOffset, moveFocused, openHelp])
+  }, [split, close, focusOffset, moveFocused, openMenu, openShortcuts])
 
   // Focus changes reported by a pane iframe (its own window focus event is
   // reliable, unlike parent-side focusin between two iframes).
@@ -280,11 +293,11 @@ export default function TilingWM() {
       }
       const a = d?.type === 'wm-shortcut' ? d.action : undefined
       if (!a) return
-      action(a, { split, close, focusOffset, moveFocused, openHelp })
+      action(a, { split, close, focusOffset, moveFocused, openMenu, openShortcuts })
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [store, split, close, focusOffset, moveFocused, openHelp])
+  }, [store, split, close, focusOffset, moveFocused, openMenu, openShortcuts])
 
   // Detect clicks into an iframe: the parent's document.activeElement becomes
   // the focused <iframe>, so we can track which pane is focused.

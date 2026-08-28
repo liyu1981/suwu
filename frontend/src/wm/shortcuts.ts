@@ -8,7 +8,8 @@ export type WmAction =
   | 'move-right'
   | 'move-up'
   | 'move-down'
-  | 'help'
+  | 'menu'
+  | 'shortcuts'
 
 /**
  * Maps a keydown event to a window-manager action, or null.
@@ -39,7 +40,8 @@ export function wmAction(e: KeyboardEvent): WmAction | null {
     case 'ArrowDown':
       return 'move-down'
     case '/':
-      return 'help'
+    case '?': // Shift+/ produces '?' on most layouts
+      return e.shiftKey ? 'shortcuts' : 'menu'
     default:
       return null
   }

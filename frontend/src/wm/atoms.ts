@@ -8,8 +8,15 @@ export const layoutAtom = atomWithStorage<LayoutNode | null>('tiling-layout', cr
 /** The id of the currently focused terminal leaf. */
 export const focusedIdAtom = atom('')
 
-/** Whether the keyboard-shortcuts help dialog is open. */
-export const shortcutsOpenAtom = atom(false)
+/** Which screen the unified Suwu menu dialog is showing. */
+export type MenuView = 'menu' | 'shortcuts' | 'settings' | 'about'
 
-/** Whether the About dialog is open. */
-export const aboutOpenAtom = atom(false)
+/**
+ * Whether the unified Suwu menu dialog is open. Owns the burger menu, the
+ * keyboard-shortcuts help, settings, and about screens so all entry points
+ * share a single dialog.
+ */
+export const menuOpenAtom = atom(false)
+
+/** The currently visible screen inside the unified menu dialog. */
+export const menuViewAtom = atom<MenuView>('menu')

@@ -1,0 +1,51 @@
+<svg xmlns="http://w3.org" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Updated Background: Grey to Blue Smooth Gradient -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/> <!-- Slate Grey -->
+      <stop offset="50%" stop-color="#1E293B"/> <!-- Deep Slate Blue -->
+      <stop offset="100%" stop-color="#0F172A"/> <!-- Dark Navy Blue -->
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded background cloak -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+
+  <!-- Main Composition (Centered horizontally after sheep removal) -->
+  <g transform="translate(65, 15)">
+    
+    <!-- 1. THE STAFF (汉节) - Central anchor with imperial Red Tassels -->
+    <g id="staff">
+      <!-- Top Ornament/Tassels - High-Contrast Imperial Vermilion Red -->
+      <polygon points="215,70 245,70 260,110 230,130 200,100" fill="#DC2626"/>
+      <polygon points="230,130 255,145 240,180 215,160" fill="#B91C1C"/>
+      <polygon points="215,160 240,175 230,210 205,190" fill="#991B1B"/>
+      <!-- Shaft -->
+      <polygon points="215,70 230,70 230,440 215,440" fill="#FBBF24"/>
+      <polygon points="230,70 240,70 240,440 230,440" fill="#D97706"/>
+    </g>
+
+    <!-- 2. SU WU (The Elder) - Left Side -->
+    <g id="elder">
+      <!-- Head/Hair Front -->
+      <polygon points="150,110 180,120 170,150 140,140" fill="#F3F4F6"/>
+      <!-- Head Back/Hood -->
+      <polygon points="120,130 150,110 140,140 115,155" fill="#E5E7EB"/>
+      <!-- Face Area -->
+      <polygon points="150,140 170,150 160,170 145,165" fill="#D1D5DB"/>
+      <!-- Long Beard -->
+      <polygon points="145,165 160,170 165,220 145,250 135,190" fill="#F9FAFB"/>
+      <polygon points="160,170 175,185 165,220" fill="#E5E7EB"/>
+      <!-- Cloak / Upper Body -->
+      <polygon points="115,155 140,140 150,185 110,210" fill="#94A3B8"/>
+      <polygon points="140,140 165,165 185,210 150,185" fill="#64748B"/>
+      <!-- Arm reaching to staff -->
+      <polygon points="150,185 185,210 215,225 215,240 170,225" fill="#475569"/>
+      <!-- Lower Body / Robe -->
+      <polygon points="110,210 150,185 170,225 155,320 95,310" fill="#475569"/>
+      <polygon points="95,310 155,320 175,440 85,440" fill="#334155"/>
+      <polygon points="155,320 170,225 215,240 175,440" fill="#1E293B"/>
+    </g>
+
+  </g>
+</svg>

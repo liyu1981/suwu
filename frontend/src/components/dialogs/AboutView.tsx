@@ -18,9 +18,7 @@ export default function AboutView() {
   return (
     <>
       <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 place-items-center rounded-[6px] border border-white/10 bg-white/5 text-xl">
-          🚀
-        </span>
+        <img src="/logo.svg" alt="Suwu logo" className="h-10 w-10 rounded-[6px]" />
         <div className="text-sm font-semibold tracking-tight text-popover-foreground">
           Suwu · v{__SUWU_VERSION__}
         </div>

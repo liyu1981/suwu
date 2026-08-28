@@ -18,7 +18,7 @@ export type LayoutNode = { type: 'leaf'; id: string } | SplitNode
 
 let counter = 0
 
-export function newId(): string {
+function newId(): string {
   counter = (counter + 1) % 1e9
   return `n${Date.now().toString(36)}${counter.toString(36)}`
 }
@@ -82,6 +82,30 @@ export function leaves(node: LayoutNode | null): string[] {
   if (!node) return []
   if (node.type === 'leaf') return [node.id]
   return node.children.flatMap((c) => leaves(c.node))
+}
+
+/**
+ * Split the focused leaf (or the first leaf when none/focused is gone) and
+ * return the new tree plus the leaf id to focus (the newly created one).
+ * An empty tree yields a single new leaf. Shared by the header split buttons
+ * and the keyboard/hover split actions.
+ */
+export function splitAndFocus(
+  root: LayoutNode | null,
+  focusedId: string,
+  direction: Direction,
+  side: SplitSide = 'after',
+): { next: LayoutNode; focus: string } {
+  if (!root) {
+    const leaf = createLeaf()
+    return { next: leaf, focus: leaf.id }
+  }
+  const ids = leaves(root)
+  const target = focusedId && ids.includes(focusedId) ? focusedId : ids[0]
+  if (!target) return { next: root, focus: focusedId }
+  const next = splitAt(root, target, direction, side)
+  const others = leaves(next).filter((id) => id !== target)
+  return { next, focus: others[others.length - 1] ?? target }
 }
 
 /** Focus a sibling of `currentId`, wrapping around; -1 / +1 offset. */
@@ -170,10 +194,6 @@ export function updateSplitAt(
   if (root.type === 'leaf') return root
   if (root.id === splitId) return { ...root, children: fn(root.children) }
   return { ...root, children: root.children.map((c) => ({ ...c, node: updateSplitAt(c.node, splitId, fn) })) }
-}
-
-export function clamp(v: number, lo: number, hi: number): number {
-  return Math.min(Math.max(v, lo), hi)
 }
 
 /** Width of the draggable strip between two siblings, in px. */

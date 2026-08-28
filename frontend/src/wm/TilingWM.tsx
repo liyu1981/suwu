@@ -1,143 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from './atoms'
-import { FONT_MAX, FONT_MIN, clampFont, fontDefaultAtom, fontSizeAtom } from '../store/fonts'
+import { fontDefaultAtom } from '../store/fonts'
+import { clamp } from '../lib/utils'
 import {
-  clamp,
   closeAt,
   computeTiling,
-  createLeaf,
   findNeighborRect,
   findSplit,
   focusByOffset,
   leaves,
-  splitAt,
+  splitAndFocus,
   swapLeaves,
   updateSplitAt,
   type Direction,
   type DividerSpec,
   type MoveDir,
-  type Rect,
 } from './layout'
-import { wmAction, type WmAction } from './shortcuts'
-
-function action(
-  name: WmAction,
-  h: {
-    split: (d: Direction) => void
-    close: () => void
-    focusOffset: (o: number) => void
-    moveFocused: (d: MoveDir) => void
-    openMenu: () => void
-    openShortcuts: () => void
-  },
-) {
-  switch (name) {
-    case 'split-right':
-      h.split('horizontal')
-      break
-    case 'split-below':
-      h.split('vertical')
-      break
-    case 'close':
-      h.close()
-      break
-    case 'focus-next':
-      h.focusOffset(1)
-      break
-    case 'focus-prev':
-      h.focusOffset(-1)
-      break
-    case 'move-left':
-      h.moveFocused('left')
-      break
-    case 'move-right':
-      h.moveFocused('right')
-      break
-    case 'move-up':
-      h.moveFocused('up')
-      break
-    case 'move-down':
-      h.moveFocused('down')
-      break
-    case 'menu':
-      h.openMenu()
-      break
-    case 'shortcuts':
-      h.openShortcuts()
-      break
-  }
-}
-
-function ChevronIcon({ dir }: { dir: MoveDir }) {
-  const d =
-    dir === 'left'
-      ? 'M15 6l-6 6 6 6'
-      : dir === 'right'
-        ? 'M9 6l6 6-6 6'
-        : dir === 'up'
-          ? 'M6 15l6-6 6 6'
-          : 'M6 9l6 6 6-6'
-  return (
-    <svg
-      className="h-3 w-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={d} />
-    </svg>
-  )
-}
-
-const MOVE_DIRS: MoveDir[] = ['left', 'right', 'up', 'down']
-const ARROW_KEY: Record<MoveDir, string> = { left: '←', right: '→', up: '↑', down: '↓' }
-
-const moveBtn =
-  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300'
-
-const fontLabel = 'text-[9px] font-semibold leading-none'
-
-function ResetFontSizeIcon() {
-  return (
-    <svg
-      className="h-3 w-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-      <path d="M3 3v5h5" />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      className="h-3 w-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    >
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  )
-}
-
-const closeBtn =
-  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-rose-500/20 hover:text-rose-300'
-
-/** A vanished tile rendered at its last rect while it fades out. */
-type PaneGhost = { key: string; rect: Rect }
+import { applyWmAction, wmAction } from './shortcuts'
+import { TileTools } from './TileTools'
+import { usePaneGhosts } from './usePaneGhosts'
 
 /**
  * A tiling window-manager-style page: a tree of terminal panes rendered as
@@ -157,23 +39,12 @@ export default function TilingWM() {
   const setFocused = useSetAtom(focusedIdAtom)
   const setLayout = useSetAtom(layoutAtom)
 
+  // Split the focused tile (or create the first one on an empty layout).
   const split = useCallback(
     (dir: Direction) => {
-      const cur = store.get(layoutAtom)
-      // Empty layout: create first tile
-      if (!cur) {
-        const leaf = createLeaf()
-        store.set(layoutAtom, leaf)
-        store.set(focusedIdAtom, leaf.id)
-        return
-      }
-      const f = store.get(focusedIdAtom)
-      const target = f && leaves(cur).includes(f) ? f : leaves(cur)[0]
-      if (!target) return
-      const next = splitAt(cur, target, dir)
+      const { next, focus } = splitAndFocus(store.get(layoutAtom), store.get(focusedIdAtom), dir)
       store.set(layoutAtom, next)
-      const ids = leaves(next).filter((id) => id !== target)
-      store.set(focusedIdAtom, ids[ids.length - 1] ?? target)
+      store.set(focusedIdAtom, focus)
     },
     [store],
   )
@@ -257,11 +128,7 @@ export default function TilingWM() {
     store.set(menuOpenAtom, true)
   }, [store])
 
-  // Shared terminal font size: the hover tools adjust the global size so
-  // every pane picks it up (same atoms the Settings dialog writes).
-  const fontSize = useAtomValue(fontSizeAtom)
   const fontDefault = useAtomValue(fontDefaultAtom)
-  const setFontSize = useSetAtom(fontSizeAtom)
 
   // Keep a valid focused leaf (initial state, after close, after storage load).
   useEffect(() => {
@@ -270,34 +137,39 @@ export default function TilingWM() {
     if (!focused || !ids.includes(focused)) setFocused(ids[0])
   }, [layout, focused, setFocused])
 
+  const wmHandlers = useMemo(
+    () => ({ split, close, focusOffset, moveFocused, openMenu, openShortcuts }),
+    [split, close, focusOffset, moveFocused, openMenu, openShortcuts],
+  )
+
   // Keyboard shortcuts when the parent window itself has focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const a = wmAction(e)
       if (!a) return
       e.preventDefault()
-      action(a, { split, close, focusOffset, moveFocused, openMenu, openShortcuts })
+      applyWmAction(a, wmHandlers)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [split, close, focusOffset, moveFocused, openMenu, openShortcuts])
+  }, [wmHandlers])
 
   // Focus changes reported by a pane iframe (its own window focus event is
   // reliable, unlike parent-side focusin between two iframes).
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const d = e.data as { type?: string; pane?: unknown; action?: WmAction } | undefined
+      const d = e.data as { type?: string; pane?: unknown; action?: ReturnType<typeof wmAction> } | undefined
       if (d?.type === 'pane-focus') {
         if (typeof d.pane === 'string') store.set(focusedIdAtom, d.pane)
         return
       }
       const a = d?.type === 'wm-shortcut' ? d.action : undefined
       if (!a) return
-      action(a, { split, close, focusOffset, moveFocused, openMenu, openShortcuts })
+      applyWmAction(a, wmHandlers)
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [store, split, close, focusOffset, moveFocused, openMenu, openShortcuts])
+  }, [store, wmHandlers])
 
   // Detect clicks into an iframe: the parent's document.activeElement becomes
   // the focused <iframe>, so we can track which pane is focused.
@@ -325,19 +197,8 @@ export default function TilingWM() {
     [panes],
   )
 
-  // When tiles vanish (close), render ghosts at their last rects that fade
-  // out; React unmounts instantly, so the ghost is what animates the exit.
-  const prevRectsRef = useRef(new Map<string, Rect>())
-  const [ghosts, setGhosts] = useState<PaneGhost[]>([])
-  useEffect(() => {
-    const cur = new Map(panes.map((p) => [p.id, { x: p.x, y: p.y, w: p.w, h: p.h }]))
-    const vanished: PaneGhost[] = []
-    for (const [id, rect] of prevRectsRef.current) {
-      if (!cur.has(id)) vanished.push({ key: `${id}-${Date.now()}-${Math.random()}`, rect })
-    }
-    prevRectsRef.current = cur
-    if (vanished.length > 0) setGhosts((all) => [...all, ...vanished])
-  }, [panes])
+  // Ghosts of just-closed tiles, fading out underneath the live panes.
+  const { ghosts, removeGhost } = usePaneGhosts(panes)
 
   const startDividerDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>, seg: DividerSpec) => {
@@ -386,13 +247,12 @@ export default function TilingWM() {
 
   return (
     <div ref={viewportRef} className={`relative h-full w-full overflow-hidden ${dragging ? 'wm-dragging' : ''}`}>
-      {/* Ghosts of just-closed tiles, fading out underneath the live panes. */}
       {ghosts.map((g) => (
         <div
           key={g.key}
           className="pane-out absolute rounded-[6px] border border-white/5 bg-black/20 shadow-[0_8px_32px_rgb(0_0_0/0.25)]"
           style={{ left: g.rect.x, top: g.rect.y, width: g.rect.w, height: g.rect.h }}
-          onAnimationEnd={() => setGhosts((all) => all.filter((x) => x.key !== g.key))}
+          onAnimationEnd={() => removeGhost(g.key)}
         />
       ))}
       {!layout && (
@@ -420,78 +280,7 @@ export default function TilingWM() {
           onMouseDown={() => setFocused(id)}
         >
           <iframe src={`/term?pane=${id}`} title={`terminal-${id}`} data-pane={id} className="h-full w-full border-0 bg-transparent" />
-          {/* Tile tools: revealed only while the cursor is near the top-right
-              corner — the invisible zone (w-56 × h-12) is the hover target,
-              so hovering elsewhere on the tile leaves the terminal untouched.
-              The zone is interactive (it must detect the approach), so clicks
-              in that small corner rect focus the tile without reaching the
-              shell. Buttons disable when no neighbor exists that way;
-              keyboard users have Alt+Arrows and Alt+Q. */}
-          <div className="group/corner absolute right-0 top-0 z-10 h-12 w-56">
-            <div
-              className="pointer-events-none absolute right-1.5 top-1.5 flex gap-0.5 rounded-[6px] glass-control p-0.5 opacity-0 transition-opacity duration-150 group-hover/corner:pointer-events-auto group-hover/corner:opacity-100 motion-reduce:transition-none"
-              role="toolbar"
-              aria-label={`Tile tools ${id}`}
-            >
-            {/* Shared font size controls (global across panes) ... */}
-            <button
-              type="button"
-              disabled={fontSize <= FONT_MIN}
-              onClick={() => setFontSize(clampFont(fontSize - 1))}
-              aria-label="Decrease font size"
-              title="Decrease font size"
-              className={moveBtn}
-            >
-              <span className={fontLabel}>A-</span>
-            </button>
-            <button
-              type="button"
-              disabled={fontSize >= FONT_MAX}
-              onClick={() => setFontSize(clampFont(fontSize + 1))}
-              aria-label="Increase font size"
-              title="Increase font size"
-              className={moveBtn}
-            >
-              <span className={fontLabel}>A+</span>
-            </button>
-            <button
-              type="button"
-              disabled={fontSize === fontDefault}
-              onClick={() => setFontSize(fontDefault)}
-              aria-label="Reset font size"
-              title={`Reset font size (${fontDefault}px)`}
-              className={moveBtn}
-            >
-              <ResetFontSizeIcon />
-            </button>
-            {/* ... then per-tile movement ... */}
-            <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
-            {MOVE_DIRS.map((dir) => (
-              <button
-                key={dir}
-                type="button"
-                disabled={!canMove(id, dir)}
-                onClick={() => move(id, dir)}
-                aria-label={`Move tile ${dir}`}
-                title={`Move tile ${dir} (Alt+${ARROW_KEY[dir]})`}
-                className={moveBtn}
-              >
-                <ChevronIcon dir={dir} />
-              </button>
-            ))}
-            {/* ... and per-tile close. */}
-            <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
-            <button
-              type="button"
-              onClick={() => closeTile(id)}
-              aria-label="Close tile"
-              title="Close tile (Alt+Q closes the focused tile)"
-              className={closeBtn}
-            >
-              <CloseIcon />
-            </button>
-            </div>
-          </div>
+          <TileTools paneId={id} fontDefault={fontDefault} canMove={canMove} move={move} closeTile={closeTile} />
         </div>
       ))}
       {dividers.map((seg) => (

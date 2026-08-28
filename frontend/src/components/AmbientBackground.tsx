@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { clamp } from '../lib/utils'
 
 const HUES = [200, 260, 320, 170, 30, 355]
 
@@ -27,10 +28,6 @@ interface Palette {
 
 const LIGHT: Palette = { sat: 95, light: 74, alpha: 0.45, count: 12 }
 const DARK: Palette = { sat: 95, light: 60, alpha: 0.55, count: 12 }
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
-}
 
 function isDark(): boolean {
   return document.documentElement.classList.contains('dark')

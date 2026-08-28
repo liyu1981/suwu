@@ -5,9 +5,7 @@ import { AmbientBackground } from '../components/AmbientBackground'
 import SuwuDialog from '../components/dialogs/SuwuDialog'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from '../wm/atoms'
 import {
-  createLeaf,
-  leaves,
-  splitAt,
+  splitAndFocus,
   type Direction,
   type SplitSide,
 } from '../wm/layout'
@@ -66,20 +64,9 @@ export default function AppShell() {
 
   const split = useCallback(
     (dir: Direction, side: SplitSide = 'after') => {
-      const cur = store.get(layoutAtom)
-      if (!cur) {
-        const leaf = createLeaf()
-        store.set(layoutAtom, leaf)
-        store.set(focusedIdAtom, leaf.id)
-        return
-      }
-      const f = store.get(focusedIdAtom)
-      const target = f && leaves(cur).includes(f) ? f : leaves(cur)[0]
-      if (!target) return
-      const next = splitAt(cur, target, dir, side)
+      const { next, focus } = splitAndFocus(store.get(layoutAtom), store.get(focusedIdAtom), dir, side)
       store.set(layoutAtom, next)
-      const ids = leaves(next).filter((id) => id !== target)
-      store.set(focusedIdAtom, ids[ids.length - 1] ?? target)
+      store.set(focusedIdAtom, focus)
     },
     [store],
   )

@@ -3,28 +3,19 @@
 
 @theme {
   --color-background: #0f0f11;
-  --color-foreground: #d4d4d8;
-  --color-border: #27272a;
   --color-primary: #0ea5e9;
   --color-ring: #6366f1;
   --color-popover-foreground: #fafafa;
   --color-muted-foreground: #a1a1aa;
 
-  --color-terminal-bg: #1e1e1e;
-  --color-titlebar: #2d2d2d;
-  --color-terminal-fg: #d4d4d4;
   --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, 'Liberation Mono',
     'Courier New', monospace;
 }
 
 :root {
   --background: var(--color-background);
-  --foreground: var(--color-foreground);
-  --border: var(--color-border);
   --primary: var(--color-primary);
   --ring: var(--color-ring);
-  --popover-foreground: var(--color-popover-foreground);
-  --muted-foreground: var(--color-muted-foreground);
 }
 
 html,
@@ -98,20 +89,6 @@ body {
     inset 0 1px 0 color-mix(in oklch, white 22%, transparent);
 }
 
-.apple-panel-dark {
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklch, white 16%, transparent),
-    color-mix(in oklch, white 5%, transparent)
-  );
-  border: 1px solid color-mix(in oklch, white 10%, transparent);
-  backdrop-filter: blur(30px) saturate(200%);
-  -webkit-backdrop-filter: blur(30px) saturate(200%);
-  box-shadow:
-    0 12px 48px rgb(0 0 0 / 0.45),
-    inset 0 1px 0 color-mix(in oklch, white 14%, transparent);
-}
-
 .ambient-bg {
   background-color: var(--background);
   background-image:
@@ -128,13 +105,6 @@ body {
     radial-gradient(130% 90% at 50% 125%, color-mix(in oklch, var(--primary) 18%, transparent) 0%, transparent 60%);
 }
 
-.apple-scrim {
-  background: linear-gradient(
-    transparent,
-    color-mix(in oklch, var(--background) 80%, transparent)
-  );
-}
-
 /* Glass button variant: brightness feedback for physicality */
 .glass-btn {
   transition: filter 0.15s ease;
@@ -147,19 +117,6 @@ body {
 }
 .glass-btn[aria-expanded='true'] {
   filter: brightness(1.10);
-}
-
-/* Interactive surface: grab-off / press-down feel */
-.glass-interactive {
-  transition: filter 0.15s ease, transform 0.2s ease;
-}
-.glass-interactive:hover {
-  filter: brightness(1.04);
-  transform: translateY(-1px);
-}
-.glass-interactive:active {
-  filter: brightness(0.95);
-  transform: scale(0.98);
 }
 
 /* ============================================================================
@@ -317,12 +274,5 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-
-  .glass-interactive:hover {
-    transform: none;
-  }
-  .glass-interactive:active {
-    transform: none;
   }
 }

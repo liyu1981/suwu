@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# serve_suwu.sh — manage the installed Suwu server (release mode).
+# serve_suwu.sh — manage the Suwu server (embedded, executed by 'suwu daemon').
 #
-# Usage: serve_suwu.sh {start|stop|restart|status|logs}
+# Usage: suwu daemon {start|stop|restart|status|logs}
 #
 # Expects the binary at ~/.local/bin/suwu (override with SUWU_BIN).
-# PID and logs live in /var/log/suwu/ (override with SUWU_LOG_DIR).
+# PID and logs live in /var/log (override with SUWU_LOG_DIR).
 # Config resolution: shell env → ~/.config/suwu/.env → defaults.
 set -euo pipefail
 
 CMD="${1:-start}"
 
 BIN="${SUWU_BIN:-$HOME/.local/bin/suwu}"
-LOG_DIR="${SUWU_LOG_DIR:-/var/log/suwu}"
+LOG_DIR="${SUWU_LOG_DIR:-/var/log}"
 LOG="$LOG_DIR/suwu.log"
 PID="$LOG_DIR/suwu.pid"
 MAX_LOG_BYTES="${MAX_LOG_BYTES:-5242880}"
@@ -111,7 +111,7 @@ start() {
   fi
   if [[ ! -d "$LOG_DIR" ]]; then
     echo "error: log directory $LOG_DIR does not exist" >&2
-    echo "hint: create it with 'sudo mkdir -p $LOG_DIR && sudo chown \$(id -u):\$(id -g) $LOG_DIR'" >&2
+    echo "hint: create it with 'mkdir -p $LOG_DIR'" >&2
     exit 1
   fi
 

@@ -1,15 +1,10 @@
 package main
 
 import (
-	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
-
-//go:embed serve_suwu.sh
-var serveScript string
 
 // envExample is the default ~/.config/suwu/.env template written by install.
 // Keep in sync with .env.example at the project root.
@@ -39,30 +34,7 @@ func install() error {
 		return fmt.Errorf("resolve home: %w", err)
 	}
 
-	// 1. ~/.local/bin/ — write serve_suwu.sh
-	binDir := filepath.Join(home, ".local", "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", binDir, err)
-	}
-	script := filepath.Join(binDir, "serve_suwu.sh")
-	if err := os.WriteFile(script, []byte(serveScript), 0o755); err != nil {
-		return fmt.Errorf("write %s: %w", script, err)
-	}
-	fmt.Printf("  ✅ wrote %s\n", script)
-
-	// 2. /var/log/suwu/ — create if missing (best-effort, hint on failure)
-	logDir := "/var/log/suwu"
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
-			fmt.Printf("  ⚠️  %s requires root: run 'sudo mkdir -p %s && sudo chown $(id -u):$(id -g) %s'\n", logDir, logDir, logDir)
-		} else {
-			return fmt.Errorf("create %s: %w", logDir, err)
-		}
-	} else {
-		fmt.Printf("  ✅ ensured %s\n", logDir)
-	}
-
-	// 3. ~/.config/suwu/.env — seed from .env.example if missing
+	// ~/.config/suwu/.env — seed from defaults if missing
 	cfgDir := filepath.Join(home, ".config", "suwu")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", cfgDir, err)
@@ -78,6 +50,7 @@ func install() error {
 	}
 
 	fmt.Println()
-	fmt.Println("  ▶️  serve_suwu.sh {start|stop|restart|status|logs}")
+	fmt.Println("  ▶️  suwu serve              run the server in the foreground")
+	fmt.Println("  ▶️  suwu daemon start       run as a background daemon (logs in /var/log)")
 	return nil
 }

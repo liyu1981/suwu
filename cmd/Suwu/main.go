@@ -8,7 +8,8 @@
 //	suwu serve          # run the server (reads SUWU_DEV from .env)
 //	suwu gencerts       # interactive TLS certificate generation (local CA)
 //	suwu version        # print version and exit
-//	suwu install        # install serve_suwu.sh into ~/.local/bin/
+//	suwu install        # seed ~/.config/suwu/.env from defaults
+//	suwu daemon {start|stop|restart|status|logs}  # manage background server
 //
 //	PORT=3000 suwu serve   # custom port
 //	HOST=0.0.0.0 suwu serve   # bind all interfaces
@@ -75,6 +76,11 @@ func main() {
 				log.Fatalf("install: %v", err)
 			}
 			return
+		case "daemon":
+			if err := daemon(os.Args[2:]); err != nil {
+				log.Fatalf("daemon: %v", err)
+			}
+			return
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -101,7 +107,9 @@ Usage:
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
-  suwu install             install serve_suwu.sh into ~/.local/bin/
+  suwu install             seed ~/.config/suwu/.env from defaults
+  suwu daemon {start|stop|restart|status|logs}
+                           manage a background server (logs in /var/log)
 
 Configuration precedence:
   --env-file explicitly given → that file only

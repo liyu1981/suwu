@@ -45,6 +45,11 @@ const metaSection = [
   { label: 'Open the menu', keys: [['Alt', '/']] },
 ]
 
+const clipboardSection = [
+  { label: 'Copy selection', keys: [['Ctrl', '⇧', 'C'], ['⌘', 'C']] },
+  { label: 'Paste', keys: [['Ctrl', 'V'], ['Ctrl', '⇧', 'V'], ['⌘', 'V']] },
+]
+
 const sectionTitle = 'mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'
 const sectionBox = 'mt-1 divide-y divide-white/5'
 
@@ -70,6 +75,13 @@ export default function ShortcutsView() {
       <div className={sectionTitle}>Focus &amp; movement</div>
       <div className={sectionBox}>
         {navSection.map((r) => (
+          <Row key={r.label} {...r} />
+        ))}
+      </div>
+
+      <div className={sectionTitle}>Clipboard</div>
+      <div className={sectionBox}>
+        {clipboardSection.map((r) => (
           <Row key={r.label} {...r} />
         ))}
       </div>

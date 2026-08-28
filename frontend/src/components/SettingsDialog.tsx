@@ -1,4 +1,5 @@
 import { useAtom } from 'jotai'
+import { Tabs as TabsPrimitive } from 'radix-ui'
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,12 @@ const actionBtn =
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
 const sectionLabel = 'text-xs font-medium text-muted-foreground'
 const sectionHint = 'mt-2 text-[10px] leading-relaxed text-muted-foreground'
+
+// Vertical tab rail (radix Tabs, orientation=vertical: Up/Down move focus).
+const tabBtn =
+  'rounded px-2.5 py-1.5 text-left text-xs text-muted-foreground outline-none transition-colors ' +
+  'hover:bg-white/5 hover:text-popover-foreground focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
+  'data-[state=active]:bg-white/10 data-[state=active]:text-popover-foreground'
 
 /** One theme color: a hex picker plus an opacity slider, stored as #RRGGBBAA. */
 function ColorRow(props: { label: string; value: string; onChange: (next: string) => void }) {
@@ -72,11 +79,23 @@ export default function SettingsDialog(props: React.ComponentProps<typeof Dialog
 
   return (
     <Dialog {...props}>
-      <DialogContent aria-describedby={undefined} className="overflow-y-auto">
+      <DialogContent aria-describedby={undefined} className="w-[min(92vw,36rem)] overflow-y-auto">
         <DialogTitle>Settings</DialogTitle>
-        <DialogDescription>Terminal preferences for this workspace.</DialogDescription>
+        <DialogDescription>Preferences for this workspace.</DialogDescription>
 
-        <div className={`${section} mt-4`}>
+        <TabsPrimitive.Root
+          defaultValue="term"
+          orientation="vertical"
+          className="mt-4 flex items-start gap-3"
+        >
+          <TabsPrimitive.List aria-label="Settings sections" className="flex w-28 shrink-0 flex-col gap-1">
+            <TabsPrimitive.Trigger value="term" className={tabBtn}>
+              Term Settings
+            </TabsPrimitive.Trigger>
+          </TabsPrimitive.List>
+
+          <TabsPrimitive.Content value="term" className="min-w-0 flex-1">
+        <div className={section}>
           <div className="flex items-center justify-between">
             <span className={sectionLabel}>Font size</span>
             <span className="font-mono text-xs text-popover-foreground">{fontSize}px</span>
@@ -173,6 +192,8 @@ export default function SettingsDialog(props: React.ComponentProps<typeof Dialog
             workspace show through.
           </p>
         </div>
+          </TabsPrimitive.Content>
+        </TabsPrimitive.Root>
 
         <div className="mt-4 flex justify-end gap-2">
           <button

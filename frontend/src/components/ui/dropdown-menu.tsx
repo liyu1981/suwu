@@ -11,10 +11,12 @@ function DropdownMenuTrigger(props: React.ComponentProps<typeof DropdownMenuPrim
 }
 
 /**
- * Content is pure markup; material + motion live in styles.css:
- * .menu-glass = readable glass fill + deeper context shadow, and the
- * [data-slot='dropdown-menu-content'] rules do the materialize/exit
- * animations (opacity + scale-from-trigger + slide + blur).
+ * Content is pure markup; material + motion live in styles.css: .menu-panel
+ * is the header's rendered color on a near-opaque base (readable over terminal
+ * content), and the [data-slot='dropdown-menu-content'] rules do the
+ * materialize/exit animations (opacity + scale-from-trigger + slide + blur).
+ * The default sideOffset suits trigger-anchored menus; the burger menu
+ * overrides it (see AppShell) to space the panel below the header's bottom.
  */
 function DropdownMenuContent({
   className,
@@ -27,8 +29,8 @@ function DropdownMenuContent({
         sideOffset={6}
         collisionPadding={8}
         className={cn(
-          'z-50 min-w-[10rem] overflow-hidden bg-clip-padding p-1 text-popover-foreground',
-          'glass-control menu-glass',
+          'z-50 min-w-[10rem] overflow-hidden rounded-[6px] bg-clip-padding p-1 text-popover-foreground',
+          'menu-panel',
           className,
         )}
         {...props}

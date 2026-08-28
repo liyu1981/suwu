@@ -400,7 +400,8 @@ func TestAssetServed(t *testing.T) {
 
 func TestSpaFallback(t *testing.T) {
 	ts, _ := testServer(t)
-	status, body := getBody(t, ts.URL+"/colors")
+	// A client-side route that has no file on disk must fall back to index.html.
+	status, body := getBody(t, ts.URL+"/some/client-route")
 	if status != 200 {
 		t.Fatalf("status = %d, want 200 (SPA fallback)", status)
 	}

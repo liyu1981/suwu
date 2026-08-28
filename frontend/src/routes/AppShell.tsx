@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Link, Outlet, useLocation } from '@tanstack/react-router'
+import { Outlet, useLocation } from '@tanstack/react-router'
 import { useAtomValue, useAtom, useStore } from 'jotai'
 import {
   DropdownMenu,
@@ -9,10 +9,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { AmbientBackground } from '../components/AmbientBackground'
+import AboutDialog from '../components/AboutDialog'
 import SettingsDialog from '../components/SettingsDialog'
 import ShortcutsDialog from '../components/ShortcutsDialog'
-import { focusedIdAtom, layoutAtom, shortcutsOpenAtom } from '../wm/atoms'
-import { FONT_MIN, FONT_MAX, clampFont, fontDefaultAtom, fontSizeAtom } from '../store/fonts'
+import { focusedIdAtom, layoutAtom, aboutOpenAtom, shortcutsOpenAtom } from '../wm/atoms'
 import {
   closeAt,
   createLeaf,
@@ -27,7 +27,6 @@ const wmBase =
 const wmBtn = `${wmBase} text-slate-300 hover:bg-white/10 hover:text-white`
 const wmClose = `${wmBase} text-slate-300 hover:bg-rose-500/20 hover:text-rose-300`
 
-const menuActive = 'bg-white/10 text-white'
 
 function MenuIcon() {
   return (
@@ -78,10 +77,9 @@ export default function AppShell() {
   const store = useStore()
   const layout = useAtomValue(layoutAtom)
   const paneCount = leaves(layout).length
-  const [fontSize, setFontSize] = useAtom(fontSizeAtom)
-  const defaultSize = useAtomValue(fontDefaultAtom)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useAtom(shortcutsOpenAtom)
+  const [aboutOpen, setAboutOpen] = useAtom(aboutOpenAtom)
 
   const split = useCallback(
     (dir: Direction, side: SplitSide = 'after') => {
@@ -125,37 +123,12 @@ export default function AppShell() {
                   <MenuIcon />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {/* Item asChild: the Link renders as the menuitem anchor; items auto-close on select */}
-                <DropdownMenuItem asChild>
-                  <Link to="/" activeProps={{ className: menuActive }}>
-                    Tiling
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/colors" activeProps={{ className: menuActive }}>
-                    Colors
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={fontSize >= FONT_MAX}
-                  onSelect={() => setFontSize(clampFont(fontSize + 1))}
-                >
-                  Increase font size
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={fontSize <= FONT_MIN}
-                  onSelect={() => setFontSize(clampFont(fontSize - 1))}
-                >
-                  Decrease font size
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={fontSize === defaultSize}
-                  onSelect={() => setFontSize(defaultSize)}
-                >
-                  Reset font ({defaultSize}px)
-                </DropdownMenuItem>
+              {/* Panel geometry relative to the trigger, derived from the
+                  header bar's own padding: alignOffset -8px cancels the
+                  header's px-2 so the panel's left edge aligns with the
+                  header's left edge; sideOffset = header's py-1 (4px) + 1rem
+                  (16px) below the header's bottom edge. */}
+              <DropdownMenuContent align="start" alignOffset={-8} sideOffset={20}>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setShortcutsOpen(true)}>
                   Keyboard shortcuts…
@@ -163,6 +136,7 @@ export default function AppShell() {
                 <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
                   Settings…
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setAboutOpen(true)}>About Suwu…</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -170,10 +144,6 @@ export default function AppShell() {
 
             {isTiling && (
               <>
-                <span className="hidden text-[10px] text-slate-500 sm:inline sm:ml-2">
-                  Alt+Enter split · Alt+Shift+Enter split down · Alt+Q close · Alt+J/K focus · Alt+Arrows move ·
-                  Alt+/ shortcuts
-                </span>
                 <div className="ml-auto flex items-center gap-0.5">
                   <button type="button" onClick={() => split('horizontal', 'before')} aria-label="Split left" title="Split left of focused pane" className={wmBtn}>
                     <PanelLeftIcon />
@@ -206,6 +176,7 @@ export default function AppShell() {
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
     </div>
   )
 }

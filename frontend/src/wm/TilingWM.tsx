@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { focusedIdAtom, layoutAtom, shortcutsOpenAtom } from './atoms'
+import { FONT_MAX, FONT_MIN, clampFont, fontDefaultAtom, fontSizeAtom } from '../store/fonts'
 import {
   clamp,
   closeAt,
@@ -93,6 +94,25 @@ const ARROW_KEY: Record<MoveDir, string> = { left: '←', right: '→', up: '↑
 
 const moveBtn =
   'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300'
+
+const fontLabel = 'text-[9px] font-semibold leading-none'
+
+function ResetFontSizeIcon() {
+  return (
+    <svg
+      className="h-3 w-3"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  )
+}
 
 /** A vanished tile rendered at its last rect while it fades out. */
 type PaneGhost = { key: string; rect: Rect }
@@ -198,6 +218,12 @@ export default function TilingWM() {
   )
 
   const openHelp = useCallback(() => store.set(shortcutsOpenAtom, true), [store])
+
+  // Shared terminal font size: the hover tools adjust the global size so
+  // every pane picks it up (same atoms the Settings dialog writes).
+  const fontSize = useAtomValue(fontSizeAtom)
+  const fontDefault = useAtomValue(fontDefaultAtom)
+  const setFontSize = useSetAtom(fontSizeAtom)
 
   // Keep a valid focused leaf (initial state, after close, after storage load).
   useEffect(() => {
@@ -365,6 +391,39 @@ export default function TilingWM() {
             role="toolbar"
             aria-label={`Move tile ${id}`}
           >
+            {/* Shared font size controls (global across panes) ... */}
+            <button
+              type="button"
+              disabled={fontSize <= FONT_MIN}
+              onClick={() => setFontSize(clampFont(fontSize - 1))}
+              aria-label="Decrease font size"
+              title="Decrease font size"
+              className={moveBtn}
+            >
+              <span className={fontLabel}>A-</span>
+            </button>
+            <button
+              type="button"
+              disabled={fontSize >= FONT_MAX}
+              onClick={() => setFontSize(clampFont(fontSize + 1))}
+              aria-label="Increase font size"
+              title="Increase font size"
+              className={moveBtn}
+            >
+              <span className={fontLabel}>A+</span>
+            </button>
+            <button
+              type="button"
+              disabled={fontSize === fontDefault}
+              onClick={() => setFontSize(fontDefault)}
+              aria-label="Reset font size"
+              title={`Reset font size (${fontDefault}px)`}
+              className={moveBtn}
+            >
+              <ResetFontSizeIcon />
+            </button>
+            {/* ... then per-tile movement. */}
+            <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
             {MOVE_DIRS.map((dir) => (
               <button
                 key={dir}

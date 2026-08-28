@@ -10,3 +10,6 @@ export const focusedIdAtom = atom('')
 
 /** Whether the keyboard-shortcuts help dialog is open. */
 export const shortcutsOpenAtom = atom(false)
+
+/** Whether the About dialog is open. */
+export const aboutOpenAtom = atom(false)

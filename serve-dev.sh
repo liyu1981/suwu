@@ -51,6 +51,12 @@ else
   RESOLVED_PORT="${RESOLVED_PORT:-8000}"
 fi
 
+# Scheme mirrors the server's TLS_CERT_FILE/TLS_KEY_FILE handling.
+TLS_CERT_FILE="${TLS_CERT_FILE:-$(env_file_value TLS_CERT_FILE)}"
+TLS_KEY_FILE="${TLS_KEY_FILE:-$(env_file_value TLS_KEY_FILE)}"
+SCHEME=https
+[[ -z "$TLS_CERT_FILE" || -z "$TLS_KEY_FILE" ]] && SCHEME=http
+
 # Wildcard binds are reachable via loopback; display a clickable URL but
 # note the actual bind address.
 DISPLAY_HOST="$RESOLVED_HOST"
@@ -63,7 +69,7 @@ case "$RESOLVED_HOST" in
 esac
 export DEMO_HOST="$RESOLVED_HOST" DEMO_PORT="$RESOLVED_PORT"
 
-url() { printf 'http://%s:%s%s' "$DISPLAY_HOST" "$RESOLVED_PORT" "$BIND_NOTE"; }
+url() { printf '%s://%s:%s%s' "$SCHEME" "$DISPLAY_HOST" "$RESOLVED_PORT" "$BIND_NOTE"; }
 
 # PID file stores the process-group leader (see start()). stop() kills that
 # group (pnpm -> air) and then sweeps the server binary: air starts its child
@@ -72,6 +78,17 @@ ROOT="$(pwd)"
 SERVER_RE="^(/bin/sh -c )?${ROOT}/tmp/suwu( --dev)?$"
 
 stray_server_pids() { pgrep -f "$ROOT/tmp/suwu" || true; }
+
+# Air instances of THIS repo (matched by cwd — the cmdline is just
+# 'air -c .air.toml', which other checkouts may also run). Orphans appear
+# when a previous stop crashed mid-way; two airs racing on one port is what
+# makes restarts 'never come back up'.
+stray_air_pids() {
+  local pid
+  for pid in $(pgrep -f 'air -c .air.toml' 2>/dev/null); do
+    [[ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" == "$ROOT" ]] && echo "$pid"
+  done
+}
 
 is_running() {
   [[ -f "$PID" ]] || return 1
@@ -126,19 +143,25 @@ start() {
 
 stop() {
   local pid
-  if ! is_running && [[ -z "$(stray_server_pids)" ]]; then
+  if ! is_running && [[ -z "$(stray_server_pids)" ]] && [[ -z "$(stray_air_pids)" ]]; then
     echo "not running"
     return 0
   fi
   pid=$(cat "$PID" 2>/dev/null || echo 0)
-  # Escalate gracefully: SIGINT (air is built around Ctrl+C semantics and
-  # forwards a graceful shutdown; SIGTERM makes it hang), then SIGTERM,
-  # then SIGKILL. The air-spawned server lives in its own session outside
-  # the group, so signal the SERVER_RE processes directly as well.
+  # Orphaned airs first (SIGINT: air stops its child server and exits); the
+  # pnpm/sh parents exit on their own once air is gone.
+  local apid
+  for apid in $(stray_air_pids); do
+    kill -INT "$apid" 2>/dev/null || true
+  done
   if [[ "$pid" != 0 ]]; then kill -INT "-$pid" 2>/dev/null || true; fi
   pkill -INT -f "$SERVER_RE" 2>/dev/null || true
   for _ in $(seq 1 30); do
-    if ! (kill -0 "-$pid" 2>/dev/null || pkill -0 -f "$SERVER_RE" 2>/dev/null); then break; fi
+    if [[ -z "$(stray_air_pids)" ]] \
+       && ! (kill -0 "-$pid" 2>/dev/null) \
+       && ! (pkill -0 -f "$SERVER_RE" 2>/dev/null); then
+      break
+    fi
     sleep 0.1
   done
   if kill -0 "-$pid" 2>/dev/null || pkill -0 -f "$SERVER_RE" 2>/dev/null; then
@@ -151,6 +174,10 @@ stop() {
       pkill -9 -f "$SERVER_RE" 2>/dev/null || true
     fi
   fi
+  # Hard-sweep anything that still survived (air ignores TERM sometimes).
+  for apid in $(stray_air_pids); do
+    kill -9 "$apid" 2>/dev/null || true
+  done
   rm -f "$PID"
   echo "stopped"
 }

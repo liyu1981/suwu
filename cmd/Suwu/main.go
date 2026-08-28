@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"suwu/pkg/assets"
 	"suwu/pkg/auth"
@@ -64,11 +65,12 @@ func run(dev bool) error {
 
 	// Keyed PTY sessions with server-side terminal state (libghostty-vt), so
 	// a browser refresh reattaches to the same shell with its screen intact.
+	// Closed explicitly on every exit path below (no defer): a wedged close
+	// must not depend on unwinding order.
 	sessions, err := session.NewManager()
 	if err != nil {
 		return err
 	}
-	defer sessions.Close()
 
 	srv := server.New(cfg, sub, sessions)
 
@@ -77,27 +79,54 @@ func run(dev bool) error {
 		Handler: srv.Handler(),
 	}
 
+	// HTTPS is opt-in via TLS_CERT_FILE + TLS_KEY_FILE (e.g. mkcert output).
+	// A secure context is required for browser clipboard access, so pasting
+	// into the terminal only works over https (or from localhost).
+	certFile, keyFile := os.Getenv("TLS_CERT_FILE"), os.Getenv("TLS_KEY_FILE")
+	useTLS := certFile != "" && keyFile != ""
+	if (certFile == "") != (keyFile == "") {
+		sessions.Close()
+		return errors.New("TLS_CERT_FILE and TLS_KEY_FILE must be set together")
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		var err error
+		if useTLS {
+			err = httpServer.ListenAndServeTLS(certFile, keyFile)
+		} else {
+			err = httpServer.ListenAndServe()
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()
 
-	printBanner(dev, cfg, port)
+	printBanner(dev, cfg, port, useTLS)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	select {
 	case err := <-errCh:
+		sessions.Close()
 		return fmt.Errorf("%w\nhint: another Suwu server may already be running on %s; stop it or set a different PORT",
 			err, httpServer.Addr)
 	case <-ctx.Done():
 	}
 
 	fmt.Println("\n\nShutting down...")
+	// Watchdog: air (dev) waits for this process to exit before it can
+	// rebuild and restart. A wedged close (PTY, WASM runtime, socket) must
+	// never block that hand-off, so force the exit after a short grace
+	// period no matter what the graceful path below is doing.
+	go func() {
+		time.Sleep(5 * time.Second)
+		fmt.Println("  shutdown exceeded 5s; forcing exit")
+		os.Exit(0)
+	}()
 	server.CloseAll()
+	sessions.Close()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3_000_000_000)
 	defer cancel()
 	_ = httpServer.Shutdown(shutdownCtx)
@@ -129,19 +158,28 @@ func formatURLHost(host string) string {
 	return host
 }
 
-func printBanner(dev bool, cfg *auth.Config, port int) {
+func printBanner(dev bool, cfg *auth.Config, port int, useTLS bool) {
 	home, _ := pty.Home()
+	scheme := "http"
+	if useTLS {
+		scheme = "https"
+	}
 
 	fmt.Println("\n" + strings.Repeat("═", 60))
 	fmt.Printf("  🚀 Suwu server%s\n", devLabel(dev))
 	fmt.Println(strings.Repeat("═", 60))
-	fmt.Printf("\n  📺 Open: http://%s:%d\n", formatURLHost(cfg.BindHost), port)
+	fmt.Printf("\n  📺 Open: %s://%s:%d\n", scheme, formatURLHost(cfg.BindHost), port)
+	if useTLS {
+		fmt.Println("  🔒 TLS enabled: browser clipboard APIs (terminal paste) available")
+	} else {
+		fmt.Println("  ⚠️  Plain HTTP: browser clipboard APIs unavailable outside localhost (no paste into the terminal)")
+	}
 	fmt.Println("  📡 WebSocket PTY: same endpoint /ws")
 	fmt.Println("  🔐 WebSocket auth: per-run same-origin token")
 	fmt.Printf("  🐚 Shell: %s\n", pty.ShellPath())
 	fmt.Printf("  📁 Home: %s\n", home)
 	if dev {
-		fmt.Println("  🔥 Hot reload enabled (air: web + go rebuild on change)")
+		fmt.Println("  🔥 Dev mode: air rebuilds web + server and restarts on change")
 	}
 	fmt.Println("\n  ⚠️  This server provides shell access.")
 	fmt.Printf("     It binds to %s and rejects cross-origin WebSockets.\n", cfg.BindHost)

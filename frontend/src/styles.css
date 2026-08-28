@@ -98,25 +98,6 @@ body {
     inset 0 1px 0 color-mix(in oklch, white 22%, transparent);
 }
 
-/* Dropdown panel material: the header's rendered color (apple-panel's white
-   sheen composited over the page background) laid on a ~92%-opaque base, so
-   menu items stay readable over busy terminal content while keeping the
-   header's border, inset highlight, and a hint of glass blur. */
-.menu-panel {
-  background:
-    linear-gradient(
-      color-mix(in oklch, white 10%, transparent),
-      color-mix(in oklch, white 10%, transparent)
-    ),
-    color-mix(in oklch, var(--background) 92%, transparent);
-  border: 1px solid color-mix(in oklch, white 10%, transparent);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  box-shadow:
-    0 4px 16px rgb(0 0 0 / 0.10),
-    inset 0 1px 0 color-mix(in oklch, white 22%, transparent);
-}
-
 .apple-panel-dark {
   background: linear-gradient(
     180deg,
@@ -182,9 +163,9 @@ body {
 }
 
 /* ============================================================================
-   Dropdown (Radix/shadcn) — glass material + Apple-style motion.
-   Motion is keyed off Radix data-state so exit animations keep Presence
-   alive; transform-origin comes from the trigger (scale from source).
+   Menu/dialog fills — glass material + Apple-style motion.
+   .menu-glass gives floating surfaces a near-opaque readable fill with a
+   deeper context shadow; dialogs reuse it over .glass-control.
    ============================================================================ */
 
 /* Readable fill: near-opaque dark base plus a subtle white-glass sheen
@@ -205,39 +186,6 @@ body {
   box-shadow:
     0 12px 40px rgb(0 0 0 / 0.35),
     inset 0 1px 0 color-mix(in oklch, white 22%, transparent);
-}
-
-[data-slot='dropdown-menu-content'] {
-  /* Pop out of the trigger, not the center of the popup */
-  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
-}
-
-/* Materialize in: blur radius and scale travel together so the surface
-   reads as glass arriving under the trigger (not a ghost fading in).
-   Exponential-out curve = graceful deceleration, no bounce needed. */
-[data-slot='dropdown-menu-content'][data-state='open'] {
-  animation: menu-materialize-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Exit mirrors entry along the same path back into the trigger */
-[data-slot='dropdown-menu-content'][data-state='closed'] {
-  animation: menu-materialize-out 0.12s cubic-bezier(0.4, 0, 1, 1) forwards;
-}
-
-@keyframes menu-materialize-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.96);
-    filter: blur(6px);
-  }
-}
-
-@keyframes menu-materialize-out {
-  to {
-    opacity: 0;
-    transform: translateY(-3px) scale(0.97);
-    filter: blur(4px);
-  }
 }
 
 /* ============================================================================

@@ -1,20 +1,13 @@
 import { useCallback, useState } from 'react'
 import { Outlet, useLocation } from '@tanstack/react-router'
-import { useAtomValue, useAtom, useStore } from 'jotai'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { useAtom, useStore } from 'jotai'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { AmbientBackground } from '../components/AmbientBackground'
 import AboutDialog from '../components/AboutDialog'
 import SettingsDialog from '../components/SettingsDialog'
 import ShortcutsDialog from '../components/ShortcutsDialog'
 import { focusedIdAtom, layoutAtom, aboutOpenAtom, shortcutsOpenAtom } from '../wm/atoms'
 import {
-  closeAt,
   createLeaf,
   leaves,
   splitAt,
@@ -25,7 +18,65 @@ import {
 const wmBase =
   'grid h-7 w-7 place-items-center rounded transition glass-btn disabled:cursor-not-allowed disabled:opacity-40'
 const wmBtn = `${wmBase} text-slate-300 hover:bg-white/10 hover:text-white`
-const wmClose = `${wmBase} text-slate-300 hover:bg-rose-500/20 hover:text-rose-300`
+
+const menuItem =
+  'flex w-full cursor-pointer select-none items-center rounded px-3 py-2 text-left text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-white/10 hover:text-popover-foreground active:bg-white/15 active:text-popover-foreground'
+
+/**
+ * Burger menu: clicking the burger opens a narrow dialog holding an
+ * omarchy-style action list (one row per entry). Rows close the menu dialog
+ * and open their target dialog; Escape/scrim clicks close it like any dialog.
+ */
+function MenuDialog(props: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onShortcuts: () => void
+  onSettings: () => void
+  onAbout: () => void
+}) {
+  const { open, onOpenChange } = props
+  const close = () => onOpenChange(false)
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent aria-describedby={undefined} className="w-[min(92vw,14rem)] p-1.5">
+        <DialogTitle className="sr-only">Menu</DialogTitle>
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItem}
+          onClick={() => {
+            close()
+            props.onShortcuts()
+          }}
+        >
+          Keyboard shortcuts…
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItem}
+          onClick={() => {
+            close()
+            props.onSettings()
+          }}
+        >
+          Settings…
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={menuItem}
+          onClick={() => {
+            close()
+            props.onAbout()
+          }}
+        >
+          About Suwu…
+        </button>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 
 function MenuIcon() {
@@ -63,23 +114,14 @@ function PanelBottomIcon() {
   )
 }
 
-function CloseIcon() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  )
-}
-
 export default function AppShell() {
   const { pathname } = useLocation()
   const isTiling = pathname === '/'
   const store = useStore()
-  const layout = useAtomValue(layoutAtom)
-  const paneCount = leaves(layout).length
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useAtom(shortcutsOpenAtom)
   const [aboutOpen, setAboutOpen] = useAtom(aboutOpenAtom)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const split = useCallback(
     (dir: Direction, side: SplitSide = 'after') => {
@@ -101,44 +143,15 @@ export default function AppShell() {
     [store],
   )
 
-  const close = useCallback(() => {
-    const cur = store.get(layoutAtom)
-    if (!cur) return
-    const f = store.get(focusedIdAtom)
-    if (!f) return
-    const next = closeAt(cur, f)
-    store.set(layoutAtom, next)
-    store.set(focusedIdAtom, leaves(next)[0] ?? '')
-  }, [store])
-
   return (
     <div className="ambient-bg min-h-screen w-full overflow-x-clip text-slate-100">
       <AmbientBackground />
       <div className="relative z-10 grid h-dvh grid-rows-[auto_1fr] gap-2 px-3 pt-2">
         <header className="apple-panel rounded-[6px]">
           <div className="flex items-center gap-2 px-2 py-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" aria-label="Open menu" className={wmBtn}>
-                  <MenuIcon />
-                </button>
-              </DropdownMenuTrigger>
-              {/* Panel geometry relative to the trigger, derived from the
-                  header bar's own padding: alignOffset -8px cancels the
-                  header's px-2 so the panel's left edge aligns with the
-                  header's left edge; sideOffset = header's py-1 (4px) + 1rem
-                  (16px) below the header's bottom edge. */}
-              <DropdownMenuContent align="start" alignOffset={-8} sideOffset={20}>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setShortcutsOpen(true)}>
-                  Keyboard shortcuts…
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-                  Settings…
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setAboutOpen(true)}>About Suwu…</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <button type="button" aria-label="Open menu" aria-haspopup="dialog" className={wmBtn} onClick={() => setMenuOpen(true)}>
+              <MenuIcon />
+            </button>
 
             <span className="text-xs font-semibold tracking-tight">Suwu</span>
 
@@ -154,17 +167,6 @@ export default function AppShell() {
                   <button type="button" onClick={() => split('horizontal')} aria-label="Split right" title="Split right of focused pane (Alt+Enter)" className={wmBtn}>
                     <PanelRightIcon />
                   </button>
-                  <span className="mx-1 h-3 w-px bg-white/10" />
-                  <button
-                    type="button"
-                    onClick={close}
-                    disabled={paneCount === 0}
-                    aria-label="Close pane"
-                    title="Close focused pane (Alt+Q)"
-                    className={wmClose}
-                  >
-                    <CloseIcon />
-                  </button>
                 </div>
               </>
             )}
@@ -174,6 +176,13 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+      <MenuDialog
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        onShortcuts={() => setShortcutsOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
+        onAbout={() => setAboutOpen(true)}
+      />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />

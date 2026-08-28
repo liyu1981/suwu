@@ -114,6 +114,24 @@ function ResetFontSizeIcon() {
   )
 }
 
+function CloseIcon() {
+  return (
+    <svg
+      className="h-3 w-3"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}
+
+const closeBtn =
+  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-rose-500/20 hover:text-rose-300'
+
 /** A vanished tile rendered at its last rect while it fades out. */
 type PaneGhost = { key: string; rect: Rect }
 
@@ -156,15 +174,22 @@ export default function TilingWM() {
     [store],
   )
 
+  // Close a specific tile (hover ✕); Alt+Q closes the focused one.
+  const closeTile = useCallback(
+    (id: string) => {
+      const cur = store.get(layoutAtom)
+      if (!cur) return
+      const next = closeAt(cur, id)
+      store.set(layoutAtom, next)
+      store.set(focusedIdAtom, leaves(next)[0] ?? '')
+    },
+    [store],
+  )
+
   const close = useCallback(() => {
-    const cur = store.get(layoutAtom)
-    if (!cur) return
     const f = store.get(focusedIdAtom)
-    if (!f) return
-    const next = closeAt(cur, f)
-    store.set(layoutAtom, next)
-    store.set(focusedIdAtom, leaves(next)[0] ?? '')
-  }, [store])
+    if (f) closeTile(f)
+  }, [store, closeTile])
 
   const focusOffset = useCallback(
     (off: number) => {
@@ -371,7 +396,7 @@ export default function TilingWM() {
       {panes.map(({ id, x, y, w, h }) => (
         <div
           key={id}
-          className={`pane-anim pane-in group absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
+          className={`pane-anim pane-in absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
             focused === id
               // Header chrome tone (apple-panel is white 10% over the page),
               // brightened well above it so the focused tile clearly reads.
@@ -382,15 +407,19 @@ export default function TilingWM() {
           onMouseDown={() => setFocused(id)}
         >
           <iframe src={`/term?pane=${id}`} title={`terminal-${id}`} data-pane={id} className="h-full w-full border-0 bg-transparent" />
-          {/* Move controls: revealed while the pointer is over the tile;
-              disabled when no neighbor exists that way. Keyboard users have
-              Alt+Arrows, so the pill stays hover-only and never obstructs
-              the focused terminal. */}
-          <div
-            className="pointer-events-none absolute right-1.5 top-1.5 z-10 flex gap-0.5 rounded-[6px] glass-control p-0.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 motion-reduce:transition-none"
-            role="toolbar"
-            aria-label={`Move tile ${id}`}
-          >
+          {/* Tile tools: revealed only while the cursor is near the top-right
+              corner — the invisible zone (w-56 × h-12) is the hover target,
+              so hovering elsewhere on the tile leaves the terminal untouched.
+              The zone is interactive (it must detect the approach), so clicks
+              in that small corner rect focus the tile without reaching the
+              shell. Buttons disable when no neighbor exists that way;
+              keyboard users have Alt+Arrows and Alt+Q. */}
+          <div className="group/corner absolute right-0 top-0 z-10 h-12 w-56">
+            <div
+              className="pointer-events-none absolute right-1.5 top-1.5 flex gap-0.5 rounded-[6px] glass-control p-0.5 opacity-0 transition-opacity duration-150 group-hover/corner:pointer-events-auto group-hover/corner:opacity-100 motion-reduce:transition-none"
+              role="toolbar"
+              aria-label={`Tile tools ${id}`}
+            >
             {/* Shared font size controls (global across panes) ... */}
             <button
               type="button"
@@ -422,7 +451,7 @@ export default function TilingWM() {
             >
               <ResetFontSizeIcon />
             </button>
-            {/* ... then per-tile movement. */}
+            {/* ... then per-tile movement ... */}
             <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
             {MOVE_DIRS.map((dir) => (
               <button
@@ -437,6 +466,18 @@ export default function TilingWM() {
                 <ChevronIcon dir={dir} />
               </button>
             ))}
+            {/* ... and per-tile close. */}
+            <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
+            <button
+              type="button"
+              onClick={() => closeTile(id)}
+              aria-label="Close tile"
+              title="Close tile (Alt+Q closes the focused tile)"
+              className={closeBtn}
+            >
+              <CloseIcon />
+            </button>
+            </div>
           </div>
         </div>
       ))}

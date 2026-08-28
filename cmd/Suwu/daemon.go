@@ -14,7 +14,7 @@ var serveScript string
 
 // daemon executes the embedded serve_suwu.sh via bash -s, forwarding the
 // given subcommand (start, stop, restart, status, logs). Environment
-// variables (SUWU_BIN, SUWU_LOG_DIR, SUWU_CONFIG_DIR) are set so the
+// variables (SUWU_BIN, SUWU_VAR, SUWU_CONFIG_DIR) are set so the
 // script manages the correct binary and data paths.
 func daemon(args []string) error {
 	bin, err := os.Executable()
@@ -32,9 +32,9 @@ func daemon(args []string) error {
 	if os.Getenv("SUWU_BIN") == "" {
 		os.Setenv("SUWU_BIN", bin)
 	}
-	// Logs and PID live in /var/log by default (override with SUWU_LOG_DIR).
-	if os.Getenv("SUWU_LOG_DIR") == "" {
-		os.Setenv("SUWU_LOG_DIR", "/var/log")
+	// Data dir for logs and PID (default ~/.suwu, override with SUWU_VAR).
+	if os.Getenv("SUWU_VAR") == "" && home != "" {
+		os.Setenv("SUWU_VAR", filepath.Join(home, ".suwu"))
 	}
 	// Config lives in ~/.config/suwu/ (override with SUWU_CONFIG_DIR).
 	if os.Getenv("SUWU_CONFIG_DIR") == "" && home != "" {

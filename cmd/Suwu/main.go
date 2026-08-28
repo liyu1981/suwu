@@ -107,9 +107,9 @@ Usage:
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
-  suwu install             seed ~/.config/suwu/.env from defaults
+  suwu install             seed ~/.config/suwu/.env and choose data directory
   suwu daemon {start|stop|restart|status|logs}
-                           manage a background server (logs in /var/log)
+                           manage a background daemon (default data: ~/.suwu)
 
 Configuration precedence:
   --env-file explicitly given → that file only

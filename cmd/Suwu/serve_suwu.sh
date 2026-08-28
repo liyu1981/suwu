@@ -4,16 +4,16 @@
 # Usage: suwu daemon {start|stop|restart|status|logs}
 #
 # Expects the binary at ~/.local/bin/suwu (override with SUWU_BIN).
-# PID and logs live in /var/log (override with SUWU_LOG_DIR).
+# PID and logs live in ~/.suwu/ (override with SUWU_VAR).
 # Config resolution: shell env → ~/.config/suwu/.env → defaults.
 set -euo pipefail
 
 CMD="${1:-start}"
 
 BIN="${SUWU_BIN:-$HOME/.local/bin/suwu}"
-LOG_DIR="${SUWU_LOG_DIR:-/var/log}"
-LOG="$LOG_DIR/suwu.log"
-PID="$LOG_DIR/suwu.pid"
+VAR="${SUWU_VAR:-$HOME/.suwu}"
+LOG="$VAR/suwu.log"
+PID="$VAR/suwu.pid"
 MAX_LOG_BYTES="${MAX_LOG_BYTES:-5242880}"
 
 GLOBAL_CFG="${SUWU_CONFIG_DIR:-$HOME/.config/suwu}"
@@ -109,10 +109,9 @@ start() {
     echo "hint: install with 'go install ./cmd/Suwu@latest' or build and copy manually" >&2
     exit 1
   fi
-  if [[ ! -d "$LOG_DIR" ]]; then
-    echo "error: log directory $LOG_DIR does not exist" >&2
-    echo "hint: create it with 'mkdir -p $LOG_DIR'" >&2
-    exit 1
+  # Ensure the data directory exists.
+  if [[ ! -d "$VAR" ]]; then
+    mkdir -p "$VAR" || { echo "error: cannot create $VAR" >&2; exit 1; }
   fi
 
   # Reap leftover server binaries from a crashed/killed previous run before

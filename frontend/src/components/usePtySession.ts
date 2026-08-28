@@ -5,6 +5,7 @@ import { connectionMessageAtom, connectionStatusAtom } from '../store/connection
 import { fetchToken } from '../lib/api'
 
 const RECONNECT_DELAY_MS = 2000
+const COUNTDOWN_TICK_MS = 1000
 
 /**
  * The reattach key sent as the `session` query param. Tiling panes load
@@ -33,8 +34,11 @@ function sessionKey(): string {
  * reattach: the server keeps the shell and a libghostty-vt model of its
  * screen alive across disconnects, so reconnecting (after refresh or a
  * dropped socket) replays the current screen state before live output
- * resumes. Connection state lives in Jotai atoms. Mouse reporting sequences
- * arrive via onData as well (xterm encodes them natively).
+ * resumes. Connection state (including the reconnect countdown) lives in
+ * Jotai atoms and is rendered by the pane's status bar — the terminal
+ * content itself stays untouched, since the server replays the screen on
+ * reconnect. Mouse reporting sequences arrive via onData as well (xterm
+ * encodes them natively).
  *
  * Every attempt (initial connect or reconnect) fetches a fresh token via
  * /api/token first: the server mints a new token on each start, so reusing a
@@ -79,7 +83,7 @@ export function usePtySession(term: Terminal | null) {
 
       ws.onclose = () => {
         if (disposed) return
-        scheduleReconnect()
+        scheduleReconnect('Connection closed')
       }
 
       ws.onerror = () => {
@@ -91,11 +95,23 @@ export function usePtySession(term: Terminal | null) {
       }
     }
 
-    const scheduleReconnect = () => {
+    // Countdown in the status bar (red dot + message) instead of writing
+    // into the terminal: the server replays the screen on reconnect, so the
+    // scrollback would otherwise accumulate retry noise on every drop.
+    const scheduleReconnect = (reason: string) => {
       setStatus('disconnected')
-      setMessage('Disconnected')
-      term.write('\r\n\x1b[31mConnection closed. Reconnecting in 2s...\x1b[0m\r\n')
-      reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY_MS)
+      const msg = (s: number) => `${reason}. Reconnecting in ${s}s...`
+      let remaining = Math.max(1, Math.round(RECONNECT_DELAY_MS / COUNTDOWN_TICK_MS))
+      setMessage(msg(remaining))
+      reconnectTimer = window.setInterval(() => {
+        remaining -= 1
+        if (remaining <= 0) {
+          window.clearInterval(reconnectTimer)
+          void connect()
+        } else {
+          setMessage(msg(remaining))
+        }
+      }, COUNTDOWN_TICK_MS)
     }
 
     const connect = async () => {
@@ -107,10 +123,7 @@ export function usePtySession(term: Terminal | null) {
         if (!disposed) open(token)
       } catch {
         if (disposed) return
-        setStatus('disconnected')
-        setMessage('Token request failed')
-        term.write('\r\n\x1b[31mAuth failed. Retrying in 2s...\x1b[0m\r\n')
-        reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY_MS)
+        scheduleReconnect('Auth failed')
       }
     }
 
@@ -128,7 +141,7 @@ export function usePtySession(term: Terminal | null) {
 
     return () => {
       disposed = true
-      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      if (reconnectTimer) window.clearInterval(reconnectTimer)
       ws?.close()
       onData.dispose()
       onResize.dispose()

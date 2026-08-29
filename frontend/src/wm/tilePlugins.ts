@@ -12,12 +12,19 @@ export interface ToolbarContext {
   closeTile: (id: string) => void
 }
 
+/** Context passed to a tile plugin's render function. */
+export interface TileRenderContext {
+  paneId: string
+  /** Initial path passed from the action resolver (e.g. ?path=... in iframe src). */
+  initialPath?: string
+}
+
 export interface TilePlugin {
   id: TileType
   label: string
   description?: string
   /** Render the tile content (iframe, React component, etc.). */
-  render: (paneId: string) => ReactNode
+  render: (paneId: string, context?: TileRenderContext) => ReactNode
   /**
    * Render type-specific toolbar buttons. These appear between the divider
    * and the shared move/close section of TileTools.

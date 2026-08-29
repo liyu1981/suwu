@@ -30,6 +30,9 @@
     "themeHint": "Colors apply instantly to all terminal panes. Lower the background opacity to let the workspace show through.",
     "maxMessageHistory": "Max message history",
     "maxMessageHistoryHint": "Older messages are removed when the limit is reached. Stored in the browser's local storage.",
+    "actionsTab": "Actions",
+    "autoResolveTitle": "Auto-resolve actions",
+    "autoResolveHint": "When enabled, incoming open actions are executed automatically. When disabled, an action button is shown in the notification panel.",
     "bgColor": "Background color",
     "reset": "Reset",
     "fileBrowserHint": "Applied instantly to all file browser panes. Lower the opacity to let the workspace show through.",
@@ -92,6 +95,8 @@
     "empty": "No notifications yet",
     "open": "Open notifications",
     "close": "Close notifications",
+    "openInFileBrowser": "Open in File Browser",
+    "openInViewr": "Open in Viewer",
     "justNow": "just now",
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
@@ -113,6 +118,7 @@
     "upOneLevel": "Up one level",
     "home": "Home",
     "refresh": "Refresh",
+    "copyPath": "Click to copy path",
     "viewerEmpty": "Viewer — empty"
   },
   "wm": {

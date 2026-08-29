@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
+import { executeAction } from '../lib/actionResolver'
 import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
 
 function relativeTime(ts: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
@@ -17,9 +18,31 @@ function relativeTime(ts: number, t: (key: string, opts?: Record<string, unknown
 
 function MessageRow({ n }: { n: Notification }) {
   const { t } = useTranslation()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const store = useStore() as any
+
+  const handleAction = () => {
+    if (n.data) {
+      executeAction(n.data, store)
+    }
+  }
+
+  const actionLabel = n.data?.payload.type === 'dir'
+    ? t('notifications.openInFileBrowser')
+    : t('notifications.openInViewr')
+
   return (
     <div className="rounded px-3 py-2 transition hover:bg-white/5">
       <p className="text-xs leading-relaxed text-popover-foreground">{n.message}</p>
+      {n.data && (
+        <button
+          type="button"
+          onClick={handleAction}
+          className="mt-1.5 rounded bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-300 transition hover:bg-sky-500/25 hover:text-sky-200"
+        >
+          {actionLabel}
+        </button>
+      )}
       <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(n.timestamp, t)}</p>
     </div>
   )

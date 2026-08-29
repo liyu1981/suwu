@@ -30,6 +30,9 @@
     "themeHint": "颜色立即应用到所有终端窗口。降低背景不透明度可让工作区透过显示。",
     "maxMessageHistory": "最大消息历史",
     "maxMessageHistoryHint": "达到上限时旧消息将被移除。存储在浏览器本地存储中。",
+    "actionsTab": "操作",
+    "autoResolveTitle": "自动执行操作",
+    "autoResolveHint": "启用时，收到的打开操作将自动执行。禁用时，通知面板中会显示操作按钮。",
     "bgColor": "背景颜色",
     "reset": "重置",
     "fileBrowserHint": "立即应用到所有文件浏览器窗口。降低不透明度可让工作区透过显示。",
@@ -92,6 +95,8 @@
     "empty": "暂无通知",
     "open": "打开通知",
     "close": "关闭通知",
+    "openInFileBrowser": "在文件浏览器中打开",
+    "openInViewr": "在查看器中打开",
     "justNow": "刚刚",
     "minutesAgo": "{{count}}分钟前",
     "hoursAgo": "{{count}}小时前",
@@ -112,6 +117,7 @@
     "upOneLevel": "上级目录",
     "home": "主目录",
     "refresh": "刷新",
+    "copyPath": "点击复制路径",
     "viewerEmpty": "查看器 — 空"
   },
   "wm": {

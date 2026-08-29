@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { Tabs as TabsPrimitive } from 'radix-ui'
 import { maxEntriesAtom } from '../../store/notifications'
+import { autoResolveAtom } from '../../store/settings'
 
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
 const sectionLabel = 'text-xs font-medium text-muted-foreground'
@@ -13,12 +14,42 @@ const tabBtn =
   'hover:bg-white/5 hover:text-popover-foreground focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
   'data-[state=active]:bg-white/10 data-[state=active]:text-popover-foreground'
 
+const toggle =
+  'relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ' +
+  'bg-white/15 data-[state=checked]:bg-sky-500/60'
+
+const toggleThumb =
+  'block h-4 w-4 translate-x-0.5 rounded-full bg-white shadow transition-transform ' +
+  'data-[state=checked]:translate-x-4'
+
+function Toggle({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean
+  onCheckedChange: (v: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      data-state={checked ? 'checked' : 'unchecked'}
+      className={toggle}
+      onClick={() => onCheckedChange(!checked)}
+    >
+      <span data-state={checked ? 'checked' : 'unchecked'} className={toggleThumb} />
+    </button>
+  )
+}
+
 /**
- * Settings screen: Notifications and Language preferences.
+ * Settings screen: Notifications, Actions, and Language preferences.
  */
 export default function SettingsView() {
   const { t } = useTranslation()
   const [maxEntries, setMaxEntries] = useAtom(maxEntriesAtom)
+  const [autoResolve, setAutoResolve] = useAtom(autoResolveAtom)
 
   return (
     <div>
@@ -33,6 +64,9 @@ export default function SettingsView() {
         >
           <TabsPrimitive.Trigger value="notifications" className={tabBtn}>
             {t('settings.notificationsTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="actions" className={tabBtn}>
+            {t('settings.actionsTab')}
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="language" className={tabBtn}>
             {t('settings.language')}
@@ -60,6 +94,38 @@ export default function SettingsView() {
             <p className={sectionHint}>
               {t('settings.maxMessageHistoryHint')}
             </p>
+          </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="actions" className="min-w-0 flex-1">
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.autoResolveTitle')}</span>
+            </div>
+            <p className={sectionHint}>
+              {t('settings.autoResolveHint')}
+            </p>
+
+            <div className="mt-3 divide-y divide-white/5">
+              <div className="flex items-center justify-between py-2.5">
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs text-popover-foreground">{t('plugin.fileBrowser')}</span>
+                </div>
+                <Toggle
+                  checked={autoResolve.filebrowser}
+                  onCheckedChange={(v) => setAutoResolve({ ...autoResolve, filebrowser: v })}
+                />
+              </div>
+              <div className="flex items-center justify-between py-2.5">
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs text-popover-foreground">{t('plugin.viewer')}</span>
+                </div>
+                <Toggle
+                  checked={autoResolve.viewer}
+                  onCheckedChange={(v) => setAutoResolve({ ...autoResolve, viewer: v })}
+                />
+              </div>
+            </div>
           </div>
         </TabsPrimitive.Content>
 

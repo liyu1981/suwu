@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -17,9 +18,10 @@ import (
 
 // Notification is a single message flowing through the hub.
 type Notification struct {
-	ID        string `json:"id"`
-	Message   string `json:"message"`
-	Timestamp int64  `json:"timestamp"`
+	ID        string          `json:"id"`
+	Message   string          `json:"message"`
+	Data      json.RawMessage `json:"data,omitempty"`
+	Timestamp int64           `json:"timestamp"`
 }
 
 // sub pairs a bidirectional channel (for sending/closing) with its
@@ -100,13 +102,28 @@ func (l *Listener) handleConn(conn net.Conn) {
 	if !scanner.Scan() {
 		return
 	}
-	msg := scanner.Text()
-	if msg == "" {
+	raw := scanner.Text()
+	if raw == "" {
 		return
 	}
+
+	// Try to parse as a full Notification JSON (used by `suwu open`).
+	// Falls back to treating the raw text as a plain message string.
+	var n Notification
+	if err := json.Unmarshal([]byte(raw), &n); err == nil && (n.Message != "" || n.Data != nil) {
+		if n.ID == "" {
+			n.ID = randomID()
+		}
+		if n.Timestamp == 0 {
+			n.Timestamp = time.Now().UnixMilli()
+		}
+		l.broadcast(n)
+		return
+	}
+
 	l.broadcast(Notification{
 		ID:        randomID(),
-		Message:   msg,
+		Message:   raw,
 		Timestamp: time.Now().UnixMilli(),
 	})
 }

@@ -1,10 +1,19 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 
+export interface NotificationData {
+  action: string
+  payload: {
+    type: 'dir' | 'file'
+    path: string
+  }
+}
+
 export interface Notification {
   id: string
   message: string
   timestamp: number
+  data?: NotificationData
 }
 
 /** Persisted message history, capped at maxEntries. */

@@ -66,14 +66,6 @@ function FileIcon() {
   )
 }
 
-function ChevronRight() {
-  return (
-    <svg className="h-3 w-3 shrink-0 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  )
-}
-
 function TreeChevron({ expanded }: { expanded: boolean }) {
   return (
     <svg
@@ -126,6 +118,15 @@ function RefreshIcon() {
   )
 }
 
+function CopyIcon() {
+  return (
+    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  )
+}
+
 // ── API helper ──
 
 async function fetchFiles(dirPath: string, signal?: AbortSignal): Promise<FileListResponse> {
@@ -168,6 +169,10 @@ function TreeView({
   const { t } = useTranslation()
   const [rootChildren, setRootChildren] = useState<TreeNode[] | null>(null)
   const [loading, setLoading] = useState(true)
+  // Track nodes the user has manually collapsed so auto-expand doesn't re-open them.
+  const collapsedRef = useRef(new Set<string>())
+  // Track the last path we auto-expanded to, so we don't re-run.
+  const lastExpandedPath = useRef('')
 
   // Load root directories on mount
   useEffect(() => {
@@ -194,26 +199,28 @@ function TreeView({
     return () => { cancelled = true }
   }, [])
 
-  // Auto-expand ancestors of currentPath
+  // Auto-expand ancestors of currentPath (re-runs when tree data loads)
   useEffect(() => {
     if (!rootChildren) return
+    if (currentPath === lastExpandedPath.current) return
+
     const parts = currentPath.split('/').filter(Boolean)
     let nodes = rootChildren
+    let changed = false
     for (let i = 0; i < parts.length; i++) {
       const seg = parts[i]
       const node = nodes.find((n) => n.name === seg)
       if (!node) break
-      if (!node.expanded) {
+      if (!node.expanded && !collapsedRef.current.has(node.path)) {
         node.expanded = true
-        // Trigger re-render by re-setting
-        setRootChildren([...rootChildren])
+        changed = true
       }
       if (node.children === null) {
-        // Load children lazily
+        // Load children async, then re-trigger this effect via setRootChildren.
         ;(async () => {
           try {
             const data = await fetchFiles(node.path)
-            const dirs = data.entries
+            node.children = data.entries
               .filter((e) => e.isDir)
               .map((e): TreeNode => ({
                 path: data.path === '/' ? `/${e.name}` : `${data.path}/${e.name}`,
@@ -221,21 +228,32 @@ function TreeView({
                 expanded: false,
                 children: null,
               }))
-            node.children = dirs
-            setRootChildren([...rootChildren])
           } catch {
             node.children = []
-            setRootChildren([...rootChildren])
           }
+          // Trigger re-render so this effect re-runs for the next segment.
+          setRootChildren((prev) => prev ? [...prev] : prev)
         })()
-        break
+        // Don't set lastExpandedPath yet — we're still expanding.
+        return
       }
       nodes = node.children
     }
+    // All segments expanded — mark done.
+    lastExpandedPath.current = currentPath
+    if (changed) {
+      setRootChildren([...rootChildren])
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath, rootChildren])
 
   const toggleNode = useCallback(async (node: TreeNode) => {
     node.expanded = !node.expanded
+    if (!node.expanded) {
+      collapsedRef.current.add(node.path)
+    } else {
+      collapsedRef.current.delete(node.path)
+    }
     if (node.expanded && node.children === null) {
       try {
         const data = await fetchFiles(node.path)
@@ -306,11 +324,26 @@ function TreeNodeItem({
   const hasChildren = node.children === null || node.children.length > 0
   const btnRef = useRef<HTMLButtonElement>(null)
 
-  // Scroll the active node into view whenever it becomes selected.
+  // Scroll the active node to the middle of the tree view, but only if it's out of view.
   useEffect(() => {
-    if (isActive && btnRef.current) {
-      btnRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    }
+    if (!isActive || !btnRef.current) return
+    const el = btnRef.current
+    // Walk up: button → div → ... → nav → scrollable parent div
+    const nav = el.closest('nav')
+    const parent = nav?.parentElement as HTMLElement | null
+    if (!parent) return
+
+    const elRect = el.getBoundingClientRect()
+    const parentRect = parent.getBoundingClientRect()
+
+    // Already fully visible — no scroll needed.
+    if (elRect.top >= parentRect.top && elRect.bottom <= parentRect.bottom) return
+
+    // Element's position relative to the scroll container's content.
+    const elOffsetInContent = elRect.top - parentRect.top + parent.scrollTop
+    // Center it in the viewport.
+    const target = elOffsetInContent - parent.clientHeight / 2 + el.offsetHeight / 2
+    parent.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
   }, [isActive])
 
   return (
@@ -374,7 +407,11 @@ export default function FileBrowserPage() {
   const [history, setHistory] = useState<string[]>(['/'])
   const [historyIndex, setHistoryIndex] = useState(0)
   const [treeRefreshKey, setTreeRefreshKey] = useState(0)
+  const [copied, setCopied] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Read initial path from URL once (before any effects).
+  const initPath = new URLSearchParams(window.location.search).get('path')
 
   // Override the opaque :root background so the translucent bgColor shows through.
   useEffect(() => {
@@ -412,9 +449,13 @@ export default function FileBrowserPage() {
     }
   }, [])
 
+  // Initial navigation: fetch URL param on mount only.
+  const initRef = useRef(false)
   useEffect(() => {
-    fetchDir('/')
-  }, [fetchDir])
+    if (initRef.current) return
+    initRef.current = true
+    void fetchDir(initPath || '/')
+  }, [fetchDir, initPath])
 
   const navigateTo = useCallback((dirPath: string) => {
     const newHistory = history.slice(0, historyIndex + 1)
@@ -470,6 +511,12 @@ export default function FileBrowserPage() {
     setTreeRefreshKey((k) => k + 1)
   }, [navigateTo])
 
+  const copyPath = useCallback(() => {
+    void navigator.clipboard.writeText(currentPath)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }, [currentPath])
+
   const sorted = [...entries].sort((a, b) => {
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
     let cmp = 0
@@ -519,36 +566,30 @@ export default function FileBrowserPage() {
           <RefreshIcon />
         </button>
 
-        {/* Breadcrumb */}
-        <div className="ml-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden text-xs">
-          <button type="button" onClick={goHome} className="shrink-0 rounded px-1 py-0.5 text-white/50 hover:bg-white/10 hover:text-white">
-            /
-          </button>
-          {breadcrumbs.map((seg, i) => {
-            const fullPath = '/' + breadcrumbs.slice(0, i + 1).join('/')
-            const isLast = i === breadcrumbs.length - 1
-            return (
-              <span key={i} className="flex items-center gap-0.5">
-                <ChevronRight />
-                <button
-                  type="button"
-                  onClick={() => !isLast && navigateTo(fullPath)}
-                  className={`shrink-0 truncate rounded px-1 py-0.5 ${
-                    isLast ? 'text-white/80' : 'text-white/50 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  {seg}
-                </button>
-              </span>
-            )
-          })}
-        </div>
+        {/* Path bar — click to copy */}
+        <button
+          type="button"
+          onClick={copyPath}
+          className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded bg-black/30 px-2 py-0.5 text-left text-xs text-white/60 transition hover:bg-black/50 hover:text-white/80"
+          title={t('filebrowser.copyPath')}
+        >
+          <span className="truncate font-mono">{currentPath}</span>
+          <span className="shrink-0 text-white/40">
+            {copied ? (
+              <svg className="h-3 w-3 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <CopyIcon />
+            )}
+          </span>
+        </button>
       </div>
 
       {/* Two-panel body */}
       <div className="flex min-h-0 flex-1">
         {/* Left: tree view */}
-        <div className="w-52 shrink-0 overflow-y-auto border-r border-white/10 bg-black/20">
+        <div className="w-52 h-full shrink-0 overflow-y-auto border-r border-white/10 bg-black/20">
           <TreeView key={treeRefreshKey} currentPath={currentPath} onNavigate={handleTreeNavigate} />
         </div>
 
@@ -614,7 +655,6 @@ export default function FileBrowserPage() {
       {/* Status bar */}
       <div className="flex shrink-0 items-center justify-between border-t border-white/10 bg-black/40 px-3 py-1 text-[10px] text-white/30">
         <span>{t('filebrowser.itemCount', { count: sorted.length })}</span>
-        <span className="truncate ml-2">{currentPath}</span>
       </div>
     </div>
   )

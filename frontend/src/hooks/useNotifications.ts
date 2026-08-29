@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { useAtom, useSetAtom } from 'jotai'
+import { useAtom, useSetAtom, useStore } from 'jotai'
 import { fetchToken } from '../lib/api'
+import { resolveAction } from '../lib/actionResolver'
+import { autoResolveAtom } from '../store/settings'
 import {
   maxEntriesAtom,
   notificationsAtom,
@@ -17,11 +19,12 @@ const RECONNECT_DELAY_MS = 3000
  * to the console; no error UI is shown.
  */
 export function useNotifications() {
-  const [notifications, setNotifications] = useAtom(notificationsAtom)
+  const [, setNotifications] = useAtom(notificationsAtom)
   const setUnread = useSetAtom(unreadCountAtom)
   const [panelOpen] = useAtom(panelOpenAtom)
   const [maxEntries] = useAtom(maxEntriesAtom)
   const panelOpenRef = useRef(panelOpen)
+  const store = useStore()
 
   // Keep ref in sync so the WebSocket onmessage callback sees the latest.
   panelOpenRef.current = panelOpen
@@ -46,11 +49,27 @@ export function useNotifications() {
       ws.onmessage = (event) => {
         try {
           const n: Notification = JSON.parse(event.data)
+
+          // If notification has action data, try to auto-resolve.
+          if (n.data) {
+            const autoResolve = store.get(autoResolveAtom)
+            const resolved = resolveAction(n.data, store, autoResolve)
+            if (resolved) {
+              // Action was auto-executed; show in panel but do NOT badge.
+              const resolvedNotification = { ...n, message: `${n.message} ✓` }
+              setNotifications((prev) => {
+                const next = [...prev, resolvedNotification]
+                return next.length > maxEntries ? next.slice(-maxEntries) : next
+              })
+              return
+            }
+          }
+
+          // Plain notification or unresolved action — add as-is.
           setNotifications((prev) => {
             const next = [...prev, n]
             return next.length > maxEntries ? next.slice(-maxEntries) : next
           })
-          // Increment unread only when the panel is closed.
           if (!panelOpenRef.current) {
             setUnread((c) => c + 1)
           }
@@ -95,7 +114,7 @@ export function useNotifications() {
       if (reconnectTimer) window.clearTimeout(reconnectTimer)
       ws?.close()
     }
-  // setNotifications and setUnread are stable Jotai setters.
+  // store, maxEntries are stable.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxEntries])
 }

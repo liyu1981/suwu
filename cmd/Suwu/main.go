@@ -24,6 +24,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -87,6 +88,11 @@ func main() {
 				log.Fatalf("ping: %v", err)
 			}
 			return
+		case "open":
+			if err := openMain(os.Args[2:]); err != nil {
+				log.Fatalf("open: %v", err)
+			}
+			return
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -112,6 +118,8 @@ Usage:
                            when explicitly set, the global env is skipped
   suwu ping [--sock <path>] <message>
                            send a notification to the running server
+  suwu open [--sock <path>] <path>
+                           open a file or directory in the running Suwu session
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
@@ -398,19 +406,9 @@ func ping(args []string) error {
 	}
 	message := strings.Join(fs.Args(), " ")
 
-	var sockPath string
-	if *sock == "" {
-		var err error
-		sockPath, err = notify.SocketPath()
-		if err != nil {
-			return err
-		}
-	} else {
-		expanded, err := certs.ExpandPath(*sock)
-		if err != nil {
-			return err
-		}
-		sockPath = expanded
+	sockPath, err := resolveSockPath(*sock)
+	if err != nil {
+		return err
 	}
 
 	if err := notify.Ping(sockPath, message); err != nil {
@@ -418,4 +416,84 @@ func ping(args []string) error {
 	}
 	fmt.Printf("Pinged: %s\n", message)
 	return nil
+}
+
+// openAction is the JSON payload sent by `suwu open`.
+type openAction struct {
+	Action  string       `json:"action"`
+	Payload openPayload  `json:"payload"`
+}
+
+type openPayload struct {
+	Type string `json:"type"`
+	Path string `json:"path"`
+}
+
+func openMain(args []string) error {
+	fs := flag.NewFlagSet("open", flag.ContinueOnError)
+	sock := fs.String("sock", "", "path to the notify socket (default ~/.suwu/suwu.sock, or $SUWU_SOCK_PATH)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if fs.NArg() == 0 {
+		return fmt.Errorf("usage: suwu open [--sock <path>] <path>")
+	}
+	rawPath := fs.Args()[0]
+
+	absPath, err := filepath.Abs(rawPath)
+	if err != nil {
+		return fmt.Errorf("resolve path: %w", err)
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", absPath, err)
+	}
+
+	pathType := "file"
+	if info.IsDir() {
+		pathType = "dir"
+	}
+
+	action := openAction{
+		Action: "open",
+		Payload: openPayload{
+			Type: pathType,
+			Path: absPath,
+		},
+	}
+
+	data, err := json.Marshal(action)
+	if err != nil {
+		return fmt.Errorf("marshal action: %w", err)
+	}
+
+	sockPath, err := resolveSockPath(*sock)
+	if err != nil {
+		return err
+	}
+
+	// Send the full Notification JSON so handleConn parses it with Data.
+	n := notify.Notification{
+		Message: fmt.Sprintf("Open %s: %s", pathType, absPath),
+		Data:    data,
+	}
+	nJSON, err := json.Marshal(n)
+	if err != nil {
+		return fmt.Errorf("marshal notification: %w", err)
+	}
+
+	if err := notify.Ping(sockPath, string(nJSON)); err != nil {
+		return err
+	}
+	fmt.Printf("Opened: %s (%s)\n", absPath, pathType)
+	return nil
+}
+
+func resolveSockPath(flagVal string) (string, error) {
+	if flagVal != "" {
+		return certs.ExpandPath(flagVal)
+	}
+	return notify.SocketPath()
 }

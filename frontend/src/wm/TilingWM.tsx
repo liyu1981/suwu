@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from './atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, pendingPathAtom } from './atoms'
 import { FONT_DEFAULT } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
@@ -152,6 +152,7 @@ export default function TilingWM() {
   const store = useStore()
   const layout = useAtomValue(layoutAtom)
   const focused = useAtomValue(focusedIdAtom)
+  const pendingPath = useAtomValue(pendingPathAtom)
   const setFocused = useSetAtom(focusedIdAtom)
   const setLayout = useSetAtom(layoutAtom)
 
@@ -379,7 +380,7 @@ export default function TilingWM() {
   }, [focused, layout])
 
   return (
-    <div ref={viewportRef} className={`relative h-full w-full overflow-hidden ${dragging ? 'wm-dragging' : ''}`}>
+    <div ref={viewportRef} data-tiling-viewport className={`relative h-full w-full overflow-hidden ${dragging ? 'wm-dragging' : ''}`}>
       {ghosts.map((g) => (
         <div
           key={g.key}
@@ -418,7 +419,7 @@ export default function TilingWM() {
             onMouseDown={() => setFocused(id)}
           >
             {tileType && plugin ? (
-              plugin.render(id)
+              plugin.render(id, { paneId: id, initialPath: pendingPath?.paneId === id ? pendingPath.path : undefined })
             ) : (
               <div className="flex h-full w-full items-center justify-center">
                 <button

@@ -8,7 +8,7 @@
 //	suwu serve          # run the server (reads SUWU_DEV from .env)
 //	suwu gencerts       # interactive TLS certificate generation (local CA)
 //	suwu version        # print version and exit
-//	suwu install        # seed ~/.config/suwu/.env from defaults
+//	suwu onboard        # initial setup: data dir, bind host, password
 //	suwu daemon {start|stop|restart|status|logs}  # manage background server
 //
 //	PORT=3000 suwu serve   # custom port
@@ -71,9 +71,9 @@ func main() {
 		case "version", "-v", "--version":
 			fmt.Printf("suwu %s\n", version.Version)
 			return
-		case "install":
-			if err := install(); err != nil {
-				log.Fatalf("install: %v", err)
+		case "onboard":
+			if err := onboard(); err != nil {
+				log.Fatalf("onboard: %v", err)
 			}
 			return
 		case "daemon":
@@ -107,7 +107,7 @@ Usage:
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
-  suwu install             seed ~/.config/suwu/.env and choose data directory
+  suwu onboard             initial setup: data directory, bind host, password
   suwu daemon {start|stop|restart|status|logs}
                            manage a background daemon (default data: ~/.suwu)
 
@@ -334,7 +334,7 @@ func printBanner(dev bool, cfg *auth.Config, port int, useTLS bool, tlsSource st
 	fmt.Println("\n" + strings.Repeat("═", 60))
 	fmt.Printf("  🚀 Suwu server%s\n", devLabel(dev))
 	fmt.Println(strings.Repeat("═", 60))
-	fmt.Printf("\n  📺 Open: %s://%s:%d\n", scheme, formatURLHost(cfg.BindHost), port)
+	fmt.Printf("\n  📺 Open: %s://%s:%d\n", scheme, formatURLHost(cfg.DisplayHost), port)
 	if useTLS {
 		fmt.Printf("  🔒 TLS enabled (certs from %s): browser clipboard APIs (terminal paste) available\n", tlsSource)
 	} else {

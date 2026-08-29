@@ -118,7 +118,7 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"))
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
 	if !d.OK {
 		writePlain(w, d.Status, d.Reason)
 		return

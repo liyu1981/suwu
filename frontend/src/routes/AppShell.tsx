@@ -1,8 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from '@tanstack/react-router'
 import { useAtom, useStore } from 'jotai'
 import { AmbientBackground } from '../components/AmbientBackground'
+import { AuthDialog } from '../components/dialogs/AuthDialog'
 import SuwuDialog from '../components/dialogs/SuwuDialog'
+import { AuthRequiredError, fetchToken } from '../lib/api'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from '../wm/atoms'
 import {
   splitAndFocus,
@@ -56,6 +58,23 @@ export default function AppShell() {
   const [, setMenuOpen] = useAtom(menuOpenAtom)
   const [, setMenuView] = useAtom(menuViewAtom)
 
+  // Auth: check if server requires a password.
+  const [authRequired, setAuthRequired] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchToken().catch((e) => {
+      if (!cancelled && e instanceof AuthRequiredError) {
+        setAuthRequired(true)
+      }
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const handleAuthenticated = useCallback(() => {
+    setAuthRequired(false)
+  }, [])
+
   // The burger opens the unified Suwu dialog at its root menu screen.
   const openMenu = useCallback(() => {
     setMenuView('menu')
@@ -105,6 +124,7 @@ export default function AppShell() {
         </main>
       </div>
       <SuwuDialog />
+      <AuthDialog open={authRequired} onAuthenticated={handleAuthenticated} />
     </div>
   )
 }

@@ -1,6 +1,9 @@
 package auth
 
-import "testing"
+import (
+	"encoding/base64"
+	"testing"
+)
 
 func TestParseHostHeader(t *testing.T) {
 	cases := []struct {
@@ -53,6 +56,7 @@ func TestLoopbackWildcard(t *testing.T) {
 
 func TestCreateConfigAllowsLocalMachineHosts(t *testing.T) {
 	t.Setenv("HOST", "0.0.0.0")
+	t.Setenv("AUTH_PASS", HashPassword("test"))
 	cfg, err := CreateConfig(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -102,8 +106,128 @@ func TestValidateWebSocketRequest(t *testing.T) {
 	}
 
 	// Token request origin optional.
-	d = ValidateTokenRequest(cfg, "127.0.0.1:8080", "")
+	d = ValidateTokenRequest(cfg, "127.0.0.1:8080", "", "")
 	if !d.OK {
 		t.Errorf("token request without origin rejected: %+v", d)
+	}
+}
+
+func TestValidateTokenRequestNoPassword(t *testing.T) {
+	cfg := &Config{Token: "tok", AllowedHosts: []string{"localhost"}}
+
+	// No password required: any request passes.
+	d := ValidateTokenRequest(cfg, "localhost", "", "")
+	if !d.OK {
+		t.Errorf("no-password request rejected: %+v", d)
+	}
+}
+
+func TestValidateTokenRequestWithPassword(t *testing.T) {
+	hash := HashPassword("secret123")
+	cfg := &Config{Token: "tok", AllowedHosts: []string{"localhost"}, PasswordHash: hash}
+
+	// No auth header -> 401.
+	d := ValidateTokenRequest(cfg, "localhost", "", "")
+	if d.OK || d.Status != 401 {
+		t.Errorf("no auth header: got %+v want 401", d)
+	}
+
+	// Wrong password -> 401.
+	cred := base64.StdEncoding.EncodeToString([]byte("user:wrong"))
+	d = ValidateTokenRequest(cfg, "localhost", "", "Basic "+cred)
+	if d.OK || d.Status != 401 {
+		t.Errorf("wrong password: got %+v want 401", d)
+	}
+
+	// Correct password -> 200.
+	cred = base64.StdEncoding.EncodeToString([]byte("user:secret123"))
+	d = ValidateTokenRequest(cfg, "localhost", "", "Basic "+cred)
+	if !d.OK {
+		t.Errorf("correct password rejected: %+v", d)
+	}
+}
+
+func TestHashPassword(t *testing.T) {
+	// Same input produces same hash.
+	h1 := HashPassword("hello")
+	h2 := HashPassword("hello")
+	if h1 != h2 {
+		t.Errorf("HashPassword('hello') not deterministic: %s != %s", h1, h2)
+	}
+	// Different input produces different hash.
+	h3 := HashPassword("world")
+	if h1 == h3 {
+		t.Error("HashPassword('hello') == HashPassword('world')")
+	}
+}
+
+func TestCreateConfigExplicitHostWithoutAuthPass(t *testing.T) {
+	// Explicit host without AUTH_PASS: valid, no password required.
+	t.Setenv("HOST", "0.0.0.0")
+	t.Setenv("AUTH_PASS", "")
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PasswordHash != "" {
+		t.Errorf("no AUTH_PASS should mean no password, got PasswordHash=%q", cfg.PasswordHash)
+	}
+}
+
+func TestCreateConfigAutoNoPassword(t *testing.T) {
+	t.Setenv("HOST", "auto")
+	t.Setenv("AUTH_PASS", "")
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PasswordHash != "" {
+		t.Errorf("HOST=auto should not require password, got PasswordHash=%q", cfg.PasswordHash)
+	}
+}
+
+func TestCreateConfigAuthPassWithDefaultHost(t *testing.T) {
+	// AUTH_PASS set with default HOST: password is required.
+	hash := HashPassword("mypass")
+	t.Setenv("HOST", "")
+	t.Setenv("AUTH_PASS", hash)
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BindHost != "127.0.0.1" {
+		t.Errorf("bind host = %q, want 127.0.0.1", cfg.BindHost)
+	}
+	if cfg.PasswordHash != hash {
+		t.Errorf("PasswordHash = %q, want %q", cfg.PasswordHash, hash)
+	}
+}
+
+func TestCreateConfigAuthPassWithAutoHost(t *testing.T) {
+	// AUTH_PASS set with HOST=auto: password is required.
+	hash := HashPassword("mypass")
+	t.Setenv("HOST", "auto")
+	t.Setenv("AUTH_PASS", hash)
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PasswordHash != hash {
+		t.Errorf("PasswordHash = %q, want %q", cfg.PasswordHash, hash)
+	}
+}
+
+func TestCreateConfigDefaultNoPassword(t *testing.T) {
+	t.Setenv("HOST", "")
+	t.Setenv("AUTH_PASS", "")
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BindHost != "127.0.0.1" {
+		t.Errorf("default bind host = %q, want 127.0.0.1", cfg.BindHost)
+	}
+	if cfg.PasswordHash != "" {
+		t.Error("default config should not require password")
 	}
 }

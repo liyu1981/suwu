@@ -4,8 +4,10 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"net"
 	"net/url"
@@ -44,8 +46,10 @@ type Host struct {
 // Config is the immutable per-run auth configuration.
 type Config struct {
 	Token        string
-	BindHost     string
+	BindHost     string   // actual address passed to net.Listen
+	DisplayHost  string   // user-friendly host shown in banner (detected hostname/IP when HOST=auto)
 	AllowedHosts []string
+	PasswordHash string // sha256 hex of the password; empty = no password required
 }
 
 // GenerateSessionToken returns a URL-safe base64 random token with >= 256 bits.
@@ -305,6 +309,14 @@ func IsLoopbackHost(host string) bool {
 
 // CreateConfig builds the auth configuration from environment variables.
 // env is the environment to read (defaults to os.Environ); nil means os.Getenv.
+//
+// HOST semantics:
+//   - unset or empty → default "127.0.0.1"
+//   - "auto" → bind all interfaces (0.0.0.0)
+//   - any other value (IP/hostname) → use as bind host
+//
+// AUTH_PASS: sha256 hex of the user's password. When set (regardless of HOST),
+// /api/token requires Basic auth. When unset, no password is required.
 func CreateConfig(env func(string) string) (*Config, error) {
 	get := env
 	if get == nil {
@@ -312,11 +324,17 @@ func CreateConfig(env func(string) string) (*Config, error) {
 	}
 
 	bindHost := get("HOST")
-	if bindHost == "" {
+	authPass := get("AUTH_PASS")
+
+	switch {
+	case bindHost == "":
 		bindHost = "127.0.0.1"
-	}
-	if normalizeHostname(bindHost) == "" {
-		return nil, errors.New("bind host must be a valid hostname or IP address: " + bindHost)
+	case bindHost == "auto":
+		bindHost = "0.0.0.0"
+	default:
+		if normalizeHostname(bindHost) == "" {
+			return nil, errors.New("bind host must be a valid hostname or IP address: " + bindHost)
+		}
 	}
 
 	token, err := GenerateSessionToken()
@@ -324,13 +342,22 @@ func CreateConfig(env func(string) string) (*Config, error) {
 		return nil, err
 	}
 
-	// The server belongs to the machine it runs on: loopback names plus the
-	// machine's own hostname and interface addresses are always accepted as
-	// browser-visible hosts, so the terminal is reachable via any of the
-	// machine's own names without extra configuration.
+	// Build allowed hosts: always include loopback.
 	allowed := append([]string{}, loopbackHosts...)
-	for _, h := range localMachineHosts() {
-		allowed, _ = addAllowedHost(allowed, h) // invalid auto-detected names are skipped
+
+	// When HOST=auto, a wildcard, or an explicit non-loopback host,
+	// auto-detect machine addresses so the terminal is reachable via any
+	// of the machine's own names without extra configuration.
+	displayHost := bindHost
+	if IsWildcardBindHost(bindHost) || !IsLoopbackHost(bindHost) {
+		hosts := localMachineHosts()
+		for _, h := range hosts {
+			allowed, _ = addAllowedHost(allowed, h)
+		}
+		// When HOST=auto, prefer the machine hostname for display.
+		if get("HOST") == "auto" && len(hosts) > 0 {
+			displayHost = hosts[0]
+		}
 	}
 
 	if !IsWildcardBindHost(bindHost) {
@@ -340,7 +367,11 @@ func CreateConfig(env func(string) string) (*Config, error) {
 		}
 	}
 
-	return &Config{Token: token, BindHost: bindHost, AllowedHosts: allowed}, nil
+	cfg := &Config{Token: token, BindHost: bindHost, DisplayHost: displayHost, AllowedHosts: allowed}
+	if authPass != "" {
+		cfg.PasswordHash = authPass
+	}
+	return cfg, nil
 }
 
 // localMachineHosts lists the hostnames and addresses of the machine the
@@ -377,12 +408,50 @@ func localMachineHosts() []string {
 }
 
 // ValidateTokenRequest validates a /api/token request. Origin is optional.
-func ValidateTokenRequest(cfg *Config, hostHeader, originHeader string) Decision {
+// When cfg.PasswordHash is set, requires Authorization: Basic header with
+// a password matching the sha256 hash.
+func ValidateTokenRequest(cfg *Config, hostHeader, originHeader, authHeader string) Decision {
 	d, _ := validateAllowedHost(cfg, hostHeader)
 	if !d.OK {
 		return d
 	}
-	return validateMatchingOrigin(originHeader, hostFromHeader(hostHeader), false)
+	d = validateMatchingOrigin(originHeader, hostFromHeader(hostHeader), false)
+	if !d.OK {
+		return d
+	}
+	if cfg.PasswordHash != "" {
+		if !validateBasicAuth(authHeader, cfg.PasswordHash) {
+			return unauthorized()
+		}
+	}
+	return allowed()
+}
+
+// validateBasicAuth checks an "Authorization: Basic <base64(user:pass)>"
+// header against the stored sha256 password hash.
+func validateBasicAuth(authHeader, expectedHash string) bool {
+	const prefix = "Basic "
+	if !strings.HasPrefix(authHeader, prefix) {
+		return false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(authHeader[len(prefix):])
+	if err != nil {
+		return false
+	}
+	// Format is "user:password" — we only care about the password part.
+	parts := strings.SplitN(string(decoded), ":", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	hash := sha256.Sum256([]byte(parts[1]))
+	actual := hex.EncodeToString(hash[:])
+	return subtle.ConstantTimeCompare([]byte(actual), []byte(expectedHash)) == 1
+}
+
+// HashPassword returns the sha256 hex of a plaintext password.
+func HashPassword(password string) string {
+	h := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(h[:])
 }
 
 // ValidateWebSocketRequest validates a /ws upgrade. Origin is required.

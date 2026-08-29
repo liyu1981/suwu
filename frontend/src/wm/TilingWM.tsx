@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from './atoms'
 import { FONT_DEFAULT } from '../store/fonts'
@@ -24,13 +24,39 @@ import {
 import { applyWmAction, wmAction } from './shortcuts'
 import { TileTools } from './TileTools'
 import { usePaneGhosts } from './usePaneGhosts'
-import { getTilePlugin, getAllTilePlugins } from './tilePlugins'
+import { getTilePlugin, getAllTilePlugins, type TilePlugin } from './tilePlugins'
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 
 // Register built-in tile plugins (side-effect imports).
 import './plugins/term'
 import './plugins/viewer'
+import './plugins/filebrowser'
 
-/** Minimal inline dialog for selecting a tile type. */
+const appRow =
+  'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +
+  'outline-none transition-colors ' +
+  'hover:bg-white/10 hover:text-popover-foreground active:bg-white/15 active:text-popover-foreground ' +
+  'focus-visible:bg-white/10 focus-visible:text-popover-foreground'
+
+function AppIcon({ id }: { id: string }) {
+  const bg = id === 'term' ? 'bg-sky-500/20 text-sky-400' : id === 'viewer' ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-white/40'
+  const letter = id.charAt(0).toUpperCase()
+  return (
+    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${bg}`}>
+      {letter}
+    </div>
+  )
+}
+
+function ChevronIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 shrink-0 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  )
+}
+
+/** iOS-settings-style dialog for choosing which application to open in a tile. */
 function TileTypePicker({
   paneId,
   setLayout,
@@ -41,30 +67,70 @@ function TileTypePicker({
   onClose: () => void
 }) {
   const plugins = getAllTilePlugins()
+  const navRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    navRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+  }, [])
 
   const select = (tileType: string) => {
     setLayout((prev) => (prev ? setLeafType(prev, paneId, tileType, FONT_DEFAULT, FONT_DEFAULT) : prev))
     onClose()
   }
 
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
+    const rows = Array.from(navRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])
+    if (rows.length === 0) return
+    const current = rows.indexOf(document.activeElement as HTMLButtonElement)
+    let next: number
+    switch (e.key) {
+      case 'ArrowDown':
+        next = current < 0 ? 0 : (current + 1) % rows.length
+        break
+      case 'ArrowUp':
+        next = current < 0 ? rows.length - 1 : (current - 1 + rows.length) % rows.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = rows.length - 1
+        break
+      default:
+        return
+    }
+    e.preventDefault()
+    rows[next].focus()
+  }
+
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
-      <div className="glass-control menu-glass rounded-[6px] p-3">
-        <p className="mb-2 text-xs font-medium text-white/60">Choose tile type</p>
-        <div className="flex gap-2">
-          {plugins.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => select(p.id)}
-              className="rounded px-4 py-2 text-sm font-medium text-slate-300 glass-btn transition hover:bg-white/10 hover:text-white"
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="w-[min(92vw,28rem)]" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
+        <DialogTitle>Open Application</DialogTitle>
+        <p className="mt-1 text-xs text-muted-foreground">Choose an application to open in this tile.</p>
+        <nav ref={navRef} aria-label="Applications" onKeyDown={onKeyDown} className="mt-3">
+          <div className="divide-y divide-white/5 rounded-[6px] border border-white/10 bg-black/20">
+            {plugins.map((p: TilePlugin) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => select(p.id)}
+                className={appRow}
+              >
+                <AppIcon id={p.id} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-popover-foreground">{p.label}</div>
+                  {p.description && (
+                    <div className="text-[11px] text-muted-foreground">{p.description}</div>
+                  )}
+                </div>
+                <ChevronIcon />
+              </button>
+            ))}
+          </div>
+        </nav>
+      </DialogContent>
+    </Dialog>
   )
 }
 

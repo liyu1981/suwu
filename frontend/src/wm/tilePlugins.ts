@@ -15,6 +15,7 @@ export interface ToolbarContext {
 export interface TilePlugin {
   id: TileType
   label: string
+  description?: string
   /** Render the tile content (iframe, React component, etc.). */
   render: (paneId: string) => ReactNode
   /**

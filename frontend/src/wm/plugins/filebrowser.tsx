@@ -1,13 +1,13 @@
 import { registerTilePlugin } from '../tilePlugins'
 
 registerTilePlugin({
-  id: 'viewer',
-  label: 'Viewer',
-  description: 'View files and documents',
+  id: 'filebrowser',
+  label: 'File Browser',
+  description: 'Browse remote files and folders',
   render: (paneId) => (
     <iframe
-      src={`/viewer?pane=${paneId}`}
-      title={`viewer-${paneId}`}
+      src={`/filebrowser?pane=${paneId}`}
+      title={`filebrowser-${paneId}`}
       data-pane={paneId}
       className="h-full w-full border-0 bg-transparent"
     />

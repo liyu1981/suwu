@@ -3,12 +3,16 @@
 package server
 
 import (
+	"encoding/json"
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"suwu/pkg/auth"
 	"suwu/pkg/notify"
@@ -58,6 +62,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/token" {
 		s.handleToken(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/files" {
+		s.handleFiles(w, r)
 		return
 	}
 
@@ -135,6 +144,95 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	_, _ = w.Write([]byte(`{"token":` + strconv.Quote(s.cfg.Token) + `}`))
+}
+
+const maxFileEntries = 1000
+
+type fileEntry struct {
+	Name    string `json:"name"`
+	IsDir   bool   `json:"isDir"`
+	Size    int64  `json:"size"`
+	ModTime string `json:"modTime"`
+}
+
+type fileListResponse struct {
+	Path    string      `json:"path"`
+	Entries []fileEntry `json:"entries"`
+}
+
+// handleFiles returns the directory listing for a given path.
+// GET /api/files?path=/home/user
+func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+	if !d.OK {
+		writePlain(w, d.Status, d.Reason)
+		return
+	}
+
+	dirPath := r.URL.Query().Get("path")
+	if dirPath == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "/"
+		}
+		dirPath = home
+	}
+
+	dirPath = filepath.Clean(dirPath)
+
+	info, err := os.Stat(dirPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "path not found"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot access path"})
+		}
+		return
+	}
+	if !info.IsDir() {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is not a directory"})
+		return
+	}
+
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read directory"})
+		return
+	}
+
+	result := make([]fileEntry, 0, len(entries))
+	for _, e := range entries {
+		if len(result) >= maxFileEntries {
+			break
+		}
+		fi, err := e.Info()
+		if err != nil {
+			continue
+		}
+		result = append(result, fileEntry{
+			Name:    e.Name(),
+			IsDir:   e.IsDir(),
+			Size:    fi.Size(),
+			ModTime: fi.ModTime().UTC().Format(time.RFC3339),
+		})
+	}
+
+	resp := fileListResponse{Path: dirPath, Entries: result}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func writePlain(w http.ResponseWriter, status int, msg string) {

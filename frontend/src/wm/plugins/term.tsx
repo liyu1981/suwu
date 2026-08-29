@@ -47,6 +47,7 @@ function TermToolbar({ fontSize, fontDefault, setFontSize }: ToolbarContext) {
 registerTilePlugin({
   id: 'term',
   label: 'Terminal',
+  description: 'Interactive shell session',
   render: (paneId) => (
     <iframe
       src={`/term?pane=${paneId}`}

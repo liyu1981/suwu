@@ -3,6 +3,7 @@ import AppShell from './routes/AppShell'
 import DemoPage from './routes/DemoPage'
 import TermPage from './routes/TermPage'
 import ViewerPage from './routes/ViewerPage'
+import FileBrowserPage from './routes/FileBrowserPage'
 
 const rootRoute = createRootRoute()
 
@@ -34,7 +35,19 @@ const viewerRoute = createRoute({
   component: ViewerPage,
 })
 
-const routeTree = rootRoute.addChildren([appRoute.addChildren([indexRoute]), termRoute, viewerRoute])
+// Full-space file browser page, loaded inside each filebrowser pane's iframe.
+const filebrowserRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/filebrowser',
+  component: FileBrowserPage,
+})
+
+const routeTree = rootRoute.addChildren([
+  appRoute.addChildren([indexRoute]),
+  termRoute,
+  viewerRoute,
+  filebrowserRoute,
+])
 
 export const router = createRouter({ routeTree })
 

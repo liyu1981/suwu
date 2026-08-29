@@ -1,30 +1,77 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from './atoms'
-import { fontDefaultAtom } from '../store/fonts'
+import { FONT_DEFAULT } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
   closeAt,
   computeTiling,
   findNeighborRect,
+  findLeaf,
   findSplit,
   focusByOffset,
   leaves,
+  setLeafFontSize,
+  setLeafType,
   splitAndFocus,
   swapLeaves,
   updateSplitAt,
   type Direction,
   type DividerSpec,
+  type LayoutNode,
   type MoveDir,
 } from './layout'
 import { applyWmAction, wmAction } from './shortcuts'
 import { TileTools } from './TileTools'
 import { usePaneGhosts } from './usePaneGhosts'
+import { getTilePlugin, getAllTilePlugins } from './tilePlugins'
+
+// Register built-in tile plugins (side-effect imports).
+import './plugins/term'
+import './plugins/viewer'
+
+/** Minimal inline dialog for selecting a tile type. */
+function TileTypePicker({
+  paneId,
+  setLayout,
+  onClose,
+}: {
+  paneId: string
+  setLayout: (fn: (prev: LayoutNode | null) => LayoutNode | null) => void
+  onClose: () => void
+}) {
+  const plugins = getAllTilePlugins()
+
+  const select = (tileType: string) => {
+    setLayout((prev) => (prev ? setLeafType(prev, paneId, tileType, FONT_DEFAULT, FONT_DEFAULT) : prev))
+    onClose()
+  }
+
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
+      <div className="glass-control menu-glass rounded-[6px] p-3">
+        <p className="mb-2 text-xs font-medium text-white/60">Choose tile type</p>
+        <div className="flex gap-2">
+          {plugins.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => select(p.id)}
+              className="rounded px-4 py-2 text-sm font-medium text-slate-300 glass-btn transition hover:bg-white/10 hover:text-white"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /**
- * A tiling window-manager-style page: a tree of terminal panes rendered as
- * same-origin iframes (each loading `/term` with a full-space xterm
- * terminal), with split / close / focus / resize controls.
+ * A tiling window-manager-style page: a tree of panes rendered as
+ * same-origin iframes (each loading the content of its registered tile
+ * plugin), with split / close / focus / resize controls.
  *
  * Rendering detail that matters: panes are NOT nested flex boxes mirroring
  * the layout tree — they are a flat list keyed by leaf id and positioned
@@ -72,8 +119,6 @@ export default function TilingWM() {
       const f = store.get(focusedIdAtom)
       const next = focusByOffset(cur, f, off)
       store.set(focusedIdAtom, next)
-      // Move real keyboard focus with the border, or typing would keep
-      // landing in the previously focused terminal.
       if (next) document.querySelector<HTMLElement>(`iframe[data-pane="${next}"]`)?.focus()
     },
     [store],
@@ -82,7 +127,6 @@ export default function TilingWM() {
   // Measure the tiling viewport so pane rects can be laid out in px.
   const viewportRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
-  // True while a divider drag is in progress (suspends rect transitions).
   const [dragging, setDragging] = useState(false)
   useEffect(() => {
     const el = viewportRef.current
@@ -94,8 +138,6 @@ export default function TilingWM() {
     return () => ro.disconnect()
   }, [])
 
-  // Swap the tile with its nearest geometric neighbor in a direction; a
-  // no-op when there is no neighbor (edge of the layout).
   const move = useCallback(
     (id: string, dir: MoveDir) => {
       const cur = store.get(layoutAtom)
@@ -117,8 +159,6 @@ export default function TilingWM() {
     [store, move],
   )
 
-  // Alt+/ opens the unified Suwu dialog at the root menu; Alt+Shift+/
-  // jumps straight to the keyboard-shortcuts screen.
   const openMenu = useCallback(() => {
     store.set(menuViewAtom, 'menu')
     store.set(menuOpenAtom, true)
@@ -128,7 +168,30 @@ export default function TilingWM() {
     store.set(menuOpenAtom, true)
   }, [store])
 
-  const fontDefault = useAtomValue(fontDefaultAtom)
+  // Per-tile font size setter: updates the leaf node in the layout tree.
+  const setTileFontSize = useCallback(
+    (id: string, fontSize: number) => {
+      setLayout((prev) => (prev ? setLeafFontSize(prev, id, fontSize) : prev))
+    },
+    [setLayout],
+  )
+
+  // Send font size to each iframe whenever the layout tree changes.
+  // Iframes read their initial fontSize from atomWithStorage; postMessage
+  // overrides it with the per-tile value stored on the leaf node.
+  useEffect(() => {
+    if (!layout) return
+    const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]')
+    for (const iframe of iframes) {
+      const paneId = iframe.getAttribute('data-pane')
+      if (!paneId) continue
+      const leaf = findLeaf(layout, paneId)
+      if (leaf?.type !== 'leaf') continue
+      const fontSize = leaf.fontSize ?? FONT_DEFAULT
+      const fontDefault = leaf.fontDefault ?? FONT_DEFAULT
+      iframe.contentWindow?.postMessage({ type: 'tile-font-size', fontSize, fontDefault }, '*')
+    }
+  }, [layout])
 
   // Keep a valid focused leaf (initial state, after close, after storage load).
   useEffect(() => {
@@ -142,7 +205,6 @@ export default function TilingWM() {
     [split, close, focusOffset, moveFocused, openMenu, openShortcuts],
   )
 
-  // Keyboard shortcuts when the parent window itself has focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const a = wmAction(e)
@@ -154,8 +216,6 @@ export default function TilingWM() {
     return () => window.removeEventListener('keydown', onKey)
   }, [wmHandlers])
 
-  // Focus changes reported by a pane iframe (its own window focus event is
-  // reliable, unlike parent-side focusin between two iframes).
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       const d = e.data as { type?: string; pane?: unknown; action?: ReturnType<typeof wmAction> } | undefined
@@ -171,8 +231,6 @@ export default function TilingWM() {
     return () => window.removeEventListener('message', onMsg)
   }, [store, wmHandlers])
 
-  // Detect clicks into an iframe: the parent's document.activeElement becomes
-  // the focused <iframe>, so we can track which pane is focused.
   useEffect(() => {
     const onFocus = () => {
       const el = document.activeElement as HTMLElement | null
@@ -190,23 +248,17 @@ export default function TilingWM() {
     [layout, size.w, size.h],
   )
 
-  // Whether a move in `dir` has a neighbor to swap with (drives the disabled
-  // state of the per-tile hover buttons).
   const canMove = useCallback(
     (id: string, dir: MoveDir) => findNeighborRect(panes, id, dir) !== null,
     [panes],
   )
 
-  // Ghosts of just-closed tiles, fading out underneath the live panes.
   const { ghosts, removeGhost } = usePaneGhosts(panes)
 
   const startDividerDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>, seg: DividerSpec) => {
       e.preventDefault()
       e.stopPropagation()
-
-      // Rect transitions chase the pointer and break 1:1 tracking; during a
-      // drag the panes must follow exactly, so suspend the animation.
       setDragging(true)
 
       const root = store.get(layoutAtom)
@@ -245,6 +297,18 @@ export default function TilingWM() {
     [store, setLayout],
   )
 
+  // State for the type-selection picker (one at a time).
+  const [pickerPaneId, setPickerPaneId] = useState<string | null>(null)
+
+  // When a pane is focused and has no type, open the picker.
+  useEffect(() => {
+    if (!focused || !layout) return
+    const leaf = findLeaf(layout, focused)
+    if (leaf && leaf.type === 'leaf' && !leaf.tileType) {
+      setPickerPaneId(focused)
+    }
+  }, [focused, layout])
+
   return (
     <div ref={viewportRef} className={`relative h-full w-full overflow-hidden ${dragging ? 'wm-dragging' : ''}`}>
       {ghosts.map((g) => (
@@ -266,23 +330,50 @@ export default function TilingWM() {
           </button>
         </div>
       )}
-      {panes.map(({ id, x, y, w, h }) => (
-        <div
-          key={id}
-          className={`pane-anim pane-in absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
-            focused === id
-              // Header chrome tone (apple-panel is white 10% over the page),
-              // brightened well above it so the focused tile clearly reads.
-              ? 'border-[color-mix(in_oklch,white_45%,var(--background))]'
-              : 'border-white/5'
-          }`}
-          style={{ left: x, top: y, width: w, height: h }}
-          onMouseDown={() => setFocused(id)}
-        >
-          <iframe src={`/term?pane=${id}`} title={`terminal-${id}`} data-pane={id} className="h-full w-full border-0 bg-transparent" />
-          <TileTools paneId={id} fontDefault={fontDefault} canMove={canMove} move={move} closeTile={closeTile} />
-        </div>
-      ))}
+      {panes.map(({ id, x, y, w, h }) => {
+        const leaf = layout ? findLeaf(layout, id) : null
+        const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
+        const fontSize = leaf?.type === 'leaf' ? (leaf.fontSize ?? FONT_DEFAULT) : FONT_DEFAULT
+        const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
+        const plugin = tileType ? getTilePlugin(tileType) : undefined
+
+        return (
+          <div
+            key={id}
+            className={`pane-anim pane-in absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
+              focused === id
+                ? 'border-[color-mix(in_oklch,white_45%,var(--background))]'
+                : 'border-white/5'
+            }`}
+            style={{ left: x, top: y, width: w, height: h }}
+            onMouseDown={() => setFocused(id)}
+          >
+            {tileType && plugin ? (
+              plugin.render(id)
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setPickerPaneId(id)}
+                  className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
+                >
+                  + Add tile
+                </button>
+              </div>
+            )}
+            <TileTools
+              paneId={id}
+              fontSize={fontSize}
+              fontDefault={fontDefault}
+              setFontSize={(size) => setTileFontSize(id, size)}
+              plugin={plugin}
+              canMove={canMove}
+              move={move}
+              closeTile={closeTile}
+            />
+          </div>
+        )
+      })}
       {dividers.map((seg) => (
         <div
           key={`${seg.splitId}-${seg.index}`}
@@ -297,6 +388,13 @@ export default function TilingWM() {
           onPointerDown={(e) => startDividerDrag(e, seg)}
         />
       ))}
+      {pickerPaneId && layout && (
+        <TileTypePicker
+          paneId={pickerPaneId}
+          setLayout={setLayout}
+          onClose={() => setPickerPaneId(null)}
+        />
+      )}
     </div>
   )
 }

@@ -10,11 +10,15 @@ export type Direction = 'horizontal' | 'vertical'
 /** Which side of the focused pane the new pane lands on. */
 export type SplitSide = 'before' | 'after'
 
+export type TileType = string
+
 export type SplitChild = { node: LayoutNode; size: number }
 
 export type SplitNode = { type: 'split'; id: string; direction: Direction; children: SplitChild[] }
 
-export type LayoutNode = { type: 'leaf'; id: string } | SplitNode
+export type LayoutNode =
+  | { type: 'leaf'; id: string; tileType?: TileType; fontSize?: number; fontDefault?: number }
+  | SplitNode
 
 let counter = 0
 
@@ -23,8 +27,12 @@ function newId(): string {
   return `n${Date.now().toString(36)}${counter.toString(36)}`
 }
 
-export function createLeaf(id: string = newId()): LayoutNode {
-  return { type: 'leaf', id }
+export function createLeaf(id: string = newId(), tileType?: TileType, fontSize?: number, fontDefault?: number): LayoutNode {
+  const leaf: LayoutNode = { type: 'leaf', id }
+  if (tileType !== undefined) leaf.tileType = tileType
+  if (fontSize !== undefined) leaf.fontSize = fontSize
+  if (fontDefault !== undefined) leaf.fontDefault = fontDefault
+  return leaf
 }
 
 export function createSplit(direction: Direction, a: LayoutNode, b: LayoutNode): LayoutNode {
@@ -37,6 +45,54 @@ export function createSplit(direction: Direction, a: LayoutNode, b: LayoutNode):
       { node: b, size: 1 },
     ],
   }
+}
+
+/** Immutably set the tileType (and optional font params) on a leaf node. */
+export function setLeafType(
+  root: LayoutNode,
+  targetId: string,
+  tileType: TileType,
+  fontSize?: number,
+  fontDefault?: number,
+): LayoutNode {
+  const walk = (node: LayoutNode): LayoutNode => {
+    if (node.type === 'leaf' && node.id === targetId) {
+      const next: LayoutNode = { ...node, tileType }
+      if (fontSize !== undefined) next.fontSize = fontSize
+      if (fontDefault !== undefined) next.fontDefault = fontDefault
+      return next
+    }
+    if (node.type === 'split') {
+      return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+    }
+    return node
+  }
+  return walk(root)
+}
+
+/** Immutably set the fontSize on a leaf node. */
+export function setLeafFontSize(root: LayoutNode, targetId: string, fontSize: number): LayoutNode {
+  const walk = (node: LayoutNode): LayoutNode => {
+    if (node.type === 'leaf' && node.id === targetId) {
+      return { ...node, fontSize }
+    }
+    if (node.type === 'split') {
+      return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+    }
+    return node
+  }
+  return walk(root)
+}
+
+/** Look up a leaf node by id. */
+export function findLeaf(root: LayoutNode | null, id: string): LayoutNode | null {
+  if (!root) return null
+  if (root.type === 'leaf') return root.id === id ? root : null
+  for (const c of root.children) {
+    const hit = findLeaf(c.node, id)
+    if (hit) return hit
+  }
+  return null
 }
 
 /** Replace the leaf `targetId` with a split containing it plus a new leaf. */

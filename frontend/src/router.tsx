@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 import AppShell from './routes/AppShell'
 import DemoPage from './routes/DemoPage'
 import TermPage from './routes/TermPage'
+import ViewerPage from './routes/ViewerPage'
 
 const rootRoute = createRootRoute()
 
@@ -26,7 +27,14 @@ const termRoute = createRoute({
   component: TermPage,
 })
 
-const routeTree = rootRoute.addChildren([appRoute.addChildren([indexRoute]), termRoute])
+// Full-space viewer page, loaded inside each viewer pane's iframe.
+const viewerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/viewer',
+  component: ViewerPage,
+})
+
+const routeTree = rootRoute.addChildren([appRoute.addChildren([indexRoute]), termRoute, viewerRoute])
 
 export const router = createRouter({ routeTree })
 

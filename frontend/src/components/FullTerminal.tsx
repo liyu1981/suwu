@@ -92,6 +92,23 @@ export default function FullTerminal() {
     setTheme({ foreground: theme.foreground, cursor: theme.cursor })
   }, [theme, setTheme])
 
+  // Per-tile font size override: the parent sends this via postMessage
+  // whenever the leaf's fontSize changes in the layout tree.
+  const [tileFontSize, setTileFontSize] = useState<number | null>(null)
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data as { type?: string; fontSize?: number; fontDefault?: number } | undefined
+      if (d?.type === 'tile-font-size' && typeof d.fontSize === 'number') {
+        setTileFontSize(d.fontSize)
+      }
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [])
+  useEffect(() => {
+    if (tileFontSize !== null) setFontSize(tileFontSize)
+  }, [tileFontSize, setFontSize])
+
   // Relay window-manager shortcuts to the parent page, and stop them from
   // reaching the shell (these keys are chosen to be harmless to readline).
   useEffect(() => {

@@ -1,7 +1,6 @@
-import { FONT_MAX, FONT_MIN, clampFont, fontSizeAtom } from '../store/fonts'
-import { useAtomValue, useSetAtom } from 'jotai'
 import type { MoveDir } from './layout'
-import { ChevronIcon, CloseIcon, ResetFontSizeIcon } from './icons'
+import type { TilePlugin } from './tilePlugins'
+import { ChevronIcon, CloseIcon } from './icons'
 
 const MOVE_DIRS: MoveDir[] = ['left', 'right', 'up', 'down']
 const ARROW_KEY: Record<MoveDir, string> = { left: '←', right: '→', up: '↑', down: '↓' }
@@ -12,11 +11,12 @@ const toolBtn =
 const closeBtn =
   'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-rose-500/20 hover:text-rose-300'
 
-const fontLabel = 'text-[9px] font-semibold leading-none'
-
 interface TileToolsProps {
   paneId: string
+  fontSize: number
   fontDefault: number
+  setFontSize: (size: number) => void
+  plugin?: TilePlugin
   canMove: (id: string, dir: MoveDir) => boolean
   move: (id: string, dir: MoveDir) => void
   closeTile: (id: string) => void
@@ -24,18 +24,30 @@ interface TileToolsProps {
 
 /**
  * Per-tile hover toolbar, revealed only while the cursor is near the
- * top-right corner — the invisible zone (w-56 × h-12) is the hover target,
- * so hovering elsewhere on the tile leaves the terminal untouched. The zone
- * is interactive (it must detect the approach), so clicks in that small
- * corner rect focus the tile without reaching the shell.
- *
- * Contents: shared font-size controls (global across panes) · per-tile
- * movement · per-tile close. Move buttons disable when no neighbor exists
- * that way; keyboard users have Alt+Arrows and Alt+Q.
+ * top-right corner. Composes:
+ *   1. Type-specific plugin buttons (e.g. font size for term)
+ *   2. Shared move buttons (left/right/up/down)
+ *   3. Shared close button
  */
-export function TileTools({ paneId, fontDefault, canMove, move, closeTile }: TileToolsProps) {
-  const fontSize = useAtomValue(fontSizeAtom)
-  const setFontSize = useSetAtom(fontSizeAtom)
+export function TileTools({
+  paneId,
+  fontSize,
+  fontDefault,
+  setFontSize,
+  plugin,
+  canMove,
+  move,
+  closeTile,
+}: TileToolsProps) {
+  const pluginToolbar = plugin?.renderToolbar?.({
+    paneId,
+    fontSize,
+    fontDefault,
+    setFontSize,
+    canMove,
+    move,
+    closeTile,
+  })
 
   return (
     <div className="group/corner absolute right-0 top-0 z-10 h-12 w-56">
@@ -44,38 +56,8 @@ export function TileTools({ paneId, fontDefault, canMove, move, closeTile }: Til
         role="toolbar"
         aria-label={`Tile tools ${paneId}`}
       >
-        {/* Shared font size controls (global across panes) ... */}
-        <button
-          type="button"
-          disabled={fontSize <= FONT_MIN}
-          onClick={() => setFontSize(clampFont(fontSize - 1))}
-          aria-label="Decrease font size"
-          title="Decrease font size"
-          className={toolBtn}
-        >
-          <span className={fontLabel}>A-</span>
-        </button>
-        <button
-          type="button"
-          disabled={fontSize >= FONT_MAX}
-          onClick={() => setFontSize(clampFont(fontSize + 1))}
-          aria-label="Increase font size"
-          title="Increase font size"
-          className={toolBtn}
-        >
-          <span className={fontLabel}>A+</span>
-        </button>
-        <button
-          type="button"
-          disabled={fontSize === fontDefault}
-          onClick={() => setFontSize(fontDefault)}
-          aria-label="Reset font size"
-          title={`Reset font size (${fontDefault}px)`}
-          className={toolBtn}
-        >
-          <ResetFontSizeIcon />
-        </button>
-        {/* ... then per-tile movement ... */}
+        {pluginToolbar}
+        {/* Shared per-tile movement */}
         <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
         {MOVE_DIRS.map((dir) => (
           <button
@@ -90,7 +72,7 @@ export function TileTools({ paneId, fontDefault, canMove, move, closeTile }: Til
             <ChevronIcon dir={dir} />
           </button>
         ))}
-        {/* ... and per-tile close. */}
+        {/* Shared per-tile close */}
         <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
         <button
           type="button"

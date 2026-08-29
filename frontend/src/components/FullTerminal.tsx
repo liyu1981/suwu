@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { fontFamilyAtom, termThemeAtom } from '../store/appearance'
 import { connectionMessageAtom, connectionStatusAtom, type ConnectionStatus } from '../store/connection'
@@ -7,6 +7,7 @@ import { wmAction } from '../wm/shortcuts'
 import { useTerminal } from './useTerminal'
 import { usePtySession } from './usePtySession'
 import { useTermCopy } from './useTermCopy'
+import { Toast } from './Toast'
 
 const STATUS_DOT = {
   connecting: 'bg-amber-400 animate-pulse',
@@ -48,8 +49,20 @@ export default function FullTerminal() {
     },
     { cols: 80, rows: 24 },
   )
+
+  // ── Selection mode ──
+  const [selectionMode, setSelectionMode] = useState(false)
+  const toggleSelectionMode = useCallback(() => setSelectionMode((v) => !v), [])
+
+  // ── Copy toast ──
+  const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(null) // reset to re-key the component
+    requestAnimationFrame(() => setToastMsg(msg))
+  }, [])
+
   usePtySession(term)
-  useTermCopy(term)
+  useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast('Copied!'))
 
   // Clicks inside an iframe never reach the parent, and Chrome does not fire
   // focusin in the parent when focus moves directly between two iframes — so
@@ -104,12 +117,39 @@ export default function FullTerminal() {
       {/* Thin per-pane status bar: connection state lives here instead of
           floating over the terminal content. */}
       <footer
-        className="flex h-5 shrink-0 items-center gap-1.5 border-t border-white/10 bg-black/40 px-2 text-[10px] tracking-wide text-white/60"
+        className={`flex h-5 shrink-0 items-center gap-1.5 border-t px-2 text-[10px] tracking-wide ${
+          selectionMode
+            ? 'border-sky-400/30 bg-sky-900/50 text-sky-300'
+            : 'border-white/10 bg-black/40 text-white/60'
+        }`}
         title={message}
       >
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[status]}`} />
-        <span className="truncate">{status === 'connected' ? STATUS_LABEL.connected : message || STATUS_LABEL[status]}</span>
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${selectionMode ? 'bg-sky-400' : STATUS_DOT[status]}`} />
+        {selectionMode ? (
+          <span className="truncate">Selection mode — Alt+C to exit</span>
+        ) : (
+          <span className="truncate">{status === 'connected' ? STATUS_LABEL.connected : message || STATUS_LABEL[status]}</span>
+        )}
+        <button
+          type="button"
+          onClick={toggleSelectionMode}
+          className="ml-auto shrink-0 rounded p-0.5 hover:bg-white/10"
+          title={selectionMode ? 'Exit selection mode (Alt+C)' : 'Enter selection mode (Alt+C)'}
+        >
+          {selectionMode ? (
+            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          ) : (
+            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          )}
+        </button>
       </footer>
+      {/* Toast overlay for copy confirmation */}
+      {toastMsg && <Toast message={toastMsg} />}
     </div>
   )
 }

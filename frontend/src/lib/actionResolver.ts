@@ -1,5 +1,5 @@
-import { layoutAtom, focusedIdAtom, pendingPathAtom } from '../wm/atoms'
-import { splitAndFocus, setLeafType, computeTiling } from '../wm/layout'
+import { layoutAtom, focusedIdAtom } from '../wm/atoms'
+import { splitAndFocus, setLeafType, setLeafInitialPath, computeTiling } from '../wm/layout'
 import { FONT_DEFAULT } from '../store/fonts'
 import type { NotificationData } from '../store/notifications'
 import type { AutoResolveSettings } from '../store/settings'
@@ -74,7 +74,9 @@ export function openFileBrowser(path: string, store: Store): string | null {
   const leafId = doSplit(store)
   if (!leafId) return null
   setTypeAndFocus(store, leafId, 'filebrowser')
-  store.set(pendingPathAtom, { paneId: leafId, path })
+  // Set initialPath directly on the leaf node — no separate atom needed.
+  const root = store.get(layoutAtom)
+  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path))
   return leafId
 }
 
@@ -85,7 +87,9 @@ export function openViewer(path: string, store: Store): string | null {
   const leafId = doSplit(store)
   if (!leafId) return null
   setTypeAndFocus(store, leafId, 'viewer')
-  store.set(pendingPathAtom, { paneId: leafId, path })
+  // Set initialPath directly on the leaf node — no separate atom needed.
+  const root = store.get(layoutAtom)
+  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path))
   return leafId
 }
 

@@ -70,6 +70,3 @@ export const menuOpenAtom = atom(false)
 
 /** The currently visible screen inside the unified menu dialog. */
 export const menuViewAtom = atom<MenuView>('menu')
-
-/** Pending path for a newly created tile (set by action resolver, consumed by tile plugins for iframe src). */
-export const pendingPathAtom = atom<{ paneId: string; path: string } | null>(null)

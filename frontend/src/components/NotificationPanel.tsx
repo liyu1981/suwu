@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useAtom, useStore } from 'jotai'
+import { useAtom, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { executeAction } from '../lib/actionResolver'
 import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
@@ -20,10 +20,12 @@ function MessageRow({ n }: { n: Notification }) {
   const { t } = useTranslation()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const store = useStore() as any
+  const setOpen = useSetAtom(panelOpenAtom)
 
   const handleAction = () => {
     if (n.data) {
       executeAction(n.data, store)
+      setOpen(false)
     }
   }
 

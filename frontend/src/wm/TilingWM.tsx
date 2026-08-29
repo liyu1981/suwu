@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, pendingPathAtom } from './atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from './atoms'
 import { FONT_DEFAULT } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
@@ -152,7 +152,6 @@ export default function TilingWM() {
   const store = useStore()
   const layout = useAtomValue(layoutAtom)
   const focused = useAtomValue(focusedIdAtom)
-  const pendingPath = useAtomValue(pendingPathAtom)
   const setFocused = useSetAtom(focusedIdAtom)
   const setLayout = useSetAtom(layoutAtom)
 
@@ -174,6 +173,8 @@ export default function TilingWM() {
       const next = closeAt(cur, id)
       store.set(layoutAtom, next)
       store.set(focusedIdAtom, leaves(next)[0] ?? '')
+      // Skip the picker-open effect for the focus shift caused by this close.
+      closeRefCount.current++
     },
     [store],
   )
@@ -369,10 +370,17 @@ export default function TilingWM() {
 
   // State for the type-selection picker (one at a time).
   const [pickerPaneId, setPickerPaneId] = useState<string | null>(null)
+  const closeRefCount = useRef(0)
 
-  // When a pane is focused and has no type, open the picker.
+  // When a pane is focused and has no type, open the picker — but not right
+  // after a tile was closed (close shifts focus, which would re-trigger the
+  // picker for the next empty leaf).
   useEffect(() => {
     if (!focused || !layout) return
+    if (closeRefCount.current > 0) {
+      closeRefCount.current--
+      return
+    }
     const leaf = findLeaf(layout, focused)
     if (leaf && leaf.type === 'leaf' && !leaf.tileType) {
       setPickerPaneId(focused)
@@ -406,6 +414,7 @@ export default function TilingWM() {
         const fontSize = leaf?.type === 'leaf' ? (leaf.fontSize ?? FONT_DEFAULT) : FONT_DEFAULT
         const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
         const plugin = tileType ? getTilePlugin(tileType) : undefined
+        const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined
 
         return (
           <div
@@ -419,7 +428,7 @@ export default function TilingWM() {
             onMouseDown={() => setFocused(id)}
           >
             {tileType && plugin ? (
-              plugin.render(id, { paneId: id, initialPath: pendingPath?.paneId === id ? pendingPath.path : undefined })
+              plugin.render(id, { paneId: id, initialPath })
             ) : (
               <div className="flex h-full w-full items-center justify-center">
                 <button

@@ -17,7 +17,7 @@ export type SplitChild = { node: LayoutNode; size: number }
 export type SplitNode = { type: 'split'; id: string; direction: Direction; children: SplitChild[] }
 
 export type LayoutNode =
-  | { type: 'leaf'; id: string; tileType?: TileType; fontSize?: number; fontDefault?: number }
+  | { type: 'leaf'; id: string; tileType?: TileType; fontSize?: number; fontDefault?: number; initialPath?: string }
   | SplitNode
 
 let counter = 0
@@ -75,6 +75,20 @@ export function setLeafFontSize(root: LayoutNode, targetId: string, fontSize: nu
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf' && node.id === targetId) {
       return { ...node, fontSize }
+    }
+    if (node.type === 'split') {
+      return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+    }
+    return node
+  }
+  return walk(root)
+}
+
+/** Immutably set the initialPath on a leaf node (one-shot file path for viewer/filebrowser). */
+export function setLeafInitialPath(root: LayoutNode, targetId: string, initialPath: string): LayoutNode {
+  const walk = (node: LayoutNode): LayoutNode => {
+    if (node.type === 'leaf' && node.id === targetId) {
+      return { ...node, initialPath }
     }
     if (node.type === 'split') {
       return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }

@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "@file-viewer/vite-plugin",
+  "rendererIds": [
+    "office-word-openxml",
+    "office-word-binary",
+    "open-document",
+    "pdf",
+    "ofd",
+    "office-presentation",
+    "spreadsheet-openxml",
+    "spreadsheet-dbf",
+    "archive",
+    "email",
+    "code",
+    "markdown",
+    "image",
+    "audio",
+    "video"
+  ],
+  "copiedAt": "2026-08-29T23:51:56.412Z",
+  "assets": [
+    {
+      "rendererId": "pdf",
+      "id": "pdf-worker",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/pdf/pdf.worker.mjs",
+      "copied": true,
+      "sourcePackage": "pdfjs-dist",
+      "sourceVersion": "5.4.624"
+    },
+    {
+      "rendererId": "pdf",
+      "id": "pdf-cmaps",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/pdf/cmaps",
+      "copied": true,
+      "sourcePackage": "pdfjs-dist",
+      "sourceVersion": "5.4.624"
+    },
+    {
+      "rendererId": "pdf",
+      "id": "pdf-wasm",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/pdf/wasm",
+      "copied": true,
+      "sourcePackage": "pdfjs-dist",
+      "sourceVersion": "5.4.624"
+    },
+    {
+      "rendererId": "pdf",
+      "id": "pdf-standard-fonts",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/pdf/standard_fonts",
+      "copied": true,
+      "sourcePackage": "pdfjs-dist",
+      "sourceVersion": "5.4.624"
+    },
+    {
+      "rendererId": "pdf",
+      "id": "pdf-cjk-font-fallback",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/pdf/fonts",
+      "copied": true
+    },
+    {
+      "rendererId": "office-presentation",
+      "id": "pptx-worker",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/pptx/pptx.worker.js",
+      "copied": true
+    },
+    {
+      "rendererId": "office-word-openxml",
+      "id": "docx-worker",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/docx/docx.worker.js",
+      "copied": true
+    },
+    {
+      "rendererId": "office-word-openxml",
+      "id": "docx-worker-jszip",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/docx/jszip.min.js",
+      "copied": true
+    },
+    {
+      "rendererId": "spreadsheet-openxml",
+      "id": "spreadsheet-worker",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/xlsx/sheet.worker.js",
+      "copied": true,
+      "sourcePackage": "@file-viewer/renderer-spreadsheet",
+      "sourceVersion": "3.0.0"
+    },
+    {
+      "rendererId": "archive",
+      "id": "libarchive-worker",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/libarchive/worker-bundle.js",
+      "copied": true
+    },
+    {
+      "rendererId": "archive",
+      "id": "libarchive-wasm",
+      "to": "/home/yli/ghostty-web-demo-go/pkg/assets/web/vendor/libarchive/libarchive.wasm",
+      "copied": true
+    }
+  ]
+}

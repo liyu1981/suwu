@@ -4,6 +4,9 @@ import { useAtom, useStore } from 'jotai'
 import { AmbientBackground } from '../components/AmbientBackground'
 import { AuthDialog } from '../components/dialogs/AuthDialog'
 import SuwuDialog from '../components/dialogs/SuwuDialog'
+import { NotificationBell } from '../components/NotificationBell'
+import { NotificationPanel } from '../components/NotificationPanel'
+import { useNotifications } from '../hooks/useNotifications'
 import { AuthRequiredError, fetchToken } from '../lib/api'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from '../wm/atoms'
 import {
@@ -57,6 +60,8 @@ export default function AppShell() {
   const store = useStore()
   const [, setMenuOpen] = useAtom(menuOpenAtom)
   const [, setMenuView] = useAtom(menuViewAtom)
+
+  useNotifications()
 
   // Auth: check if server requires a password.
   const [authRequired, setAuthRequired] = useState(false)
@@ -114,6 +119,7 @@ export default function AppShell() {
                   <button type="button" onClick={() => split('horizontal')} aria-label="Split right" title="Split right of focused pane (Alt+Enter)" className={wmBtn}>
                     <PanelRightIcon />
                   </button>
+                  <NotificationBell />
                 </div>
               </>
             )}
@@ -124,6 +130,7 @@ export default function AppShell() {
         </main>
       </div>
       <SuwuDialog />
+      <NotificationPanel />
       <AuthDialog open={authRequired} onAuthenticated={handleAuthenticated} />
     </div>
   )

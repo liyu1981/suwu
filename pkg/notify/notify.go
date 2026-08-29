@@ -1,0 +1,171 @@
+// Package notify implements a lightweight notification hub: a Unix domain
+// socket accepts one-shot messages from CLI clients (suwu ping) and fans
+// them out to connected WebSocket subscribers (the browser frontend).
+package notify
+
+import (
+	"bufio"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+)
+
+// Notification is a single message flowing through the hub.
+type Notification struct {
+	ID        string `json:"id"`
+	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+// sub pairs a bidirectional channel (for sending/closing) with its
+// receive-only view (returned to callers).
+type sub struct {
+	ch  chan Notification
+	out <-chan Notification
+}
+
+// Listener is the notification hub. It listens on a Unix domain socket for
+// incoming messages and broadcasts them to all subscribed WebSocket handlers.
+type Listener struct {
+	sockPath string
+	listener net.Listener
+	mu       sync.Mutex
+	subs     map[*sub]struct{}
+	done     chan struct{}
+}
+
+// SocketPath returns the Unix socket path. Resolution:
+//  1. SUWU_SOCK_PATH env var (explicit path)
+//  2. ~/.suwu/suwu.sock (same directory as logs)
+func SocketPath() (string, error) {
+	if p := os.Getenv("SUWU_SOCK_PATH"); p != "" {
+		return p, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home dir: %w", err)
+	}
+	return filepath.Join(home, ".suwu", "suwu.sock"), nil
+}
+
+// NewListener creates a Listener on the given socket path. It removes any
+// stale socket file, starts accepting connections, and returns. The caller
+// must call Close() when done.
+func NewListener(socketPath string) (*Listener, error) {
+	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
+		return nil, fmt.Errorf("notify: mkdir: %w", err)
+	}
+	// Remove stale socket from a previous unclean shutdown.
+	_ = os.Remove(socketPath)
+
+	ln, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return nil, fmt.Errorf("notify: listen %s: %w", socketPath, err)
+	}
+
+	l := &Listener{
+		sockPath: socketPath,
+		listener: ln,
+		subs:     make(map[*sub]struct{}),
+		done:     make(chan struct{}),
+	}
+	go l.acceptLoop()
+	return l, nil
+}
+
+// acceptLoop handles incoming Unix socket connections. Each connection sends
+// a single newline-terminated message line.
+func (l *Listener) acceptLoop() {
+	defer close(l.done)
+	for {
+		conn, err := l.listener.Accept()
+		if err != nil {
+			// Listener was closed.
+			return
+		}
+		go l.handleConn(conn)
+	}
+}
+
+func (l *Listener) handleConn(conn net.Conn) {
+	defer conn.Close()
+	scanner := bufio.NewScanner(conn)
+	// Limit message to 64 KiB — generous for a notification.
+	scanner.Buffer(make([]byte, 0, 256), 64*1024)
+	if !scanner.Scan() {
+		return
+	}
+	msg := scanner.Text()
+	if msg == "" {
+		return
+	}
+	l.broadcast(Notification{
+		ID:        randomID(),
+		Message:   msg,
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
+func (l *Listener) broadcast(n Notification) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for s := range l.subs {
+		select {
+		case s.ch <- n:
+		default:
+			// Slow subscriber — drop the message rather than blocking.
+		}
+	}
+}
+
+// Subscribe returns a channel that receives every Notification. The channel
+// has a small buffer; slow subscribers miss messages (non-blocking send).
+func (l *Listener) Subscribe() <-chan Notification {
+	ch := make(chan Notification, 32)
+	s := &sub{ch: ch, out: ch}
+	l.mu.Lock()
+	l.subs[s] = struct{}{}
+	l.mu.Unlock()
+	return s.out
+}
+
+// Unsubscribe removes a channel returned by Subscribe and closes it.
+func (l *Listener) Unsubscribe(out <-chan Notification) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for s := range l.subs {
+		if s.out == out {
+			delete(l.subs, s)
+			close(s.ch)
+			return
+		}
+	}
+}
+
+// Close shuts down the listener, removes the socket file, and closes all
+// subscriber channels.
+func (l *Listener) Close() error {
+	err := l.listener.Close()
+	<-l.done // wait for acceptLoop to exit
+	_ = os.Remove(l.sockPath)
+
+	l.mu.Lock()
+	for s := range l.subs {
+		close(s.ch)
+	}
+	l.subs = make(map[*sub]struct{})
+	l.mu.Unlock()
+
+	return err
+}
+
+func randomID() string {
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
+}

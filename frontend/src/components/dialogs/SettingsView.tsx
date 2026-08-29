@@ -8,6 +8,7 @@ import {
   fontFamilyAtom,
   termThemeAtom,
 } from '../../store/appearance'
+import { maxEntriesAtom } from '../../store/notifications'
 import { alphaOf, hex6Of, withAlpha } from '../../lib/color'
 
 const stepBtn =
@@ -67,6 +68,7 @@ export default function SettingsView(props: { onClose: () => void }) {
   const [defaultSize, setDefaultSize] = useAtom(fontDefaultAtom)
   const [fontFamily, setFontFamily] = useAtom(fontFamilyAtom)
   const [termTheme, setTermTheme] = useAtom(termThemeAtom)
+  const [maxEntries, setMaxEntries] = useAtom(maxEntriesAtom)
 
   const setThemeColor = (key: keyof TerminalTheme) => (next: string) =>
     setTermTheme({ ...termTheme, [key]: next })
@@ -85,6 +87,9 @@ export default function SettingsView(props: { onClose: () => void }) {
         >
           <TabsPrimitive.Trigger value="term" className={tabBtn}>
             Term Settings
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="notifications" className={tabBtn}>
+            Notifications
           </TabsPrimitive.Trigger>
         </TabsPrimitive.List>
 
@@ -196,6 +201,30 @@ export default function SettingsView(props: { onClose: () => void }) {
             <p className={sectionHint}>
               Colors apply instantly to all terminal panes. Lower the background opacity to let
               the workspace show through.
+            </p>
+          </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="notifications" className="min-w-0 flex-1">
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>Max message history</span>
+              <span className="font-mono text-xs text-popover-foreground">{maxEntries}</span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="range"
+                min={10}
+                max={9999}
+                step={10}
+                value={maxEntries}
+                onChange={(e) => setMaxEntries(Number(e.target.value))}
+                aria-label="Max notification entries"
+                className="h-1 flex-1 cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
+              />
+            </div>
+            <p className={sectionHint}>
+              Older messages are removed when the limit is reached. Stored in the browser's local storage.
             </p>
           </div>
         </TabsPrimitive.Content>

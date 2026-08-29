@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"suwu/pkg/auth"
+	"suwu/pkg/notify"
 	"suwu/pkg/session"
 )
 
@@ -31,12 +32,13 @@ type Server struct {
 	cfg      *auth.Config
 	assets   fs.FS
 	sessions *session.Manager
+	notify   *notify.Listener
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
 // and managing keyed PTY sessions through mgr.
-func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager) *Server {
-	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions}
+func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener) *Server {
+	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions, notify: nl}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -46,6 +48,11 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/ws" {
 		s.handleWS(w, r)
+		return
+	}
+
+	if r.URL.Path == "/ws/notify" {
+		s.handleNotifyWS(w, r)
 		return
 	}
 

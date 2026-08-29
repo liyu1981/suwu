@@ -44,6 +44,7 @@ import (
 	"suwu/pkg/certs"
 	"suwu/pkg/envfile"
 	"suwu/pkg/gencerts"
+	"suwu/pkg/notify"
 	"suwu/pkg/pty"
 	"suwu/pkg/server"
 	"suwu/pkg/session"
@@ -81,6 +82,11 @@ func main() {
 				log.Fatalf("daemon: %v", err)
 			}
 			return
+		case "ping":
+			if err := ping(os.Args[2:]); err != nil {
+				log.Fatalf("ping: %v", err)
+			}
+			return
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -104,6 +110,8 @@ Usage:
                            run the server (reads SUWU_DEV from .env)
                            [--env-file] project .env path (default .env);
                            when explicitly set, the global env is skipped
+  suwu ping [--sock <path>] <message>
+                           send a notification to the running server
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
@@ -194,7 +202,18 @@ func run() error {
 		return err
 	}
 
-	srv := server.New(cfg, sub, sessions)
+	notifySock, err := notify.SocketPath()
+	if err != nil {
+		sessions.Close()
+		return err
+	}
+	notifyListener, err := notify.NewListener(notifySock)
+	if err != nil {
+		sessions.Close()
+		return fmt.Errorf("notify listener: %w", err)
+	}
+
+	srv := server.New(cfg, sub, sessions, notifyListener)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)),
@@ -250,6 +269,7 @@ func run() error {
 	}()
 	server.CloseAll()
 	sessions.Close()
+	notifyListener.Close()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3_000_000_000)
 	defer cancel()
 	_ = httpServer.Shutdown(shutdownCtx)
@@ -364,4 +384,38 @@ func devLabel(dev bool) string {
 		return " (dev mode)"
 	}
 	return ""
+}
+
+func ping(args []string) error {
+	fs := flag.NewFlagSet("ping", flag.ContinueOnError)
+	sock := fs.String("sock", "", "path to the notify socket (default ~/.suwu/suwu.sock, or $SUWU_SOCK_PATH)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if fs.NArg() == 0 {
+		return fmt.Errorf("usage: suwu ping [--sock <path>] <message>")
+	}
+	message := strings.Join(fs.Args(), " ")
+
+	var sockPath string
+	if *sock == "" {
+		var err error
+		sockPath, err = notify.SocketPath()
+		if err != nil {
+			return err
+		}
+	} else {
+		expanded, err := certs.ExpandPath(*sock)
+		if err != nil {
+			return err
+		}
+		sockPath = expanded
+	}
+
+	if err := notify.Ping(sockPath, message); err != nil {
+		return err
+	}
+	fmt.Printf("Pinged: %s\n", message)
+	return nil
 }

@@ -1,6 +1,7 @@
 import { FONT_MAX, FONT_MIN, clampFont } from '../../store/fonts'
 import { ResetFontSizeIcon } from '../icons'
 import { registerTilePlugin, type ToolbarContext } from '../tilePlugins'
+import i18n from '../../i18n'
 
 const toolBtn =
   'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300'
@@ -46,8 +47,8 @@ function TermToolbar({ fontSize, fontDefault, setFontSize }: ToolbarContext) {
 
 registerTilePlugin({
   id: 'term',
-  label: 'Terminal',
-  description: 'Interactive shell session',
+  get label() { return i18n.t('plugin.terminal') },
+  get description() { return i18n.t('plugin.terminalDesc') },
   render: (paneId) => (
     <iframe
       src={`/term?pane=${paneId}`}

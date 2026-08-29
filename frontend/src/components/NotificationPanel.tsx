@@ -1,41 +1,45 @@
 import { useEffect, useRef } from 'react'
 import { useAtom } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
 
-function relativeTime(ts: number): string {
+function relativeTime(ts: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const diff = Date.now() - ts
   const sec = Math.floor(diff / 1000)
-  if (sec < 60) return 'just now'
+  if (sec < 60) return t('notifications.justNow')
   const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m ago`
+  if (min < 60) return t('notifications.minutesAgo', { count: min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
+  if (hr < 24) return t('notifications.hoursAgo', { count: hr })
   const d = Math.floor(hr / 24)
-  return `${d}d ago`
+  return t('notifications.daysAgo', { count: d })
 }
 
 function MessageRow({ n }: { n: Notification }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded px-3 py-2 transition hover:bg-white/5">
       <p className="text-xs leading-relaxed text-popover-foreground">{n.message}</p>
-      <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(n.timestamp)}</p>
+      <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(n.timestamp, t)}</p>
     </div>
   )
 }
 
 function EmptyState() {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
       <svg className="h-8 w-8 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
       </svg>
-      <p className="text-xs">No notifications yet</p>
+      <p className="text-xs">{t('notifications.empty')}</p>
     </div>
   )
 }
 
 export function NotificationPanel() {
+  const { t } = useTranslation()
   const [open, setOpen] = useAtom(panelOpenAtom)
   const [notifications, setNotifications] = useAtom(notificationsAtom)
   const [, setUnread] = useAtom(unreadCountAtom)
@@ -80,14 +84,14 @@ export function NotificationPanel() {
       {/* Panel */}
       <div
         role="dialog"
-        aria-label="Notifications"
+        aria-label={t('notifications.title')}
         data-state="open"
         className="fixed right-4 top-4 bottom-4 z-50 flex w-[min(90vw,20rem)] flex-col rounded-xl border border-white/10 menu-glass animate-panel-in"
       >
         {/* Header */}
         <div className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 px-3">
           <span className="min-w-0 flex-1 text-xs font-semibold tracking-tight text-popover-foreground">
-            Notifications
+            {t('notifications.title')}
           </span>
           {notifications.length > 0 && (
             <button
@@ -95,13 +99,13 @@ export function NotificationPanel() {
               onClick={clearAll}
               className="text-[10px] text-muted-foreground transition hover:text-white"
             >
-              Clear all
+              {t('notifications.clearAll')}
             </button>
           )}
           <button
             type="button"
             onClick={() => setOpen(false)}
-            aria-label="Close notifications"
+            aria-label={t('notifications.close')}
             className="grid h-6 w-6 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white"
           >
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

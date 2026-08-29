@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from './atoms'
 import { FONT_DEFAULT } from '../store/fonts'
 import { clamp } from '../lib/utils'
@@ -66,6 +67,7 @@ function TileTypePicker({
   setLayout: (fn: (prev: LayoutNode | null) => LayoutNode | null) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const plugins = getAllTilePlugins()
   const navRef = useRef<HTMLElement>(null)
 
@@ -106,8 +108,8 @@ function TileTypePicker({
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="w-[min(92vw,28rem)]" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-        <DialogTitle>Open Application</DialogTitle>
-        <p className="mt-1 text-xs text-muted-foreground">Choose an application to open in this tile.</p>
+        <DialogTitle>{t('wm.openApp')}</DialogTitle>
+        <p className="mt-1 text-xs text-muted-foreground">{t('wm.chooseApp')}</p>
         <nav ref={navRef} aria-label="Applications" onKeyDown={onKeyDown} className="mt-3">
           <div className="divide-y divide-white/5 rounded-[6px] border border-white/10 bg-black/20">
             {plugins.map((p: TilePlugin) => (
@@ -146,6 +148,7 @@ function TileTypePicker({
  * or reparented, so its PTY session survives layout changes.
  */
 export default function TilingWM() {
+  const { t } = useTranslation()
   const store = useStore()
   const layout = useAtomValue(layoutAtom)
   const focused = useAtomValue(focusedIdAtom)
@@ -392,7 +395,7 @@ export default function TilingWM() {
             onClick={() => split('horizontal')}
             className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
           >
-            + New tile
+            + {t('wm.newTile').replace('+ ', '')}
           </button>
         </div>
       )}
@@ -423,7 +426,7 @@ export default function TilingWM() {
                   onClick={() => setPickerPaneId(id)}
                   className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
                 >
-                  + Add tile
+                  + {t('wm.addTile').replace('+ ', '')}
                 </button>
               </div>
             )}

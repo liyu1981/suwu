@@ -1,7 +1,8 @@
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /** The sub-screens reachable from the menu list. */
-export type MenuSelection = 'shortcuts' | 'settings' | 'about'
+export type MenuSelection = 'shortcuts' | 'settings' | 'appSettings' | 'about'
 
 const menuRow =
   'flex w-full cursor-pointer select-none items-center justify-between gap-2 rounded px-3 py-2 text-left ' +
@@ -21,6 +22,7 @@ const menuRow =
  */
 export default function MainMenuView(props: { onSelect: (view: MenuSelection) => void }) {
   const { onSelect } = props
+  const { t } = useTranslation()
   const navRef = useRef<HTMLElement>(null)
 
   // Focus the first row on mount so arrow keys work right away.
@@ -56,15 +58,19 @@ export default function MainMenuView(props: { onSelect: (view: MenuSelection) =>
   return (
     <nav ref={navRef} aria-label="Menu" onKeyDown={onKeyDown} className="flex flex-col gap-0.5">
       <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('shortcuts')}>
-        Keyboard shortcuts
+        {t('menu.shortcuts')}
+        <ChevronIcon />
+      </button>
+      <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('appSettings')}>
+        {t('menu.appSettings')}
         <ChevronIcon />
       </button>
       <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('settings')}>
-        Settings
+        {t('menu.settings')}
         <ChevronIcon />
       </button>
       <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('about')}>
-        About Suwu
+        {t('menu.about')}
         <ChevronIcon />
       </button>
     </nav>

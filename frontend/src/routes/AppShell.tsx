@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from '@tanstack/react-router'
 import { useAtom, useStore } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import { AmbientBackground } from '../components/AmbientBackground'
 import { AuthDialog } from '../components/dialogs/AuthDialog'
 import SuwuDialog from '../components/dialogs/SuwuDialog'
@@ -55,6 +56,7 @@ function PanelBottomIcon() {
 }
 
 export default function AppShell() {
+  const { t } = useTranslation()
   const { pathname } = useLocation()
   const isTiling = pathname === '/'
   const store = useStore()
@@ -101,22 +103,22 @@ export default function AppShell() {
       <div className="relative z-10 grid h-dvh grid-rows-[auto_1fr] gap-2 px-3 pt-2">
         <header className="apple-panel rounded-[6px]">
           <div className="flex items-center gap-2 px-2 py-1">
-            <button type="button" aria-label="Open menu" aria-haspopup="dialog" className={wmBtn} onClick={openMenu}>
+            <button type="button" aria-label={t('app.openMenu')} aria-haspopup="dialog" className={wmBtn} onClick={openMenu}>
               <MenuIcon />
             </button>
 
-            <span className="text-xs font-semibold tracking-tight">Suwu</span>
+            <span className="text-xs font-semibold tracking-tight">{t('app.title')}</span>
 
             {isTiling && (
               <>
                 <div className="ml-auto flex items-center gap-0.5">
-                  <button type="button" onClick={() => split('horizontal', 'before')} aria-label="Split left" title="Split left of focused pane" className={wmBtn}>
+                  <button type="button" onClick={() => split('horizontal', 'before')} aria-label={t('wm.splitLeft')} title={t('wm.splitLeftTitle')} className={wmBtn}>
                     <PanelLeftIcon />
                   </button>
-                  <button type="button" onClick={() => split('vertical')} aria-label="Split down" title="Split below focused pane (Alt+Shift+Enter)" className={wmBtn}>
+                  <button type="button" onClick={() => split('vertical')} aria-label={t('wm.splitDown')} title={t('wm.splitDownTitle')} className={wmBtn}>
                     <PanelBottomIcon />
                   </button>
-                  <button type="button" onClick={() => split('horizontal')} aria-label="Split right" title="Split right of focused pane (Alt+Enter)" className={wmBtn}>
+                  <button type="button" onClick={() => split('horizontal')} aria-label={t('wm.splitRight')} title={t('wm.splitRightTitle')} className={wmBtn}>
                     <PanelRightIcon />
                   </button>
                   <NotificationBell />

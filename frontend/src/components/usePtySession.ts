@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import type { Terminal } from '@xterm/xterm'
+import i18n from 'i18next'
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
 import { fetchToken } from '../lib/api'
 
@@ -57,7 +58,7 @@ export function usePtySession(term: Terminal | null) {
 
     const open = (token: string) => {
       setStatus('connecting')
-      setMessage('Connecting...')
+      setMessage(i18n.t('pty.connecting'))
 
       const params = new URLSearchParams({
         cols: String(term.cols),
@@ -73,7 +74,7 @@ export function usePtySession(term: Terminal | null) {
 
       ws.onopen = () => {
         setStatus('connected')
-        setMessage('Connected')
+        setMessage(i18n.t('pty.connected'))
       }
 
       ws.onmessage = (event) => {
@@ -91,7 +92,7 @@ export function usePtySession(term: Terminal | null) {
         // onclose always follows onerror; keep status visible without
         // double-scheduling the retry.
         setStatus('disconnected')
-        setMessage('Error')
+        setMessage(i18n.t('pty.error'))
       }
     }
 
@@ -100,7 +101,7 @@ export function usePtySession(term: Terminal | null) {
     // scrollback would otherwise accumulate retry noise on every drop.
     const scheduleReconnect = (reason: string) => {
       setStatus('disconnected')
-      const msg = (s: number) => `${reason}. Reconnecting in ${s}s...`
+      const msg = (s: number) => i18n.t('pty.reconnecting', { reason, seconds: s })
       let remaining = Math.max(1, Math.round(RECONNECT_DELAY_MS / COUNTDOWN_TICK_MS))
       setMessage(msg(remaining))
       reconnectTimer = window.setInterval(() => {
@@ -117,7 +118,7 @@ export function usePtySession(term: Terminal | null) {
     const connect = async () => {
       if (disposed) return
       setStatus('connecting')
-      setMessage('Authenticating...')
+      setMessage(i18n.t('pty.authenticating'))
       try {
         const token = await fetchToken()
         if (!disposed) open(token)

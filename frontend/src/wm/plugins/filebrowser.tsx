@@ -1,9 +1,10 @@
+import i18n from '../../i18n'
 import { registerTilePlugin } from '../tilePlugins'
 
 registerTilePlugin({
   id: 'filebrowser',
-  label: 'File Browser',
-  description: 'Browse remote files and folders',
+  get label() { return i18n.t('plugin.fileBrowser') },
+  get description() { return i18n.t('plugin.fileBrowserDesc') },
   render: (paneId) => (
     <iframe
       src={`/filebrowser?pane=${paneId}`}

@@ -59,7 +59,7 @@ export const layoutAtom = atomWithStorage<LayoutNode | null>(
 export const focusedIdAtom = atom('')
 
 /** Which screen the unified Suwu menu dialog is showing. */
-export type MenuView = 'menu' | 'shortcuts' | 'settings' | 'about'
+export type MenuView = 'menu' | 'shortcuts' | 'settings' | 'appSettings' | 'about'
 
 /**
  * Whether the unified Suwu menu dialog is open. Owns the burger menu, the

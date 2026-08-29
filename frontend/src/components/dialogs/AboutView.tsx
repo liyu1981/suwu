@@ -1,3 +1,5 @@
+import { Trans, useTranslation } from 'react-i18next'
+
 const row = 'flex items-baseline justify-between gap-4 py-1.5'
 const rowLabel = 'text-xs text-muted-foreground'
 const rowValue = 'text-xs text-popover-foreground'
@@ -8,13 +10,6 @@ const GITHUB_URL = 'https://github.com/liyu1981/suwu'
 const kbd =
   'rounded border border-white/15 bg-white/10 px-1 font-mono text-[10px]'
 
-const features = [
-  'Real shell sessions — the Go server bridges xterm.js panes to actual PTYs over WebSocket',
-  'Session restore — server-side terminal state (libghostty-vt) survives page refreshes',
-  'Tiling workspace — split, move, focus, and resize tiles by keyboard or hover tools',
-  'Per-pane terminals — every tile is an isolated xterm.js instance with its own shell',
-]
-
 /**
  * About screen for the unified Suwu menu dialog: a centered brand mark, the
  * app name, version, and a GitHub link, followed by the feature list and
@@ -22,6 +17,15 @@ const features = [
  * __SUWU_VERSION__ define in vite.config.ts.
  */
 export default function AboutView() {
+  const { t } = useTranslation()
+
+  const features = [
+    t('about.feature1'),
+    t('about.feature2'),
+    t('about.feature3'),
+    t('about.feature4'),
+  ]
+
   return (
     <>
       {/* Brand header: the logo artwork carries its own rounded background
@@ -37,7 +41,7 @@ export default function AboutView() {
         />
         <div className="mt-4 text-center">
           <div className="text-2xl font-semibold tracking-tight text-popover-foreground">Suwu</div>
-          <div className="mt-0.5 text-xs text-muted-foreground">Version {__SUWU_VERSION__}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">{t('about.version', { version: __SUWU_VERSION__ })}</div>
         </div>
         <a
           href={GITHUB_URL}
@@ -46,7 +50,7 @@ export default function AboutView() {
           className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-muted-foreground glass-btn transition hover:text-popover-foreground"
         >
           <GitHubIcon />
-          <span className="font-medium">liyu1981/suwu</span>
+          <span className="font-medium">{t('about.github')}</span>
         </a>
       </div>
 
@@ -60,20 +64,13 @@ export default function AboutView() {
       </div>
 
       <div className={`${row} mt-2`}>
-        <span className={rowLabel}>Built with</span>
-        <span className={rowValue}>Go · libghostty-vt (WASM) · React · xterm.js</span>
+        <span className={rowLabel}>{t('about.builtWith')}</span>
+        <span className={rowValue}>{t('about.builtWithValue')}</span>
       </div>
       <div className={row}>
-        <span className={rowLabel}>Shortcuts</span>
+        <span className={rowLabel}>{t('about.shortcuts')}</span>
         <span className={rowValue}>
-          Press{' '}
-          <kbd className={kbd}>Alt</kbd>{' '}
-          <kbd className={kbd}>/</kbd>{' '}
-          for the menu,{' '}
-          <kbd className={kbd}>Alt</kbd>{' '}
-          <kbd className={kbd}>⇧</kbd>{' '}
-          <kbd className={kbd}>/</kbd>{' '}
-          for shortcuts
+          <Trans i18nKey="about.shortcutsHint" components={{ 1: <kbd className={kbd} />, 2: <kbd className={kbd} />, 3: <kbd className={kbd} />, 4: <kbd className={kbd} />, 5: <kbd className={kbd} /> }} />
         </span>
       </div>
     </>

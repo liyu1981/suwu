@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { MoveDir } from './layout'
 import type { TilePlugin } from './tilePlugins'
 import { ChevronIcon, CloseIcon } from './icons'
@@ -39,6 +40,7 @@ export function TileTools({
   move,
   closeTile,
 }: TileToolsProps) {
+  const { t } = useTranslation()
   const pluginToolbar = plugin?.renderToolbar?.({
     paneId,
     fontSize,
@@ -65,8 +67,8 @@ export function TileTools({
             type="button"
             disabled={!canMove(paneId, dir)}
             onClick={() => move(paneId, dir)}
-            aria-label={`Move tile ${dir}`}
-            title={`Move tile ${dir} (Alt+${ARROW_KEY[dir]})`}
+            aria-label={t('wm.moveDir', { direction: dir })}
+            title={`${t('wm.moveDir', { direction: dir })} (Alt+${ARROW_KEY[dir]})`}
             className={toolBtn}
           >
             <ChevronIcon dir={dir} />
@@ -77,8 +79,8 @@ export function TileTools({
         <button
           type="button"
           onClick={() => closeTile(paneId)}
-          aria-label="Close tile"
-          title="Close tile (Alt+Q closes the focused tile)"
+          aria-label={t('wm.closeTile')}
+          title={t('wm.closeTileHint')}
           className={closeBtn}
         >
           <CloseIcon />

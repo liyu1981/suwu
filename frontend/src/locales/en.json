@@ -1,0 +1,152 @@
+{
+  "app": {
+    "title": "Suwu",
+    "openMenu": "Open menu"
+  },
+  "menu": {
+    "shortcuts": "Keyboard shortcuts",
+    "appSettings": "App Settings",
+    "settings": "System Settings",
+    "about": "About"
+  },
+  "dialog": {
+    "backToMenu": "Back to menu",
+    "closeMenu": "Close menu"
+  },
+  "settings": {
+    "termTab": "Term",
+    "notificationsTab": "Notifications",
+    "fileBrowserTab": "File Browser",
+    "fontSize": "Font size",
+    "fontFamily": "Font family",
+    "custom": "Custom",
+    "themeColors": "Theme colors",
+    "resetColors": "Reset colors",
+    "background": "Background",
+    "foreground": "Foreground",
+    "cursor": "Cursor",
+    "fontSizeHint": "Applied instantly to all terminal panes. Currently the default is {{defaultSize}}px; save to make this size the default too.",
+    "fontFamilyHint": "Applied instantly to all terminal panes.",
+    "themeHint": "Colors apply instantly to all terminal panes. Lower the background opacity to let the workspace show through.",
+    "maxMessageHistory": "Max message history",
+    "maxMessageHistoryHint": "Older messages are removed when the limit is reached. Stored in the browser's local storage.",
+    "bgColor": "Background color",
+    "reset": "Reset",
+    "fileBrowserHint": "Applied instantly to all file browser panes. Lower the opacity to let the workspace show through.",
+    "language": "Language",
+    "resetBtn": "Reset ({{size}}px)",
+    "saveAsDefault": "Save as default"
+  },
+  "shortcuts": {
+    "description": "Work on any tile from the keyboard; actions apply to the focused tile.",
+    "tiles": "Tiles",
+    "focusMovement": "Focus & movement",
+    "clipboard": "Clipboard",
+    "help": "Help",
+    "or": "or",
+    "splitRight": "Split right",
+    "splitBelow": "Split below",
+    "closeTile": "Close tile",
+    "focusNext": "Focus next tile",
+    "focusPrev": "Focus previous tile",
+    "moveLeft": "Move tile left",
+    "moveRight": "Move tile right",
+    "moveUp": "Move tile up",
+    "moveDown": "Move tile down",
+    "openList": "Open this list",
+    "openMenu": "Open the menu",
+    "copySelection": "Copy selection",
+    "paste": "Paste"
+  },
+  "about": {
+    "version": "Version {{version}}",
+    "github": "liyu1981/suwu",
+    "feature1": "Real shell sessions — the Go server bridges xterm.js panes to actual PTYs over WebSocket",
+    "feature2": "Session restore — server-side terminal state (libghostty-vt) survives page refreshes",
+    "feature3": "Tiling workspace — split, move, focus, and resize tiles by keyboard or hover tools",
+    "feature4": "Per-pane terminals — every tile is an isolated xterm.js instance with its own shell",
+    "builtWith": "Built with",
+    "builtWithValue": "Go · libghostty-vt (WASM) · React · xterm.js",
+    "shortcuts": "Shortcuts",
+    "shortcutsHint": "Press <1>Alt</1> <2>/</2> for the menu, <3>Alt</3> <4>⇧</4> <5>/</5> for shortcuts"
+  },
+  "terminal": {
+    "connecting": "Connecting…",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "copied": "Copied!",
+    "selectionMode": "Selection mode — Alt+C to exit",
+    "exitSelectionMode": "Exit selection mode (Alt+C)",
+    "enterSelectionMode": "Enter selection mode (Alt+C)"
+  },
+  "pty": {
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "authenticating": "Authenticating...",
+    "error": "Error",
+    "reconnecting": "{{reason}}. Reconnecting in {{seconds}}s..."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "clearAll": "Clear all",
+    "empty": "No notifications yet",
+    "open": "Open notifications",
+    "close": "Close notifications",
+    "justNow": "just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "filebrowser": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}} days ago",
+    "loading": "Loading…",
+    "emptyFolder": "Empty folder",
+    "name": "Name",
+    "size": "Size",
+    "modified": "Modified",
+    "itemCount": "{{count}} item",
+    "itemCount_plural": "{{count}} items",
+    "back": "Back",
+    "forward": "Forward",
+    "upOneLevel": "Up one level",
+    "home": "Home",
+    "refresh": "Refresh",
+    "viewerEmpty": "Viewer — empty"
+  },
+  "wm": {
+    "newTile": "+ New tile",
+    "addTile": "+ Add tile",
+    "openApp": "Open Application",
+    "chooseApp": "Choose an application to open in this tile.",
+    "moveDir": "Move tile {{direction}}",
+    "closeTile": "Close tile",
+    "closeTileHint": "Close tile (Alt+Q closes the focused tile)",
+    "splitLeft": "Split left",
+    "splitDown": "Split down",
+    "splitRight": "Split right",
+    "splitLeftTitle": "Split left of focused pane",
+    "splitDownTitle": "Split below focused pane (Alt+Shift+Enter)",
+    "splitRightTitle": "Split right of focused pane (Alt+Enter)"
+  },
+  "plugin": {
+    "terminal": "Terminal",
+    "terminalDesc": "Interactive shell session",
+    "viewer": "Viewer",
+    "viewerDesc": "View files and documents",
+    "fileBrowser": "File Browser",
+    "fileBrowserDesc": "Browse remote files and folders"
+  },
+  "auth": {
+    "enterPassword": "Enter password",
+    "passwordPlaceholder": "Password",
+    "wrongPassword": "Wrong password, try again",
+    "checking": "Checking…",
+    "connect": "Connect"
+  },
+  "lang": {
+    "en": "English",
+    "zh_CN": "简体中文"
+  }
+}

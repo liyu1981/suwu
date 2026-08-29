@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import { getCredentials } from '../lib/auth'
 import { fileBrowserBgAtom } from '../store/appearance'
 
@@ -27,14 +28,14 @@ function formatSize(bytes: number): string {
   return `${i === 0 ? size : size.toFixed(1)} ${units[i]}`
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const d = new Date(iso)
   const now = new Date()
   const diff = now.getTime() - d.getTime()
   const day = 86400000
-  if (diff < day) return 'Today'
-  if (diff < day * 2) return 'Yesterday'
-  if (diff < day * 7) return `${Math.floor(diff / day)} days ago`
+  if (diff < day) return t('filebrowser.today')
+  if (diff < day * 2) return t('filebrowser.yesterday')
+  if (diff < day * 7) return t('filebrowser.daysAgo', { count: Math.floor(diff / day) })
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
 }
 
@@ -164,6 +165,7 @@ function TreeView({
   currentPath: string
   onNavigate: (path: string) => void
 }) {
+  const { t } = useTranslation()
   const [rootChildren, setRootChildren] = useState<TreeNode[] | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -255,7 +257,7 @@ function TreeView({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8 text-[11px] text-white/30">
-        Loading…
+        {t('filebrowser.loading')}
       </div>
     )
   }
@@ -361,6 +363,7 @@ function TreeNodeItem({
 // ── Main file browser ──
 
 export default function FileBrowserPage() {
+  const { t } = useTranslation()
   const bgColor = useAtomValue(fileBrowserBgAtom)
   const [currentPath, setCurrentPath] = useState('/')
   const [entries, setEntries] = useState<FileEntry[]>([])
@@ -498,21 +501,21 @@ export default function FileBrowserPage() {
     >
       {/* Toolbar */}
       <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-black/40 px-2 py-1">
-        <button type="button" onClick={goBack} disabled={historyIndex <= 0} className={toolbarBtn} title="Back">
+        <button type="button" onClick={goBack} disabled={historyIndex <= 0} className={toolbarBtn} title={t('filebrowser.back')}>
           <BackIcon />
         </button>
-        <button type="button" onClick={goForward} disabled={historyIndex >= history.length - 1} className={toolbarBtn} title="Forward">
+        <button type="button" onClick={goForward} disabled={historyIndex >= history.length - 1} className={toolbarBtn} title={t('filebrowser.forward')}>
           <ForwardIcon />
         </button>
-        <button type="button" onClick={goUp} disabled={breadcrumbs.length === 0} className={toolbarBtn} title="Up one level">
+        <button type="button" onClick={goUp} disabled={breadcrumbs.length === 0} className={toolbarBtn} title={t('filebrowser.upOneLevel')}>
           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m18 15-6-6-6 6" />
           </svg>
         </button>
-        <button type="button" onClick={goHome} className={toolbarBtn} title="Home">
+        <button type="button" onClick={goHome} className={toolbarBtn} title={t('filebrowser.home')}>
           <HomeIcon />
         </button>
-        <button type="button" onClick={() => fetchDir(currentPath)} className={toolbarBtn} title="Refresh">
+        <button type="button" onClick={() => fetchDir(currentPath)} className={toolbarBtn} title={t('filebrowser.refresh')}>
           <RefreshIcon />
         </button>
 
@@ -554,13 +557,13 @@ export default function FileBrowserPage() {
           {/* Column headers */}
           <div className="flex shrink-0 items-center border-b border-white/10 bg-black/20 px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             <button type="button" onClick={() => handleSort('name')} className="flex-1 py-1.5 text-left hover:text-white/60">
-              Name<SortIndicator col="name" />
+              {t('filebrowser.name')}<SortIndicator col="name" />
             </button>
             <button type="button" onClick={() => handleSort('size')} className="w-24 py-1.5 text-right hover:text-white/60">
-              Size<SortIndicator col="size" />
+              {t('filebrowser.size')}<SortIndicator col="size" />
             </button>
             <button type="button" onClick={() => handleSort('modTime')} className="w-32 py-1.5 text-right hover:text-white/60">
-              Modified<SortIndicator col="modTime" />
+              {t('filebrowser.modified')}<SortIndicator col="modTime" />
             </button>
           </div>
 
@@ -568,7 +571,7 @@ export default function FileBrowserPage() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {loading && (
               <div className="flex items-center justify-center py-12 text-xs text-white/30">
-                Loading…
+                {t('filebrowser.loading')}
               </div>
             )}
             {error && (
@@ -578,7 +581,7 @@ export default function FileBrowserPage() {
             )}
             {!loading && !error && sorted.length === 0 && (
               <div className="flex items-center justify-center py-12 text-xs text-white/30">
-                Empty folder
+                {t('filebrowser.emptyFolder')}
               </div>
             )}
             {!loading && !error && sorted.map((entry) => (
@@ -600,7 +603,7 @@ export default function FileBrowserPage() {
                   {entry.isDir ? '' : formatSize(entry.size)}
                 </div>
                 <div className="w-32 shrink-0 text-right text-[11px] text-white/40">
-                  {formatDate(entry.modTime)}
+                  {formatDate(entry.modTime, t)}
                 </div>
               </button>
             ))}
@@ -610,7 +613,7 @@ export default function FileBrowserPage() {
 
       {/* Status bar */}
       <div className="flex shrink-0 items-center justify-between border-t border-white/10 bg-black/40 px-3 py-1 text-[10px] text-white/30">
-        <span>{sorted.length} item{sorted.length !== 1 ? 's' : ''}</span>
+        <span>{t('filebrowser.itemCount', { count: sorted.length })}</span>
         <span className="truncate ml-2">{currentPath}</span>
       </div>
     </div>

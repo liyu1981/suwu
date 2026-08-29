@@ -1,0 +1,151 @@
+{
+  "app": {
+    "title": "Suwu",
+    "openMenu": "打开菜单"
+  },
+  "menu": {
+    "shortcuts": "键盘快捷键",
+    "appSettings": "应用设置",
+    "settings": "系统设置",
+    "about": "关于"
+  },
+  "dialog": {
+    "backToMenu": "返回菜单",
+    "closeMenu": "关闭菜单"
+  },
+  "settings": {
+    "termTab": "终端",
+    "notificationsTab": "通知",
+    "fileBrowserTab": "文件浏览器",
+    "fontSize": "字体大小",
+    "fontFamily": "字体",
+    "custom": "自定义",
+    "themeColors": "主题颜色",
+    "resetColors": "重置颜色",
+    "background": "背景",
+    "foreground": "前景",
+    "cursor": "光标",
+    "fontSizeHint": "立即应用到所有终端窗口。当前默认大小为 {{defaultSize}}px；保存可将此大小设为默认值。",
+    "fontFamilyHint": "立即应用到所有终端窗口。",
+    "themeHint": "颜色立即应用到所有终端窗口。降低背景不透明度可让工作区透过显示。",
+    "maxMessageHistory": "最大消息历史",
+    "maxMessageHistoryHint": "达到上限时旧消息将被移除。存储在浏览器本地存储中。",
+    "bgColor": "背景颜色",
+    "reset": "重置",
+    "fileBrowserHint": "立即应用到所有文件浏览器窗口。降低不透明度可让工作区透过显示。",
+    "language": "语言",
+    "resetBtn": "重置 ({{size}}px)",
+    "saveAsDefault": "保存为默认"
+  },
+  "shortcuts": {
+    "description": "使用键盘操作任意窗口；操作将应用于当前聚焦的窗口。",
+    "tiles": "窗口",
+    "focusMovement": "聚焦与移动",
+    "clipboard": "剪贴板",
+    "help": "帮助",
+    "or": "或",
+    "splitRight": "向右分屏",
+    "splitBelow": "向下分屏",
+    "closeTile": "关闭窗口",
+    "focusNext": "聚焦下一个窗口",
+    "focusPrev": "聚焦上一个窗口",
+    "moveLeft": "向左移动窗口",
+    "moveRight": "向右移动窗口",
+    "moveUp": "向上移动窗口",
+    "moveDown": "向下移动窗口",
+    "openList": "打开快捷键列表",
+    "openMenu": "打开菜单",
+    "copySelection": "复制选中内容",
+    "paste": "粘贴"
+  },
+  "about": {
+    "version": "版本 {{version}}",
+    "github": "liyu1981/suwu",
+    "feature1": "真实终端会话 — Go 服务器通过 WebSocket 将 xterm.js 窗格桥接到真实 PTY",
+    "feature2": "会话恢复 — 服务端终端状态 (libghostty-vt) 在页面刷新后依然保留",
+    "feature3": "平铺工作区 — 通过键盘或悬停工具分割、移动、聚焦和调整窗口大小",
+    "feature4": "独立窗口终端 — 每个窗口都是独立的 xterm.js 实例，拥有自己的 shell",
+    "builtWith": "技术栈",
+    "builtWithValue": "Go · libghostty-vt (WASM) · React · xterm.js",
+    "shortcuts": "快捷键",
+    "shortcutsHint": "按 <1>Alt</1> <2>/</2> 打开菜单，按 <3>Alt</3> <4>⇧</4> <5>/</5> 打开快捷键列表"
+  },
+  "terminal": {
+    "connecting": "连接中…",
+    "connected": "已连接",
+    "disconnected": "已断开",
+    "copied": "已复制！",
+    "selectionMode": "选择模式 — Alt+C 退出",
+    "exitSelectionMode": "退出选择模式 (Alt+C)",
+    "enterSelectionMode": "进入选择模式 (Alt+C)"
+  },
+  "pty": {
+    "connecting": "连接中...",
+    "connected": "已连接",
+    "authenticating": "认证中...",
+    "error": "错误",
+    "reconnecting": "{{reason}}。{{seconds}}秒后重连..."
+  },
+  "notifications": {
+    "title": "通知",
+    "clearAll": "清除全部",
+    "empty": "暂无通知",
+    "open": "打开通知",
+    "close": "关闭通知",
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}}分钟前",
+    "hoursAgo": "{{count}}小时前",
+    "daysAgo": "{{count}}天前"
+  },
+  "filebrowser": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "daysAgo": "{{count}}天前",
+    "loading": "加载中…",
+    "emptyFolder": "空文件夹",
+    "name": "名称",
+    "size": "大小",
+    "modified": "修改时间",
+    "itemCount": "{{count}} 个项目",
+    "back": "后退",
+    "forward": "前进",
+    "upOneLevel": "上级目录",
+    "home": "主目录",
+    "refresh": "刷新",
+    "viewerEmpty": "查看器 — 空"
+  },
+  "wm": {
+    "newTile": "+ 新建窗口",
+    "addTile": "+ 添加窗口",
+    "openApp": "打开应用",
+    "chooseApp": "选择要在此窗口中打开的应用。",
+    "moveDir": "移动窗口{{direction}}",
+    "closeTile": "关闭窗口",
+    "closeTileHint": "关闭窗口 (Alt+Q 关闭当前聚焦的窗口)",
+    "splitLeft": "向左分屏",
+    "splitDown": "向下分屏",
+    "splitRight": "向右分屏",
+    "splitLeftTitle": "在聚焦窗口左侧分屏",
+    "splitDownTitle": "在聚焦窗口下方分屏 (Alt+Shift+Enter)",
+    "splitRightTitle": "在聚焦窗口右侧分屏 (Alt+Enter)"
+  },
+  "plugin": {
+    "terminal": "终端",
+    "terminalDesc": "交互式 shell 会话",
+    "viewer": "查看器",
+    "viewerDesc": "查看文件和文档",
+    "fileBrowser": "文件浏览器",
+    "fileBrowserDesc": "浏览远程文件和文件夹"
+  },
+  "auth": {
+    "enterPassword": "输入密码",
+    "passwordPlaceholder": "密码",
+    "wrongPassword": "密码错误，请重试",
+    "checking": "验证中…",
+    "connect": "连接"
+  },
+  "lang": {
+    "en": "English",
+    "zh_CN": "简体中文"
+  }
+}

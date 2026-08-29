@@ -1,4 +1,5 @@
 import { useAtom } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import { panelOpenAtom, unreadCountAtom } from '../store/notifications'
 
 const wmBase =
@@ -15,13 +16,14 @@ function BellIcon() {
 }
 
 export function NotificationBell() {
+  const { t } = useTranslation()
   const [open, setOpen] = useAtom(panelOpenAtom)
   const [unread] = useAtom(unreadCountAtom)
 
   return (
     <button
       type="button"
-      aria-label={open ? 'Close notifications' : 'Open notifications'}
+      aria-label={open ? t('notifications.close') : t('notifications.open')}
       aria-expanded={open}
       className={wmBtn}
       onClick={() => setOpen((v) => !v)}

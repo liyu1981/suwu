@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAtomValue } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import { fontFamilyAtom, termThemeAtom } from '../store/appearance'
-import { connectionMessageAtom, connectionStatusAtom, type ConnectionStatus } from '../store/connection'
+import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
 import { fontSizeAtom } from '../store/fonts'
 import { wmAction } from '../wm/shortcuts'
 import { useTerminal } from './useTerminal'
@@ -15,18 +16,13 @@ const STATUS_DOT = {
   disconnected: 'bg-red-500',
 } as const
 
-const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connecting: 'Connecting…',
-  connected: 'Connected',
-  disconnected: 'Disconnected',
-}
-
 /**
  * An xterm terminal that fills the entire viewport. This is the page each
  * tiling pane loads in an iframe (`/term`); every iframe gets its own
  * WebSocket PTY session on the server.
  */
 export default function FullTerminal() {
+  const { t } = useTranslation()
   const status = useAtomValue(connectionStatusAtom)
   const message = useAtomValue(connectionMessageAtom)
   const fontSize = useAtomValue(fontSizeAtom)
@@ -62,7 +58,7 @@ export default function FullTerminal() {
   }, [])
 
   usePtySession(term)
-  useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast('Copied!'))
+  useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')))
 
   // Clicks inside an iframe never reach the parent, and Chrome does not fire
   // focusin in the parent when focus moves directly between two iframes — so
@@ -143,15 +139,15 @@ export default function FullTerminal() {
       >
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${selectionMode ? 'bg-sky-400' : STATUS_DOT[status]}`} />
         {selectionMode ? (
-          <span className="truncate">Selection mode — Alt+C to exit</span>
+          <span className="truncate">{t('terminal.selectionMode')}</span>
         ) : (
-          <span className="truncate">{status === 'connected' ? STATUS_LABEL.connected : message || STATUS_LABEL[status]}</span>
+          <span className="truncate">{status === 'connected' ? t('terminal.connected') : message || t(`terminal.${status}`)}</span>
         )}
         <button
           type="button"
           onClick={toggleSelectionMode}
           className="ml-auto shrink-0 rounded p-0.5 hover:bg-white/10"
-          title={selectionMode ? 'Exit selection mode (Alt+C)' : 'Enter selection mode (Alt+C)'}
+          title={selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')}
         >
           {selectionMode ? (
             <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">

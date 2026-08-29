@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
 import { clearCredentials, setCredentials } from '../../lib/auth'
 
@@ -8,6 +9,7 @@ import { clearCredentials, setCredentials } from '../../lib/auth'
  * a translucent scrim and enters the password to unlock terminal access.
  */
 export function AuthDialog({ open, onAuthenticated }: { open: boolean; onAuthenticated: () => void }) {
+  const { t } = useTranslation()
   const [password, setPassword] = useState('')
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -47,7 +49,7 @@ export function AuthDialog({ open, onAuthenticated }: { open: boolean; onAuthent
         className="flex w-[min(92vw,18rem)] flex-col gap-0"
       >
         <DialogTitle className="text-center text-sm font-semibold tracking-tight text-popover-foreground">
-          Enter password
+          {t('auth.enterPassword')}
         </DialogTitle>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           <input
@@ -56,12 +58,12 @@ export function AuthDialog({ open, onAuthenticated }: { open: boolean; onAuthent
             required
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError(false) }}
-            placeholder="Password"
+            placeholder={t('auth.passwordPlaceholder')}
             className="rounded-[6px] border border-white/10 bg-white/5 px-3 py-2 text-xs text-popover-foreground outline-none placeholder:text-white/30 focus:border-white/25 focus:ring-1 focus:ring-white/15"
           />
           {error && (
             <p className="text-center text-[11px] text-red-400">
-              Wrong password, try again
+              {t('auth.wrongPassword')}
             </p>
           )}
           <button
@@ -69,7 +71,7 @@ export function AuthDialog({ open, onAuthenticated }: { open: boolean; onAuthent
             disabled={loading || !password}
             className="glass-btn rounded-[6px] bg-white/10 px-3 py-2 text-xs font-medium text-popover-foreground transition hover:bg-white/15 disabled:opacity-40"
           >
-            {loading ? 'Checking…' : 'Connect'}
+            {loading ? t('auth.checking') : t('auth.connect')}
           </button>
         </form>
       </DialogContent>

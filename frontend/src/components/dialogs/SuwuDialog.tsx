@@ -1,22 +1,16 @@
 import { type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useAtom } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { menuOpenAtom, menuViewAtom, type MenuView } from '../../wm/atoms'
 import AboutView from './AboutView'
+import AppSettingsView from './AppSettingsView'
 import MainMenuView from './MainMenuView'
 import SettingsView from './SettingsView'
 import ShortcutsView from './ShortcutsView'
 
 const navBtn =
   'grid h-7 w-7 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-300'
-
-/** Header title for each screen; the root menu shows the app name. */
-const TITLES: Record<MenuView, string> = {
-  menu: 'Suwu',
-  shortcuts: 'Keyboard shortcuts',
-  settings: 'Settings',
-  about: 'About Suwu',
-}
 
 /** True while the user is typing in a form control — keys must not navigate. */
 function isFormField(target: EventTarget | null): boolean {
@@ -42,12 +36,21 @@ function isFormField(target: EventTarget | null): boolean {
  * closes the dialog (Radix).
  */
 export default function SuwuDialog() {
+  const { t } = useTranslation()
   const [open, setOpen] = useAtom(menuOpenAtom)
   const [view, setView] = useAtom(menuViewAtom)
 
   const isRoot = view === 'menu'
   const back = () => setView('menu')
   const close = () => setOpen(false)
+
+  const TITLES: Record<MenuView, string> = {
+    menu: t('app.title'),
+    shortcuts: t('menu.shortcuts'),
+    appSettings: t('menu.appSettings'),
+    settings: t('menu.settings'),
+    about: t('menu.about'),
+  }
 
   // Global in-dialog keys: back from a sub-screen without grabbing focus
   // away from wherever the user is.
@@ -64,7 +67,7 @@ export default function SuwuDialog() {
       <DialogContent
         aria-describedby={undefined}
         onKeyDown={onKeyDown}
-        className="flex max-h-[85dvh] w-[min(92vw,36rem)] flex-col gap-0 overflow-hidden p-4"
+        className="flex h-[682px] w-[576px] max-h-[95dvh] flex-col gap-0 overflow-hidden p-4"
       >
         <DialogTitle className="sr-only">{TITLES[view]}</DialogTitle>
 
@@ -73,7 +76,7 @@ export default function SuwuDialog() {
           {isRoot ? (
             <span className="h-7 w-7" aria-hidden="true" />
           ) : (
-            <button type="button" onClick={back} aria-label="Back to menu" className={navBtn}>
+            <button type="button" onClick={back} aria-label={t('dialog.backToMenu')} className={navBtn}>
               <svg
                 className="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -92,7 +95,7 @@ export default function SuwuDialog() {
             {TITLES[view]}
           </span>
 
-          <button type="button" onClick={close} aria-label="Close menu" className={navBtn}>
+          <button type="button" onClick={close} aria-label={t('dialog.closeMenu')} className={navBtn}>
             <svg
               className="h-4 w-4"
               viewBox="0 0 24 24"
@@ -110,7 +113,8 @@ export default function SuwuDialog() {
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5">
           {view === 'menu' && <MainMenuView onSelect={setView} />}
           {view === 'shortcuts' && <ShortcutsView />}
-          {view === 'settings' && <SettingsView onClose={close} />}
+          {view === 'settings' && <SettingsView />}
+          {view === 'appSettings' && <AppSettingsView onClose={close} />}
           {view === 'about' && <AboutView />}
         </div>
       </DialogContent>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAtomValue } from 'jotai'
 import { getCredentials } from '../lib/auth'
+import { fileBrowserBgAtom } from '../store/appearance'
 
 interface FileEntry {
   name: string
@@ -359,6 +361,7 @@ function TreeNodeItem({
 // ── Main file browser ──
 
 export default function FileBrowserPage() {
+  const bgColor = useAtomValue(fileBrowserBgAtom)
   const [currentPath, setCurrentPath] = useState('/')
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -369,6 +372,23 @@ export default function FileBrowserPage() {
   const [historyIndex, setHistoryIndex] = useState(0)
   const [treeRefreshKey, setTreeRefreshKey] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Override the opaque :root background so the translucent bgColor shows through.
+  useEffect(() => {
+    document.documentElement.style.backgroundColor = 'transparent'
+  }, [])
+
+  // Tell the window manager this pane is focused when the iframe gains focus.
+  useEffect(() => {
+    const onFocus = () => {
+      window.parent?.postMessage(
+        { type: 'pane-focus', pane: window.frameElement?.getAttribute('data-pane') },
+        '*',
+      )
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   const fetchDir = useCallback(async (dirPath: string) => {
     abortRef.current?.abort()
@@ -472,7 +492,10 @@ export default function FileBrowserPage() {
   }
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px] bg-transparent text-sm text-white/80">
+    <div
+      className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px] text-sm text-white/80"
+      style={{ backgroundColor: bgColor }}
+    >
       {/* Toolbar */}
       <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-black/40 px-2 py-1">
         <button type="button" onClick={goBack} disabled={historyIndex <= 0} className={toolbarBtn} title="Back">

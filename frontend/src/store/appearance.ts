@@ -40,3 +40,12 @@ export const TERMINAL_THEME_DEFAULT: TerminalTheme = {
 export const fontFamilyAtom = atomWithStorage<string>('suwu.term-font-family', FONT_FAMILY_DEFAULT)
 
 export const termThemeAtom = atomWithStorage<TerminalTheme>('suwu.term-theme', TERMINAL_THEME_DEFAULT)
+
+/** Default file browser background (#1e1e1e at 80% opacity, matching terminal). */
+export const FILE_BROWSER_BG_DEFAULT = '#1e1e1ecc'
+
+/**
+ * File browser background color, shared across every /filebrowser pane iframe.
+ * Uses the same atomWithStorage + localStorage sync pattern as terminal theme.
+ */
+export const fileBrowserBgAtom = atomWithStorage<string>('suwu.filebrowser-bg', FILE_BROWSER_BG_DEFAULT)

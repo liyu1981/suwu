@@ -2,9 +2,11 @@ import { useAtom } from 'jotai'
 import { Tabs as TabsPrimitive } from 'radix-ui'
 import { FONT_MAX, FONT_MIN, clampFont, fontDefaultAtom, fontSizeAtom } from '../../store/fonts'
 import {
+  FILE_BROWSER_BG_DEFAULT,
   FONT_FAMILIES,
   TERMINAL_THEME_DEFAULT,
   type TerminalTheme,
+  fileBrowserBgAtom,
   fontFamilyAtom,
   termThemeAtom,
 } from '../../store/appearance'
@@ -68,6 +70,7 @@ export default function SettingsView(props: { onClose: () => void }) {
   const [defaultSize, setDefaultSize] = useAtom(fontDefaultAtom)
   const [fontFamily, setFontFamily] = useAtom(fontFamilyAtom)
   const [termTheme, setTermTheme] = useAtom(termThemeAtom)
+  const [fileBrowserBg, setFileBrowserBg] = useAtom(fileBrowserBgAtom)
   const [maxEntries, setMaxEntries] = useAtom(maxEntriesAtom)
 
   const setThemeColor = (key: keyof TerminalTheme) => (next: string) =>
@@ -90,6 +93,9 @@ export default function SettingsView(props: { onClose: () => void }) {
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="notifications" className={tabBtn}>
             Notifications
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="filebrowser" className={tabBtn}>
+            File Browser
           </TabsPrimitive.Trigger>
         </TabsPrimitive.List>
 
@@ -225,6 +231,30 @@ export default function SettingsView(props: { onClose: () => void }) {
             </div>
             <p className={sectionHint}>
               Older messages are removed when the limit is reached. Stored in the browser's local storage.
+            </p>
+          </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="filebrowser" className="min-w-0 flex-1">
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>Background color</span>
+              <button
+                type="button"
+                onClick={() => setFileBrowserBg(FILE_BROWSER_BG_DEFAULT)}
+                className="text-[10px] text-muted-foreground underline-offset-2 hover:text-white hover:underline"
+              >
+                Reset
+              </button>
+            </div>
+            <ColorRow
+              label="Background"
+              value={fileBrowserBg}
+              onChange={setFileBrowserBg}
+            />
+            <p className={sectionHint}>
+              Applied instantly to all file browser panes. Lower the opacity to let
+              the workspace show through.
             </p>
           </div>
         </TabsPrimitive.Content>

@@ -427,6 +427,18 @@ func ValidateTokenRequest(cfg *Config, hostHeader, originHeader, authHeader stri
 	return allowed()
 }
 
+// ValidateHostAndOrigin validates only the Host and Origin headers without
+// checking any authentication credentials. Use this when auth is handled
+// separately (e.g. via a session token query parameter).
+func ValidateHostAndOrigin(cfg *Config, hostHeader, originHeader string) Decision {
+	d, _ := validateAllowedHost(cfg, hostHeader)
+	if !d.OK {
+		return d
+	}
+	d = validateMatchingOrigin(originHeader, hostFromHeader(hostHeader), false)
+	return d
+}
+
 // validateBasicAuth checks an "Authorization: Basic <base64(user:pass)>"
 // header against the stored sha256 password hash.
 func validateBasicAuth(authHeader, expectedHash string) bool {

@@ -1,5 +1,5 @@
 # Build artifacts
-/suwu
+/[S|s]uwu
 /tmp
 *.exe
 *.test

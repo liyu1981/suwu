@@ -14,6 +14,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"sync"
 	"time"
@@ -208,6 +209,7 @@ func (m *Manager) Attach(key string, cols, rows uint16) (*Client, []byte, error)
 
 // start launches the shell PTY and its emulator twin. Callers hold m.mu.
 func (m *Manager) start(key string, cols, rows uint16) (*session, error) {
+	slog.Debug("session start", "key", key, "cols", cols, "rows", rows)
 	ps, err := pty.Start(cols, rows)
 	if err != nil {
 		return nil, fmt.Errorf("session: start shell: %w", err)
@@ -283,6 +285,7 @@ func (m *Manager) broadcast(s *session, data []byte) {
 // finish records shell exit, delivers the exit notice as the final frame to
 // every client, and removes the session.
 func (m *Manager) finish(s *session, code int) {
+	slog.Debug("session finish", "key", s.key, "exit_code", code)
 	m.mu.Lock()
 	if s.closed {
 		m.mu.Unlock()
@@ -313,6 +316,7 @@ func (m *Manager) finish(s *session, code int) {
 
 // expire reaps a session whose last client left longer than the TTL ago.
 func (m *Manager) expire(s *session) {
+	slog.Debug("session expire", "key", s.key)
 	m.mu.Lock()
 	if s.closed || len(s.subs) > 0 {
 		m.mu.Unlock()

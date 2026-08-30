@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -45,6 +46,7 @@ import (
 	"suwu/pkg/certs"
 	"suwu/pkg/envfile"
 	"suwu/pkg/gencerts"
+	"suwu/pkg/logging"
 	"suwu/pkg/notify"
 	"suwu/pkg/pty"
 	"suwu/pkg/server"
@@ -136,54 +138,87 @@ TLS: TLS_CERT_FILE/TLS_KEY_FILE, else the default pair in ~/.config/suwu/
 }
 
 func serveMain() {
+	logging.Init()
+
 	envFile := flag.String("env-file", "", "path to a .env file to load (default .env; when explicitly set, the global env is skipped)")
 	flag.Parse()
 
-	debugf("env-file flag = %q (empty = default)", *envFile)
-	debugf("initial state: SUWU_DEV=%q PORT=%q HOST=%q", os.Getenv("SUWU_DEV"), os.Getenv("PORT"), os.Getenv("HOST"))
+	logging.Debug("pre-env state",
+		slog.String("env-file-flag", *envFile),
+		slog.String("SUWU_DEV", os.Getenv("SUWU_DEV")),
+		slog.String("PORT", os.Getenv("PORT")),
+		slog.String("HOST", os.Getenv("HOST")),
+		slog.String("SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL")),
+	)
 
 	// Resolve the project env file: explicit --env-file wins, else .env.
 	projectEnv := *envFile
 	if projectEnv == "" {
 		projectEnv = ".env"
 	}
-	debugf("loading project env: %s", projectEnv)
+
 	if *envFile != "" {
-		// Explicit --env-file: force-set values (override anything in
-		// the process environment, e.g. air's own .env injection).
+		logging.Debug("loading project env (explicit --env-file, overrides existing)",
+			slog.String("path", projectEnv),
+		)
 		if err := envfile.LoadForce(projectEnv); err != nil {
 			log.Fatalf("envfile: %v", err)
 		}
 	} else {
+		logging.Debug("loading project env",
+			slog.String("path", projectEnv),
+		)
 		if err := envfile.Load(projectEnv); err != nil {
 			log.Fatalf("envfile: %v", err)
 		}
 	}
-	debugf("after project env: SUWU_DEV=%q PORT=%q HOST=%q", os.Getenv("SUWU_DEV"), os.Getenv("PORT"), os.Getenv("HOST"))
+	logging.Debug("after project env",
+		slog.String("SUWU_DEV", os.Getenv("SUWU_DEV")),
+		slog.String("PORT", os.Getenv("PORT")),
+		slog.String("HOST", os.Getenv("HOST")),
+		slog.String("SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL")),
+	)
 
 	// Load the user-global ~/.config/suwu/.env only when no explicit
 	// --env-file was given and SUWU_DEV is not set.
 	if *envFile == "" && os.Getenv("SUWU_DEV") != "true" {
 		if dir, err := certs.DefaultDir(); err == nil {
 			globalEnv := filepath.Join(dir, ".env")
-			debugf("loading global env: %s", globalEnv)
+			logging.Debug("loading global env",
+				slog.String("path", globalEnv),
+			)
 			if err := envfile.Load(globalEnv); err != nil {
 				log.Fatalf("envfile: %v", err)
 			}
-			debugf("after global env: SUWU_DEV=%q PORT=%q HOST=%q", os.Getenv("SUWU_DEV"), os.Getenv("PORT"), os.Getenv("HOST"))
+			logging.Debug("after global env",
+				slog.String("SUWU_DEV", os.Getenv("SUWU_DEV")),
+				slog.String("PORT", os.Getenv("PORT")),
+				slog.String("HOST", os.Getenv("HOST")),
+				slog.String("SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL")),
+			)
 		}
 	} else {
-		debugf("skipping global env (env-file explicit=%v, SUWU_DEV=%q)", *envFile != "", os.Getenv("SUWU_DEV"))
+		logging.Debug("skipping global env",
+			slog.Bool("env-file-explicit", *envFile != ""),
+			slog.String("SUWU_DEV", os.Getenv("SUWU_DEV")),
+		)
 	}
+
+	// Re-init logger now that SUWU_LOG_LEVEL is loaded from env.
+	logging.Reinit()
+
+	slog.Info("env loaded",
+		"SUWU_DEV", os.Getenv("SUWU_DEV"),
+		"PORT", os.Getenv("PORT"),
+		"HOST", os.Getenv("HOST"),
+		"SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL"),
+	)
 
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func debugf(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "[suwu-env] "+format+"\n", args...)
-}
 
 func run() error {
 	dev := os.Getenv("SUWU_DEV") == "true"

@@ -71,13 +71,7 @@ export function NotificationPanel() {
   const [maxEntries] = useAtom(maxEntriesAtom)
   const listRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to bottom on new messages.
-  useEffect(() => {
-    const el = listRef.current
-    if (el && open) {
-      el.scrollTop = el.scrollHeight
-    }
-  }, [notifications.length, open])
+
 
   // Escape closes.
   useEffect(() => {

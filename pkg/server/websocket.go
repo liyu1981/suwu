@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"sync"
 
@@ -20,10 +21,9 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	cols := atoiDefault(q.Get("cols"), 80)
 	rows := atoiDefault(q.Get("rows"), 24)
-	// Opaque reattach key. The tiling WM passes its stable pane id, so a
-	// page refresh reattaches to the same shell instead of spawning a new
-	// one; an empty key gets a fresh random one.
 	key := q.Get("session")
+
+	slog.Debug("ws connect", "cols", cols, "rows", rows, "session", key)
 
 	d := auth.ValidateWebSocketRequest(s.cfg, r.Host, r.Header.Get("Origin"), q.Get("token"))
 	if !d.OK {

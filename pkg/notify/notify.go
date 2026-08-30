@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -59,6 +60,7 @@ func SocketPath() (string, error) {
 // stale socket file, starts accepting connections, and returns. The caller
 // must call Close() when done.
 func NewListener(socketPath string) (*Listener, error) {
+	slog.Debug("notify listener", "socket", socketPath)
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
 		return nil, fmt.Errorf("notify: mkdir: %w", err)
 	}
@@ -129,6 +131,7 @@ func (l *Listener) handleConn(conn net.Conn) {
 }
 
 func (l *Listener) broadcast(n Notification) {
+	slog.Debug("notify broadcast", "id", n.ID, "message", n.Message, "subscribers", len(l.subs))
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for s := range l.subs {

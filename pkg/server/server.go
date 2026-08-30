@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -50,6 +51,8 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) route(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("request", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
+
 	if r.URL.Path == "/ws" {
 		s.handleWS(w, r)
 		return
@@ -62,6 +65,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/token" {
 		s.handleToken(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/file" {
+		s.handleFile(w, r)
 		return
 	}
 
@@ -225,6 +233,64 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 
 	resp := fileListResponse{Path: dirPath, Entries: result}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// handleFile serves the contents of a single file.
+// GET /api/file?path=/path/to/file&token=<session-token>
+func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	// Accept either Basic auth header or token query parameter.
+	token := r.URL.Query().Get("token")
+	if token != "" {
+		// Token-based auth: validate host/origin, then compare session token.
+		d := auth.ValidateHostAndOrigin(s.cfg, r.Host, r.Header.Get("Origin"))
+		if !d.OK {
+			writePlain(w, d.Status, d.Reason)
+			return
+		}
+		if token != s.cfg.Token {
+			writePlain(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+	} else {
+		// Basic auth: validate full request including Authorization header.
+		d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+		if !d.OK {
+			writePlain(w, d.Status, d.Reason)
+			return
+		}
+	}
+
+	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path parameter required"})
+		return
+	}
+
+	filePath = filepath.Clean(filePath)
+
+	info, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "file not found"})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot access file"})
+		}
+		return
+	}
+	if info.IsDir() {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is a directory"})
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeFile(w, r, filePath)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

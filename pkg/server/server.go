@@ -80,6 +80,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/home" {
+		s.handleHome(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/file/rename" {
 		s.handleFileRename(w, r)
 		return
@@ -260,6 +265,28 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 
 	resp := fileListResponse{Path: dirPath, Entries: result}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// handleHome returns the current user's home directory.
+// GET /api/home
+func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+	if !d.OK {
+		writePlain(w, d.Status, d.Reason)
+		return
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "/"
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"path": home})
 }
 
 // handleFile serves the contents of a single file.

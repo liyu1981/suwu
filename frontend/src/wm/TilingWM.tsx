@@ -24,6 +24,7 @@ import {
 } from './layout'
 import { applyWmAction, wmAction } from './shortcuts'
 import { openViewer, openFileBrowser } from '../lib/actionResolver'
+import { getCredentials } from '../lib/auth'
 import { TileTools } from './TileTools'
 import { usePaneGhosts } from './usePaneGhosts'
 import { getTilePlugin, getAllTilePlugins, type TilePlugin } from './tilePlugins'
@@ -72,13 +73,27 @@ function TileTypePicker({
   const { t } = useTranslation()
   const plugins = getAllTilePlugins().filter((p) => p.id !== 'empty')
   const navRef = useRef<HTMLElement>(null)
+  const [homeDir, setHomeDir] = useState<string | null>(null)
 
   useEffect(() => {
     navRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
   }, [])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    const headers: Record<string, string> = {}
+    const creds = getCredentials()
+    if (creds) headers['Authorization'] = creds
+    fetch('/api/home', { cache: 'no-store', headers, signal: controller.signal })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.path) setHomeDir(data.path) })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [])
+
   const select = (tileType: string) => {
-    setLayout((prev) => (prev ? setLeafType(prev, paneId, tileType, FONT_DEFAULT, FONT_DEFAULT) : prev))
+    const initialPath = (tileType === 'filebrowser' || tileType === 'fileviewer') ? homeDir ?? undefined : undefined
+    setLayout((prev) => (prev ? setLeafType(prev, paneId, tileType, FONT_DEFAULT, FONT_DEFAULT, initialPath) : prev))
     onClose()
   }
 

@@ -54,12 +54,14 @@ export function setLeafType(
   tileType: TileType,
   fontSize?: number,
   fontDefault?: number,
+  initialPath?: string,
 ): LayoutNode {
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf' && node.id === targetId) {
       const next: LayoutNode = { ...node, tileType }
       if (fontSize !== undefined) next.fontSize = fontSize
       if (fontDefault !== undefined) next.fontDefault = fontDefault
+      if (initialPath !== undefined) next.initialPath = initialPath
       return next
     }
     if (node.type === 'split') {

@@ -35,7 +35,7 @@ function MessageRow({ n }: { n: Notification }) {
 
   return (
     <div className="rounded px-3 py-2 transition hover:bg-white/5">
-      <p className="text-xs leading-relaxed text-popover-foreground">{n.message}</p>
+      <p className="break-words text-xs leading-relaxed text-popover-foreground">{n.message}</p>
       {n.data && (
         <button
           type="button"

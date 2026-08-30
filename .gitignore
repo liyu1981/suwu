@@ -6,6 +6,9 @@
 *.out
 /var
 
+# Frontend build output (vite builds into pkg/assets/web/)
+pkg/assets/web/
+
 # Local environment (secrets). Committed template is .env.example.
 .env
 .env.*

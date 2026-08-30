@@ -171,7 +171,9 @@
     "viewer": "File Viewer",
     "viewerDesc": "View files and documents",
     "fileBrowser": "File Browser",
-    "fileBrowserDesc": "Browse remote files and folders"
+    "fileBrowserDesc": "Browse remote files and folders",
+    "empty": "Empty",
+    "emptyDesc": "Choose an application to open"
   },
   "auth": {
     "enterPassword": "Enter password",

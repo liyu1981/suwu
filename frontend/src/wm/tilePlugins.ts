@@ -18,6 +18,8 @@ export interface TileRenderContext {
   paneId: string
   /** Initial path passed from the action resolver (e.g. ?path=... in iframe src). */
   initialPath?: string
+  /** Open the tile-type picker for this pane (used by the empty placeholder). */
+  onOpenPicker?: (paneId: string) => void
 }
 
 export interface TilePlugin {

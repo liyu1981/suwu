@@ -170,7 +170,9 @@
     "viewer": "文件查看器",
     "viewerDesc": "查看文件和文档",
     "fileBrowser": "文件浏览器",
-    "fileBrowserDesc": "浏览远程文件和文件夹"
+    "fileBrowserDesc": "浏览远程文件和文件夹",
+    "empty": "空白",
+    "emptyDesc": "选择要打开的应用程序"
   },
   "auth": {
     "enterPassword": "输入密码",

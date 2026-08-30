@@ -33,6 +33,7 @@ import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 import './plugins/term'
 import './plugins/viewer'
 import './plugins/filebrowser'
+import './plugins/empty'
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +
@@ -58,39 +59,6 @@ function ChevronIcon() {
   )
 }
 
-/** Empty pane shown when a tile has no type assigned yet. Auto-focuses on mount. */
-function EmptyPane({ paneId, onPick }: { paneId: string; onPick: (id: string) => void }) {
-  const { t } = useTranslation()
-  const setFocused = useSetAtom(focusedIdAtom)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const timer = setTimeout(() => {
-      el.focus()
-      setFocused(paneId)
-    }, 50)
-    return () => clearTimeout(timer)
-  }, [paneId, setFocused])
-
-  return (
-    <div
-      ref={ref}
-      tabIndex={-1}
-      className="flex h-full w-full items-center justify-center outline-none"
-    >
-      <button
-        type="button"
-        onClick={() => onPick(paneId)}
-        className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
-      >
-        + {t('wm.addTile').replace('+ ', '')}
-      </button>
-    </div>
-  )
-}
-
 /** iOS-settings-style dialog for choosing which application to open in a tile. */
 function TileTypePicker({
   paneId,
@@ -102,7 +70,7 @@ function TileTypePicker({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const plugins = getAllTilePlugins()
+  const plugins = getAllTilePlugins().filter((p) => p.id !== 'empty')
   const navRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -557,11 +525,7 @@ export default function TilingWM() {
             style={{ left: x, top: y, width: w, height: h }}
             onMouseDown={() => setFocused(id)}
           >
-            {tileType && plugin ? (
-              plugin.render(id, { paneId: id, initialPath })
-            ) : (
-              <EmptyPane paneId={id} onPick={setPickerPaneId} />
-            )}
+            {(plugin ?? getTilePlugin('empty'))?.render(id, { paneId: id, initialPath, onOpenPicker: setPickerPaneId })}
             <TileTools
               paneId={id}
               fontSize={fontSize}

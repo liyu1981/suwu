@@ -3,6 +3,10 @@ import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { getCredentials } from '../lib/auth'
 import { fileBrowserBgAtom } from '../store/appearance'
+import { CommonTileContainer } from '../components/CommonTileContainer'
+import { ContextMenu } from '../components/filebrowser/ContextMenu'
+import { Toast } from '../components/filebrowser/Toast'
+import { UploadDialog } from '../components/filebrowser/UploadDialog'
 
 interface FileEntry {
   name: string
@@ -408,7 +412,13 @@ export default function FileBrowserPage() {
   const [historyIndex, setHistoryIndex] = useState(0)
   const [treeRefreshKey, setTreeRefreshKey] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [selectedEntry, setSelectedEntry] = useState<FileEntry | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entry: FileEntry | null } | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+  const [showUpload, setShowUpload] = useState(false)
 
   // Read initial path from URL once (before any effects).
   const initPath = new URLSearchParams(window.location.search).get('path')
@@ -416,18 +426,6 @@ export default function FileBrowserPage() {
   // Override the opaque :root background so the translucent bgColor shows through.
   useEffect(() => {
     document.documentElement.style.backgroundColor = 'transparent'
-  }, [])
-
-  // Tell the window manager this pane is focused when the iframe gains focus.
-  useEffect(() => {
-    const onFocus = () => {
-      window.parent?.postMessage(
-        { type: 'pane-focus', pane: window.frameElement?.getAttribute('data-pane') },
-        '*',
-      )
-    }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
   const fetchDir = useCallback(async (dirPath: string) => {
@@ -491,11 +489,27 @@ export default function FileBrowserPage() {
   }, [navigateTo])
 
   const handleEntryClick = useCallback((entry: FileEntry) => {
+    setSelectedEntry(entry)
     if (entry.isDir) {
       const sep = currentPath.endsWith('/') ? '' : '/'
       navigateTo(currentPath + sep + entry.name)
     }
   }, [currentPath, navigateTo])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, entry: FileEntry | null) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, entry })
+  }, [])
+
+  const openInViewer = useCallback((path: string) => {
+    // Post message to parent to open file in viewer tile
+    const paneId = window.frameElement?.getAttribute('data-pane')
+    window.parent?.postMessage({ type: 'wm-open-file', path, tileType: 'fileviewer', sourcePane: paneId }, '*')
+  }, [])
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type })
+  }, [])
 
   const handleSort = useCallback((key: SortKey) => {
     if (sortKey === key) {
@@ -542,121 +556,172 @@ export default function FileBrowserPage() {
   }
 
   return (
-    <div
-      className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px] text-sm text-white/80"
-      style={{ backgroundColor: bgColor }}
-    >
-      {/* Toolbar */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-black/40 px-2 py-1">
-        <button type="button" onClick={goBack} disabled={historyIndex <= 0} className={toolbarBtn} title={t('filebrowser.back')}>
-          <BackIcon />
-        </button>
-        <button type="button" onClick={goForward} disabled={historyIndex >= history.length - 1} className={toolbarBtn} title={t('filebrowser.forward')}>
-          <ForwardIcon />
-        </button>
-        <button type="button" onClick={goUp} disabled={breadcrumbs.length === 0} className={toolbarBtn} title={t('filebrowser.upOneLevel')}>
-          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m18 15-6-6-6 6" />
-          </svg>
-        </button>
-        <button type="button" onClick={goHome} className={toolbarBtn} title={t('filebrowser.home')}>
-          <HomeIcon />
-        </button>
-        <button type="button" onClick={() => fetchDir(currentPath)} className={toolbarBtn} title={t('filebrowser.refresh')}>
-          <RefreshIcon />
-        </button>
+    <CommonTileContainer>
+      <div
+        className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px] text-sm text-white/80"
+        style={{ backgroundColor: bgColor }}
+      >
+        {/* Toolbar */}
+        <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-black/40 px-2 py-1">
+          <button type="button" onClick={goBack} disabled={historyIndex <= 0} className={toolbarBtn} title={t('filebrowser.back')}>
+            <BackIcon />
+          </button>
+          <button type="button" onClick={goForward} disabled={historyIndex >= history.length - 1} className={toolbarBtn} title={t('filebrowser.forward')}>
+            <ForwardIcon />
+          </button>
+          <button type="button" onClick={goUp} disabled={breadcrumbs.length === 0} className={toolbarBtn} title={t('filebrowser.upOneLevel')}>
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m18 15-6-6-6 6" />
+            </svg>
+          </button>
+          <button type="button" onClick={goHome} className={toolbarBtn} title={t('filebrowser.home')}>
+            <HomeIcon />
+          </button>
+          <button type="button" onClick={() => fetchDir(currentPath)} className={toolbarBtn} title={t('filebrowser.refresh')}>
+            <RefreshIcon />
+          </button>
 
-        {/* Path bar — click to copy */}
-        <button
-          type="button"
-          onClick={copyPath}
-          className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded bg-black/30 px-2 py-0.5 text-left text-xs text-white/60 transition hover:bg-black/50 hover:text-white/80"
-          title={t('filebrowser.copyPath')}
-        >
-          <span className="truncate font-mono">{currentPath}</span>
-          <span className="shrink-0 text-white/40">
-            {copied ? (
-              <svg className="h-3 w-3 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : (
-              <CopyIcon />
-            )}
-          </span>
-        </button>
-      </div>
-
-      {/* Two-panel body */}
-      <div className="flex min-h-0 flex-1">
-        {/* Left: tree view */}
-        <div className="w-52 h-full shrink-0 overflow-y-auto border-r border-white/10 bg-black/20">
-          <TreeView key={treeRefreshKey} currentPath={currentPath} onNavigate={handleTreeNavigate} />
+          {/* Path bar — click to copy */}
+          <button
+            type="button"
+            onClick={copyPath}
+            className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded bg-black/30 px-2 py-0.5 text-left text-xs text-white/60 transition hover:bg-black/50 hover:text-white/80"
+            title={t('filebrowser.copyPath')}
+          >
+            <span className="truncate font-mono">{currentPath}</span>
+            <span className="shrink-0 text-white/40">
+              {copied ? (
+                <svg className="h-3 w-3 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <CopyIcon />
+              )}
+            </span>
+          </button>
         </div>
 
-        {/* Right: file list */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* Column headers */}
-          <div className="flex shrink-0 items-center border-b border-white/10 bg-black/20 px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            <button type="button" onClick={() => handleSort('name')} className="flex-1 py-1.5 text-left hover:text-white/60">
-              {t('filebrowser.name')}<SortIndicator col="name" />
-            </button>
-            <button type="button" onClick={() => handleSort('size')} className="w-24 py-1.5 text-right hover:text-white/60">
-              {t('filebrowser.size')}<SortIndicator col="size" />
-            </button>
-            <button type="button" onClick={() => handleSort('modTime')} className="w-32 py-1.5 text-right hover:text-white/60">
-              {t('filebrowser.modified')}<SortIndicator col="modTime" />
-            </button>
+        {/* Two-panel body */}
+        <div className="flex min-h-0 flex-1">
+          {/* Left: tree view */}
+          <div className="w-52 h-full shrink-0 overflow-y-auto border-r border-white/10 bg-black/20">
+            <TreeView key={treeRefreshKey} currentPath={currentPath} onNavigate={handleTreeNavigate} />
           </div>
 
-          {/* File entries */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {loading && (
-              <div className="flex items-center justify-center py-12 text-xs text-white/30">
-                {t('filebrowser.loading')}
-              </div>
-            )}
-            {error && (
-              <div className="flex items-center justify-center py-12 text-xs text-red-400/80">
-                {error}
-              </div>
-            )}
-            {!loading && !error && sorted.length === 0 && (
-              <div className="flex items-center justify-center py-12 text-xs text-white/30">
-                {t('filebrowser.emptyFolder')}
-              </div>
-            )}
-            {!loading && !error && sorted.map((entry) => (
-              <button
-                key={entry.name}
-                type="button"
-                onClick={() => handleEntryClick(entry)}
-                className={`flex w-full items-center px-3 py-1.5 text-left transition-colors ${
-                  entry.isDir
-                    ? 'hover:bg-white/5 cursor-pointer'
-                    : 'cursor-default'
-                }`}
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  {entry.isDir ? <FolderIcon /> : <FileIcon />}
-                  <span className="truncate text-[13px] text-white/80">{entry.name}</span>
-                </div>
-                <div className="w-24 shrink-0 text-right text-[11px] text-white/40">
-                  {entry.isDir ? '' : formatSize(entry.size)}
-                </div>
-                <div className="w-32 shrink-0 text-right text-[11px] text-white/40">
-                  {formatDate(entry.modTime, t)}
-                </div>
+          {/* Right: file list */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* Column headers */}
+            <div className="flex shrink-0 items-center border-b border-white/10 bg-black/20 px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <button type="button" onClick={() => handleSort('name')} className="flex-1 py-1.5 text-left hover:text-white/60">
+                {t('filebrowser.name')}<SortIndicator col="name" />
               </button>
-            ))}
+              <button type="button" onClick={() => handleSort('size')} className="w-24 py-1.5 text-right hover:text-white/60">
+                {t('filebrowser.size')}<SortIndicator col="size" />
+              </button>
+              <button type="button" onClick={() => handleSort('modTime')} className="w-32 py-1.5 text-right hover:text-white/60">
+                {t('filebrowser.modified')}<SortIndicator col="modTime" />
+              </button>
+            </div>
+
+            {/* File entries */}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {loading && (
+                <div className="flex items-center justify-center py-12 text-xs text-white/30">
+                  {t('filebrowser.loading')}
+                </div>
+              )}
+              {error && (
+                <div className="flex items-center justify-center py-12 text-xs text-red-400/80">
+                  {error}
+                </div>
+              )}
+              {!loading && !error && sorted.length === 0 && (
+                <div className="flex items-center justify-center py-12 text-xs text-white/30">
+                  {t('filebrowser.emptyFolder')}
+                </div>
+              )}
+              {!loading && !error && sorted.map((entry) => {
+                const isSelected = selectedEntry?.name === entry.name
+                return (
+                  <button
+                    key={entry.name}
+                    type="button"
+                    onClick={() => handleEntryClick(entry)}
+                    onContextMenu={(e) => handleContextMenu(e, entry)}
+                    className={`flex w-full items-center px-3 py-1.5 text-left transition-colors ${
+                      isSelected
+                        ? 'bg-sky-500/15 text-white'
+                        : entry.isDir
+                          ? 'hover:bg-white/5 cursor-pointer text-white/80'
+                          : 'cursor-default text-white/80'
+                    }`}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      {entry.isDir ? <FolderIcon /> : <FileIcon />}
+                      <span className="truncate text-[13px]">{entry.name}</span>
+                    </div>
+                    <div className="w-24 shrink-0 text-right text-[11px] text-white/40">
+                      {entry.isDir ? '' : formatSize(entry.size)}
+                    </div>
+                    <div className="w-32 shrink-0 text-right text-[11px] text-white/40">
+                      {formatDate(entry.modTime, t)}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
+        </div>
+
+        {/* Status bar */}
+        <div className="flex shrink-0 items-center justify-between border-t border-white/10 bg-black/40 px-3 py-1 text-[10px] text-white/30">
+          <span>{t('filebrowser.itemCount', { count: sorted.length })}</span>
+          <button
+            type="button"
+            onClick={() => setShowUpload(true)}
+            className="ml-2 rounded px-2 py-0.5 text-[10px] text-white/50 hover:bg-white/10 hover:text-white"
+          >
+            {t('filebrowser.contextMenu.upload')}
+          </button>
         </div>
       </div>
 
-      {/* Status bar */}
-      <div className="flex shrink-0 items-center justify-between border-t border-white/10 bg-black/40 px-3 py-1 text-[10px] text-white/30">
-        <span>{t('filebrowser.itemCount', { count: sorted.length })}</span>
-      </div>
-    </div>
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          entry={contextMenu.entry}
+          currentPath={currentPath}
+          onClose={() => setContextMenu(null)}
+          onRefresh={() => fetchDir(currentPath)}
+          onError={(msg) => showToast(msg, 'error')}
+          onSuccess={(msg) => showToast(msg, 'success')}
+          openInViewer={openInViewer}
+          onUpload={() => setShowUpload(true)}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Upload Dialog */}
+      {showUpload && (
+        <UploadDialog
+          currentPath={currentPath}
+          onClose={() => setShowUpload(false)}
+          onUploadComplete={() => fetchDir(currentPath)}
+          onError={(msg) => showToast(msg, 'error')}
+          onSuccess={(msg) => showToast(msg, 'success')}
+        />
+      )}
+    </CommonTileContainer>
   )
 }
 

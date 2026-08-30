@@ -23,6 +23,7 @@ import {
   type MoveDir,
 } from './layout'
 import { applyWmAction, wmAction } from './shortcuts'
+import { openViewer, openFileBrowser } from '../lib/actionResolver'
 import { TileTools } from './TileTools'
 import { usePaneGhosts } from './usePaneGhosts'
 import { getTilePlugin, getAllTilePlugins, type TilePlugin } from './tilePlugins'
@@ -40,7 +41,7 @@ const appRow =
   'focus-visible:bg-white/10 focus-visible:text-popover-foreground'
 
 function AppIcon({ id }: { id: string }) {
-  const bg = id === 'term' ? 'bg-sky-500/20 text-sky-400' : id === 'viewer' ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-white/40'
+  const bg = id === 'term' ? 'bg-sky-500/20 text-sky-400' : id === 'fileviewer' ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-white/40'
   const letter = id.charAt(0).toUpperCase()
   return (
     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${bg}`}>
@@ -54,6 +55,39 @@ function ChevronIcon() {
     <svg className="h-3.5 w-3.5 shrink-0 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m9 6 6 6-6 6" />
     </svg>
+  )
+}
+
+/** Empty pane shown when a tile has no type assigned yet. Auto-focuses on mount. */
+function EmptyPane({ paneId, onPick }: { paneId: string; onPick: (id: string) => void }) {
+  const { t } = useTranslation()
+  const setFocused = useSetAtom(focusedIdAtom)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const timer = setTimeout(() => {
+      el.focus()
+      setFocused(paneId)
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [paneId, setFocused])
+
+  return (
+    <div
+      ref={ref}
+      tabIndex={-1}
+      className="flex h-full w-full items-center justify-center outline-none"
+    >
+      <button
+        type="button"
+        onClick={() => onPick(paneId)}
+        className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
+      >
+        + {t('wm.addTile').replace('+ ', '')}
+      </button>
+    </div>
   )
 }
 
@@ -209,6 +243,20 @@ export default function TilingWM() {
     return () => ro.disconnect()
   }, [])
 
+  const focusDirection = useCallback(
+    (dir: MoveDir) => {
+      const cur = store.get(layoutAtom)
+      const f = store.get(focusedIdAtom)
+      if (!cur || !f || size.w <= 0 || size.h <= 0) return
+      const { panes } = computeTiling(cur, size.w, size.h)
+      const neighbor = findNeighborRect(panes, f, dir)
+      if (!neighbor) return
+      store.set(focusedIdAtom, neighbor.id)
+      document.querySelector<HTMLElement>(`iframe[data-pane="${neighbor.id}"]`)?.focus()
+    },
+    [store, size],
+  )
+
   const move = useCallback(
     (id: string, dir: MoveDir) => {
       const cur = store.get(layoutAtom)
@@ -272,8 +320,8 @@ export default function TilingWM() {
   }, [layout, focused, setFocused])
 
   const wmHandlers = useMemo(
-    () => ({ split, close, focusOffset, moveFocused, openMenu, openShortcuts }),
-    [split, close, focusOffset, moveFocused, openMenu, openShortcuts],
+    () => ({ split, close, focusOffset, focusDirection, moveFocused, openMenu, openShortcuts }),
+    [split, close, focusOffset, focusDirection, moveFocused, openMenu, openShortcuts],
   )
 
   useEffect(() => {
@@ -289,9 +337,24 @@ export default function TilingWM() {
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const d = e.data as { type?: string; pane?: unknown; action?: ReturnType<typeof wmAction> } | undefined
+      const d = e.data as { type?: string; pane?: unknown; path?: string; tileType?: string; sourcePane?: string; action?: ReturnType<typeof wmAction> } | undefined
       if (d?.type === 'pane-focus') {
         if (typeof d.pane === 'string') store.set(focusedIdAtom, d.pane)
+        return
+      }
+      if (d?.type === 'wm-close-pane' && typeof d.pane === 'string') {
+        closeTile(d.pane)
+        return
+      }
+      if (d?.type === 'wm-open-file' && typeof d.path === 'string') {
+        // Reuse the actionResolver approach: split from the source pane,
+        // set type and initialPath directly on the store.
+        if (d.sourcePane) store.set(focusedIdAtom, d.sourcePane)
+        if (d.tileType === 'fileviewer') {
+          openViewer(d.path, store)
+        } else if (d.tileType === 'filebrowser') {
+          openFileBrowser(d.path, store)
+        }
         return
       }
       const a = d?.type === 'wm-shortcut' ? d.action : undefined
@@ -430,15 +493,7 @@ export default function TilingWM() {
             {tileType && plugin ? (
               plugin.render(id, { paneId: id, initialPath })
             ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => setPickerPaneId(id)}
-                  className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
-                >
-                  + {t('wm.addTile').replace('+ ', '')}
-                </button>
-              </div>
+              <EmptyPane paneId={id} onPick={setPickerPaneId} />
             )}
             <TileTools
               paneId={id}

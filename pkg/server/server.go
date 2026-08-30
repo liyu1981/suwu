@@ -4,11 +4,13 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -75,6 +77,31 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/files" {
 		s.handleFiles(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/file/rename" {
+		s.handleFileRename(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/file/delete" {
+		s.handleFileDelete(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/file/chmod" {
+		s.handleFileChmod(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/file/chown" {
+		s.handleFileChown(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/file/upload" {
+		s.handleFileUpload(w, r)
 		return
 	}
 
@@ -317,4 +344,264 @@ func atoiDefault(s string, def int) int {
 		return def
 	}
 	return n
+}
+
+// handleFileRename renames a file or directory.
+// POST /api/file/rename { "path": "/path/to/file", "newName": "new-name" }
+func (s *Server) handleFileRename(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+	if !d.OK {
+		writePlain(w, d.Status, d.Reason)
+		return
+	}
+
+	var req struct {
+		Path    string `json:"path"`
+		NewName string `json:"newName"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.Path == "" || req.NewName == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path and newName are required"})
+		return
+	}
+
+	// Sanitize: prevent path traversal in newName
+	if strings.Contains(req.NewName, "/") || strings.Contains(req.NewName, "\\") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid name"})
+		return
+	}
+
+	oldPath := filepath.Clean(req.Path)
+	newPath := filepath.Join(filepath.Dir(oldPath), req.NewName)
+
+	if err := os.Rename(oldPath, newPath); err != nil {
+		slog.Error("rename failed", "path", oldPath, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("rename failed: %v", err)})
+		return
+	}
+
+	slog.Debug("file renamed", "from", oldPath, "to", newPath)
+	writeJSON(w, http.StatusOK, map[string]string{"path": newPath})
+}
+
+// handleFileDelete deletes a file or directory.
+// POST /api/file/delete { "path": "/path/to/file" }
+func (s *Server) handleFileDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+	if !d.OK {
+		writePlain(w, d.Status, d.Reason)
+		return
+	}
+
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.Path == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is required"})
+		return
+	}
+
+	filePath := filepath.Clean(req.Path)
+
+	// Prevent deleting root or home
+	if filePath == "/" || filePath == filepath.Dir(filePath) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "cannot delete root directory"})
+		return
+	}
+
+	if err := os.RemoveAll(filePath); err != nil {
+		slog.Error("delete failed", "path", filePath, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("delete failed: %v", err)})
+		return
+	}
+
+	slog.Debug("file deleted", "path", filePath)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+// handleFileChmod changes file permissions.
+// POST /api/file/chmod { "path": "/path/to/file", "mode": "755" }
+func (s *Server) handleFileChmod(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+	if !d.OK {
+		writePlain(w, d.Status, d.Reason)
+		return
+	}
+
+	var req struct {
+		Path string `json:"path"`
+		Mode string `json:"mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.Path == "" || req.Mode == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path and mode are required"})
+		return
+	}
+
+	// Parse octal mode
+	mode, err := strconv.ParseUint(req.Mode, 8, 32)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid mode format (use octal, e.g., 755)"})
+		return
+	}
+
+	filePath := filepath.Clean(req.Path)
+	if err := os.Chmod(filePath, fs.FileMode(mode)); err != nil {
+		slog.Error("chmod failed", "path", filePath, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("chmod failed: %v", err)})
+		return
+	}
+
+	slog.Debug("file mode changed", "path", filePath, "mode", req.Mode)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleFileChown changes file ownership.
+// POST /api/file/chown { "path": "/path/to/file", "uid": 1000, "gid": 1000 }
+func (s *Server) handleFileChown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+	if !d.OK {
+		writePlain(w, d.Status, d.Reason)
+		return
+	}
+
+	var req struct {
+		Path string `json:"path"`
+		UID  int    `json:"uid"`
+		GID  int    `json:"gid"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.Path == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is required"})
+		return
+	}
+
+	filePath := filepath.Clean(req.Path)
+
+	// Use chown command since os.Chown requires root
+	cmd := exec.Command("chown", fmt.Sprintf("%d:%d", req.UID, req.GID), filePath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		slog.Error("chown failed", "path", filePath, "error", err, "output", string(output))
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("chown failed: %v", err)})
+		return
+	}
+
+	slog.Debug("file ownership changed", "path", filePath, "uid", req.UID, "gid", req.GID)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleFileUpload uploads files to a directory.
+// POST /api/file/upload (multipart/form-data)
+// Fields: path (directory), file (uploaded file)
+func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+	if !d.OK {
+		writePlain(w, d.Status, d.Reason)
+		return
+	}
+
+	// Parse multipart form (max 100MB)
+	if err := r.ParseMultipartForm(100 << 20); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to parse upload form"})
+		return
+	}
+
+	dirPath := r.FormValue("path")
+	if dirPath == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is required"})
+		return
+	}
+
+	dirPath = filepath.Clean(dirPath)
+	info, err := os.Stat(dirPath)
+	if err != nil || !info.IsDir() {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is not a directory"})
+		return
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "no file provided"})
+		return
+	}
+	defer file.Close()
+
+	// Sanitize filename
+	filename := filepath.Base(handler.Filename)
+	if filename == "." || filename == ".." {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid filename"})
+		return
+	}
+
+	dstPath := filepath.Join(dirPath, filename)
+
+	// Create destination file
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		slog.Error("upload create failed", "path", dstPath, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("failed to create file: %v", err)})
+		return
+	}
+	defer dst.Close()
+
+	// Copy file contents
+	written, err := io.Copy(dst, file)
+	if err != nil {
+		slog.Error("upload write failed", "path", dstPath, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("failed to write file: %v", err)})
+		return
+	}
+
+	slog.Debug("file uploaded", "path", dstPath, "size", written)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"path": dstPath,
+		"size": written,
+	})
 }

@@ -2,7 +2,7 @@ import i18n from '../../i18n'
 import { registerTilePlugin, type TileRenderContext } from '../tilePlugins'
 
 registerTilePlugin({
-  id: 'viewer',
+  id: 'fileviewer',
   get label() { return i18n.t('plugin.viewer') },
   get description() { return i18n.t('plugin.viewerDesc') },
   render: (paneId, context?: TileRenderContext) => {
@@ -10,7 +10,7 @@ registerTilePlugin({
     return (
       <iframe
         src={`/viewer?pane=${paneId}${pathParam}`}
-        title={`viewer-${paneId}`}
+        title={`fileviewer-${paneId}`}
         data-pane={paneId}
         className="h-full w-full border-0 bg-transparent"
       />

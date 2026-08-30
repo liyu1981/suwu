@@ -121,8 +121,8 @@ export default function SettingsView() {
                   <span className="text-xs text-popover-foreground">{t('plugin.viewer')}</span>
                 </div>
                 <Toggle
-                  checked={autoResolve.viewer}
-                  onCheckedChange={(v) => setAutoResolve({ ...autoResolve, viewer: v })}
+                  checked={autoResolve.fileviewer}
+                  onCheckedChange={(v) => setAutoResolve({ ...autoResolve, fileviewer: v })}
                 />
               </div>
             </div>

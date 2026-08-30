@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { fontFamilyAtom, termThemeAtom } from '../store/appearance'
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
 import { fontSizeAtom } from '../store/fonts'
-import { wmAction } from '../wm/shortcuts'
 import { useTerminal } from './useTerminal'
 import { usePtySession } from './usePtySession'
 import { useTermCopy } from './useTermCopy'
+import { CommonTileContainer } from './CommonTileContainer'
 import { Toast } from './Toast'
 
 const STATUS_DOT = {
@@ -60,18 +60,9 @@ export default function FullTerminal() {
   usePtySession(term)
   useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')))
 
-  // Clicks inside an iframe never reach the parent, and Chrome does not fire
-  // focusin in the parent when focus moves directly between two iframes — so
-  // tell the window manager this pane is focused whenever the iframe gains
-  // focus, and hand keyboard focus to the terminal right away.
+  // Focus the terminal when this iframe gains focus.
   useEffect(() => {
-    const onFocus = () => {
-      window.parent?.postMessage(
-        { type: 'pane-focus', pane: window.frameElement?.getAttribute('data-pane') },
-        '*',
-      )
-      term?.focus()
-    }
+    const onFocus = () => term?.focus()
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [term])
@@ -105,64 +96,52 @@ export default function FullTerminal() {
     if (tileFontSize !== null) setFontSize(tileFontSize)
   }, [tileFontSize, setFontSize])
 
-  // Relay window-manager shortcuts to the parent page, and stop them from
-  // reaching the shell (these keys are chosen to be harmless to readline).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const a = wmAction(e)
-      if (!a) return
-      e.preventDefault()
-      e.stopPropagation()
-      window.parent?.postMessage({ type: 'wm-shortcut', action: a }, '*')
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [])
-
   return (
-    <div
-      className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px]"
-      style={{ backgroundColor: theme.background }}
-    >
-      <div className="min-h-0 flex-1 p-2">
-        <div ref={containerRef} className="terminal-canvas h-full w-full" />
-      </div>
-      {/* Thin per-pane status bar: connection state lives here instead of
-          floating over the terminal content. */}
-      <footer
-        className={`flex h-5 shrink-0 items-center gap-1.5 border-t px-2 text-[10px] tracking-wide ${
-          selectionMode
-            ? 'border-sky-400/30 bg-sky-900/50 text-sky-300'
-            : 'border-white/10 bg-black/40 text-white/60'
-        }`}
-        title={message}
+    <CommonTileContainer>
+      <div
+        className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px]"
+        style={{ backgroundColor: theme.background }}
       >
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${selectionMode ? 'bg-sky-400' : STATUS_DOT[status]}`} />
-        {selectionMode ? (
-          <span className="truncate">{t('terminal.selectionMode')}</span>
-        ) : (
-          <span className="truncate">{status === 'connected' ? t('terminal.connected') : message || t(`terminal.${status}`)}</span>
-        )}
-        <button
-          type="button"
-          onClick={toggleSelectionMode}
-          className="ml-auto shrink-0 rounded p-0.5 hover:bg-white/10"
-          title={selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')}
+        <div className="min-h-0 flex-1 p-2">
+          <div ref={containerRef} className="terminal-canvas h-full w-full" />
+        </div>
+        {/* Thin per-pane status bar: connection state lives here instead of
+            floating over the terminal content. */}
+        <footer
+          className={`flex h-5 shrink-0 items-center gap-1.5 border-t px-2 text-[10px] tracking-wide ${
+            selectionMode
+              ? 'border-sky-400/30 bg-sky-900/50 text-sky-300'
+              : 'border-white/10 bg-black/40 text-white/60'
+          }`}
+          title={message}
         >
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${selectionMode ? 'bg-sky-400' : STATUS_DOT[status]}`} />
           {selectionMode ? (
-            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
+            <span className="truncate">{t('terminal.selectionMode')}</span>
           ) : (
-            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
+            <span className="truncate">{status === 'connected' ? t('terminal.connected') : message || t(`terminal.${status}`)}</span>
           )}
-        </button>
-      </footer>
-      {/* Toast overlay for copy confirmation */}
-      {toastMsg && <Toast message={toastMsg} />}
-    </div>
+          <button
+            type="button"
+            onClick={toggleSelectionMode}
+            className="ml-auto shrink-0 rounded p-0.5 hover:bg-white/10"
+            title={selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')}
+          >
+            {selectionMode ? (
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            ) : (
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            )}
+          </button>
+        </footer>
+        {/* Toast overlay for copy confirmation */}
+        {toastMsg && <Toast message={toastMsg} />}
+      </div>
+    </CommonTileContainer>
   )
 }

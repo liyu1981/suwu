@@ -2,7 +2,7 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 import AppShell from './routes/AppShell'
 import DemoPage from './routes/DemoPage'
 import TermPage from './routes/TermPage'
-import ViewerPage from './routes/ViewerPage'
+import FileViewerPage from './routes/FileViewerPage'
 import FileBrowserPage from './routes/FileBrowserPage'
 
 const rootRoute = createRootRoute()
@@ -28,11 +28,11 @@ const termRoute = createRoute({
   component: TermPage,
 })
 
-// Full-space viewer page, loaded inside each viewer pane's iframe.
-const viewerRoute = createRoute({
+// Full-space file viewer page, loaded inside each file viewer pane's iframe.
+const fileViewerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/viewer',
-  component: ViewerPage,
+  component: FileViewerPage,
 })
 
 // Full-space file browser page, loaded inside each filebrowser pane's iframe.
@@ -45,7 +45,7 @@ const filebrowserRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
-  viewerRoute,
+  fileViewerRoute,
   filebrowserRoute,
 ])
 

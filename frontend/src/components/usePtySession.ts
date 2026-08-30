@@ -55,6 +55,7 @@ export function usePtySession(term: Terminal | null) {
     let ws: WebSocket | null = null
     let reconnectTimer: number | undefined
     let disposed = false
+    let shellExited = false
 
     const open = (token: string) => {
       setStatus('connecting')
@@ -68,8 +69,6 @@ export function usePtySession(term: Terminal | null) {
       })
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       ws = new WebSocket(`${protocol}//${window.location.host}/ws?${params}`)
-      // PTY output arrives as binary frames (raw bytes, possibly invalid or
-      // split UTF-8); xterm's write path reassembles partial sequences.
       ws.binaryType = 'arraybuffer'
 
       ws.onopen = () => {
@@ -79,18 +78,27 @@ export function usePtySession(term: Terminal | null) {
 
       ws.onmessage = (event) => {
         const data = event.data
-        term.write(typeof data === 'string' ? data : new Uint8Array(data))
+        const text = typeof data === 'string' ? data : new TextDecoder().decode(new Uint8Array(data))
+        term.write(text)
+        if (text.includes('Shell exited')) {
+          shellExited = true
+        }
       }
 
       ws.onclose = () => {
         if (disposed) return
+        if (shellExited) {
+          const pane = window.frameElement?.getAttribute('data-pane')
+          if (pane) {
+            window.parent?.postMessage({ type: 'wm-close-pane', pane }, '*')
+          }
+          return
+        }
         scheduleReconnect('Connection closed')
       }
 
       ws.onerror = () => {
         if (disposed) return
-        // onclose always follows onerror; keep status visible without
-        // double-scheduling the retry.
         setStatus('disconnected')
         setMessage(i18n.t('pty.error'))
       }

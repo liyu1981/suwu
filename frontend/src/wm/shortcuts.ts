@@ -6,6 +6,10 @@ export type WmAction =
   | 'close'
   | 'focus-next'
   | 'focus-prev'
+  | 'focus-left'
+  | 'focus-right'
+  | 'focus-up'
+  | 'focus-down'
   | 'move-left'
   | 'move-right'
   | 'move-up'
@@ -18,6 +22,7 @@ export interface WmActionHandlers {
   split: (d: Direction) => void
   close: () => void
   focusOffset: (o: number) => void
+  focusDirection: (d: MoveDir) => void
   moveFocused: (d: MoveDir) => void
   openMenu: () => void
   openShortcuts: () => void
@@ -40,6 +45,18 @@ export function applyWmAction(name: WmAction, h: WmActionHandlers): void {
       break
     case 'focus-prev':
       h.focusOffset(-1)
+      break
+    case 'focus-left':
+      h.focusDirection('left')
+      break
+    case 'focus-right':
+      h.focusDirection('right')
+      break
+    case 'focus-up':
+      h.focusDirection('up')
+      break
+    case 'focus-down':
+      h.focusDirection('down')
       break
     case 'move-left':
       h.moveFocused('left')
@@ -83,13 +100,13 @@ export function wmAction(e: KeyboardEvent): WmAction | null {
     case 'K':
       return 'focus-prev'
     case 'ArrowLeft':
-      return 'move-left'
+      return e.shiftKey ? 'move-left' : 'focus-left'
     case 'ArrowRight':
-      return 'move-right'
+      return e.shiftKey ? 'move-right' : 'focus-right'
     case 'ArrowUp':
-      return 'move-up'
+      return e.shiftKey ? 'move-up' : 'focus-up'
     case 'ArrowDown':
-      return 'move-down'
+      return e.shiftKey ? 'move-down' : 'focus-down'
     case '/':
     case '?': // Shift+/ produces '?' on most layouts
       return e.shiftKey ? 'shortcuts' : 'menu'

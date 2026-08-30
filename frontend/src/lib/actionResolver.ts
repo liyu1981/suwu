@@ -86,7 +86,7 @@ export function openFileBrowser(path: string, store: Store): string | null {
 export function openViewer(path: string, store: Store): string | null {
   const leafId = doSplit(store)
   if (!leafId) return null
-  setTypeAndFocus(store, leafId, 'viewer')
+  setTypeAndFocus(store, leafId, 'fileviewer')
   // Set initialPath directly on the leaf node — no separate atom needed.
   const root = store.get(layoutAtom)
   if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path))
@@ -108,7 +108,7 @@ export function resolveAction(
     openFileBrowser(path, store)
     return true
   }
-  if (type === 'file' && autoResolve.viewer) {
+  if (type === 'file' && autoResolve.fileviewer) {
     openViewer(path, store)
     return true
   }

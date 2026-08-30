@@ -129,6 +129,28 @@ export function splitAt(
   return walk(root)
 }
 
+/** Like splitAt but also returns the id of the newly created leaf. */
+export function splitAtWithId(
+  root: LayoutNode,
+  targetId: string,
+  direction: Direction,
+  side: SplitSide = 'after',
+): { next: LayoutNode; newLeafId: string } {
+  let newLeafId = ''
+  const walk = (node: LayoutNode): LayoutNode => {
+    if (node.type === 'leaf') {
+      if (node.id !== targetId) return node
+      const peer = createLeaf()
+      newLeafId = peer.id
+      return side === 'before'
+        ? createSplit(direction, peer, node)
+        : createSplit(direction, node, peer)
+    }
+    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+  }
+  return { next: walk(root), newLeafId }
+}
+
 /** Remove the leaf `targetId`, collapsing splits that drop below two children. Returns null when empty. */
 export function closeAt(root: LayoutNode, targetId: string): LayoutNode | null {
   const walk = (node: LayoutNode): LayoutNode | null => {
@@ -173,9 +195,8 @@ export function splitAndFocus(
   const ids = leaves(root)
   const target = focusedId && ids.includes(focusedId) ? focusedId : ids[0]
   if (!target) return { next: root, focus: focusedId }
-  const next = splitAt(root, target, direction, side)
-  const others = leaves(next).filter((id) => id !== target)
-  return { next, focus: others[others.length - 1] ?? target }
+  const { next, newLeafId } = splitAtWithId(root, target, direction, side)
+  return { next, focus: newLeafId }
 }
 
 /** Focus a sibling of `currentId`, wrapping around; -1 / +1 offset. */

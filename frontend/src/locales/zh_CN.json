@@ -171,6 +171,8 @@
     "viewerDesc": "查看文件和文档",
     "fileBrowser": "文件浏览器",
     "fileBrowserDesc": "浏览远程文件和文件夹",
+    "herdr": "Herdr",
+    "herdrDesc": "带有 herdr 命令的 shell",
     "empty": "空白",
     "emptyDesc": "选择要打开的应用程序"
   },

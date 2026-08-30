@@ -172,6 +172,8 @@
     "viewerDesc": "View files and documents",
     "fileBrowser": "File Browser",
     "fileBrowserDesc": "Browse remote files and folders",
+    "herdr": "Herdr",
+    "herdrDesc": "Shell with herdr command",
     "empty": "Empty",
     "emptyDesc": "Choose an application to open"
   },

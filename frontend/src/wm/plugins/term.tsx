@@ -1,6 +1,6 @@
 import { FONT_MAX, FONT_MIN, clampFont } from '../../store/fonts'
 import { ResetFontSizeIcon } from '../icons'
-import { registerTilePlugin, type ToolbarContext } from '../tilePlugins'
+import { registerTilePlugin, type ToolbarContext, type TileRenderContext } from '../tilePlugins'
 import i18n from '../../i18n'
 
 const toolBtn =
@@ -49,13 +49,21 @@ registerTilePlugin({
   id: 'term',
   get label() { return i18n.t('plugin.terminal') },
   get description() { return i18n.t('plugin.terminalDesc') },
-  render: (paneId) => (
-    <iframe
-      src={`/term?pane=${paneId}`}
-      title={`terminal-${paneId}`}
-      data-pane={paneId}
-      className="h-full w-full border-0 bg-transparent"
-    />
-  ),
+  render: (paneId, context?: TileRenderContext) => {
+    const p = new URLSearchParams({ pane: paneId })
+    if (context?.params) {
+      for (const [k, v] of Object.entries(context.params)) {
+        p.set(k, v)
+      }
+    }
+    return (
+      <iframe
+        src={`/term?${p}`}
+        title={`terminal-${paneId}`}
+        data-pane={paneId}
+        className="h-full w-full border-0 bg-transparent"
+      />
+    )
+  },
   renderToolbar: (ctx) => <TermToolbar {...ctx} />,
 })

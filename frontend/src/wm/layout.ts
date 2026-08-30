@@ -17,7 +17,7 @@ export type SplitChild = { node: LayoutNode; size: number }
 export type SplitNode = { type: 'split'; id: string; direction: Direction; children: SplitChild[] }
 
 export type LayoutNode =
-  | { type: 'leaf'; id: string; tileType?: TileType; fontSize?: number; fontDefault?: number; initialPath?: string }
+  | { type: 'leaf'; id: string; tileType?: TileType; fontSize?: number; fontDefault?: number; initialPath?: string; params?: Record<string, string> }
   | SplitNode
 
 let counter = 0
@@ -55,6 +55,7 @@ export function setLeafType(
   fontSize?: number,
   fontDefault?: number,
   initialPath?: string,
+  params?: Record<string, string>,
 ): LayoutNode {
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf' && node.id === targetId) {
@@ -62,6 +63,7 @@ export function setLeafType(
       if (fontSize !== undefined) next.fontSize = fontSize
       if (fontDefault !== undefined) next.fontDefault = fontDefault
       if (initialPath !== undefined) next.initialPath = initialPath
+      if (params !== undefined) next.params = params
       return next
     }
     if (node.type === 'split') {

@@ -28,6 +28,7 @@ import { getCredentials } from '../lib/auth'
 import { TileTools } from './TileTools'
 import { usePaneGhosts } from './usePaneGhosts'
 import { getTilePlugin, getAllTilePlugins, type TilePlugin } from './tilePlugins'
+import { getAllAppConfigs, type AppConfig } from './appConfigs'
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 
 // Register built-in tile plugins (side-effect imports).
@@ -35,6 +36,9 @@ import './plugins/term'
 import './plugins/viewer'
 import './plugins/filebrowser'
 import './plugins/empty'
+
+// Register app config presets (side-effect imports).
+import './configs/herdr'
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +
@@ -72,6 +76,7 @@ function TileTypePicker({
 }) {
   const { t } = useTranslation()
   const plugins = getAllTilePlugins().filter((p) => p.id !== 'empty')
+  const appConfigs = getAllAppConfigs()
   const navRef = useRef<HTMLElement>(null)
   const [homeDir, setHomeDir] = useState<string | null>(null)
 
@@ -91,9 +96,9 @@ function TileTypePicker({
     return () => controller.abort()
   }, [])
 
-  const select = (tileType: string) => {
+  const selectPlugin = (tileType: string, params?: Record<string, string>) => {
     const initialPath = (tileType === 'filebrowser' || tileType === 'fileviewer') ? homeDir ?? undefined : undefined
-    setLayout((prev) => (prev ? setLeafType(prev, paneId, tileType, FONT_DEFAULT, FONT_DEFAULT, initialPath) : prev))
+    setLayout((prev) => (prev ? setLeafType(prev, paneId, tileType, FONT_DEFAULT, FONT_DEFAULT, initialPath, params) : prev))
     onClose()
   }
 
@@ -122,6 +127,15 @@ function TileTypePicker({
     rows[next].focus()
   }
 
+  // Build a merged list: real plugins first, then app config presets.
+  type PickerItem =
+    | { kind: 'plugin'; plugin: TilePlugin }
+    | { kind: 'config'; config: AppConfig }
+  const items: PickerItem[] = [
+    ...plugins.map((p) => ({ kind: 'plugin' as const, plugin: p })),
+    ...appConfigs.map((c) => ({ kind: 'config' as const, config: c })),
+  ]
+
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="w-[min(92vw,28rem)]" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
@@ -129,23 +143,49 @@ function TileTypePicker({
         <p className="mt-1 text-xs text-muted-foreground">{t('wm.chooseApp')}</p>
         <nav ref={navRef} aria-label="Applications" onKeyDown={onKeyDown} className="mt-3">
           <div className="divide-y divide-white/5 rounded-[6px] border border-white/10 bg-black/20">
-            {plugins.map((p: TilePlugin) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => select(p.id)}
-                className={appRow}
-              >
-                <AppIcon id={p.id} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-popover-foreground">{p.label}</div>
-                  {p.description && (
-                    <div className="text-[11px] text-muted-foreground">{p.description}</div>
-                  )}
-                </div>
-                <ChevronIcon />
-              </button>
-            ))}
+            {items.map((item) => {
+              if (item.kind === 'plugin') {
+                const p = item.plugin
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => selectPlugin(p.id)}
+                    className={appRow}
+                  >
+                    <AppIcon id={p.id} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-popover-foreground">{p.label}</div>
+                      {p.description && (
+                        <div className="text-[11px] text-muted-foreground">{p.description}</div>
+                      )}
+                    </div>
+                    <ChevronIcon />
+                  </button>
+                )
+              }
+              const c = item.config
+              const letter = (c.iconLetter ?? c.label.charAt(0)).toUpperCase()
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => selectPlugin(c.pluginId, c.params)}
+                  className={appRow}
+                >
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${c.iconBg}`}>
+                    {letter}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-popover-foreground">{c.label}</div>
+                    {c.description && (
+                      <div className="text-[11px] text-muted-foreground">{c.description}</div>
+                    )}
+                  </div>
+                  <ChevronIcon />
+                </button>
+              )
+            })}
           </div>
         </nav>
       </DialogContent>
@@ -528,6 +568,7 @@ export default function TilingWM() {
         const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
         const plugin = tileType ? getTilePlugin(tileType) : undefined
         const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined
+        const params = leaf?.type === 'leaf' ? leaf.params : undefined
 
         return (
           <div
@@ -540,7 +581,7 @@ export default function TilingWM() {
             style={{ left: x, top: y, width: w, height: h }}
             onMouseDown={() => setFocused(id)}
           >
-            {(plugin ?? getTilePlugin('empty'))?.render(id, { paneId: id, initialPath, onOpenPicker: setPickerPaneId })}
+            {(plugin ?? getTilePlugin('empty'))?.render(id, { paneId: id, initialPath, onOpenPicker: setPickerPaneId, params })}
             <TileTools
               paneId={id}
               fontSize={fontSize}

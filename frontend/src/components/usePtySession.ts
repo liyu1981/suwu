@@ -74,6 +74,10 @@ export function usePtySession(term: Terminal | null) {
       ws.onopen = () => {
         setStatus('connected')
         setMessage(i18n.t('pty.connected'))
+        const initCmd = new URLSearchParams(window.location.search).get('cmd')
+        if (initCmd) {
+          setTimeout(() => ws?.send(initCmd + '\r'), 200)
+        }
       }
 
       ws.onmessage = (event) => {

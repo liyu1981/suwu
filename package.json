@@ -1,6 +1,6 @@
 {
   "name": "suwu",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Suwu — standalone Go server + Vite/React frontend for the xterm.js terminal emulator",
   "scripts": {

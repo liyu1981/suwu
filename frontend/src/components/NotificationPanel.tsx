@@ -1,8 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtom, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { executeAction } from '../lib/actionResolver'
 import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
+import { BellIcon, CheckIcon, CloseIcon, CopyIcon } from './icons'
+
+const TRUNCATE_LEN = 140
 
 function relativeTime(ts: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const diff = Date.now() - ts
@@ -16,11 +19,12 @@ function relativeTime(ts: number, t: (key: string, opts?: Record<string, unknown
   return t('notifications.daysAgo', { count: d })
 }
 
-function MessageRow({ n }: { n: Notification }) {
+function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) => void }) {
   const { t } = useTranslation()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const store = useStore() as any
   const setOpen = useSetAtom(panelOpenAtom)
+  const needsTruncation = n.message.length > TRUNCATE_LEN
 
   const handleAction = () => {
     if (n.data) {
@@ -35,17 +39,80 @@ function MessageRow({ n }: { n: Notification }) {
 
   return (
     <div className="rounded px-3 py-2 transition hover:bg-white/5">
-      <p className="break-words text-xs leading-relaxed text-popover-foreground">{n.message}</p>
-      {n.data && (
+      <p className="break-words text-xs leading-relaxed text-popover-foreground">
+        {needsTruncation ? n.message.slice(0, TRUNCATE_LEN) + '…' : n.message}
+      </p>
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        {n.data && (
+          <button
+            type="button"
+            onClick={handleAction}
+            className="rounded bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-300 transition hover:bg-sky-500/25 hover:text-sky-200"
+          >
+            {actionLabel}
+          </button>
+        )}
+        {needsTruncation && (
+          <button
+            type="button"
+            onClick={() => onRead(n)}
+            className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/60 transition hover:bg-white/15 hover:text-white/80"
+          >
+            {t('notifications.read')}
+          </button>
+        )}
+      </div>
+      <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(n.timestamp, t)}</p>
+    </div>
+  )
+}
+
+function TextReader({ message, onClose }: { message: string; onClose: () => void }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(message)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-label={t('notifications.reader')}
+      className="flex h-full flex-col rounded-xl border border-white/10 menu-glass animate-panel-in"
+    >
+      {/* Header */}
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 px-3">
+        <span className="min-w-0 flex-1 text-xs font-semibold tracking-tight text-popover-foreground">
+          {t('notifications.reader')}
+        </span>
         <button
           type="button"
-          onClick={handleAction}
-          className="mt-1.5 rounded bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-300 transition hover:bg-sky-500/25 hover:text-sky-200"
+          onClick={handleCopy}
+          className="grid h-6 w-6 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white"
+          title={t('notifications.copy')}
         >
-          {actionLabel}
+          {copied ? (
+            <CheckIcon className="h-3.5 w-3.5 text-green-400" />
+          ) : (
+            <CopyIcon className="h-3.5 w-3.5" />
+          )}
         </button>
-      )}
-      <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(n.timestamp, t)}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('notifications.closeReader')}
+          className="grid h-6 w-6 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white"
+        >
+          <CloseIcon className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {/* Content */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-popover-foreground">{message}</pre>
+      </div>
     </div>
   )
 }
@@ -54,10 +121,7 @@ function EmptyState() {
   const { t } = useTranslation()
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
-      <svg className="h-8 w-8 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-      </svg>
+      <BellIcon className="h-8 w-8 opacity-30" />
       <p className="text-xs">{t('notifications.empty')}</p>
     </div>
   )
@@ -70,22 +134,28 @@ export function NotificationPanel() {
   const [, setUnread] = useAtom(unreadCountAtom)
   const [maxEntries] = useAtom(maxEntriesAtom)
   const listRef = useRef<HTMLDivElement>(null)
-
-
+  const [readerMsg, setReaderMsg] = useState<string | null>(null)
 
   // Escape closes.
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') {
+        if (readerMsg) {
+          setReaderMsg(null)
+        } else {
+          setOpen(false)
+        }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, setOpen])
+  }, [open, setOpen, readerMsg])
 
   const clearAll = () => {
     setNotifications([])
     setUnread(0)
+    setReaderMsg(null)
   }
 
   if (!open) return null
@@ -100,57 +170,63 @@ export function NotificationPanel() {
         data-state="open"
       />
 
-      {/* Panel */}
-      <div
-        role="dialog"
-        aria-label={t('notifications.title')}
-        data-state="open"
-        className="fixed right-4 top-4 bottom-4 z-50 flex w-[min(90vw,20rem)] flex-col rounded-xl border border-white/10 menu-glass animate-panel-in"
-      >
-        {/* Header */}
-        <div className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 px-3">
-          <span className="min-w-0 flex-1 text-xs font-semibold tracking-tight text-popover-foreground">
-            {t('notifications.title')}
-          </span>
-          {notifications.length > 0 && (
+      <div className="fixed right-4 top-4 bottom-4 z-50 flex gap-2" data-state="open">
+        {/* Text reader (left of panel) */}
+        {readerMsg !== null && (
+          <div className="hidden h-full w-[min(90vw,28rem)] md:block">
+            <TextReader message={readerMsg} onClose={() => setReaderMsg(null)} />
+          </div>
+        )}
+
+        {/* Notification panel */}
+        <div
+          role="dialog"
+          aria-label={t('notifications.title')}
+          className="flex w-[min(90vw,20rem)] flex-col rounded-xl border border-white/10 menu-glass animate-panel-in"
+        >
+          {/* Header */}
+          <div className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 px-3">
+            <span className="min-w-0 flex-1 text-xs font-semibold tracking-tight text-popover-foreground">
+              {t('notifications.title')}
+            </span>
+            {notifications.length > 0 && (
+              <button
+                type="button"
+                onClick={clearAll}
+                className="text-[10px] text-muted-foreground transition hover:text-white"
+              >
+                {t('notifications.clearAll')}
+              </button>
+            )}
             <button
               type="button"
-              onClick={clearAll}
-              className="text-[10px] text-muted-foreground transition hover:text-white"
+              onClick={() => setOpen(false)}
+              aria-label={t('notifications.close')}
+              className="grid h-6 w-6 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white"
             >
-              {t('notifications.clearAll')}
+              <CloseIcon className="h-3.5 w-3.5" />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label={t('notifications.close')}
-            className="grid h-6 w-6 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white"
-          >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
+          </div>
 
-        {/* Message list */}
-        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
-          {notifications.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              {[...notifications].reverse().map((n) => (
-                <MessageRow key={n.id} n={n} />
-              ))}
-            </div>
-          )}
-        </div>
+          {/* Message list */}
+          <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
+            {notifications.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                {[...notifications].reverse().map((n) => (
+                  <MessageRow key={n.id} n={n} onRead={(msg) => setReaderMsg(msg.message)} />
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* Footer with entry count */}
-        <div className="flex h-8 shrink-0 items-center justify-center border-t border-white/10">
-          <span className="text-[10px] text-muted-foreground">
-            {notifications.length} / {maxEntries}
-          </span>
+          {/* Footer with entry count */}
+          <div className="flex h-8 shrink-0 items-center justify-center border-t border-white/10">
+            <span className="text-[10px] text-muted-foreground">
+              {notifications.length} / {maxEntries}
+            </span>
+          </div>
         </div>
       </div>
     </>

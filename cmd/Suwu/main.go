@@ -23,6 +23,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -85,9 +86,9 @@ func main() {
 				log.Fatalf("daemon: %v", err)
 			}
 			return
-		case "ping":
-			if err := ping(os.Args[2:]); err != nil {
-				log.Fatalf("ping: %v", err)
+		case "send":
+			if err := sendMsg(os.Args[2:]); err != nil {
+				log.Fatalf("send: %v", err)
 			}
 			return
 		case "open":
@@ -118,8 +119,10 @@ Usage:
                            run the server (reads SUWU_DEV from .env)
                            [--env-file] project .env path (default .env);
                            when explicitly set, the global env is skipped
-  suwu ping [--sock <path>] <message>
-                           send a notification to the running server
+  suwu send [--sock <path>] [<message>]
+                           send a notification to the running server;
+                           reads from stdin if no message is given
+                           (e.g. cat log | suwu send)
   suwu open [--sock <path>] <path>
                            open a file or directory in the running Suwu session
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
@@ -429,27 +432,45 @@ func devLabel(dev bool) string {
 	return ""
 }
 
-func ping(args []string) error {
-	fs := flag.NewFlagSet("ping", flag.ContinueOnError)
+func sendMsg(args []string) error {
+	fs := flag.NewFlagSet("send", flag.ContinueOnError)
 	sock := fs.String("sock", "", "path to the notify socket (default ~/.suwu/suwu.sock, or $SUWU_SOCK_PATH)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-
-	if fs.NArg() == 0 {
-		return fmt.Errorf("usage: suwu ping [--sock <path>] <message>")
-	}
-	message := strings.Join(fs.Args(), " ")
 
 	sockPath, err := resolveSockPath(*sock)
 	if err != nil {
 		return err
 	}
 
-	if err := notify.Ping(sockPath, message); err != nil {
+	// Positional args: send as a single message.
+	if fs.NArg() > 0 {
+		message := strings.Join(fs.Args(), " ")
+		if err := notify.Send(sockPath, message); err != nil {
+			return err
+		}
+		fmt.Printf("Sent: %s\n", message)
+		return nil
+	}
+
+	// No args: read from stdin (pipe support).
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Buffer(make([]byte, 0, 256), 64*1024)
+	var msgs []string
+	for scanner.Scan() {
+		msgs = append(msgs, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read stdin: %w", err)
+	}
+	if len(msgs) == 0 {
+		return fmt.Errorf("usage: suwu send [--sock <path>] <message>\n       cat file | suwu send")
+	}
+	if err := notify.Send(sockPath, msgs...); err != nil {
 		return err
 	}
-	fmt.Printf("Pinged: %s\n", message)
+	fmt.Printf("Sent %d message(s)\n", len(msgs))
 	return nil
 }
 
@@ -519,7 +540,7 @@ func openMain(args []string) error {
 		return fmt.Errorf("marshal notification: %w", err)
 	}
 
-	if err := notify.Ping(sockPath, string(nJSON)); err != nil {
+	if err := notify.Send(sockPath, string(nJSON)); err != nil {
 		return err
 	}
 	fmt.Printf("Opened: %s (%s)\n", absPath, pathType)

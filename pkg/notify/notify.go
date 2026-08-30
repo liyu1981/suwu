@@ -101,33 +101,32 @@ func (l *Listener) handleConn(conn net.Conn) {
 	scanner := bufio.NewScanner(conn)
 	// Limit message to 64 KiB — generous for a notification.
 	scanner.Buffer(make([]byte, 0, 256), 64*1024)
-	if !scanner.Scan() {
-		return
-	}
-	raw := scanner.Text()
-	if raw == "" {
-		return
-	}
-
-	// Try to parse as a full Notification JSON (used by `suwu open`).
-	// Falls back to treating the raw text as a plain message string.
-	var n Notification
-	if err := json.Unmarshal([]byte(raw), &n); err == nil && (n.Message != "" || n.Data != nil) {
-		if n.ID == "" {
-			n.ID = randomID()
+	for scanner.Scan() {
+		raw := scanner.Text()
+		if raw == "" {
+			continue
 		}
-		if n.Timestamp == 0 {
-			n.Timestamp = time.Now().UnixMilli()
-		}
-		l.broadcast(n)
-		return
-	}
 
-	l.broadcast(Notification{
-		ID:        randomID(),
-		Message:   raw,
-		Timestamp: time.Now().UnixMilli(),
-	})
+		// Try to parse as a full Notification JSON (used by `suwu open`).
+		// Falls back to treating the raw text as a plain message string.
+		var n Notification
+		if err := json.Unmarshal([]byte(raw), &n); err == nil && (n.Message != "" || n.Data != nil) {
+			if n.ID == "" {
+				n.ID = randomID()
+			}
+			if n.Timestamp == 0 {
+				n.Timestamp = time.Now().UnixMilli()
+			}
+			l.broadcast(n)
+			continue
+		}
+
+		l.broadcast(Notification{
+			ID:        randomID(),
+			Message:   raw,
+			Timestamp: time.Now().UnixMilli(),
+		})
+	}
 }
 
 func (l *Listener) broadcast(n Notification) {

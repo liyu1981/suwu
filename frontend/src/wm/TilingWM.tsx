@@ -259,12 +259,22 @@ export default function TilingWM() {
 
   const move = useCallback(
     (id: string, dir: MoveDir) => {
+      console.log('[move] called with id:', id, 'dir:', dir)
       const cur = store.get(layoutAtom)
-      if (!cur || size.w <= 0 || size.h <= 0) return
+      if (!cur || size.w <= 0 || size.h <= 0) {
+        console.log('[move] early return: cur=', !!cur, 'size=', size)
+        return
+      }
       const { panes } = computeTiling(cur, size.w, size.h)
+      console.log('[move] panes:', panes.map(p => `${p.id}(${p.x},${p.y},${p.w},${p.h})`))
+      const self = panes.find(p => p.id === id)
+      console.log('[move] self:', self ? `${self.id}(${self.x},${self.y},${self.w},${self.h})` : 'NOT FOUND')
       const neighbor = findNeighborRect(panes, id, dir)
+      console.log('[move] neighbor:', neighbor ? `${neighbor.id}(${neighbor.x},${neighbor.y},${neighbor.w},${neighbor.h})` : 'null')
       if (!neighbor) return
-      store.set(layoutAtom, swapLeaves(cur, id, neighbor.id))
+      const next = swapLeaves(cur, id, neighbor.id)
+      console.log('[move] after swap, leaves:', leaves(next))
+      store.set(layoutAtom, next)
       store.set(focusedIdAtom, id)
     },
     [store, size],
@@ -378,7 +388,11 @@ export default function TilingWM() {
   }, [store])
 
   const { panes, dividers } = useMemo(
-    () => computeTiling(layout, size.w, size.h),
+    () => {
+      const result = computeTiling(layout, size.w, size.h)
+      console.log('[TilingWM] computeTiling result:', result.panes.map(p => `${p.id}(${p.x},${p.y},${p.w},${p.h})`))
+      return result
+    },
     [layout, size.w, size.h],
   )
 
@@ -478,6 +492,7 @@ export default function TilingWM() {
         const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
         const plugin = tileType ? getTilePlugin(tileType) : undefined
         const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined
+        console.log('[TilingWM] render pane', id, 'pos:', x, y, w, h, 'tileType:', tileType, 'plugin:', plugin?.id)
 
         return (
           <div

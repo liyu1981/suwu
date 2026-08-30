@@ -218,10 +218,15 @@ export type MoveDir = 'left' | 'right' | 'up' | 'down'
  * leaf id) repositions the existing iframes instead of remounting them.
  */
 export function swapLeaves(root: LayoutNode, a: string, b: string): LayoutNode {
+  // Collect full leaf data for both targets so we can swap everything.
+  const leafA = findLeaf(root, a)
+  const leafB = findLeaf(root, b)
+  if (!leafA || !leafB || leafA.type !== 'leaf' || leafB.type !== 'leaf') return root
+
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf') {
-      if (node.id === a) return { ...node, id: b }
-      if (node.id === b) return { ...node, id: a }
+      if (node.id === a) return { ...leafB, id: a }
+      if (node.id === b) return { ...leafA, id: b }
       return node
     }
     return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }

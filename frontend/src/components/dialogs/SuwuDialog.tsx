@@ -8,6 +8,7 @@ import AppSettingsView from './AppSettingsView'
 import MainMenuView from './MainMenuView'
 import SettingsView from './SettingsView'
 import ShortcutsView from './ShortcutsView'
+import { ChevronLeftIcon, CloseIcon } from '../icons'
 
 const navBtn =
   'grid h-7 w-7 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-300'
@@ -77,17 +78,7 @@ export default function SuwuDialog() {
             <span className="h-7 w-7" aria-hidden="true" />
           ) : (
             <button type="button" onClick={back} aria-label={t('dialog.backToMenu')} className={navBtn}>
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
+              <ChevronLeftIcon className="h-4 w-4" />
             </button>
           )}
 
@@ -96,16 +87,7 @@ export default function SuwuDialog() {
           </span>
 
           <button type="button" onClick={close} aria-label={t('dialog.closeMenu')} className={navBtn}>
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
+            <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 

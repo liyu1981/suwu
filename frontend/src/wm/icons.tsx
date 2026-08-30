@@ -1,5 +1,8 @@
 import type { MoveDir } from './layout'
 
+// Re-export shared icons used by WM components.
+export { CloseIcon, CopyIcon, ResetFontSizeIcon, SwapIcon } from '../components/icons'
+
 /** Chevron pointing in a tile-move direction (for the hover toolbar). */
 export function ChevronIcon({ dir }: { dir: MoveDir }) {
   const d =
@@ -21,56 +24,6 @@ export function ChevronIcon({ dir }: { dir: MoveDir }) {
       strokeLinejoin="round"
     >
       <path d={d} />
-    </svg>
-  )
-}
-
-export function ResetFontSizeIcon() {
-  return (
-    <svg
-      className="h-3 w-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-      <path d="M3 3v5h5" />
-    </svg>
-  )
-}
-
-/** Two-arrow swap icon (for the hover toolbar). */
-export function SwapIcon() {
-  return (
-    <svg
-      className="h-3 w-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M7 16V4m0 0L3 8m4-4l4 4" />
-      <path d="M17 8v12m0 0l4-4m-4 4l-4-4" />
-    </svg>
-  )
-}
-
-export function CloseIcon() {
-  return (
-    <svg
-      className="h-3 w-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    >
-      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   )
 }

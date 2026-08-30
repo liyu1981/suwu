@@ -70,3 +70,6 @@ export const menuOpenAtom = atom(false)
 
 /** The currently visible screen inside the unified menu dialog. */
 export const menuViewAtom = atom<MenuView>('menu')
+
+/** Swap mode state: null = inactive, otherwise tracks which tile initiated the swap. */
+export const swapModeAtom = atom<string | null>(null)

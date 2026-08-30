@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from './atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, swapModeAtom } from './atoms'
 import { FONT_DEFAULT } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
@@ -259,22 +259,12 @@ export default function TilingWM() {
 
   const move = useCallback(
     (id: string, dir: MoveDir) => {
-      console.log('[move] called with id:', id, 'dir:', dir)
       const cur = store.get(layoutAtom)
-      if (!cur || size.w <= 0 || size.h <= 0) {
-        console.log('[move] early return: cur=', !!cur, 'size=', size)
-        return
-      }
+      if (!cur || size.w <= 0 || size.h <= 0) return
       const { panes } = computeTiling(cur, size.w, size.h)
-      console.log('[move] panes:', panes.map(p => `${p.id}(${p.x},${p.y},${p.w},${p.h})`))
-      const self = panes.find(p => p.id === id)
-      console.log('[move] self:', self ? `${self.id}(${self.x},${self.y},${self.w},${self.h})` : 'NOT FOUND')
       const neighbor = findNeighborRect(panes, id, dir)
-      console.log('[move] neighbor:', neighbor ? `${neighbor.id}(${neighbor.x},${neighbor.y},${neighbor.w},${neighbor.h})` : 'null')
       if (!neighbor) return
-      const next = swapLeaves(cur, id, neighbor.id)
-      console.log('[move] after swap, leaves:', leaves(next))
-      store.set(layoutAtom, next)
+      store.set(layoutAtom, swapLeaves(cur, id, neighbor.id))
       store.set(focusedIdAtom, id)
     },
     [store, size],
@@ -287,6 +277,43 @@ export default function TilingWM() {
     },
     [store, move],
   )
+
+  // Swap mode: enter, complete, cancel.
+  const swapSource = useAtomValue(swapModeAtom)
+  const setSwapSource = useSetAtom(swapModeAtom)
+
+  const startSwap = useCallback(
+    (id: string) => {
+      setSwapHighlightIdx(0)
+      setSwapSource(id)
+    },
+    [setSwapSource],
+  )
+
+  const completeSwap = useCallback(
+    (targetId: string) => {
+      const src = store.get(swapModeAtom)
+      if (!src || src === targetId) {
+        setSwapSource(null)
+        return
+      }
+      const cur = store.get(layoutAtom)
+      if (!cur) return
+      store.set(layoutAtom, swapLeaves(cur, src, targetId))
+      store.set(focusedIdAtom, src)
+      setSwapSource(null)
+    },
+    [store, setSwapSource],
+  )
+
+  const cancelSwap = useCallback(() => {
+    setSwapSource(null)
+  }, [setSwapSource])
+
+  const enterSwap = useCallback(() => {
+    const f = store.get(focusedIdAtom)
+    if (f) startSwap(f)
+  }, [store, startSwap])
 
   const openMenu = useCallback(() => {
     store.set(menuViewAtom, 'menu')
@@ -330,8 +357,8 @@ export default function TilingWM() {
   }, [layout, focused, setFocused])
 
   const wmHandlers = useMemo(
-    () => ({ split, close, focusOffset, focusDirection, moveFocused, openMenu, openShortcuts }),
-    [split, close, focusOffset, focusDirection, moveFocused, openMenu, openShortcuts],
+    () => ({ split, close, focusOffset, focusDirection, moveFocused, enterSwap, openMenu, openShortcuts }),
+    [split, close, focusOffset, focusDirection, moveFocused, enterSwap, openMenu, openShortcuts],
   )
 
   useEffect(() => {
@@ -388,11 +415,7 @@ export default function TilingWM() {
   }, [store])
 
   const { panes, dividers } = useMemo(
-    () => {
-      const result = computeTiling(layout, size.w, size.h)
-      console.log('[TilingWM] computeTiling result:', result.panes.map(p => `${p.id}(${p.x},${p.y},${p.w},${p.h})`))
-      return result
-    },
+    () => computeTiling(layout, size.w, size.h),
     [layout, size.w, size.h],
   )
 
@@ -464,6 +487,36 @@ export default function TilingWM() {
     }
   }, [focused, layout])
 
+  // Keyboard navigation during swap mode.
+  const [swapHighlightIdx, setSwapHighlightIdx] = useState(0)
+  const selectablePanes = useMemo(
+    () => (swapSource ? panes.filter((p) => p.id !== swapSource) : []),
+    [panes, swapSource],
+  )
+  const swapOverlayRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!swapSource) return
+    // Pull focus out of any iframe so keyboard events reach the window.
+    swapOverlayRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.key === 'Escape') {
+        cancelSwap()
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        setSwapHighlightIdx((i) => (i + 1) % selectablePanes.length)
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        setSwapHighlightIdx((i) => (i - 1 + selectablePanes.length) % selectablePanes.length)
+      } else if (e.key === 'Enter') {
+        const target = selectablePanes[swapHighlightIdx]
+        if (target) completeSwap(target.id)
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [swapSource, selectablePanes, swapHighlightIdx, cancelSwap, completeSwap])
+
   return (
     <div ref={viewportRef} data-tiling-viewport className={`relative h-full w-full overflow-hidden ${dragging ? 'wm-dragging' : ''}`}>
       {ghosts.map((g) => (
@@ -492,7 +545,6 @@ export default function TilingWM() {
         const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
         const plugin = tileType ? getTilePlugin(tileType) : undefined
         const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined
-        console.log('[TilingWM] render pane', id, 'pos:', x, y, w, h, 'tileType:', tileType, 'plugin:', plugin?.id)
 
         return (
           <div
@@ -519,6 +571,7 @@ export default function TilingWM() {
               canMove={canMove}
               move={move}
               closeTile={closeTile}
+              startSwap={startSwap}
             />
           </div>
         )
@@ -537,6 +590,50 @@ export default function TilingWM() {
           onPointerDown={(e) => startDividerDrag(e, seg)}
         />
       ))}
+      {/* Swap mode overlay */}
+      {swapSource && panes.map(({ id, x, y, w, h }) => {
+        if (id === swapSource) return null
+        const isHighlighted = selectablePanes[swapHighlightIdx]?.id === id
+        return (
+          <div
+            key={`swap-${id}`}
+            className={`absolute z-30 cursor-pointer transition-colors ${
+              isHighlighted
+                ? 'bg-sky-400/20 border border-sky-400/60'
+                : 'bg-sky-500/10 border border-sky-400/30 hover:bg-sky-400/15'
+            }`}
+            style={{ left: x, top: y, width: w, height: h }}
+            onClick={() => completeSwap(id)}
+            onMouseEnter={() => setSwapHighlightIdx(selectablePanes.findIndex((p) => p.id === id))}
+          >
+            <div className="flex h-full items-center justify-center">
+              <span className="rounded bg-black/60 px-2 py-1 text-[11px] text-white/70">
+                {t('wm.swapWithThisTile')}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+      {swapSource && (() => {
+        const src = panes.find((p) => p.id === swapSource)
+        if (!src) return null
+        return (
+          <div
+            key="swap-source-glow"
+            className="pointer-events-none absolute z-30 rounded-[6px] border border-amber-400/60 shadow-[0_0_12px_rgb(251_191_36/0.25)]"
+            style={{ left: src.x, top: src.y, width: src.w, height: src.h }}
+          />
+        )
+      })()}
+      {swapSource && (
+        <div
+          key="swap-scrim"
+          ref={swapOverlayRef}
+          tabIndex={-1}
+          className="absolute inset-0 z-20 outline-none"
+          onClick={cancelSwap}
+        />
+      )}
       {pickerPaneId && layout && (
         <TileTypePicker
           paneId={pickerPaneId}

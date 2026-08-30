@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { MoveDir } from './layout'
 import type { TilePlugin } from './tilePlugins'
-import { ChevronIcon, CloseIcon } from './icons'
+import { ChevronIcon, CloseIcon, SwapIcon } from './icons'
 
 const MOVE_DIRS: MoveDir[] = ['left', 'right', 'up', 'down']
 const ARROW_KEY: Record<MoveDir, string> = { left: '←', right: '→', up: '↑', down: '↓' }
@@ -21,6 +21,7 @@ interface TileToolsProps {
   canMove: (id: string, dir: MoveDir) => boolean
   move: (id: string, dir: MoveDir) => void
   closeTile: (id: string) => void
+  startSwap: (id: string) => void
 }
 
 /**
@@ -39,6 +40,7 @@ export function TileTools({
   canMove,
   move,
   closeTile,
+  startSwap,
 }: TileToolsProps) {
   const { t } = useTranslation()
   const pluginToolbar = plugin?.renderToolbar?.({
@@ -49,6 +51,7 @@ export function TileTools({
     canMove,
     move,
     closeTile,
+    startSwap,
   })
 
   return (
@@ -74,6 +77,17 @@ export function TileTools({
             <ChevronIcon dir={dir} />
           </button>
         ))}
+        {/* Shared per-tile swap */}
+        <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
+        <button
+          type="button"
+          onClick={() => startSwap(paneId)}
+          aria-label={t('wm.swapTile')}
+          title={`${t('wm.swapHint')} (Alt+S)`}
+          className={toolBtn}
+        >
+          <SwapIcon />
+        </button>
         {/* Shared per-tile close */}
         <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
         <button

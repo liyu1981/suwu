@@ -42,6 +42,24 @@ export function ResetFontSizeIcon() {
   )
 }
 
+/** Two-arrow swap icon (for the hover toolbar). */
+export function SwapIcon() {
+  return (
+    <svg
+      className="h-3 w-3"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 16V4m0 0L3 8m4-4l4 4" />
+      <path d="M17 8v12m0 0l4-4m-4 4l-4-4" />
+    </svg>
+  )
+}
+
 export function CloseIcon() {
   return (
     <svg

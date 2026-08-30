@@ -59,6 +59,7 @@ export default function ShortcutsView() {
         { label: t('shortcuts.splitRight'), keys: [['Alt', '⏎']] },
         { label: t('shortcuts.splitBelow'), keys: [['Alt', '⇧', '⏎']] },
         { label: t('shortcuts.closeTile'), keys: [['Alt', 'Q']] },
+        { label: t('shortcuts.swapTile'), keys: [['Alt', 'S']] },
       ],
     },
     {

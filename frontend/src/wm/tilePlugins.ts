@@ -10,6 +10,7 @@ export interface ToolbarContext {
   canMove: (id: string, dir: MoveDir) => boolean
   move: (id: string, dir: MoveDir) => void
   closeTile: (id: string) => void
+  startSwap: (id: string) => void
 }
 
 /** Context passed to a tile plugin's render function. */

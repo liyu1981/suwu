@@ -20,6 +20,13 @@ export type LayoutNode =
   | { type: 'leaf'; id: string; tileType?: TileType; fontSize?: number; fontDefault?: number; initialPath?: string; params?: Record<string, string> }
   | SplitNode
 
+/** A space is a named group of tiles that occupies the full viewport. */
+export type Space = {
+  id: string
+  name: string
+  layout: LayoutNode | null
+}
+
 let counter = 0
 
 function newId(): string {
@@ -390,4 +397,47 @@ export function computeTiling(
   }
   walk(root, 0, 0, width, height)
   return { panes, dividers }
+}
+
+// ── Space helpers ──────────────────────────────────────────────────
+
+let spaceCounter = 0
+
+function newSpaceId(): string {
+  spaceCounter = (spaceCounter + 1) % 1e9
+  return `s${Date.now().toString(36)}${spaceCounter.toString(36)}`
+}
+
+/** Create a new space with an optional name and a single empty leaf. */
+export function createSpace(name?: string): Space {
+  return {
+    id: newSpaceId(),
+    name: name ?? 'Space',
+    layout: createLeaf(),
+  }
+}
+
+/** Append a new space; returns { spaces, index } with the new space active. */
+export function addSpace(spaces: Space[]): { spaces: Space[]; index: number } {
+  const next = [...spaces, createSpace()]
+  return { spaces: next, index: next.length - 1 }
+}
+
+/** Remove a space at `idx` (minimum 1 space kept); returns the adjusted active index. */
+export function removeSpace(spaces: Space[], idx: number): { spaces: Space[]; index: number } {
+  if (spaces.length <= 1) return { spaces, index: 0 }
+  const next = spaces.filter((_, i) => i !== idx)
+  const index = Math.min(idx, next.length - 1)
+  return { spaces: next, index }
+}
+
+/** Rename a space. */
+export function renameSpace(spaces: Space[], idx: number, name: string): Space[] {
+  return spaces.map((s, i) => (i === idx ? { ...s, name } : s))
+}
+
+/** Cycle the active index forward/backward with wrapping. */
+export function cycleSpace(spaces: Space[], current: number, delta: number): number {
+  if (spaces.length === 0) return 0
+  return ((current + delta) % spaces.length + spaces.length) % spaces.length
 }

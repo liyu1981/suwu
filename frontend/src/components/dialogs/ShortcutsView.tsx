@@ -94,6 +94,14 @@ export default function ShortcutsView() {
         { label: t('shortcuts.openMenu'), keys: [['Alt', '/']] },
       ],
     },
+    {
+      title: t('shortcuts.spaces'),
+      items: [
+        { label: t('shortcuts.switchSpaceN'), keys: [['Ctrl', '1–9']], search: 'space switch' },
+        { label: t('shortcuts.nextSpace'), keys: [['Ctrl', 'Tab']], search: 'space next' },
+        { label: t('shortcuts.prevSpace'), keys: [['Ctrl', '⇧', 'Tab']], search: 'space prev' },
+      ],
+    },
   ], [t])
 
   const filtered = useMemo(() => {

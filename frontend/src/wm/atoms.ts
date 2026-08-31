@@ -1,6 +1,6 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
-import { createLeaf, type LayoutNode } from './layout'
+import { createSpace, type LayoutNode, type Space } from './layout'
 import { FONT_DEFAULT } from '../store/fonts'
 
 /** Migrate legacy layout leaves that lack tileType / font params. */
@@ -24,35 +24,99 @@ function migrateLayout(root: LayoutNode | null): LayoutNode | null {
   }
 }
 
-const LAYOUT_KEY = 'tiling-layout'
+// ── Space storage ──────────────────────────────────────────────────
 
-/** Custom storage that migrates legacy leaves on read. */
-const migratingStorage = {
-  getItem: (key: string): LayoutNode | null => {
+const SPACES_KEY = 'tiling-spaces'
+const ACTIVE_SPACE_KEY = 'tiling-active-space'
+const LEGACY_LAYOUT_KEY = 'tiling-layout'
+
+/**
+ * Custom storage for spaces that migrates the old single-layout key.
+ * On first load the legacy `tiling-layout` value is wrapped into a single
+ * space and the old key is removed.
+ */
+const migratingSpacesStorage = {
+  getItem: (key: string): Space[] => {
     const raw = localStorage.getItem(key)
-    if (raw === null) return null
-    try {
-      return migrateLayout(JSON.parse(raw) as LayoutNode | null)
-    } catch {
-      return null
+    if (raw !== null) {
+      try {
+        const parsed = JSON.parse(raw) as Space[]
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((s) => ({
+            ...s,
+            layout: migrateLayout(s.layout),
+          }))
+        }
+      } catch {
+        // fall through to legacy migration
+      }
     }
+
+    // Legacy migration: read old tiling-layout key and wrap in a space.
+    const legacyRaw = localStorage.getItem(LEGACY_LAYOUT_KEY)
+    if (legacyRaw !== null) {
+      try {
+        const layout = migrateLayout(JSON.parse(legacyRaw) as LayoutNode | null)
+        localStorage.removeItem(LEGACY_LAYOUT_KEY)
+        return [createSpace('Space 1')]
+          .map((s) => ({ ...s, layout }))
+      } catch {
+        // ignore
+      }
+    }
+
+    return [createSpace('Space 1')]
   },
-  setItem: (_key: string, value: LayoutNode | null) => {
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify(value))
+  setItem: (_key: string, value: Space[]) => {
+    localStorage.setItem(SPACES_KEY, JSON.stringify(value))
   },
   removeItem: (_key: string) => {
-    localStorage.removeItem(LAYOUT_KEY)
+    localStorage.removeItem(SPACES_KEY)
   },
 }
 
 /**
- * The tiling layout tree, persisted across reloads. null = empty (no tiles).
- * On load, legacy leaves are migrated to include tileType='term'.
+ * All spaces. Each space has its own independent tiling layout tree.
+ * Persisted across reloads; always at least one entry.
  */
-export const layoutAtom = atomWithStorage<LayoutNode | null>(
-  LAYOUT_KEY,
-  createLeaf(),
-  migratingStorage,
+export const spacesAtom = atomWithStorage<Space[]>(
+  SPACES_KEY,
+  [createSpace('Space 1')],
+  migratingSpacesStorage,
+)
+
+/**
+ * Index of the currently visible space. Persisted but clamped to valid
+ * range whenever spacesAtom changes.
+ */
+export const activeSpaceAtom = atomWithStorage<number>(ACTIVE_SPACE_KEY, 0)
+
+/**
+ * Derived read/write atom that targets the active space's layout.
+ *
+ * Read: returns the active space's LayoutNode | null.
+ * Write: accepts a direct LayoutNode | null, or an updater function
+ *        (prev: LayoutNode | null) => LayoutNode | null.
+ *
+ * This keeps all existing code (split, close, focusOffset, computeTiling,
+ * etc.) working unchanged — they read/write layoutAtom which transparently
+ * targets the active space.
+ */
+export const layoutAtom = atom(
+  (get) => {
+    const spaces = get(spacesAtom)
+    const idx = get(activeSpaceAtom)
+    return spaces[idx]?.layout ?? null
+  },
+  (get, set, update: LayoutNode | null | ((prev: LayoutNode | null) => LayoutNode | null)) => {
+    const spaces = get(spacesAtom)
+    const idx = get(activeSpaceAtom)
+    if (idx < 0 || idx >= spaces.length) return
+    const current = spaces[idx].layout
+    const nextLayout = typeof update === 'function' ? update(current) : update
+    const next = spaces.map((s, i) => (i === idx ? { ...s, layout: nextLayout } : s))
+    set(spacesAtom, next)
+  },
 )
 
 /** The id of the currently focused terminal leaf. */

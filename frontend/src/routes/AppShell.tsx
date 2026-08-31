@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from '@tanstack/react-router'
 import { useAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -9,12 +9,17 @@ import { NotificationBell } from '../components/NotificationBell'
 import { NotificationPanel } from '../components/NotificationPanel'
 import { useNotifications } from '../hooks/useNotifications'
 import { AuthRequiredError, fetchToken } from '../lib/api'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom } from '../wm/atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom } from '../wm/atoms'
 import {
+  addSpace,
+  findLeaf,
+  leaves,
+  removeSpace,
   splitAndFocus,
   type Direction,
   type SplitSide,
 } from '../wm/layout'
+import { getTilePlugin } from '../wm/tilePlugins'
 
 const wmBase =
   'grid h-7 w-7 place-items-center rounded transition glass-btn disabled:cursor-not-allowed disabled:opacity-40'
@@ -62,6 +67,8 @@ export default function AppShell() {
   const store = useStore()
   const [, setMenuOpen] = useAtom(menuOpenAtom)
   const [, setMenuView] = useAtom(menuViewAtom)
+  const [spaces] = useAtom(spacesAtom)
+  const [activeSpace] = useAtom(activeSpaceAtom)
 
   useNotifications()
 
@@ -97,6 +104,39 @@ export default function AppShell() {
     [store],
   )
 
+  const addNewSpace = useCallback(() => {
+    const { spaces: next, index } = addSpace(store.get(spacesAtom))
+    store.set(spacesAtom, next)
+    store.set(activeSpaceAtom, index)
+    store.set(focusedIdAtom, '')
+  }, [store])
+
+  const deleteSpace = useCallback(
+    (idx: number) => {
+      const sp = store.get(spacesAtom)
+      if (sp.length <= 1) return
+      const { spaces: next, index } = removeSpace(sp, idx)
+      store.set(spacesAtom, next)
+      store.set(activeSpaceAtom, index)
+      store.set(focusedIdAtom, '')
+      setHoveredSpace(null)
+    },
+    [store],
+  )
+
+  // Hover dropdown state: which space button is hovered.
+  const [hoveredSpace, setHoveredSpace] = useState<number | null>(null)
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const onSpaceEnter = useCallback((idx: number) => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    setHoveredSpace(idx)
+  }, [])
+
+  const onSpaceLeave = useCallback(() => {
+    hoverTimeoutRef.current = setTimeout(() => setHoveredSpace(null), 150)
+  }, [])
+
   return (
     <div className="ambient-bg min-h-screen w-full overflow-x-clip text-slate-100">
       <AmbientBackground />
@@ -111,6 +151,85 @@ export default function AppShell() {
 
             {isTiling && (
               <>
+                {/* Space indicator: numbered buttons */}
+                <div className="ml-2 flex items-center gap-0.5">
+                  {spaces.map((space, i) => (
+                    <div key={space.id} className="relative">
+                      <button
+                        type="button"
+                        className={`grid h-6 w-6 place-items-center rounded text-[11px] font-medium transition ${
+                          i === activeSpace
+                            ? 'bg-white/15 text-white'
+                            : 'text-white/40 hover:bg-white/10 hover:text-white/70'
+                        }`}
+                        onClick={() => {
+                          store.set(activeSpaceAtom, i)
+                          store.set(focusedIdAtom, '')
+                        }}
+                        onMouseEnter={() => onSpaceEnter(i)}
+                        onMouseLeave={onSpaceLeave}
+                      >
+                        {i + 1}
+                      </button>
+                      {/* Hover dropdown: tile list for this space */}
+                      {hoveredSpace === i && (() => {
+                        const ids = leaves(space.layout)
+                        return (
+                          <div
+                            className="absolute left-0 top-full z-50 mt-6 whitespace-nowrap rounded-[6px] border border-white/10 bg-[#1a1a2e]/95 px-2.5 py-2 shadow-[0_8px_32px_rgb(0_0_0/0.45)] backdrop-blur-xl"
+                            onMouseEnter={() => onSpaceEnter(i)}
+                            onMouseLeave={onSpaceLeave}
+                          >
+                            {ids.length === 0 ? (
+                              <div className="py-0.5 text-xs text-white/40">{t('wm.emptySpace')}</div>
+                            ) : (
+                              ids.map((id) => {
+                                const leaf = findLeaf(space.layout, id)
+                                const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
+                                const label = tileType ? getTilePlugin(tileType)?.label ?? tileType : 'Empty'
+                                return (
+                                  <div key={id} className="flex items-center gap-1.5 py-0.5 text-xs text-white/60">
+                                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-white/25" />
+                                    <span>{label}</span>
+                                  </div>
+                                )
+                              })
+                            )}
+                            {spaces.length > 1 && (
+                              <>
+                                <div className="my-1.5 border-t border-white/10" />
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-xs text-red-400/80 transition hover:bg-red-500/15 hover:text-red-300"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    deleteSpace(i)
+                                  }}
+                                >
+                                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 6h18" />
+                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                  </svg>
+                                  <span>{t('wm.deleteSpace')}</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="grid h-6 w-6 place-items-center rounded text-[11px] text-white/30 transition hover:bg-white/10 hover:text-white/60"
+                    onClick={addNewSpace}
+                    title={t('wm.addSpace')}
+                  >
+                    +
+                  </button>
+                </div>
+
                 <div className="ml-auto flex items-center gap-0.5">
                   <button type="button" onClick={() => split('horizontal', 'before')} aria-label={t('wm.splitLeft')} title={t('wm.splitLeftTitle')} className={wmBtn}>
                     <PanelLeftIcon />

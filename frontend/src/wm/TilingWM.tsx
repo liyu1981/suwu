@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, swapModeAtom } from './atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, swapModeAtom } from './atoms'
 import { FONT_DEFAULT } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
   closeAt,
   computeTiling,
+  cycleSpace,
   findNeighborRect,
   findLeaf,
   findSplit,
@@ -209,6 +210,8 @@ export default function TilingWM() {
   const { t } = useTranslation()
   const store = useStore()
   const layout = useAtomValue(layoutAtom)
+  const spaces = useAtomValue(spacesAtom)
+  const activeSpace = useAtomValue(activeSpaceAtom)
   const focused = useAtomValue(focusedIdAtom)
   const setFocused = useSetAtom(focusedIdAtom)
   const setLayout = useSetAtom(layoutAtom)
@@ -354,10 +357,10 @@ export default function TilingWM() {
     return () => clearTimeout(t)
   }, [sessionState, serverStartedAt])
 
-  // Cleanup: remove session entries for tiles that no longer exist in the layout.
+  // Cleanup: remove session entries for tiles that no longer exist in any space.
   useEffect(() => {
-    if (!layout) return
-    const ids = new Set(leaves(layout))
+    if (!spaces.length) return
+    const ids = new Set(spaces.flatMap((s) => leaves(s.layout)))
     setSessionState((prev) => {
       let changed = false
       const next = { ...prev }
@@ -369,7 +372,7 @@ export default function TilingWM() {
       }
       return changed ? next : prev
     })
-  }, [layout])
+  }, [spaces])
 
   // Split the focused tile (or create the first one on an empty layout).
   const split = useCallback(
@@ -538,6 +541,13 @@ export default function TilingWM() {
     if (!focused || !ids.includes(focused)) setFocused(ids[0])
   }, [layout, focused, setFocused])
 
+  // When switching spaces, ensure focused id is valid in the new space.
+  useEffect(() => {
+    const ids = leaves(layout)
+    if (ids.length === 0) return
+    if (focused && !ids.includes(focused)) setFocused(ids[0])
+  }, [activeSpace])
+
   const wmHandlers = useMemo(
     () => ({ split, close, focusOffset, focusDirection, moveFocused, enterSwap, openMenu, openShortcuts }),
     [split, close, focusOffset, focusDirection, moveFocused, enterSwap, openMenu, openShortcuts],
@@ -553,6 +563,44 @@ export default function TilingWM() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [wmHandlers])
+
+  // Space switching: Ctrl+1-9, Ctrl+Tab, Ctrl+Shift+Tab.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || e.altKey || e.metaKey) return
+      const sp = store.get(spacesAtom)
+      const cur = store.get(activeSpaceAtom)
+
+      // Ctrl+1..9 → switch to space N
+      if (!e.shiftKey && e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key, 10) - 1
+        if (idx < sp.length) {
+          e.preventDefault()
+          store.set(activeSpaceAtom, idx)
+          store.set(focusedIdAtom, '')
+        }
+        return
+      }
+
+      // Ctrl+Tab → next space
+      if (e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault()
+        store.set(activeSpaceAtom, cycleSpace(sp, cur, 1))
+        store.set(focusedIdAtom, '')
+        return
+      }
+
+      // Ctrl+Shift+Tab → prev space
+      if (e.key === 'Tab' && e.shiftKey) {
+        e.preventDefault()
+        store.set(activeSpaceAtom, cycleSpace(sp, cur, -1))
+        store.set(focusedIdAtom, '')
+        return
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [store])
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
@@ -596,9 +644,15 @@ export default function TilingWM() {
     return () => window.removeEventListener('focusin', onFocus)
   }, [store])
 
-  const { panes, dividers } = useMemo(
+  const { panes } = useMemo(
     () => computeTiling(layout, size.w, size.h),
     [layout, size.w, size.h],
+  )
+
+  // Compute tiling for all spaces (for rendering non-active spaces).
+  const spaceTilings = useMemo(
+    () => spaces.map((s) => computeTiling(s.layout, size.w, size.h)),
+    [spaces, size.w, size.h],
   )
 
   const canMove = useCallback(
@@ -709,66 +763,83 @@ export default function TilingWM() {
           onAnimationEnd={() => removeGhost(g.key)}
         />
       ))}
-      {!layout && (
-        <div className="flex h-full w-full items-center justify-center">
-          <button
-            type="button"
-            onClick={() => split('horizontal')}
-            className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
-          >
-            + {t('wm.newTile').replace('+ ', '')}
-          </button>
-        </div>
-      )}
-      {panes.map(({ id, x, y, w, h }) => {
-        const leaf = layout ? findLeaf(layout, id) : null
-        const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
-        const fontSize = leaf?.type === 'leaf' ? (leaf.fontSize ?? FONT_DEFAULT) : FONT_DEFAULT
-        const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
-        const plugin = tileType ? getTilePlugin(tileType) : undefined
-        const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined
-        const params = leaf?.type === 'leaf' ? leaf.params : undefined
-
+      {spaces.map((space, si) => {
+        const til = spaceTilings[si]
+        const isActive = si === activeSpace
         return (
           <div
-            key={id}
-            className={`pane-anim pane-in absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
-              focused === id
-                ? 'border-[color-mix(in_oklch,white_45%,var(--background))]'
-                : 'border-white/5'
-            }`}
-            style={{ left: x, top: y, width: w, height: h }}
-            onMouseDown={() => setFocused(id)}
+            key={space.id}
+            className="absolute inset-0"
+            style={{ display: isActive ? 'block' : 'none' }}
           >
-            {(plugin ?? getTilePlugin('empty'))?.render(id, { paneId: id, initialPath, onOpenPicker: setPickerPaneId, params })}
-            <TileTools
-              paneId={id}
-              fontSize={fontSize}
-              fontDefault={fontDefault}
-              setFontSize={(size) => setTileFontSize(id, size)}
-              plugin={plugin}
-              canMove={canMove}
-              move={move}
-              closeTile={closeTile}
-              startSwap={startSwap}
-            />
+            {isActive && !layout && (
+              <div className="flex h-full w-full items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => split('horizontal')}
+                  className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
+                >
+                  + {t('wm.newTile').replace('+ ', '')}
+                </button>
+              </div>
+            )}
+            {til.panes.map(({ id, x, y, w, h }) => {
+              const leaf = space.layout ? findLeaf(space.layout, id) : null
+              const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
+              const fontSize = leaf?.type === 'leaf' ? (leaf.fontSize ?? FONT_DEFAULT) : FONT_DEFAULT
+              const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
+              const plugin = tileType ? getTilePlugin(tileType) : undefined
+              const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined
+              const params = leaf?.type === 'leaf' ? leaf.params : undefined
+
+              return (
+                <div
+                  key={id}
+                  className={`pane-anim pane-in absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
+                    isActive && focused === id
+                      ? 'border-[color-mix(in_oklch,white_45%,var(--background))]'
+                      : 'border-white/5'
+                  }`}
+                  style={{ left: x, top: y, width: w, height: h }}
+                  onMouseDown={() => {
+                    store.set(activeSpaceAtom, si)
+                    setFocused(id)
+                  }}
+                >
+                  {(plugin ?? getTilePlugin('empty'))?.render(id, { paneId: id, initialPath, onOpenPicker: setPickerPaneId, params })}
+                  {isActive && (
+                    <TileTools
+                      paneId={id}
+                      fontSize={fontSize}
+                      fontDefault={fontDefault}
+                      setFontSize={(size) => setTileFontSize(id, size)}
+                      plugin={plugin}
+                      canMove={canMove}
+                      move={move}
+                      closeTile={closeTile}
+                      startSwap={startSwap}
+                    />
+                  )}
+                </div>
+              )
+            })}
+            {til.dividers.map((seg) => (
+              <div
+                key={`${seg.splitId}-${seg.index}`}
+                className="absolute z-10 bg-white/5 hover:bg-sky-400/60 active:bg-sky-400"
+                style={{
+                  left: seg.rect.x,
+                  top: seg.rect.y,
+                  width: seg.rect.w,
+                  height: seg.rect.h,
+                  cursor: seg.axis === 'x' ? 'col-resize' : 'row-resize',
+                }}
+                onPointerDown={(e) => startDividerDrag(e, seg)}
+              />
+            ))}
           </div>
         )
       })}
-      {dividers.map((seg) => (
-        <div
-          key={`${seg.splitId}-${seg.index}`}
-          className="absolute z-10 bg-white/5 hover:bg-sky-400/60 active:bg-sky-400"
-          style={{
-            left: seg.rect.x,
-            top: seg.rect.y,
-            width: seg.rect.w,
-            height: seg.rect.h,
-            cursor: seg.axis === 'x' ? 'col-resize' : 'row-resize',
-          }}
-          onPointerDown={(e) => startDividerDrag(e, seg)}
-        />
-      ))}
       {/* Swap mode overlay */}
       {swapSource && panes.map(({ id, x, y, w, h }) => {
         if (id === swapSource) return null

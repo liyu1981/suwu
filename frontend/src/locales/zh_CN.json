@@ -65,7 +65,11 @@
     "openList": "打开快捷键列表",
     "openMenu": "打开菜单",
     "copySelection": "复制选中内容",
-    "paste": "粘贴"
+    "paste": "粘贴",
+    "spaces": "空间",
+    "switchSpaceN": "切换到空间 N",
+    "nextSpace": "下一个空间",
+    "prevSpace": "上一个空间"
   },
   "about": {
     "version": "版本 {{version}}",
@@ -166,7 +170,10 @@
     "splitRight": "向右分屏",
     "splitLeftTitle": "在聚焦窗口左侧分屏",
     "splitDownTitle": "在聚焦窗口下方分屏 (Alt+Shift+Enter)",
-    "splitRightTitle": "在聚焦窗口右侧分屏 (Alt+Enter)"
+    "splitRightTitle": "在聚焦窗口右侧分屏 (Alt+Enter)",
+    "addSpace": "添加空间",
+    "deleteSpace": "删除空间",
+    "emptySpace": "空白"
   },
   "plugin": {
     "terminal": "终端",

@@ -65,7 +65,11 @@
     "openList": "Open this list",
     "openMenu": "Open the menu",
     "copySelection": "Copy selection",
-    "paste": "Paste"
+    "paste": "Paste",
+    "spaces": "Spaces",
+    "switchSpaceN": "Switch to space N",
+    "nextSpace": "Next space",
+    "prevSpace": "Previous space"
   },
   "about": {
     "version": "Version {{version}}",
@@ -167,7 +171,10 @@
     "splitRight": "Split right",
     "splitLeftTitle": "Split left of focused pane",
     "splitDownTitle": "Split below focused pane (Alt+Shift+Enter)",
-    "splitRightTitle": "Split right of focused pane (Alt+Enter)"
+    "splitRightTitle": "Split right of focused pane (Alt+Enter)",
+    "addSpace": "Add space",
+    "deleteSpace": "Delete space",
+    "emptySpace": "Empty"
   },
   "plugin": {
     "terminal": "Terminal",

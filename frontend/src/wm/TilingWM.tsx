@@ -30,6 +30,7 @@ import { usePaneGhosts } from './usePaneGhosts'
 import { getTilePlugin, getAllTilePlugins, type TilePlugin } from './tilePlugins'
 import { getAllAppConfigs, type AppConfig } from './appConfigs'
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
+import { SESSION_STATE_KEY, MAX_SERVER_SESSIONS, type TileSessionMap, type SessionStore } from './sessionState'
 
 // Register built-in tile plugins (side-effect imports).
 import './plugins/term'
@@ -211,6 +212,164 @@ export default function TilingWM() {
   const focused = useAtomValue(focusedIdAtom)
   const setFocused = useSetAtom(focusedIdAtom)
   const setLayout = useSetAtom(layoutAtom)
+
+  // Server start timestamp — identifies this server instance.
+  const [serverStartedAt, setServerStartedAt] = useState<string>('')
+
+  // Per-tile session state for the current server instance.
+  const [sessionState, setSessionState] = useState<TileSessionMap>({})
+
+  // Load from localStorage: use the latest timestamp if available,
+  // otherwise query server for startedAt.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_STATE_KEY)
+      if (raw) {
+        const store: SessionStore = JSON.parse(raw)
+        const keys = Object.keys(store)
+        if (keys.length > 0) {
+          keys.sort()
+          const latest = keys[keys.length - 1]
+          setServerStartedAt(latest)
+          setSessionState(store[latest])
+          return
+        }
+      }
+    } catch {
+      // ignore
+    }
+    const headers: Record<string, string> = {}
+    const creds = getCredentials()
+    if (creds) headers['Authorization'] = creds
+    fetch('/api/server-info', { cache: 'no-store', headers })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.startedAt) {
+          setServerStartedAt(data.startedAt)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // Notify child iframes when startedAt changes.
+  useEffect(() => {
+    if (!serverStartedAt) return
+    document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]').forEach((iframe) => {
+      iframe.contentWindow?.postMessage({ type: 'server-started-at', startedAt: serverStartedAt }, '*')
+    })
+    // When startedAt changes (server restarted), load the new server's state
+    // (which is likely empty) so tiles don't try to restore stale state.
+    try {
+      const raw = localStorage.getItem(SESSION_STATE_KEY)
+      if (raw) {
+        const store: SessionStore = JSON.parse(raw)
+        const newState = store[serverStartedAt] ?? {}
+        setSessionState(newState)
+      } else {
+        setSessionState({})
+      }
+    } catch {
+      setSessionState({})
+    }
+  }, [serverStartedAt])
+
+  // Load saved state for this server instance once startedAt is known.
+  useEffect(() => {
+    if (!serverStartedAt) return
+    try {
+      const raw = localStorage.getItem(SESSION_STATE_KEY)
+      if (!raw) return
+      const store: SessionStore = JSON.parse(raw)
+      const saved = store[serverStartedAt]
+      if (saved) {
+        setSessionState(saved)
+      }
+    } catch {
+      // ignore
+    }
+  }, [serverStartedAt])
+
+  // Listen for tile-state-update messages from iframes and persist to localStorage.
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data as { type?: string; paneId?: string; state?: Record<string, unknown> } | undefined
+      if (d?.type === 'tile-state-update' && typeof d.paneId === 'string' && d.state) {
+        const leaf = layout ? findLeaf(layout, d.paneId) : null
+        const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
+        if (!tileType) return
+        setSessionState((prev) => {
+          const old = prev[d.paneId!]
+          if (old && JSON.stringify(old.state) === JSON.stringify(d.state)) return prev
+          return { ...prev, [d.paneId!]: { tileType, state: d.state! } }
+        })
+      }
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [layout])
+
+  // Debounced write of session state to localStorage (only if changed).
+  // Re-queries server startedAt before writing to handle server restarts.
+  useEffect(() => {
+    if (!serverStartedAt) return
+    const t = setTimeout(async () => {
+      try {
+        // Re-query server startedAt to detect restarts.
+        const headers: Record<string, string> = {}
+        const creds = getCredentials()
+        if (creds) headers['Authorization'] = creds
+        const res = await fetch('/api/server-info', { cache: 'no-store', headers })
+        let currentStartedAt = serverStartedAt
+        if (res.ok) {
+          const info = await res.json()
+          if (info?.startedAt && info.startedAt !== serverStartedAt) {
+            currentStartedAt = info.startedAt
+            setServerStartedAt(currentStartedAt)
+            // Notify children of new startedAt.
+            document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]').forEach((iframe) => {
+              iframe.contentWindow?.postMessage({ type: 'server-started-at', startedAt: currentStartedAt }, '*')
+            })
+          }
+        }
+
+        const raw = localStorage.getItem(SESSION_STATE_KEY)
+        const store: SessionStore = raw ? JSON.parse(raw) : {}
+        const current = JSON.stringify(store[currentStartedAt] ?? {})
+        const next = JSON.stringify(sessionState)
+        if (current === next) return
+        store[currentStartedAt] = sessionState
+        // Prune: keep at most MAX_SERVER_SESSIONS entries (FIFO by key).
+        const keys = Object.keys(store)
+        if (keys.length > MAX_SERVER_SESSIONS) {
+          keys.sort()
+          for (let i = 0; i < keys.length - MAX_SERVER_SESSIONS; i++) {
+            delete store[keys[i]]
+          }
+        }
+        localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(store))
+      } catch {
+        // localStorage full or unavailable — silently ignore.
+      }
+    }, 500)
+    return () => clearTimeout(t)
+  }, [sessionState, serverStartedAt])
+
+  // Cleanup: remove session entries for tiles that no longer exist in the layout.
+  useEffect(() => {
+    if (!layout) return
+    const ids = new Set(leaves(layout))
+    setSessionState((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const key of Object.keys(next)) {
+        if (!ids.has(key)) {
+          delete next[key]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [layout])
 
   // Split the focused tile (or create the first one on an empty layout).
   const split = useCallback(

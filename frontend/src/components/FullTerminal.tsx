@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { fontFamilyAtom, termThemeAtom } from '../store/appearance'
@@ -7,9 +7,10 @@ import { fontSizeAtom } from '../store/fonts'
 import { useTerminal } from './useTerminal'
 import { usePtySession } from './usePtySession'
 import { useTermCopy } from './useTermCopy'
-import { CommonTileContainer } from './CommonTileContainer'
+import { CommonTileContainer, useReportTileState } from './CommonTileContainer'
 import { CloseIcon, CopyIcon } from './icons'
 import { Toast } from './Toast'
+import type { TermSessionState } from '../wm/sessionState'
 
 const STATUS_DOT = {
   connecting: 'bg-amber-400 animate-pulse',
@@ -58,7 +59,25 @@ export default function FullTerminal() {
     requestAnimationFrame(() => setToastMsg(msg))
   }, [])
 
-  usePtySession(term)
+  // Read pane ID from URL for session state loading.
+  const paneId = useMemo(() => new URLSearchParams(window.location.search).get('pane') ?? undefined, [])
+
+  // Read saved session state directly from localStorage (bypasses context
+  // timing issue where hooks run before provider renders).
+  const savedState = useMemo<TermSessionState | null>(() => {
+    if (!paneId) return null
+    try {
+      const raw = localStorage.getItem('tiling-session-state')
+      if (!raw) return null
+      const all = JSON.parse(raw)
+      return all[paneId]?.state ?? null
+    } catch {
+      return null
+    }
+  }, [paneId])
+
+  const reportState = useReportTileState()
+  usePtySession(term, savedState, reportState)
   useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')))
 
   // Focus the terminal when this iframe gains focus.
@@ -98,7 +117,7 @@ export default function FullTerminal() {
   }, [tileFontSize, setFontSize])
 
   return (
-    <CommonTileContainer>
+    <CommonTileContainer paneId={paneId}>
       <div
         className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px]"
         style={{ backgroundColor: theme.background }}

@@ -22,8 +22,9 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	cols := atoiDefault(q.Get("cols"), 80)
 	rows := atoiDefault(q.Get("rows"), 24)
 	key := q.Get("session")
+	cwd := q.Get("cwd")
 
-	slog.Debug("ws connect", "cols", cols, "rows", rows, "session", key)
+	slog.Debug("ws connect", "cols", cols, "rows", rows, "session", key, "cwd", cwd)
 
 	d := auth.ValidateWebSocketRequest(s.cfg, r.Host, r.Header.Get("Origin"), q.Get("token"))
 	if !d.OK {
@@ -50,7 +51,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	client, snapshot, err := s.sessions.Attach(key, uint16(cols), uint16(rows))
+	client, snapshot, err := s.sessions.Attach(key, uint16(cols), uint16(rows), cwd)
 	if err != nil {
 		_ = conn.Close(websocket.StatusInternalError, "failed to start shell")
 		return

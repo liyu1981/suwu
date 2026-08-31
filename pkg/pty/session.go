@@ -19,18 +19,29 @@ type Session struct {
 
 // Start launches the user's shell in a new PTY with the given size.
 func Start(cols, rows uint16) (*Session, error) {
+	return StartWithCWD(cols, rows, "")
+}
+
+// StartWithCWD launches the user's shell in a new PTY with the given size
+// and an optional initial working directory. If cwd is empty, the home
+// directory is used.
+func StartWithCWD(cols, rows uint16, cwd string) (*Session, error) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
 	}
 
-	home, err := homeDir()
-	if err != nil {
-		return nil, err
+	dir := cwd
+	if dir == "" {
+		home, err := homeDir()
+		if err != nil {
+			return nil, err
+		}
+		dir = home
 	}
 
 	cmd := exec.Command(shell)
-	cmd.Dir = home
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
 		"COLORTERM=truecolor",
@@ -102,6 +113,14 @@ func (s *Session) Shell() string {
 		return ""
 	}
 	return s.cmd.Path
+}
+
+// Pid returns the shell process ID, or -1 if unavailable.
+func (s *Session) Pid() int {
+	if s.cmd == nil || s.cmd.Process == nil {
+		return -1
+	}
+	return s.cmd.Process.Pid
 }
 
 func homeDir() (string, error) {

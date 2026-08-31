@@ -36,16 +36,22 @@ var mimeTypes = map[string]string{
 
 // Server is the demo HTTP + WebSocket server.
 type Server struct {
-	cfg      *auth.Config
-	assets   fs.FS
-	sessions *session.Manager
-	notify   *notify.Listener
+	cfg       *auth.Config
+	assets    fs.FS
+	sessions  *session.Manager
+	notify    *notify.Listener
+	startedAt time.Time
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
 // and managing keyed PTY sessions through mgr.
 func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener) *Server {
-	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions, notify: nl}
+	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions, notify: nl, startedAt: time.Now()}
+}
+
+// StartedAt returns the server's start timestamp.
+func (s *Server) StartedAt() time.Time {
+	return s.startedAt
 }
 
 func (s *Server) Handler() http.Handler {
@@ -110,6 +116,16 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/session-state" {
+		s.handleSessionState(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/server-info" {
+		s.handleServerInfo(w, r)
+		return
+	}
+
 	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 		s.serveAsset(w, r, "index.html")
 		return
@@ -167,6 +183,23 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 	_, _ = w.Write(data)
 }
 
+// validateRequest is a helper that validates an API request and writes an
+// error response if unauthorized. Returns the validated token or "" if failed.
+func validateRequest(w http.ResponseWriter, r *http.Request, cfg *auth.Config) string {
+	token := r.URL.Query().Get("token")
+	slog.Debug("validateRequest", "host", r.Host, "origin", r.Header.Get("Origin"),
+		"hasQueryToken", token != "", "hasAuthHeader", r.Header.Get("Authorization") != "",
+		"allowedHosts", cfg.AllowedHosts)
+	d, validated := auth.ValidateAPIRequest(cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"), token)
+	if !d.OK {
+		slog.Debug("validateRequest FAILED", "status", d.Status, "reason", d.Reason,
+			"host", r.Host, "origin", r.Header.Get("Origin"))
+		writePlain(w, d.Status, d.Reason)
+		return ""
+	}
+	return validated
+}
+
 func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
@@ -209,9 +242,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
-	if !d.OK {
-		writePlain(w, d.Status, d.Reason)
+	if validateRequest(w, r, s.cfg) == "" {
 		return
 	}
 
@@ -276,9 +307,7 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
-	if !d.OK {
-		writePlain(w, d.Status, d.Reason)
+	if validateRequest(w, r, s.cfg) == "" {
 		return
 	}
 
@@ -298,26 +327,8 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Accept either Basic auth header or token query parameter.
-	token := r.URL.Query().Get("token")
-	if token != "" {
-		// Token-based auth: validate host/origin, then compare session token.
-		d := auth.ValidateHostAndOrigin(s.cfg, r.Host, r.Header.Get("Origin"))
-		if !d.OK {
-			writePlain(w, d.Status, d.Reason)
-			return
-		}
-		if token != s.cfg.Token {
-			writePlain(w, http.StatusUnauthorized, "Unauthorized")
-			return
-		}
-	} else {
-		// Basic auth: validate full request including Authorization header.
-		d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
-		if !d.OK {
-			writePlain(w, d.Status, d.Reason)
-			return
-		}
+	if validateRequest(w, r, s.cfg) == "" {
+		return
 	}
 
 	filePath := r.URL.Query().Get("path")
@@ -382,9 +393,7 @@ func (s *Server) handleFileRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
-	if !d.OK {
-		writePlain(w, d.Status, d.Reason)
+	if validateRequest(w, r, s.cfg) == "" {
 		return
 	}
 
@@ -430,9 +439,7 @@ func (s *Server) handleFileDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
-	if !d.OK {
-		writePlain(w, d.Status, d.Reason)
+	if validateRequest(w, r, s.cfg) == "" {
 		return
 	}
 
@@ -476,9 +483,7 @@ func (s *Server) handleFileChmod(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
-	if !d.OK {
-		writePlain(w, d.Status, d.Reason)
+	if validateRequest(w, r, s.cfg) == "" {
 		return
 	}
 
@@ -523,9 +528,7 @@ func (s *Server) handleFileChown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
-	if !d.OK {
-		writePlain(w, d.Status, d.Reason)
+	if validateRequest(w, r, s.cfg) == "" {
 		return
 	}
 
@@ -568,9 +571,7 @@ func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
-	if !d.OK {
-		writePlain(w, d.Status, d.Reason)
+	if validateRequest(w, r, s.cfg) == "" {
 		return
 	}
 
@@ -630,5 +631,51 @@ func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"path": dstPath,
 		"size": written,
+	})
+}
+
+// handleSessionState returns the current CWD and foreground command for a
+// terminal session. Polled by the frontend for session persistence.
+// GET /api/session-state?session=<key>&token=<token>
+func (s *Server) handleSessionState(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	key := r.URL.Query().Get("session")
+	if key == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "session parameter required"})
+		return
+	}
+
+	cwd, foreground := s.sessions.GetState(key)
+	slog.Debug("session-state", "key", key, "cwd", cwd, "foreground", foreground)
+	writeJSON(w, http.StatusOK, map[string]string{
+		"cwd":        cwd,
+		"foreground": foreground,
+	})
+}
+
+// handleServerInfo returns the server's start timestamp.
+// GET /api/server-info
+func (s *Server) handleServerInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"startedAt": s.startedAt.UTC().Format(time.RFC3339),
 	})
 }

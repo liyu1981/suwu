@@ -3,10 +3,11 @@ import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { getCredentials } from '../lib/auth'
 import { fileBrowserBgAtom } from '../store/appearance'
-import { CommonTileContainer } from '../components/CommonTileContainer'
+import { CommonTileContainer, useTileSessionState, useReportTileState } from '../components/CommonTileContainer'
 import { ContextMenu } from '../components/filebrowser/ContextMenu'
 import { Toast } from '../components/filebrowser/Toast'
 import { UploadDialog } from '../components/filebrowser/UploadDialog'
+import type { FileBrowserSessionState } from '../wm/sessionState'
 
 interface FileEntry {
   name: string
@@ -317,13 +318,21 @@ function TreeNodeItem({
 export default function FileBrowserPage() {
   const { t } = useTranslation()
   const bgColor = useAtomValue(fileBrowserBgAtom)
+  const savedState = useTileSessionState<FileBrowserSessionState>()
+  const reportState = useReportTileState()
+
+  // Use saved state as priority init source, fallback to URL param.
+  const initPath = savedState?.currentPath
+    ?? new URLSearchParams(window.location.search).get('path')
+    ?? '/'
+
   const [currentPath, setCurrentPath] = useState('/')
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sortKey, setSortKey] = useState<SortKey>('name')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const [history, setHistory] = useState<string[]>(['/'])
+  const [sortKey, setSortKey] = useState<SortKey>((savedState?.sortKey as SortKey) ?? 'name')
+  const [sortDir, setSortDir] = useState<SortDir>((savedState?.sortDir as SortDir) ?? 'asc')
+  const [history, setHistory] = useState<string[]>([initPath])
   const [historyIndex, setHistoryIndex] = useState(0)
   const [treeRefreshKey, setTreeRefreshKey] = useState(0)
   const [copied, setCopied] = useState(false)
@@ -334,9 +343,6 @@ export default function FileBrowserPage() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entry: FileEntry | null } | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const [showUpload, setShowUpload] = useState(false)
-
-  // Read initial path from URL once (before any effects).
-  const initPath = new URLSearchParams(window.location.search).get('path')
 
   // Override the opaque :root background so the translucent bgColor shows through.
   useEffect(() => {
@@ -362,13 +368,20 @@ export default function FileBrowserPage() {
     }
   }, [])
 
-  // Initial navigation: fetch URL param on mount only.
+  // Initial navigation: fetch saved/URL path on mount only.
   const initRef = useRef(false)
   useEffect(() => {
     if (initRef.current) return
     initRef.current = true
-    void fetchDir(initPath || '/')
+    void fetchDir(initPath)
   }, [fetchDir, initPath])
+
+  // Report state to parent WM on navigation/sort changes.
+  useEffect(() => {
+    if (!loading && currentPath) {
+      reportState({ currentPath, sortKey, sortDir })
+    }
+  }, [currentPath, sortKey, sortDir, loading, reportState])
 
   const navigateTo = useCallback((dirPath: string) => {
     const newHistory = history.slice(0, historyIndex + 1)

@@ -154,12 +154,15 @@ func (c *Client) Detach() {
 // Attach returns the live session for key, creating one (with a fresh shell
 // PTY) if none exists, and registers the caller as an output subscriber.
 //
+// If cwd is non-empty and a new session is created, the shell starts in that
+// directory. For existing sessions (reattach), cwd is ignored.
+//
 // The returned snapshot is a VT byte stream that reconstructs the emulator's
 // current screen state (content, cursor, modes); it is empty for a
 // brand-new session. The dump is taken under the same lock the output
 // fan-out holds, so replaying the snapshot and then consuming Frames()
 // yields the exact byte order the shell produced, with no gap or overlap.
-func (m *Manager) Attach(key string, cols, rows uint16) (*Client, []byte, error) {
+func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []byte, error) {
 	if key == "" {
 		key = randomKey()
 	}
@@ -177,7 +180,7 @@ func (m *Manager) Attach(key string, cols, rows uint16) (*Client, []byte, error)
 	created := s == nil
 	if created {
 		var err error
-		if s, err = m.start(key, cols, rows); err != nil {
+		if s, err = m.start(key, cols, rows, cwd); err != nil {
 			return nil, nil, err
 		}
 	} else {
@@ -208,9 +211,9 @@ func (m *Manager) Attach(key string, cols, rows uint16) (*Client, []byte, error)
 }
 
 // start launches the shell PTY and its emulator twin. Callers hold m.mu.
-func (m *Manager) start(key string, cols, rows uint16) (*session, error) {
-	slog.Debug("session start", "key", key, "cols", cols, "rows", rows)
-	ps, err := pty.Start(cols, rows)
+func (m *Manager) start(key string, cols, rows uint16, cwd string) (*session, error) {
+	slog.Debug("session start", "key", key, "cols", cols, "rows", rows, "cwd", cwd)
+	ps, err := pty.StartWithCWD(cols, rows, cwd)
 	if err != nil {
 		return nil, fmt.Errorf("session: start shell: %w", err)
 	}
@@ -345,6 +348,18 @@ func (m *Manager) resizeLocked(s *session, cols, rows uint16) {
 	defer cancel()
 	_ = s.vt.Resize(ctx, uint32(cols), uint32(rows))
 	s.cols, s.rows = cols, rows
+}
+
+// GetState returns the current CWD and foreground command for a session.
+// Returns empty strings if the session doesn't exist.
+func (m *Manager) GetState(key string) (cwd string, foreground string) {
+	m.mu.Lock()
+	s := m.sessions[key]
+	m.mu.Unlock()
+	if s == nil || s.closed {
+		return "", ""
+	}
+	return pty.GetSessionState(s.pty.Pid())
 }
 
 // releaseVT frees the emulator instance exactly once.

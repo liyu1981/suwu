@@ -482,6 +482,52 @@ func ValidateWebSocketRequest(cfg *Config, hostHeader, originHeader, token strin
 	return allowed()
 }
 
+// ValidateAPIRequest validates an API request. Accepts either:
+//   - Authorization: Bearer <token> header, or
+//   - ?token=<token> query parameter
+//
+// Returns the decision and the validated token (empty if unauthorized).
+func ValidateAPIRequest(cfg *Config, hostHeader, originHeader, authHeader, queryToken string) (Decision, string) {
+	d, _ := validateAllowedHost(cfg, hostHeader)
+	if !d.OK {
+		return d, ""
+	}
+	d = validateMatchingOrigin(originHeader, hostFromHeader(hostHeader), false)
+	if !d.OK {
+		return d, ""
+	}
+
+	// Try query token first.
+	if queryToken != "" {
+		if safeTokenEquals(cfg.Token, queryToken) {
+			return allowed(), queryToken
+		}
+		return unauthorized(), ""
+	}
+
+	// Try Authorization header.
+	if authHeader != "" {
+		// Bearer token.
+		const bearer = "Bearer "
+		if strings.HasPrefix(authHeader, bearer) {
+			token := authHeader[len(bearer):]
+			if safeTokenEquals(cfg.Token, token) {
+				return allowed(), token
+			}
+			return unauthorized(), ""
+		}
+		// Basic auth (for /api/token endpoint).
+		if cfg.PasswordHash != "" {
+			if validateBasicAuth(authHeader, cfg.PasswordHash) {
+				return allowed(), cfg.Token
+			}
+			return unauthorized(), ""
+		}
+	}
+
+	return unauthorized(), ""
+}
+
 func hostFromHeader(hostHeader string) Host {
 	h, _ := ParseHostHeader(hostHeader)
 	return h

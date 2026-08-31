@@ -1,22 +1,67 @@
-import { useEffect } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { wmAction } from '../wm/shortcuts'
+import { SESSION_STATE_KEY, type SessionStore } from '../wm/sessionState'
 
 interface Props {
   paneId?: string
   children: React.ReactNode
 }
 
+const TileSessionContext = createContext<Record<string, unknown> | null>(null)
+
+/**
+ * Read the saved session state for the current tile (if any).
+ * Returns null when no saved state exists for this pane.
+ */
+export function useTileSessionState<T = Record<string, unknown>>(): T | null {
+  return useContext(TileSessionContext) as T | null
+}
+
+/**
+ * Returns a callback that posts a tile-state-update message to the parent
+ * window manager, which persists it in localStorage for session restore.
+ */
+export function useReportTileState(paneId?: string) {
+  return useCallback((state: Record<string, unknown>) => {
+    const id = paneId ?? window.frameElement?.getAttribute('data-pane')
+    if (!id) return
+    window.parent?.postMessage({ type: 'tile-state-update', paneId: id, state }, '*')
+  }, [paneId])
+}
+
 /**
  * Common container for all tile iframe pages. Handles:
+ * - Loading saved session state from localStorage (keyed by server startedAt)
+ * - Providing it via TileSessionContext to children
  * - Notifying the parent window manager when this pane gains focus
  * - Relaying WM keyboard shortcuts (Alt+arrows, etc.) to the parent
- *
- * Usage:
- *   <CommonTileContainer paneId={paneId}>
- *     <MyTileContent />
- *   </CommonTileContainer>
  */
 export function CommonTileContainer({ paneId, children }: Props) {
+  const [savedState, setSavedState] = useState<Record<string, unknown> | null>(null)
+
+  // Listen for startedAt from parent TilingWM, then load saved state.
+  useEffect(() => {
+    const id = paneId ?? window.frameElement?.getAttribute('data-pane')
+    if (!id) return
+
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data as { type?: string; startedAt?: string } | undefined
+      if (d?.type === 'server-started-at' && typeof d.startedAt === 'string') {
+        try {
+          const raw = localStorage.getItem(SESSION_STATE_KEY)
+          if (!raw) return
+          const store: SessionStore = JSON.parse(raw)
+          const state = store[d.startedAt]?.[id]?.state ?? null
+          setSavedState(state)
+        } catch {
+          // ignore
+        }
+      }
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [paneId])
+
   // Notify parent when this iframe gains focus.
   useEffect(() => {
     const onFocus = () => {
@@ -42,5 +87,9 @@ export function CommonTileContainer({ paneId, children }: Props) {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
-  return <>{children}</>
+  return (
+    <TileSessionContext.Provider value={savedState}>
+      {children}
+    </TileSessionContext.Provider>
+  )
 }

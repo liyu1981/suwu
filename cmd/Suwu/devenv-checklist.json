@@ -1,0 +1,72 @@
+[
+  {
+    "id": "asdf",
+    "name": "asdf",
+    "description": "Polyglot version manager for Node.js, Python, Go, etc.",
+    "check_binary": "asdf",
+    "github_release": {
+      "repo": "asdf-vm/asdf",
+      "asset_pattern": "asdf-{{ .Version }}-linux-{{ .Arch }}.tar.gz",
+      "extract_binary": "asdf"
+    }
+  },
+  {
+    "id": "asdf-nodejs",
+    "name": "asdf nodejs",
+    "description": "Node.js LTS via asdf",
+    "check_binary": "node",
+    "depends": "asdf",
+    "install_cmd": "asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git && asdf install nodejs lts:* && asdf global nodejs lts:*"
+  },
+  {
+    "id": "fzf",
+    "name": "fzf",
+    "description": "Command-line fuzzy finder",
+    "check_binary": "fzf",
+    "github_release": {
+      "repo": "junegunn/fzf",
+      "asset_pattern": "fzf-{{ .Version }}-linux_{{ .Arch }}.tar.gz",
+      "extract_binary": "fzf"
+    }
+  },
+  {
+    "id": "fresh",
+    "name": "fresh",
+    "description": "Modern terminal text editor",
+    "check_binary": "fresh",
+    "install_cmd": "curl -sL https://raw.githubusercontent.com/sinelaw/fresh/refs/heads/master/scripts/install.sh | sh"
+  },
+  {
+    "id": "lazygit",
+    "name": "lazygit",
+    "description": "Terminal UI for git commands",
+    "check_binary": "lazygit",
+    "github_release": {
+      "repo": "jesseduffield/lazygit",
+      "asset_pattern": "lazygit_{{ .Version }}_linux_{{ .Arch }}.tar.gz",
+      "extract_binary": "lazygit"
+    }
+  },
+  {
+    "id": "herdr",
+    "name": "herdr",
+    "description": "Runtime for AI coding agents",
+    "check_binary": "herdr",
+    "install_cmd": "curl -fsSL https://herdr.dev/install.sh | sh"
+  },
+  {
+    "id": "opencode",
+    "name": "opencode",
+    "description": "AI coding assistant for the terminal",
+    "check_binary": "opencode",
+    "install_cmd": "curl -fsSL https://opencode.ai/install | bash"
+  },
+  {
+    "id": "pi",
+    "name": "pi",
+    "description": "Minimal terminal AI coding agent",
+    "check_binary": "pi",
+    "depends": "asdf-nodejs",
+    "install_cmd": "npm install -g @mariozechner/pi-coding-agent"
+  }
+]

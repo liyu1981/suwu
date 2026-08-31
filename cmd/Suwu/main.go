@@ -257,6 +257,7 @@ Interactive initial setup wizard. Configures:
   - Data directory
   - Bind host
   - Password (optional)
+  - Local dev environment tools (optional)
 `)
 	case "daemon":
 		fmt.Print(`Usage: suwu daemon <command>

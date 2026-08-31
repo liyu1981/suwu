@@ -136,6 +136,13 @@ func onboard() error {
 		fmt.Println("  ⏭️  skipping auth setup (non-interactive)")
 	}
 
+	// 4. Prepare local dev environment (interactive only)
+	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
+		if err := runDevenvSetup(); err != nil {
+			fmt.Printf("  ⚠️  devenv setup: %v\n", err)
+		}
+	}
+
 	fmt.Println()
 	fmt.Println("  ▶️  suwu serve              run the server in the foreground")
 	fmt.Println("  ▶️  suwu daemon start       run as a background daemon")

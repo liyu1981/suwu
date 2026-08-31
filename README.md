@@ -40,6 +40,15 @@ refresh.
   auto-copy, `Ctrl+Shift+C` / `Cmd+C` copy, status bar with connection state
   and a reconnect countdown that never pollutes the scrollback.
 
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/liyu1981/suwu/refs/heads/master/install.sh | sh
+```
+
+This downloads the latest release binary to `~/.local/bin/suwu` and runs
+`suwu onboard`.
+
 ## Requirements
 
 - Go 1.25+

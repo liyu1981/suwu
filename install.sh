@@ -42,7 +42,7 @@ VERSION=$(printf '%s' "$RESPONSE" | grep '"tag_name"' | sed 's/.*"tag_name": *"/
 ASSET_VERSION="${VERSION#v}"
 
 ASSET_NAME="suwu-${ASSET_VERSION}-linux-${ARCH}.tar.gz"
-DOWNLOAD_URL="https://github.com/${REPO}/re/download/${VERSION}/${ASSET_NAME}"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET_NAME}"
 
 info "version:  ${VERSION}"
 info "asset:    ${ASSET_NAME}"
@@ -79,4 +79,4 @@ esac
 
 # ── onboard ──
 info "running suwu onboard..."
-exec "${INSTALL_DIR}/suwu" onboard
+exec "${INSTALL_DIR}/suwu" onboard < /dev/tty

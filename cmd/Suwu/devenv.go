@@ -36,6 +36,7 @@ type githubRelease struct {
 	Repo           string `json:"repo"`
 	AssetPattern   string `json:"asset_pattern"`
 	ExtractBinary  string `json:"extract_binary"`
+	ArchOverride   string `json:"arch_override,omitempty"`
 }
 
 func loadChecklist() ([]checklistItem, error) {
@@ -96,7 +97,11 @@ func fetchLatestVersion(repo string) (string, error) {
 	return ghResp.TagName, nil
 }
 
-func renderAssetName(pattern, version string) (string, error) {
+func renderAssetName(pattern, version string, archOverride string) (string, error) {
+	arch := goarch()
+	if archOverride != "" {
+		arch = archOverride
+	}
 	t, err := template.New("asset").Parse(pattern)
 	if err != nil {
 		return "", err
@@ -104,7 +109,7 @@ func renderAssetName(pattern, version string) (string, error) {
 	var buf bytes.Buffer
 	if err := t.Execute(&buf, map[string]string{
 		"Version": version,
-		"Arch":    goarch(),
+		"Arch":    arch,
 	}); err != nil {
 		return "", err
 	}
@@ -119,7 +124,7 @@ func downloadGitHubBinary(rel *githubRelease) error {
 	}
 	version = strings.TrimPrefix(version, "v")
 
-	assetName, err := renderAssetName(rel.AssetPattern, version)
+	assetName, err := renderAssetName(rel.AssetPattern, version, rel.ArchOverride)
 	if err != nil {
 		return fmt.Errorf("render asset name: %w", err)
 	}

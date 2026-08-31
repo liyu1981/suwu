@@ -6,7 +6,7 @@
     "check_binary": "asdf",
     "github_release": {
       "repo": "asdf-vm/asdf",
-      "asset_pattern": "asdf-{{ .Version }}-linux-{{ .Arch }}.tar.gz",
+      "asset_pattern": "asdf-v{{ .Version }}-linux-{{ .Arch }}.tar.gz",
       "extract_binary": "asdf"
     }
   },
@@ -44,7 +44,8 @@
     "github_release": {
       "repo": "jesseduffield/lazygit",
       "asset_pattern": "lazygit_{{ .Version }}_linux_{{ .Arch }}.tar.gz",
-      "extract_binary": "lazygit"
+      "extract_binary": "lazygit",
+      "arch_override": "x86_64"
     }
   },
   {

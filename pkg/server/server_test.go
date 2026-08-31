@@ -12,6 +12,7 @@ import (
 
 	"suwu/pkg/assets"
 	"suwu/pkg/auth"
+	"suwu/pkg/forward"
 	"suwu/pkg/session"
 
 	"github.com/coder/websocket"
@@ -33,7 +34,8 @@ func testServer(t *testing.T) (*httptest.Server, *auth.Config) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { sessions.Close() })
-	srv := New(cfg, sub, sessions, nil)
+	fwds := forward.NewManager()
+	srv := New(cfg, sub, sessions, nil, fwds)
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	return ts, cfg

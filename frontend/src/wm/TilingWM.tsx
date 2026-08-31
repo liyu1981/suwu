@@ -38,9 +38,11 @@ import './plugins/term'
 import './plugins/viewer'
 import './plugins/filebrowser'
 import './plugins/empty'
+import './plugins/forward'
 
 // Register app config presets (side-effect imports).
 import './configs/herdr'
+import './configs/forward'
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +
@@ -49,8 +51,8 @@ const appRow =
   'focus-visible:bg-white/10 focus-visible:text-popover-foreground'
 
 function AppIcon({ id }: { id: string }) {
-  const bg = id === 'term' ? 'bg-sky-500/20 text-sky-400' : id === 'fileviewer' ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-white/40'
-  const letter = id.charAt(0).toUpperCase()
+  const bg = id === 'term' ? 'bg-sky-500/20 text-sky-400' : id === 'fileviewer' ? 'bg-amber-500/20 text-amber-400' : id === 'forward' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-white/10 text-white/40'
+  const letter = id === 'forward' ? 'F' : id.charAt(0).toUpperCase()
   return (
     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${bg}`}>
       {letter}

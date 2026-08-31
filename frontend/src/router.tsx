@@ -4,6 +4,7 @@ import DemoPage from './routes/DemoPage'
 import TermPage from './routes/TermPage'
 import FileViewerPage from './routes/FileViewerPage'
 import FileBrowserPage from './routes/FileBrowserPage'
+import ForwardPage from './routes/ForwardPage'
 
 const rootRoute = createRootRoute()
 
@@ -42,11 +43,19 @@ const filebrowserRoute = createRoute({
   component: FileBrowserPage,
 })
 
+// Full-space port forward page, loaded inside each forward pane's iframe.
+const forwardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forward',
+  component: ForwardPage,
+})
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
   fileViewerRoute,
   filebrowserRoute,
+  forwardRoute,
 ])
 
 export const router = createRouter({ routeTree })

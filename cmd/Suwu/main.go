@@ -46,6 +46,7 @@ import (
 	"suwu/pkg/auth"
 	"suwu/pkg/certs"
 	"suwu/pkg/envfile"
+	"suwu/pkg/forward"
 	"suwu/pkg/gencerts"
 	"suwu/pkg/logging"
 	"suwu/pkg/notify"
@@ -259,7 +260,9 @@ func run() error {
 		return fmt.Errorf("notify listener: %w", err)
 	}
 
-	srv := server.New(cfg, sub, sessions, notifyListener)
+	forwardManager := forward.NewManager()
+
+	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)),
@@ -316,6 +319,7 @@ func run() error {
 	server.CloseAll()
 	sessions.Close()
 	notifyListener.Close()
+	forwardManager.StopAll()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3_000_000_000)
 	defer cancel()
 	_ = httpServer.Shutdown(shutdownCtx)

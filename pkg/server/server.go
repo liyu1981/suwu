@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"suwu/pkg/auth"
+	"suwu/pkg/forward"
 	"suwu/pkg/notify"
 	"suwu/pkg/session"
 )
@@ -40,13 +41,14 @@ type Server struct {
 	assets    fs.FS
 	sessions  *session.Manager
 	notify    *notify.Listener
+	forwards  *forward.Manager
 	startedAt time.Time
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
 // and managing keyed PTY sessions through mgr.
-func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener) *Server {
-	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions, notify: nl, startedAt: time.Now()}
+func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener, fwds *forward.Manager) *Server {
+	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions, notify: nl, forwards: fwds, startedAt: time.Now()}
 }
 
 // StartedAt returns the server's start timestamp.
@@ -118,6 +120,31 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/session-state" {
 		s.handleSessionState(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/forward/start" {
+		s.handleForwardStart(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/forward/stop" {
+		s.handleForwardStop(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/forward/remove" {
+		s.handleForwardRemove(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/forward/status" || strings.HasPrefix(r.URL.Path, "/api/forward/status/") {
+		s.handleForwardStatus(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/forward/server-ports" {
+		s.handleForwardServerPorts(w, r)
 		return
 	}
 

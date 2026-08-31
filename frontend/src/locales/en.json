@@ -185,6 +185,8 @@
     "fileBrowserDesc": "Browse remote files and folders",
     "herdr": "Herdr",
     "herdrDesc": "Shell with herdr command",
+    "forward": "Port Forward",
+    "forwardDesc": "TCP/UDP port forwarding",
     "empty": "Empty",
     "emptyDesc": "Choose an application to open"
   },
@@ -194,6 +196,24 @@
     "wrongPassword": "Wrong password, try again",
     "checking": "Checking…",
     "connect": "Connect"
+  },
+  "forward": {
+    "title": "Port Forwarding",
+    "externalPort": "Port",
+    "internalHost": "Host",
+    "internalPort": "Int",
+    "protocol": "Protocol",
+    "tcp": "TCP",
+    "udp": "UDP",
+    "suggest": "Suggest",
+    "addAndStart": "Add & Start",
+    "stopAndRemove": "Stop & Remove",
+    "activeConns": "Active",
+    "totalConns": "Total",
+    "noMappings": "No port mappings configured",
+    "portRequired": "Port must be between 1024 and 65535",
+    "portOccupied": "Port is already in use",
+    "refreshPorts": "Refresh occupied ports"
   },
   "lang": {
     "en": "English",

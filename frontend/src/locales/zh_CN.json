@@ -184,6 +184,8 @@
     "fileBrowserDesc": "浏览远程文件和文件夹",
     "herdr": "Herdr",
     "herdrDesc": "带有 herdr 命令的 shell",
+    "forward": "端口转发",
+    "forwardDesc": "TCP/UDP 端口转发",
     "empty": "空白",
     "emptyDesc": "选择要打开的应用程序"
   },
@@ -193,6 +195,24 @@
     "wrongPassword": "密码错误，请重试",
     "checking": "验证中…",
     "connect": "连接"
+  },
+  "forward": {
+    "title": "端口转发",
+    "externalPort": "端口",
+    "internalHost": "主机",
+    "internalPort": "内部端口",
+    "protocol": "协议",
+    "tcp": "TCP",
+    "udp": "UDP",
+    "suggest": "推荐",
+    "addAndStart": "添加并启动",
+    "stopAndRemove": "停止并移除",
+    "activeConns": "活跃连接",
+    "totalConns": "总连接数",
+    "noMappings": "未配置端口映射",
+    "portRequired": "端口必须在 1024 到 65535 之间",
+    "portOccupied": "端口已被占用",
+    "refreshPorts": "刷新已占用端口"
   },
   "lang": {
     "en": "English",

@@ -115,15 +115,14 @@ export default function ForwardPanel() {
     fetchServerPorts()
   }, [fetchStatus, fetchServerPorts])
 
+  // Periodically poll server for forward status and open ports
   useEffect(() => {
-    const anyRunning = forwards.some((f) => f.status === 'running')
-    if (!anyRunning) return
     const timer = setInterval(() => {
       fetchStatus()
       fetchServerPorts()
-    }, 5000)
+    }, 3000)
     return () => clearInterval(timer)
-  }, [forwards, fetchStatus, fetchServerPorts])
+  }, [fetchStatus, fetchServerPorts])
 
   // Debounced check for internal port openness
   useEffect(() => {

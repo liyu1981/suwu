@@ -1,6 +1,7 @@
 // Package notify implements a lightweight notification hub: a Unix domain
 // socket accepts one-shot messages from CLI clients (suwu ping) and fans
 // them out to connected WebSocket subscribers (the browser frontend).
+// It also supports request-response commands (suwu forward).
 package notify
 
 import (
@@ -25,6 +26,24 @@ type Notification struct {
 	Timestamp int64           `json:"timestamp"`
 }
 
+// Command is a request-response message from CLI to server.
+type Command struct {
+	Action   string          `json:"action"`
+	Payload  json.RawMessage `json:"payload,omitempty"`
+}
+
+// CommandResponse is the server's reply to a Command.
+type CommandResponse struct {
+	OK      bool            `json:"ok"`
+	Error   string          `json:"error,omitempty"`
+	Data    json.RawMessage `json:"data,omitempty"`
+	Message string          `json:"message,omitempty"`
+	ID      string          `json:"id,omitempty"`
+}
+
+// CommandHandler processes a Command and returns a response.
+type CommandHandler func(cmd Command) CommandResponse
+
 // sub pairs a bidirectional channel (for sending/closing) with its
 // receive-only view (returned to callers).
 type sub struct {
@@ -40,6 +59,7 @@ type Listener struct {
 	mu       sync.Mutex
 	subs     map[*sub]struct{}
 	done     chan struct{}
+	handlers map[string]CommandHandler
 }
 
 // SocketPath returns the Unix socket path. Resolution:
@@ -77,6 +97,7 @@ func NewListener(socketPath string) (*Listener, error) {
 		listener: ln,
 		subs:     make(map[*sub]struct{}),
 		done:     make(chan struct{}),
+		handlers: make(map[string]CommandHandler),
 	}
 	go l.acceptLoop()
 	return l, nil
@@ -107,6 +128,16 @@ func (l *Listener) handleConn(conn net.Conn) {
 			continue
 		}
 
+		// Try to parse as a Command (request-response pattern).
+		var cmd Command
+		if err := json.Unmarshal([]byte(raw), &cmd); err == nil && cmd.Action != "" {
+			resp := l.handleCommand(cmd)
+			data, _ := json.Marshal(resp)
+			data = append(data, '\n')
+			conn.Write(data)
+			return // command connections are single-request
+		}
+
 		// Try to parse as a full Notification JSON (used by `suwu open`).
 		// Falls back to treating the raw text as a plain message string.
 		var n Notification
@@ -127,6 +158,18 @@ func (l *Listener) handleConn(conn net.Conn) {
 			Timestamp: time.Now().UnixMilli(),
 		})
 	}
+}
+
+func (l *Listener) handleCommand(cmd Command) CommandResponse {
+	l.mu.Lock()
+	handler, ok := l.handlers[cmd.Action]
+	l.mu.Unlock()
+
+	if !ok {
+		return CommandResponse{OK: false, Error: fmt.Sprintf("unknown action: %s", cmd.Action)}
+	}
+
+	return handler(cmd)
 }
 
 func (l *Listener) broadcast(n Notification) {
@@ -164,6 +207,13 @@ func (l *Listener) Unsubscribe(out <-chan Notification) {
 			return
 		}
 	}
+}
+
+// RegisterHandler registers a handler for a command action.
+func (l *Listener) RegisterHandler(action string, handler CommandHandler) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.handlers[action] = handler
 }
 
 // Close shuts down the listener, removes the socket file, and closes all

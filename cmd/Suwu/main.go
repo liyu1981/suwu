@@ -72,7 +72,11 @@ func main() {
 			}
 			return
 		case "help", "-h", "--help":
-			printUsage()
+			if len(os.Args) > 2 {
+				printSubcommandHelp(os.Args[2])
+			} else {
+				printUsage()
+			}
 			return
 		case "version", "-v", "--version":
 			fmt.Printf("suwu %s\n", version.Version)
@@ -95,6 +99,11 @@ func main() {
 		case "open":
 			if err := openMain(os.Args[2:]); err != nil {
 				log.Fatalf("open: %v", err)
+			}
+			return
+		case "forward":
+			if err := forwardCmd(os.Args[2:]); err != nil {
+				log.Fatalf("forward: %v", err)
 			}
 			return
 		default:
@@ -126,6 +135,8 @@ Usage:
                            (e.g. cat log | suwu send)
   suwu open [--sock <path>] <path>
                            open a file or directory in the running Suwu session
+  suwu forward [flags] <localport> [targethost] <targetport>
+                           create TCP/UDP port forwarding through the server
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
@@ -139,6 +150,127 @@ Configuration precedence:
   SUWU_DEV=true              → ./.env only (global skipped)
 TLS: TLS_CERT_FILE/TLS_KEY_FILE, else the default pair in ~/.config/suwu/
 `)
+}
+
+func printSubcommandHelp(cmd string) {
+	switch cmd {
+	case "serve":
+		fmt.Print(`Usage: suwu serve [flags]
+
+Run the Suwu terminal server.
+
+Flags:
+  --env-file <path>    Path to a .env file to load (default .env;
+                       when explicitly set, the global env is skipped)
+
+Environment variables:
+  PORT                 HTTP port (default 8080, or 8000 in dev mode)
+  HOST                 Bind address (default 127.0.0.1)
+  SUWU_DEV=true        Enable dev defaults (port 8000, air rebuild)
+  SUWU_LOG_LEVEL       Log level: debug, info, warn, error (default: error)
+  TLS_CERT_FILE        TLS certificate file path
+  TLS_KEY_FILE         TLS key file path
+  SUWU_SOCK_PATH       Unix socket path (default ~/.suwu/suwu.sock)
+
+Examples:
+  suwu serve
+  PORT=3000 suwu serve
+  HOST=0.0.0.0 suwu serve
+  suwu serve --env-file /path/to/.env
+`)
+	case "send":
+		fmt.Print(`Usage: suwu send [flags] [<message>]
+
+Send a notification to the running Suwu server. The message is displayed
+in the browser notification panel. Reads from stdin if no message is given.
+
+Flags:
+  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
+                   or $SUWU_SOCK_PATH)
+
+Examples:
+  suwu send "Hello from CLI"
+  echo "build complete" | suwu send
+  cat log.txt | suwu send
+`)
+	case "open":
+		fmt.Print(`Usage: suwu open [flags] <path>
+
+Open a file or directory in the running Suwu session. Sends a notification
+to the browser which can open the file in the file browser or viewer.
+
+Flags:
+  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
+                   or $SUWU_SOCK_PATH)
+
+Examples:
+  suwu open /home/user/project
+  suwu open ~/Documents/report.pdf
+`)
+	case "forward":
+		fmt.Print(`Usage: suwu forward [flags] <localport> [targethost] <targetport>
+
+Create TCP/UDP port forwarding through the running Suwu server.
+The server must be running for this command to work.
+
+Flags:
+  --proto <tcp|udp>    Protocol (default tcp)
+  --stop <port>        Stop forward by local port
+  --list               List all active forwards
+  --sock <path>        Path to the notify socket (default ~/.suwu/suwu.sock)
+
+Examples:
+  suwu forward 23000 localhost 3000
+  suwu forward 23000 192.168.1.10 3000
+  suwu forward --proto udp 23000 localhost 3000
+  suwu forward --stop 23000
+  suwu forward --list
+`)
+	case "gencerts":
+		fmt.Print(`Usage: suwu gencerts [flags]
+
+Generate a TLS certificate pair for HTTPS access. Creates a local CA
+and signs a leaf certificate for your machine.
+
+Flags:
+  --hosts <list>    Comma-separated list of hostnames/IPs
+  --out <dir>       Output directory (default ~/.config/suwu/)
+  --no-env          Don't write cert paths to ~/.config/suwu/.env
+  --force           Overwrite existing certificates
+
+Examples:
+  suwu gencerts
+  suwu gencerts --hosts localhost,192.168.1.100
+  suwu gencerts --out /tmp/certs
+`)
+	case "onboard":
+		fmt.Print(`Usage: suwu onboard
+
+Interactive initial setup wizard. Configures:
+  - Data directory
+  - Bind host
+  - Password (optional)
+`)
+	case "daemon":
+		fmt.Print(`Usage: suwu daemon <command>
+
+Manage a background Suwu server daemon.
+
+Commands:
+  start       Start the daemon
+  stop        Stop the daemon
+  restart     Restart the daemon
+  status      Show daemon status
+  logs        Show daemon logs
+
+Examples:
+  suwu daemon start
+  suwu daemon status
+  suwu daemon logs
+`)
+	default:
+		fmt.Printf("Unknown subcommand: %s\nRun 'suwu help' for usage.\n", cmd)
+	}
 }
 
 func serveMain() {
@@ -261,6 +393,7 @@ func run() error {
 	}
 
 	forwardManager := forward.NewManager()
+	registerForwardHandlers(notifyListener, forwardManager)
 
 	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager)
 
@@ -556,4 +689,81 @@ func resolveSockPath(flagVal string) (string, error) {
 		return certs.ExpandPath(flagVal)
 	}
 	return notify.SocketPath()
+}
+
+func registerForwardHandlers(l *notify.Listener, mgr *forward.Manager) {
+	l.RegisterHandler("forward-start", func(cmd notify.Command) notify.CommandResponse {
+		var req struct {
+			LocalPort  int    `json:"localPort"`
+			TargetHost string `json:"targetHost"`
+			TargetPort int    `json:"targetPort"`
+			Protocol   string `json:"protocol"`
+		}
+		if err := json.Unmarshal(cmd.Payload, &req); err != nil {
+			return notify.CommandResponse{OK: false, Error: "invalid payload"}
+		}
+		if req.LocalPort < forward.MinPort || req.LocalPort > forward.MaxPort {
+			return notify.CommandResponse{OK: false, Error: fmt.Sprintf("port must be between %d and %d", forward.MinPort, forward.MaxPort)}
+		}
+		if req.TargetPort < 1 || req.TargetPort > forward.MaxPort {
+			return notify.CommandResponse{OK: false, Error: fmt.Sprintf("target port must be between 1 and %d", forward.MaxPort)}
+		}
+		proto := req.Protocol
+		if proto == "" {
+			proto = "tcp"
+		}
+		if err := forward.ValidateProtocol(proto); err != nil {
+			return notify.CommandResponse{OK: false, Error: err.Error()}
+		}
+		host := req.TargetHost
+		if host == "" {
+			host = "localhost"
+		}
+		f, err := mgr.Start(forward.ForwardConfig{
+			ExternalPort: req.LocalPort,
+			InternalHost: host,
+			InternalPort: req.TargetPort,
+			Protocol:     proto,
+		})
+		if err != nil {
+			return notify.CommandResponse{OK: false, Error: err.Error()}
+		}
+		msg := fmt.Sprintf("Forward started: %d → %s:%d (%s)", req.LocalPort, host, req.TargetPort, proto)
+		return notify.CommandResponse{OK: true, ID: f.ID, Message: msg}
+	})
+
+	l.RegisterHandler("forward-stop", func(cmd notify.Command) notify.CommandResponse {
+		var req struct {
+			LocalPort int    `json:"localPort"`
+			ID        string `json:"id"`
+		}
+		if err := json.Unmarshal(cmd.Payload, &req); err != nil {
+			return notify.CommandResponse{OK: false, Error: "invalid payload"}
+		}
+		id := req.ID
+		if id == "" && req.LocalPort > 0 {
+			for _, f := range mgr.StatusAll() {
+				if f.ExternalPort == req.LocalPort {
+					id = f.ID
+					break
+				}
+			}
+		}
+		if id == "" {
+			return notify.CommandResponse{OK: false, Error: "no forward found"}
+		}
+		f, err := mgr.Stop(id)
+		if err != nil {
+			return notify.CommandResponse{OK: false, Error: err.Error()}
+		}
+		_ = mgr.Remove(id)
+		msg := fmt.Sprintf("Forward stopped: %d → %s:%d", f.ExternalPort, f.InternalHost, f.InternalPort)
+		return notify.CommandResponse{OK: true, Message: msg}
+	})
+
+	l.RegisterHandler("forward-list", func(cmd notify.Command) notify.CommandResponse {
+		all := mgr.StatusAll()
+		data, _ := json.Marshal(all)
+		return notify.CommandResponse{OK: true, Data: data}
+	})
 }

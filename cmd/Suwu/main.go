@@ -106,6 +106,11 @@ func main() {
 				log.Fatalf("forward: %v", err)
 			}
 			return
+		case "upgrade":
+			if err := upgradeCmd(os.Args[2:]); err != nil {
+				log.Fatalf("upgrade: %v", err)
+			}
+			return
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -143,6 +148,8 @@ Usage:
   suwu onboard             initial setup: data directory, bind host, password
   suwu daemon {start|stop|restart|status|logs}
                            manage a background daemon (default data: ~/.suwu)
+  suwu upgrade [--check] [--force]
+                           check for updates and upgrade if available
 
 Configuration precedence:
   --env-file explicitly given → that file only
@@ -267,6 +274,22 @@ Examples:
   suwu daemon start
   suwu daemon status
   suwu daemon logs
+`)
+	case "upgrade":
+		fmt.Print(`Usage: suwu upgrade [flags]
+
+Check for updates and upgrade the binary if a newer version is available.
+If the daemon is running, it will be stopped before the upgrade and
+restarted afterwards.
+
+Flags:
+  --check     Check for updates without downloading or upgrading
+  --force     Re-download even if already up to date
+
+Examples:
+  suwu upgrade
+  suwu upgrade --check
+  suwu upgrade --force
 `)
 	default:
 		fmt.Printf("Unknown subcommand: %s\nRun 'suwu help' for usage.\n", cmd)

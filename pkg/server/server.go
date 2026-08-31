@@ -153,6 +153,16 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/update/check" {
+		s.handleUpdateCheck(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/update/upgrade" {
+		s.handleUpdateUpgrade(w, r)
+		return
+	}
+
 	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 		s.serveAsset(w, r, "index.html")
 		return

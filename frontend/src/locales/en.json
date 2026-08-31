@@ -114,7 +114,10 @@
     "justNow": "just now",
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
-    "daysAgo": "{{count}}d ago"
+    "daysAgo": "{{count}}d ago",
+    "upgrade": "Upgrade",
+    "upgrading": "Upgrading…",
+    "checkForUpdates": "Check for updates"
   },
   "filebrowser": {
     "today": "Today",

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtom, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { executeAction } from '../lib/actionResolver'
+import { fetchToken } from '../lib/api'
 import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
+import { upgradingAtom } from '../store/update'
 import { BellIcon, CheckIcon, CloseIcon, CopyIcon } from './icons'
 
 const TRUNCATE_LEN = 140
@@ -24,18 +26,48 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const store = useStore() as any
   const setOpen = useSetAtom(panelOpenAtom)
+  const setUpgrading = useSetAtom(upgradingAtom)
+  const setNotifications = useSetAtom(notificationsAtom)
+  const [upgradingLocal, setUpgradingLocal] = useState(false)
   const needsTruncation = n.message.length > TRUNCATE_LEN
 
+  const isUpgrade = n.data?.action === 'upgrade'
+
   const handleAction = () => {
-    if (n.data) {
+    if (n.data && !isUpgrade) {
       executeAction(n.data, store)
       setOpen(false)
     }
   }
 
-  const actionLabel = n.data?.payload.type === 'dir'
-    ? t('notifications.openInFileBrowser')
-    : t('notifications.openInViewr')
+  const handleUpgrade = async () => {
+    setUpgradingLocal(true)
+    setUpgrading(true)
+    try {
+      const token = await fetchToken()
+      const res = await fetch(`/api/update/upgrade?token=${token}`, { method: 'POST' })
+      if (res.ok) {
+        // Remove the update notification.
+        setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+        // Show a brief "upgrading" message then the server will restart.
+        setTimeout(() => {
+          // The server is restarting — the page will auto-reconnect.
+        }, 1000)
+      } else {
+        setUpgradingLocal(false)
+        setUpgrading(false)
+      }
+    } catch {
+      setUpgradingLocal(false)
+      setUpgrading(false)
+    }
+  }
+
+  const actionLabel = isUpgrade
+    ? t('notifications.upgrade')
+    : n.data?.payload.type === 'dir'
+      ? t('notifications.openInFileBrowser')
+      : t('notifications.openInViewr')
 
   return (
     <div className="rounded px-3 py-2 transition hover:bg-white/5">
@@ -46,10 +78,15 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
         {n.data && (
           <button
             type="button"
-            onClick={handleAction}
-            className="rounded bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-300 transition hover:bg-sky-500/25 hover:text-sky-200"
+            onClick={isUpgrade ? handleUpgrade : handleAction}
+            disabled={upgradingLocal}
+            className={`rounded px-2 py-0.5 text-[10px] font-medium transition ${
+              isUpgrade
+                ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 hover:text-emerald-200 disabled:opacity-50'
+                : 'bg-sky-500/15 text-sky-300 hover:bg-sky-500/25 hover:text-sky-200'
+            }`}
           >
-            {actionLabel}
+            {upgradingLocal ? t('notifications.upgrading') : actionLabel}
           </button>
         )}
         {needsTruncation && (

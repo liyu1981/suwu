@@ -114,7 +114,10 @@
     "justNow": "刚刚",
     "minutesAgo": "{{count}}分钟前",
     "hoursAgo": "{{count}}小时前",
-    "daysAgo": "{{count}}天前"
+    "daysAgo": "{{count}}天前",
+    "upgrade": "升级",
+    "upgrading": "升级中…",
+    "checkForUpdates": "检查更新"
   },
   "filebrowser": {
     "today": "今天",

@@ -1,4 +1,8 @@
+import { useState } from 'react'
+import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { Trans, useTranslation } from 'react-i18next'
+import { fetchToken } from '../../lib/api'
+import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../../store/notifications'
 
 const row = 'flex items-baseline justify-between gap-4 py-1.5'
 const rowLabel = 'text-xs text-muted-foreground'
@@ -9,6 +13,13 @@ const GITHUB_URL = 'https://github.com/liyu1981/suwu'
 const kbd =
   'rounded border border-white/15 bg-white/10 px-1 font-mono text-[10px]'
 
+interface UpdateCheckResponse {
+  current: string
+  latest: string
+  updateAvailable: boolean
+  error?: string
+}
+
 /**
  * About screen for the unified Suwu menu dialog: a centered brand mark, the
  * app name, version, and a GitHub link, followed by the feature list and
@@ -17,6 +28,64 @@ const kbd =
  */
 export default function AboutView() {
   const { t } = useTranslation()
+  const [checking, setChecking] = useState(false)
+  const [checkResult, setCheckResult] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const store = useStore() as any
+  const setNotifications = useSetAtom(notificationsAtom)
+  const setUnread = useSetAtom(unreadCountAtom)
+  const panelOpen = useAtomValue(panelOpenAtom)
+  const maxEntries = useAtomValue(maxEntriesAtom)
+
+  const handleCheckUpdate = async () => {
+    setChecking(true)
+    setCheckResult(null)
+    try {
+      const token = await fetchToken()
+      const res = await fetch(`/api/update/check?token=${token}`)
+      if (!res.ok) {
+        setCheckResult('Failed to check for updates')
+        setChecking(false)
+        return
+      }
+      const info: UpdateCheckResponse = await res.json()
+      if (info.error) {
+        setCheckResult('Update check failed')
+        setChecking(false)
+        return
+      }
+      if (info.updateAvailable) {
+        // Inject notification.
+        const notifId = `update-${info.latest}`
+        const existing = store.get(notificationsAtom) as Notification[]
+        if (!existing.some((n) => n.id === notifId)) {
+          const notification: Notification = {
+            id: notifId,
+            message: `New version ${info.latest} available (current: ${info.current})`,
+            timestamp: Date.now(),
+            data: {
+              action: 'upgrade',
+              payload: { type: 'upgrade', latest: info.latest } as never,
+            },
+          }
+          setNotifications((prev: Notification[]) => {
+            const next = [...prev, notification]
+            return next.length > maxEntries ? next.slice(-maxEntries) : next
+          })
+          if (!panelOpen) {
+            setUnread((c: number) => c + 1)
+          }
+        }
+        setCheckResult(`Update available: ${info.latest}`)
+      } else {
+        setCheckResult('Already up to date')
+      }
+    } catch {
+      setCheckResult('Failed to check for updates')
+    } finally {
+      setChecking(false)
+    }
+  }
 
   return (
     <div className="flex min-h-full flex-col">
@@ -34,15 +103,25 @@ export default function AboutView() {
           <div className="mt-1 text-xs text-muted-foreground italic">Make the remote devshell enjoyable in agentic AI time.</div>
           <div className="mt-0.5 text-xs text-muted-foreground">{t('about.version', { version: __SUWU_VERSION__ })}</div>
         </div>
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-muted-foreground glass-btn transition hover:text-popover-foreground"
-        >
-          <GitHubIcon />
-          <span className="font-medium">{t('about.github')}</span>
-        </a>
+        <div className="mt-3 flex flex-col items-center gap-2">
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-muted-foreground glass-btn transition hover:text-popover-foreground"
+          >
+            <GitHubIcon />
+            <span className="font-medium">{t('about.github')}</span>
+          </a>
+          <button
+            type="button"
+            onClick={handleCheckUpdate}
+            disabled={checking}
+            className="text-[11px] text-muted-foreground transition hover:text-popover-foreground disabled:opacity-50"
+          >
+            {checking ? '...' : checkResult ?? t('notifications.checkForUpdates')}
+          </button>
+        </div>
       </div>
 
       {/* Shortcuts hint pinned to bottom */}

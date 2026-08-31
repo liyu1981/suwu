@@ -8,6 +8,7 @@ import SuwuDialog from '../components/dialogs/SuwuDialog'
 import { NotificationBell } from '../components/NotificationBell'
 import { NotificationPanel } from '../components/NotificationPanel'
 import { useNotifications } from '../hooks/useNotifications'
+import { useUpdateCheck } from '../hooks/useUpdateCheck'
 import { AuthRequiredError, fetchToken } from '../lib/api'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom } from '../wm/atoms'
 import {
@@ -71,6 +72,7 @@ export default function AppShell() {
   const [activeSpace] = useAtom(activeSpaceAtom)
 
   useNotifications()
+  useUpdateCheck()
 
   // Auth: check if server requires a password.
   const [authRequired, setAuthRequired] = useState(false)

@@ -30,7 +30,9 @@ export default function FileViewerPage() {
   const [renderError, setRenderError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(0)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const viewerOptions = useMemo(() => ({
@@ -147,12 +149,38 @@ export default function FileViewerPage() {
     setShowDropdown(false)
   }, [])
 
+  // Dropdown rendered via portal-like fixed positioning
+  const dropdown = showDropdown ? (
+    <div
+      ref={dropdownRef}
+      className="fixed z-[9999] w-28 rounded border border-white/10 bg-black/95 py-1 shadow-xl backdrop-blur-xl"
+      style={{ top: dropdownPos.top, left: dropdownPos.left }}
+    >
+      {intervals.map((iv) => (
+        <button
+          key={iv.value}
+          type="button"
+          onClick={() => handleIntervalSelect(iv.value)}
+          className={`flex w-full items-center px-3 py-1 text-left text-xs transition hover:bg-white/10 ${
+            autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'
+          }`}
+        >
+          {iv.label}
+          {autoRefresh === iv.value && iv.value > 0 && (
+            <span className="ml-auto text-[10px] text-green-400/60">●</span>
+          )}
+        </button>
+      ))}
+    </div>
+  ) : null
+
   if (error) {
     return (
       <CommonTileContainer paneId={paneRef.current ?? undefined}>
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
           <span className="text-sm text-red-400/70">{error}</span>
         </div>
+        {dropdown}
       </CommonTileContainer>
     )
   }
@@ -163,6 +191,7 @@ export default function FileViewerPage() {
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
           <span className="text-sm text-white/30">Loading...</span>
         </div>
+        {dropdown}
       </CommonTileContainer>
     )
   }
@@ -181,37 +210,25 @@ export default function FileViewerPage() {
         <RefreshIcon />
       </button>
       {/* Auto-refresh dropdown trigger */}
-      <div className="relative" ref={dropdownRef}>
-        <button
-          type="button"
-          onClick={() => setShowDropdown(!showDropdown)}
-          className={`grid h-5 w-4 place-items-center rounded text-[10px] transition hover:bg-white/10 ${
-            autoRefresh > 0 ? 'text-green-400' : 'text-white/40 hover:text-white/60'
-          }`}
-          title="Auto-refresh interval"
-        >
-          ▾
-        </button>
-        {showDropdown && (
-          <div className="absolute left-0 top-full z-[9999] mt-1 w-28 rounded border border-white/10 bg-black/90 py-1 shadow-xl backdrop-blur-xl">
-            {intervals.map((iv) => (
-              <button
-                key={iv.value}
-                type="button"
-                onClick={() => handleIntervalSelect(iv.value)}
-                className={`flex w-full items-center px-3 py-1 text-left text-xs transition hover:bg-white/10 ${
-                  autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'
-                }`}
-              >
-                {iv.label}
-                {autoRefresh === iv.value && iv.value > 0 && (
-                  <span className="ml-auto text-[10px] text-green-400/60">●</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => {
+          if (showDropdown) {
+            setShowDropdown(false)
+          } else if (btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect()
+            setDropdownPos({ top: rect.bottom + 2, left: rect.left })
+            setShowDropdown(true)
+          }
+        }}
+        className={`grid h-5 w-4 place-items-center rounded text-[10px] transition hover:bg-white/10 ${
+          autoRefresh > 0 ? 'text-green-400' : 'text-white/40 hover:text-white/60'
+        }`}
+        title="Auto-refresh interval"
+      >
+        ▾
+      </button>
       <span className="truncate text-xs text-white/50" title={filePath}>{filePath}</span>
     </div>
   ) : null
@@ -230,6 +247,7 @@ export default function FileViewerPage() {
             <span className="text-[10px] text-white/25">{fileName}</span>
           </div>
         </div>
+        {dropdown}
       </CommonTileContainer>
     )
   }
@@ -247,6 +265,7 @@ export default function FileViewerPage() {
           />
         </div>
       </div>
+      {dropdown}
     </CommonTileContainer>
   )
 }

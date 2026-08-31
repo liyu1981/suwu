@@ -168,31 +168,32 @@ export default function FileViewerPage() {
   }
 
   const header = filePath ? (
-    <div className="flex h-8 shrink-0 items-center gap-2 border-b border-white/10 bg-black/30 px-3 backdrop-blur-md">
-      {/* Refresh button with dropdown */}
+    <div className="flex h-8 shrink-0 items-center gap-1 border-b border-white/10 bg-black/30 px-3 backdrop-blur-md">
+      {/* Refresh button */}
+      <button
+        type="button"
+        onClick={handleRefresh}
+        className={`grid h-5 w-5 place-items-center rounded transition hover:bg-white/10 ${
+          autoRefresh > 0 ? 'text-green-400' : 'text-white/50 hover:text-white/70'
+        }`}
+        title="Refresh"
+      >
+        <RefreshIcon />
+      </button>
+      {/* Auto-refresh dropdown trigger */}
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
-          onClick={() => {
-            if (showDropdown) {
-              setShowDropdown(false)
-            } else {
-              handleRefresh()
-            }
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            setShowDropdown(true)
-          }}
-          className={`grid h-5 w-5 place-items-center rounded transition hover:bg-white/10 ${
-            autoRefresh > 0 ? 'text-green-400' : 'text-white/50 hover:text-white/70'
+          onClick={() => setShowDropdown(!showDropdown)}
+          className={`grid h-5 w-4 place-items-center rounded text-[10px] transition hover:bg-white/10 ${
+            autoRefresh > 0 ? 'text-green-400' : 'text-white/40 hover:text-white/60'
           }`}
-          title={autoRefresh > 0 ? `Auto-refresh: ${autoRefresh / 1000}s (right-click to change)` : 'Refresh (right-click for auto)'}
+          title="Auto-refresh interval"
         >
-          <RefreshIcon />
+          ▾
         </button>
         {showDropdown && (
-          <div className="absolute left-0 top-full z-[9999] mt-1 w-28 rounded border border-white/10 bg-black/80 py-1 shadow-lg backdrop-blur-md">
+          <div className="absolute left-0 top-full z-[9999] mt-1 w-28 rounded border border-white/10 bg-black/90 py-1 shadow-xl backdrop-blur-xl">
             {intervals.map((iv) => (
               <button
                 key={iv.value}

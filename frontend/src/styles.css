@@ -148,30 +148,26 @@ body {
 /* ============================================================================
    Dialog (Radix/shadcn) — glass panel + Apple-style modal motion.
    Centered content: keep the translate(-50%,-50%) base inside both keyframes
-   so entry/exit never jump; scale + blur travel together (material arriving).
+   so entry/exit never jump; slides from above with opacity fade.
    ============================================================================ */
 
 [data-slot='dialog-content'][data-state='open'] {
-  animation: dialog-materialize-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: dialog-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 [data-slot='dialog-content'][data-state='closed'] {
-  animation: dialog-materialize-out 0.15s cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: dialog-slide-out 0.15s cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
-@keyframes dialog-materialize-in {
+@keyframes dialog-slide-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.95);
-    filter: blur(6px);
   }
 }
 
-@keyframes dialog-materialize-out {
+@keyframes dialog-slide-out {
   to {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.97);
-    filter: blur(4px);
   }
 }
 

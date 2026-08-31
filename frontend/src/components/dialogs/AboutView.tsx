@@ -19,11 +19,9 @@ export default function AboutView() {
   const { t } = useTranslation()
 
   return (
-    <>
-      {/* Brand header: the logo artwork carries its own rounded background
-          (56px at this size), so the CSS radius matches it exactly and the
-          shadow lifts the tile off the glass. */}
-      <div className="flex flex-col items-center pt-2">
+    <div className="flex min-h-full flex-col">
+      {/* Vertically centered brand content */}
+      <div className="flex flex-1 flex-col items-center justify-center">
         <img
           src="/logo.svg"
           alt="Suwu logo"
@@ -47,13 +45,14 @@ export default function AboutView() {
         </a>
       </div>
 
-      <div className={`${row} mt-4`}>
+      {/* Shortcuts hint pinned to bottom */}
+      <div className={`${row} shrink-0 pt-2`}>
         <span className={rowLabel}>{t('about.shortcuts')}</span>
         <span className={rowValue}>
           <Trans i18nKey="about.shortcutsHint" components={{ 1: <kbd className={kbd} />, 2: <kbd className={kbd} />, 3: <kbd className={kbd} />, 4: <kbd className={kbd} />, 5: <kbd className={kbd} /> }} />
         </span>
       </div>
-    </>
+    </div>
   )
 }
 

@@ -192,7 +192,7 @@ export default function FileViewerPage() {
           <RefreshIcon />
         </button>
         {showDropdown && (
-          <div className="absolute left-0 top-full z-50 mt-1 w-28 rounded border border-white/10 bg-black/80 py-1 shadow-lg backdrop-blur-md">
+          <div className="absolute left-0 top-full z-[9999] mt-1 w-28 rounded border border-white/10 bg-black/80 py-1 shadow-lg backdrop-blur-md">
             {intervals.map((iv) => (
               <button
                 key={iv.value}

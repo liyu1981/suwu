@@ -3,7 +3,6 @@ import { Trans, useTranslation } from 'react-i18next'
 const row = 'flex items-baseline justify-between gap-4 py-1.5'
 const rowLabel = 'text-xs text-muted-foreground'
 const rowValue = 'text-xs text-popover-foreground'
-const featureDot = 'mt-1.5 h-1 w-1 shrink-0 rounded-full bg-sky-400/70'
 
 const GITHUB_URL = 'https://github.com/liyu1981/suwu'
 
@@ -18,13 +17,6 @@ const kbd =
  */
 export default function AboutView() {
   const { t } = useTranslation()
-
-  const features = [
-    t('about.feature1'),
-    t('about.feature2'),
-    t('about.feature3'),
-    t('about.feature4'),
-  ]
 
   return (
     <>
@@ -41,6 +33,7 @@ export default function AboutView() {
         />
         <div className="mt-4 text-center">
           <div className="text-2xl font-semibold tracking-tight text-popover-foreground">Suwu</div>
+          <div className="mt-1 text-xs text-muted-foreground italic">Make the remote devshell enjoyable in agentic AI time.</div>
           <div className="mt-0.5 text-xs text-muted-foreground">{t('about.version', { version: __SUWU_VERSION__ })}</div>
         </div>
         <a
@@ -54,20 +47,7 @@ export default function AboutView() {
         </a>
       </div>
 
-      <div className="mt-4 divide-y divide-white/5 rounded-[6px] border border-white/10 bg-black/20 px-3 py-1">
-        {features.map((f) => (
-          <div key={f} className="flex gap-2.5 py-2">
-            <span className={featureDot} />
-            <p className="text-xs leading-relaxed text-popover-foreground">{f}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className={`${row} mt-2`}>
-        <span className={rowLabel}>{t('about.builtWith')}</span>
-        <span className={rowValue}>{t('about.builtWithValue')}</span>
-      </div>
-      <div className={row}>
+      <div className={`${row} mt-4`}>
         <span className={rowLabel}>{t('about.shortcuts')}</span>
         <span className={rowValue}>
           <Trans i18nKey="about.shortcutsHint" components={{ 1: <kbd className={kbd} />, 2: <kbd className={kbd} />, 3: <kbd className={kbd} />, 4: <kbd className={kbd} />, 5: <kbd className={kbd} /> }} />

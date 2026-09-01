@@ -92,5 +92,12 @@
     "check_binary": "pi",
     "depends": "asdf-nodejs",
     "install_cmd": "npm install -g @mariozechner/pi-coding-agent && asdf reshim"
+  },
+  {
+    "id": "witr",
+    "name": "witr",
+    "description": "Convinient tool to answer question: Why is this running?", 
+    "check_binary": "witr",
+    "install_cmd": "curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash"
   }
 ]

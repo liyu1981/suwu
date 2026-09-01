@@ -194,27 +194,26 @@ export function ContextMenu({
     return (
       <div
         ref={menuRef}
-        className="fixed z-50 w-[280px] rounded-xl border border-white/10 p-3 shadow-2xl backdrop-blur-xl"
+        className="fixed z-50 w-[280px] rounded-2xl border border-white/[0.08] p-3 shadow-2xl menu-glass backdrop-blur-2xl"
         style={{
           left: x,
           top: y,
-          background: 'rgba(30, 30, 30, 0.85)',
         }}
       >
-        <div className="mb-2 text-xs font-medium text-white/80">{t('filebrowser.newFolderTitle')}</div>
+        <div className="mb-2 text-[11px] font-semibold tracking-wide text-white/60">{t('filebrowser.newFolderTitle')}</div>
         <input
           type="text"
           value={newFolderName}
           onChange={(e) => setNewFolderName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleNewFolder()}
-          className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-sky-400/50 focus:bg-white/10"
+          className="mb-3 w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20"
           autoFocus
         />
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-lg px-3 py-1.5 text-xs text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
           >
             {t('filebrowser.cancel')}
           </button>
@@ -222,7 +221,7 @@ export function ContextMenu({
             type="button"
             onClick={handleNewFolder}
             disabled={loading || !newFolderName.trim()}
-            className="rounded-lg bg-sky-500/20 px-3 py-1.5 text-xs text-sky-300 transition-colors hover:bg-sky-500/30 disabled:opacity-50"
+            className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300/80 transition-all duration-150 hover:bg-sky-500/25 hover:text-sky-300 active:scale-[0.97] disabled:opacity-30"
           >
             {t('filebrowser.confirm')}
           </button>
@@ -236,27 +235,26 @@ export function ContextMenu({
     return (
       <div
         ref={menuRef}
-        className="fixed z-50 w-[280px] rounded-xl border border-white/10 p-3 shadow-2xl backdrop-blur-xl"
+        className="fixed z-50 w-[280px] rounded-2xl border border-white/[0.08] p-3 shadow-2xl menu-glass backdrop-blur-2xl"
         style={{
           left: x,
           top: y,
-          background: 'rgba(30, 30, 30, 0.85)',
         }}
       >
-        <div className="mb-2 text-xs font-medium text-white/80">{t('filebrowser.renameTitle')}</div>
+        <div className="mb-2 text-[11px] font-semibold tracking-wide text-white/60">{t('filebrowser.renameTitle')}</div>
         <input
           type="text"
           value={renameValue}
           onChange={(e) => setRenameValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-          className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-sky-400/50 focus:bg-white/10"
+          className="mb-3 w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20"
           autoFocus
         />
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-lg px-3 py-1.5 text-xs text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
           >
             {t('filebrowser.cancel')}
           </button>
@@ -264,7 +262,7 @@ export function ContextMenu({
             type="button"
             onClick={handleRename}
             disabled={loading || !renameValue.trim()}
-            className="rounded-lg bg-sky-500/20 px-3 py-1.5 text-xs text-sky-300 transition-colors hover:bg-sky-500/30 disabled:opacity-50"
+            className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300/80 transition-all duration-150 hover:bg-sky-500/25 hover:text-sky-300 active:scale-[0.97] disabled:opacity-30"
           >
             {t('filebrowser.confirm')}
           </button>
@@ -278,22 +276,21 @@ export function ContextMenu({
     return (
       <div
         ref={menuRef}
-        className="fixed z-50 w-[280px] rounded-xl border border-white/10 p-3 shadow-2xl backdrop-blur-xl"
+        className="fixed z-50 w-[280px] rounded-2xl border border-white/[0.08] p-3 shadow-2xl menu-glass backdrop-blur-2xl"
         style={{
           left: x,
           top: y,
-          background: 'rgba(30, 30, 30, 0.85)',
         }}
       >
-        <div className="mb-2 text-xs font-medium text-white/80">{t('filebrowser.deleteTitle')}</div>
-        <div className="mb-3 text-[11px] leading-relaxed text-white/60">
+        <div className="mb-2 text-[11px] font-semibold tracking-wide text-white/60">{t('filebrowser.deleteTitle')}</div>
+        <div className="mb-3 text-[11px] leading-relaxed text-white/50">
           {t('filebrowser.deleteConfirm', { name: entry.name })}
         </div>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-lg px-3 py-1.5 text-xs text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
           >
             {t('filebrowser.cancel')}
           </button>
@@ -301,7 +298,7 @@ export function ContextMenu({
             type="button"
             onClick={handleDelete}
             disabled={loading}
-            className="rounded-lg bg-red-500/20 px-3 py-1.5 text-xs text-red-300 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+            className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-300/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-300 active:scale-[0.97] disabled:opacity-30"
           >
             {t('filebrowser.delete')}
           </button>
@@ -310,15 +307,14 @@ export function ContextMenu({
     )
   }
 
-  // Main context menu
+  // Main context menu — Apple-style glass material
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[180px] overflow-hidden rounded-xl border border-white/10 py-1 shadow-2xl backdrop-blur-xl"
+      className="fixed z-50 min-w-[180px] overflow-hidden rounded-2xl border border-white/[0.08] py-1 shadow-2xl menu-glass backdrop-blur-2xl"
       style={{
         left: x,
         top: y,
-        background: 'rgba(30, 30, 30, 0.85)',
       }}
     >
       <MenuItem
@@ -385,20 +381,20 @@ function MenuItem({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
+      className={`group flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-[12px] tracking-[-0.01em] transition-all duration-100 active:scale-[0.98] ${
         danger
-          ? 'text-red-400 hover:bg-red-500/10'
-          : 'text-white/80 hover:bg-white/10'
+          ? 'text-red-400/80 hover:bg-red-500/[0.12] hover:text-red-300'
+          : 'text-white/70 hover:bg-white/[0.08] hover:text-white/90'
       }`}
     >
-      {icon && <span className="w-4 shrink-0 opacity-60">{icon}</span>}
+      {icon && <span className="w-4 shrink-0 text-white/30 transition-colors group-hover:text-white/50">{icon}</span>}
       {label}
     </button>
   )
 }
 
 function MenuDivider() {
-  return <div className="my-1 border-t border-white/10" />
+  return <div className="my-1 border-t border-white/[0.06]" />
 }
 
 // ── Icons ──

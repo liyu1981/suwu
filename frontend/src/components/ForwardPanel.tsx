@@ -24,16 +24,16 @@ const STATUS_COLORS = {
 } as const
 
 const inputClass =
-  'rounded bg-black/30 border border-white/10 px-2 py-1 text-xs text-white/80 placeholder-white/30 focus:outline-none focus:ring-1'
+  'rounded-lg bg-white/[0.04] border border-white/[0.08] px-2.5 py-1.5 text-xs text-white/80 placeholder-white/25 outline-none transition-all duration-150 focus:bg-white/[0.07] focus:ring-1'
 
-const inputValid = 'focus:border-green-500/50 focus:ring-green-500/30'
-const inputInvalid = 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/30'
+const inputValid = 'focus:border-green-500/40 focus:ring-green-500/20'
+const inputInvalid = 'border-red-500/40 focus:border-red-500/40 focus:ring-red-500/20'
 
 const btnPrimary =
-  'shrink-0 rounded bg-cyan-500/20 px-3 py-1 text-xs font-medium text-cyan-300 transition hover:bg-cyan-500/30 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed'
+  'shrink-0 rounded-lg bg-cyan-500/15 px-3.5 py-1.5 text-xs font-medium text-cyan-300/80 transition-all duration-150 hover:bg-cyan-500/25 hover:text-cyan-300 active:scale-[0.97] disabled:opacity-25 disabled:cursor-not-allowed'
 
 const btnDanger =
-  'rounded bg-red-500/20 px-2 py-1 text-[10px] text-red-400 transition hover:bg-red-500/30 active:scale-[0.97]'
+  'rounded-lg bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-400/60 transition-all duration-150 hover:bg-red-500/[0.15] hover:text-red-400 active:scale-[0.97]'
 
 async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
   const headers: Record<string, string> = {}
@@ -236,30 +236,32 @@ export default function ForwardPanel() {
 
   return (
     <CommonTileContainer>
-      <div className="flex h-full flex-col overflow-hidden rounded-[6px] bg-black/40 text-sm text-white/80">
-        {/* Header */}
-        <div className="flex shrink-0 items-center border-b border-white/10 bg-black/30 px-3 py-2">
-          <span className="text-xs font-medium text-white/60">{t('forward.title')}</span>
+      <div className="flex h-full flex-col overflow-hidden rounded-[6px] p-2 text-sm text-white/80">
+        {/* Header — glass material */}
+        <div className="flex shrink-0 items-center rounded-t-lg border-b border-white/[0.06] px-3 py-2 glass-control">
+          <span className="text-[11px] font-semibold tracking-wide text-white/45">{t('forward.title')}</span>
           <button
             type="button"
             onClick={fetchServerPorts}
-            className="ml-2 grid h-4 w-4 place-items-center rounded text-white/40 transition hover:bg-white/10 hover:text-white/60"
+            className="ml-2 grid h-5 w-5 place-items-center rounded-md text-white/30 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/60 active:scale-90"
             title={t('forward.refreshPorts')}
           >
-            <RefreshIcon />
+            <RefreshIcon className="h-3 w-3" />
           </button>
           <div className="flex-1" />
         </div>
 
-        {/* Config row — embedded table-style */}
-        <div className="flex shrink-0 items-center gap-1.5 border-b border-white/10 bg-black/20 px-2 py-1.5">
-          {/* Protocol toggle */}
-          <div className="flex shrink-0 overflow-hidden rounded border border-white/10">
+        {/* Config row — glass material with better spacing */}
+        <div className="flex shrink-0 items-center gap-2 border-x border-x-white/[0.08] border-b border-b-white/[0.06] bg-white/[0.02] px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          {/* Protocol toggle — pill style */}
+          <div className="flex shrink-0 overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02]">
             <button
               type="button"
               onClick={() => setProtocol('tcp')}
-              className={`px-1.5 py-0.5 text-[10px] font-medium transition ${
-                protocol === 'tcp' ? 'bg-cyan-500/30 text-cyan-300' : 'text-white/40 hover:bg-white/5'
+              className={`px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-all duration-150 ${
+                protocol === 'tcp'
+                  ? 'bg-cyan-500/15 text-cyan-300/90'
+                  : 'text-white/30 hover:bg-white/[0.04] hover:text-white/50'
               }`}
             >
               {t('forward.tcp')}
@@ -267,8 +269,10 @@ export default function ForwardPanel() {
             <button
               type="button"
               onClick={() => setProtocol('udp')}
-              className={`px-1.5 py-0.5 text-[10px] font-medium transition ${
-                protocol === 'udp' ? 'bg-violet-500/30 text-violet-300' : 'text-white/40 hover:bg-white/5'
+              className={`px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-all duration-150 ${
+                protocol === 'udp'
+                  ? 'bg-violet-500/15 text-violet-300/90'
+                  : 'text-white/30 hover:bg-white/[0.04] hover:text-white/50'
               }`}
             >
               {t('forward.udp')}
@@ -284,10 +288,10 @@ export default function ForwardPanel() {
             onKeyDown={handleKeyDown}
             min={1024}
             max={65535}
-            className={`${inputClass} ${extPortMsg ? inputInvalid : inputValid} w-20`}
+            className={`${inputClass} ${extPortMsg ? inputInvalid : inputValid} w-20 tabular-nums`}
           />
 
-          <span className="text-[10px] text-white/30">→</span>
+          <span className="text-[10px] text-white/20">→</span>
 
           {/* Internal host */}
           <input
@@ -308,7 +312,7 @@ export default function ForwardPanel() {
             onKeyDown={handleKeyDown}
             min={1}
             max={65535}
-            className={`${inputClass} ${intPortMsg ? inputInvalid : inputValid} w-20`}
+            className={`${inputClass} ${intPortMsg ? inputInvalid : inputValid} w-20 tabular-nums`}
           />
 
           {/* Add & Start */}
@@ -322,55 +326,66 @@ export default function ForwardPanel() {
           </button>
         </div>
 
-        {/* Validation messages */}
+        {/* Validation messages — subtle material strip */}
         {(extPortMsg || intPortMsg || showIntPortWarning || error) && (
-          <div className="flex shrink-0 flex-wrap gap-3 border-b border-white/10 bg-black/20 px-3 py-1">
-            {extPortMsg && <span className="text-[10px] text-red-400">{t('forward.portOccupied')}</span>}
-            {intPortMsg && <span className="text-[10px] text-red-400">Int: {intPortMsg}</span>}
+          <div className="flex shrink-0 flex-wrap gap-3 border-x border-x-white/[0.08] border-b border-b-white/[0.06] bg-white/[0.02] px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            {extPortMsg && <span className="text-[10px] font-medium text-red-400/70">{t('forward.portOccupied')}</span>}
+            {intPortMsg && <span className="text-[10px] font-medium text-red-400/70">Int: {intPortMsg}</span>}
             {showIntPortWarning && (
-              <span className="text-[10px] text-amber-400">
+              <span className="text-[10px] font-medium text-amber-400/70">
                 ⚠ Port {intPort} is not open on {intHost || 'localhost'}
               </span>
             )}
-            {error && <span className="text-[10px] text-red-400">{error}</span>}
+            {error && <span className="text-[10px] font-medium text-red-400/70">{error}</span>}
           </div>
         )}
 
         {/* Active mappings list */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-b-lg border-x border-b border-x-white/[0.08] border-b-white/[0.08] bg-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           {loading && (
-            <div className="flex items-center justify-center py-12 text-xs text-white/30">Loading...</div>
+            <div className="flex items-center justify-center py-12 text-[11px] text-white/20">Loading...</div>
           )}
           {!loading && forwards.length === 0 && (
-            <div className="flex items-center justify-center py-12 text-xs text-white/30">
+            <div className="flex flex-col items-center justify-center py-12 text-[11px] text-white/20">
+              <svg className="mb-2 h-6 w-6 text-white/10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="19" y1="8" x2="19" y2="14" />
+                <line x1="22" y1="11" x2="16" y2="11" />
+              </svg>
               {t('forward.noMappings')}
             </div>
           )}
           {forwards.map((f) => (
             <div
               key={f.id}
-              className="flex items-center gap-3 border-b border-white/5 px-3 py-2 transition hover:bg-white/5"
+              className="group flex items-center gap-3 border-b border-white/[0.04] px-3 py-2.5 transition-all duration-150 hover:bg-white/[0.03]"
             >
-              {/* Status dot */}
-              <div className={`h-2 w-2 shrink-0 rounded-full ${STATUS_COLORS[f.status as keyof typeof STATUS_COLORS] ?? STATUS_COLORS.stopped}`} />
+              {/* Status dot with glow */}
+              <div className="relative shrink-0">
+                <div className={`h-2 w-2 rounded-full ${STATUS_COLORS[f.status as keyof typeof STATUS_COLORS] ?? STATUS_COLORS.stopped}`} />
+                {f.status === 'running' && (
+                  <div className="absolute inset-0 h-2 w-2 animate-pulse rounded-full bg-green-500/40" />
+                )}
+              </div>
 
               {/* Mapping info */}
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="font-mono text-white/70">{f.externalPort}</span>
-                  <span className="text-[10px] text-white/30">→</span>
-                  <span className="font-mono text-white/70">
+                <div className="flex items-center gap-1.5 text-[12px]">
+                  <span className="font-mono tabular-nums text-white/65">{f.externalPort}</span>
+                  <span className="text-[10px] text-white/20">→</span>
+                  <span className="font-mono tabular-nums text-white/65">
                     {f.internalHost}:{f.internalPort}
                   </span>
                   <span
-                    className={`rounded px-1 py-0.5 text-[9px] font-medium ${
-                      f.protocol === 'tcp' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'
+                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-semibold tracking-wide ${
+                      f.protocol === 'tcp' ? 'bg-cyan-500/10 text-cyan-400/70' : 'bg-violet-500/10 text-violet-400/70'
                     }`}
                   >
                     {f.protocol.toUpperCase()}
                   </span>
                 </div>
-                <div className="mt-0.5 flex items-center gap-3 text-[10px] text-white/30">
+                <div className="mt-0.5 flex items-center gap-3 text-[10px] tabular-nums text-white/20">
                   <span>
                     {t('forward.activeConns')}: {f.activeConns}
                   </span>
@@ -378,12 +393,12 @@ export default function ForwardPanel() {
                     {t('forward.totalConns')}: {f.totalConns}
                   </span>
                   {f.startedAt && <span>{formatUptime(f.startedAt)}</span>}
-                  {f.error && <span className="text-red-400/80">{f.error}</span>}
+                  {f.error && <span className="text-red-400/60">{f.error}</span>}
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex shrink-0 gap-1">
+              {/* Actions — reveal on hover */}
+              <div className="flex shrink-0 gap-1 opacity-40 transition-opacity duration-150 group-hover:opacity-100">
                 <button type="button" onClick={() => handleRemove(f.id)} className={btnDanger}>
                   {t('forward.stopAndRemove')}
                 </button>

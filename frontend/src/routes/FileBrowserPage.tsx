@@ -45,7 +45,7 @@ function formatDate(iso: string, t: (key: string, opts?: Record<string, unknown>
 }
 
 // ── Icons (re-exported from shared module) ──
-import { FolderIcon, FolderOpenIcon, FileIcon, TreeChevronIcon, HomeIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, RefreshIcon, CopyIcon, CheckIcon } from '../components/icons'
+import { FolderIcon, FolderOpenIcon, FileIcon, TreeChevronIcon, HomeIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, RefreshIcon, CopyIcon, CheckIcon, UploadIcon } from '../components/icons'
 
 // ── API helper ──
 
@@ -206,11 +206,13 @@ function TreeView({
       <button
         type="button"
         onClick={() => onNavigate('/')}
-        className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-[13px] transition-colors hover:bg-white/5 ${
-          currentPath === '/' ? 'bg-white/10 text-white' : 'text-white/70'
+        className={`flex w-full items-center gap-1.5 px-2 py-[5px] text-left text-[13px] tracking-[-0.01em] transition-all duration-150 active:scale-[0.99] ${
+          currentPath === '/'
+            ? 'bg-white/[0.08] text-white'
+            : 'text-white/60 hover:bg-white/[0.04] hover:text-white/80'
         }`}
       >
-        <HomeIcon />
+        <HomeIcon className="h-3.5 w-3.5 text-white/40" />
         <span className="truncate">/</span>
       </button>
       {rootChildren?.map((node) => (
@@ -272,8 +274,10 @@ function TreeNodeItem({
         ref={btnRef}
         type="button"
         onClick={() => onNavigate(node.path)}
-        className={`flex w-full items-center gap-1 py-1 text-left text-[13px] transition-colors hover:bg-white/5 ${
-          isActive ? 'bg-white/10 text-white' : 'text-white/70'
+        className={`flex w-full items-center gap-1 py-[5px] text-left text-[13px] tracking-[-0.01em] transition-all duration-150 active:scale-[0.99] ${
+          isActive
+            ? 'bg-white/[0.08] text-white'
+            : 'text-white/60 hover:bg-white/[0.04] hover:text-white/80'
         }`}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
@@ -285,14 +289,18 @@ function TreeNodeItem({
               e.stopPropagation()
               onToggle(node)
             }}
-            className="flex h-4 w-4 shrink-0 items-center justify-center rounded hover:bg-white/10"
+            className="flex h-4 w-4 shrink-0 items-center justify-center rounded transition-colors duration-150 hover:bg-white/[0.10] active:scale-90"
           >
             <TreeChevronIcon expanded={node.expanded} />
           </span>
         ) : (
           <span className="h-4 w-4 shrink-0" />
         )}
-        {node.expanded ? <FolderOpenIcon /> : <FolderIcon className={isActive ? 'text-sky-300' : 'text-sky-400/70'} />}
+        {node.expanded ? (
+          <FolderOpenIcon className={isActive ? 'text-sky-300' : 'text-sky-400/60'} />
+        ) : (
+          <FolderIcon className={isActive ? 'text-sky-300' : 'text-sky-400/50'} />
+        )}
         <span className="truncate">{node.name}</span>
       </button>
       {node.expanded && node.children && (
@@ -486,23 +494,25 @@ export default function FileBrowserPage() {
   return (
     <CommonTileContainer>
       <div
-        className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px] text-sm text-white/80"
+        className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px] p-2 text-sm text-white/80"
         style={{ backgroundColor: bgColor }}
       >
-        {/* Toolbar */}
-        <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-black/40 px-2 py-1">
+        {/* Toolbar — glass material, content scrolls under */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-t-lg border-b border-white/[0.08] px-2.5 py-1.5 glass-control">
           <button type="button" onClick={goBack} disabled={historyIndex <= 0} className={toolbarBtn} title={t('filebrowser.back')}>
             <ChevronLeftIcon />
           </button>
           <button type="button" onClick={goForward} disabled={historyIndex >= history.length - 1} className={toolbarBtn} title={t('filebrowser.forward')}>
             <ChevronRightIcon />
           </button>
+          <div className="mx-0.5 h-4 w-px bg-white/10" />
           <button type="button" onClick={goUp} disabled={breadcrumbs.length === 0} className={toolbarBtn} title={t('filebrowser.upOneLevel')}>
             <ChevronUpIcon />
           </button>
           <button type="button" onClick={goHome} className={toolbarBtn} title={t('filebrowser.home')}>
             <HomeIcon />
           </button>
+          <div className="mx-0.5 h-4 w-px bg-white/10" />
           <button type="button" onClick={() => fetchDir(currentPath)} className={toolbarBtn} title={t('filebrowser.refresh')}>
             <RefreshIcon />
           </button>
@@ -511,11 +521,11 @@ export default function FileBrowserPage() {
           <button
             type="button"
             onClick={copyPath}
-            className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded bg-black/30 px-2 py-0.5 text-left text-xs text-white/60 transition hover:bg-black/50 hover:text-white/80"
+            className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2.5 py-1 text-left text-xs text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.99]"
             title={t('filebrowser.copyPath')}
           >
-            <span className="truncate font-mono">{currentPath}</span>
-            <span className="shrink-0 text-white/40">
+            <span className="truncate font-mono tracking-tight">{currentPath}</span>
+            <span className="shrink-0 text-white/30 transition-colors duration-150">
               {copied ? (
                 <CheckIcon className="h-3 w-3 text-green-400" />
               ) : (
@@ -526,23 +536,27 @@ export default function FileBrowserPage() {
         </div>
 
         {/* Two-panel body */}
-        <div className="flex min-h-0 flex-1">
-          {/* Left: tree view */}
-          <div className="w-52 h-full shrink-0 overflow-y-auto border-r border-white/10 bg-black/20">
-            <TreeView key={treeRefreshKey} currentPath={currentPath} onNavigate={handleTreeNavigate} />
+        <div className="flex min-h-0 flex-1 border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          {/* Left: tree view — subtle material sidebar */}
+          <div className="w-52 h-full shrink-0 overflow-y-auto border-r border-white/[0.06] bg-white/[0.02]">
+            {/* Scroll edge: fade mask at top/bottom of tree */}
+            <div className="relative h-full">
+              <TreeView key={treeRefreshKey} currentPath={currentPath} onNavigate={handleTreeNavigate} />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/20 to-transparent" />
+            </div>
           </div>
 
           {/* Right: file list */}
           <div className="flex min-w-0 flex-1 flex-col">
-            {/* Column headers */}
-            <div className="flex shrink-0 items-center border-b border-white/10 bg-black/20 px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              <button type="button" onClick={() => handleSort('name')} className="flex-1 py-1.5 text-left hover:text-white/60">
+            {/* Column headers — glass material */}
+            <div className="flex shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3 text-[10px] font-semibold uppercase tracking-widest text-white/35">
+              <button type="button" onClick={() => handleSort('name')} className="flex-1 py-2 text-left transition-colors duration-150 hover:text-white/60 active:scale-[0.99]">
                 {t('filebrowser.name')}<SortIndicator col="name" />
               </button>
-              <button type="button" onClick={() => handleSort('size')} className="w-24 py-1.5 text-right hover:text-white/60">
+              <button type="button" onClick={() => handleSort('size')} className="w-24 py-2 text-right transition-colors duration-150 hover:text-white/60 active:scale-[0.99]">
                 {t('filebrowser.size')}<SortIndicator col="size" />
               </button>
-              <button type="button" onClick={() => handleSort('modTime')} className="w-32 py-1.5 text-right hover:text-white/60">
+              <button type="button" onClick={() => handleSort('modTime')} className="w-32 py-2 text-right transition-colors duration-150 hover:text-white/60 active:scale-[0.99]">
                 {t('filebrowser.modified')}<SortIndicator col="modTime" />
               </button>
             </div>
@@ -579,22 +593,26 @@ export default function FileBrowserPage() {
                     type="button"
                     onClick={() => handleEntryClick(entry)}
                     onContextMenu={(e) => handleContextMenu(e, entry)}
-                    className={`flex w-full items-center px-3 py-1.5 text-left transition-colors ${
+                    className={`group flex w-full items-center px-3 py-[5px] text-left transition-all duration-150 active:scale-[0.995] ${
                       isSelected
-                        ? 'bg-sky-500/15 text-white'
+                        ? 'bg-sky-500/[0.12] text-white'
                         : entry.isDir
-                          ? 'hover:bg-white/5 cursor-pointer text-white/80'
-                          : 'cursor-default text-white/80'
+                          ? 'cursor-pointer text-white/75 hover:bg-white/[0.05] hover:text-white/90'
+                          : 'cursor-default text-white/75 hover:bg-white/[0.03]'
                     }`}
                   >
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      {entry.isDir ? <FolderIcon /> : <FileIcon />}
-                      <span className="truncate text-[13px]">{entry.name}</span>
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                      {entry.isDir ? (
+                        <FolderIcon className={isSelected ? 'text-sky-300' : 'text-sky-400/60 group-hover:text-sky-400/80'} />
+                      ) : (
+                        <FileIcon className="text-white/25 group-hover:text-white/35" />
+                      )}
+                      <span className="truncate text-[13px] tracking-[-0.01em]">{entry.name}</span>
                     </div>
-                    <div className="w-24 shrink-0 text-right text-[11px] text-white/40">
+                    <div className="w-24 shrink-0 text-right text-[11px] tabular-nums text-white/30">
                       {entry.isDir ? '' : formatSize(entry.size)}
                     </div>
-                    <div className="w-32 shrink-0 text-right text-[11px] text-white/40">
+                    <div className="w-32 shrink-0 text-right text-[11px] tabular-nums text-white/25">
                       {formatDate(entry.modTime, t)}
                     </div>
                   </button>
@@ -604,15 +622,16 @@ export default function FileBrowserPage() {
           </div>
         </div>
 
-        {/* Status bar */}
-        <div className="flex shrink-0 items-center justify-between border-t border-white/10 bg-black/40 px-3 py-1 text-[10px] text-white/30">
-          <span>{t('filebrowser.itemCount', { count: sorted.length })}</span>
+        {/* Status bar — glass material */}
+        <div className="flex shrink-0 items-center justify-between rounded-b-lg border-t border-white/[0.06] px-3 py-1.5 text-[10px] text-white/25 glass-control">
+          <span className="tracking-wide">{t('filebrowser.itemCount', { count: sorted.length })}</span>
           <button
             type="button"
             onClick={() => setShowUpload(true)}
-            className="ml-2 rounded px-2 py-0.5 text-[10px] text-white/50 hover:bg-white/10 hover:text-white"
+            className="ml-2 grid h-5 w-5 place-items-center rounded-md text-white/30 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/60 active:scale-90"
+            title={t('filebrowser.contextMenu.upload')}
           >
-            {t('filebrowser.contextMenu.upload')}
+            <UploadIcon className="h-3 w-3" />
           </button>
         </div>
       </div>
@@ -658,4 +677,4 @@ export default function FileBrowserPage() {
 }
 
 const toolbarBtn =
-  'grid h-6 w-6 place-items-center rounded text-white/50 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30'
+  'grid h-7 w-7 place-items-center rounded-md text-white/40 transition-all duration-150 glass-btn hover:bg-white/[0.08] hover:text-white/80 active:scale-90 disabled:cursor-not-allowed disabled:opacity-20'

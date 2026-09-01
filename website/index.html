@@ -17,12 +17,10 @@
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="#top" aria-label="Suwu home">
-        <img class="brand-mark" src="logo.svg" alt="" width="28" height="28" />
         <span class="brand-name">Suwu</span>
       </a>
       <nav class="site-nav" aria-label="Main">
         <a href="#features">Features</a>
-        <a href="#shortcuts">Shortcuts</a>
         <a href="#install">Install</a>
         <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
       </nav>
@@ -32,8 +30,9 @@
   <main id="main">
     <!-- Hero -->
     <section class="hero" id="top">
+      <canvas id="hero-canvas" aria-hidden="true"></canvas>
       <div class="container hero-inner">
-        <img class="hero-logo" src="logo.svg" alt="Suwu logo" width="128" height="128" />
+        <img class="hero-logo" src="logo.svg" alt="Suwu logo" width="256" height="256" />
         <h1>Suwu</h1>
         <p class="hero-tagline">Make the remote devshell enjoyable<br />in agentic AI time.</p>
         <p class="hero-sub">
@@ -41,10 +40,7 @@
           tiling terminal that keeps running when you don't — refresh, disconnect,
           come back tomorrow, pick up where you left off.
         </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#install">Install Suwu</a>
-          <a class="btn btn-ghost" href="https://github.com/liyu1981/suwu" rel="noopener">View source</a>
-        </div>
+
       </div>
     </section>
 
@@ -85,147 +81,241 @@
           <li class="feature-row">
             <span class="feature-num" aria-hidden="true">01</span>
             <div class="feature-body">
-              <h3>Your real shell, in a browser tab</h3>
-              <p>Everything you run is running in your actual shell — not a simulation, not a sandbox. Open a tab on your laptop, tablet, or phone and it's the same machine.</p>
+              <h3>A tile-based window manager, by keyboard or mouse</h3>
+              <p>Split, focus, move, and swap tiles with fast key bindings or a click and drag — whichever fits the moment. And your sessions live in the layout: refresh the page, drop the connection, even restart the server, and every tile comes back exactly as you left it.</p>
             </div>
-            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 01">
-              <span class="feature-media-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
-              </span>
-              <span class="feature-media-label">real-shell.gif</span>
-            </div>
+            <video class="feature-media-video" src="assets/tiling-wm.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the tiling window manager: splitting, moving, and focusing tiles"></video>
           </li>
           <li class="feature-row">
             <span class="feature-num" aria-hidden="true">02</span>
             <div class="feature-body">
-              <h3>Sessions that survive</h3>
-              <p>Refresh the page, drop the connection, even restart the server — reconnect and your terminal screen is replayed exactly as you left it, before live output resumes.</p>
+              <h3>Full-featured terminals, perfect for agents</h3>
+              <p>Real shells with selection, copy/paste, scrollback, and notifications — comfortable for you, and a solid target for agent orchestrators like <code>opencode</code>, <code>pi</code>, and <code>herdr</code> that drive many terminals at once.</p>
             </div>
-            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 02">
-              <span class="feature-media-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
-              </span>
-              <span class="feature-media-label">session-restore.gif</span>
-            </div>
+            <video class="feature-media-video" src="assets/agent-terminals.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of a full-featured terminal running an agent orchestrator"></video>
           </li>
           <li class="feature-row">
             <span class="feature-num" aria-hidden="true">03</span>
             <div class="feature-body">
-              <h3>A workspace that moves at keyboard speed</h3>
-              <p>Split, focus, move, swap, and close tiles without touching the mouse. Group them into spaces and switch workspaces like a window manager on your desktop.</p>
+              <h3>Convenient apps for everyday dev work</h3>
+              <p>A file browser with download, a file viewer with auto-refresh, and a TCP/UDP port forwarder — the small tools you'd otherwise reach for a second terminal or a GUI client, right in the grid next to your shells.</p>
             </div>
-            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 03">
-              <span class="feature-media-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
-              </span>
-              <span class="feature-media-label">tiling-spaces.gif</span>
-            </div>
+            <video class="feature-media-video" src="assets/everyday-apps.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the file browser, file viewer, and port forwarder tiles"></video>
           </li>
           <li class="feature-row">
             <span class="feature-num" aria-hidden="true">04</span>
             <div class="feature-body">
-              <h3>More than terminals, right in the grid</h3>
-              <p>Browse and download remote files with the built-in file browser, watch logs with auto-refresh in the viewer, and forward TCP/UDP ports with a forwarding tile — all side by side with your shells.</p>
+              <h3>From terminal to web, with suwu commands</h3>
+              <p><code>suwu send</code> posts a notification to your screen from any script — pipe stdin, set a title. <code>suwu forward</code> opens a port-forwarding tile, <code>suwu open</code> resolves links and actions on the remote machine. Long builds finish? You'll know.</p>
             </div>
-            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 04">
-              <span class="feature-media-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
-              </span>
-              <span class="feature-media-label">tile-apps.gif</span>
-            </div>
+            <video class="feature-media-video" src="assets/suwu-cli.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of suwu send, suwu forward, and suwu open commands posting to the web interface"></video>
           </li>
           <li class="feature-row">
             <span class="feature-num" aria-hidden="true">05</span>
             <div class="feature-body">
-              <h3>A CLI that talks back to you</h3>
-              <p><code>suwu send</code> posts notifications to your screen from any script — pipe stdin, set a title. <code>suwu open</code> resolves links and actions on the remote machine. Long builds finish? You'll know.</p>
+              <h3>Reachable, but only by you</h3>
+              <p>Access works out of the box on localhost, your LAN, or over the internet behind a reverse proxy — with password authentication, per-run tokens, and one-command HTTPS.</p>
             </div>
-            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 05">
-              <span class="feature-media-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
-              </span>
-              <span class="feature-media-label">cli-notify.gif</span>
-            </div>
+            <video class="feature-media-video" src="assets/secure-access.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of password authentication, per-run tokens, and one-command HTTPS setup"></video>
           </li>
           <li class="feature-row">
             <span class="feature-num" aria-hidden="true">06</span>
             <div class="feature-body">
-              <h3>Reachable, but only by you</h3>
-              <p>Access works out of the box on localhost, your LAN, or over the internet behind a reverse proxy — with password authentication, per-run tokens, and one-command HTTPS.</p>
+              <h3>Yours to tune</h3>
+              <p>Pick your font family and size, theme the colors, dial in a glassy background alpha. The interface speaks English and Chinese out of the box.</p>
             </div>
-            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 06">
-              <span class="feature-media-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
-              </span>
-              <span class="feature-media-label">secure-access.gif</span>
-            </div>
+            <video class="feature-media-video" src="assets/appearance-i18n.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of font, theme, and language settings"></video>
           </li>
           <li class="feature-row">
             <span class="feature-num" aria-hidden="true">07</span>
             <div class="feature-body">
-              <h3>Yours to tune</h3>
-              <p>Pick your font family and size, theme the colors, dial in a glassy background alpha. The interface speaks English and Chinese out of the box.</p>
-            </div>
-            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 07">
-              <span class="feature-media-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
-              </span>
-              <span class="feature-media-label">appearance-i18n.gif</span>
-            </div>
-          </li>
-          <li class="feature-row">
-            <span class="feature-num" aria-hidden="true">08</span>
-            <div class="feature-body">
               <h3>Install once, stay current</h3>
               <p>Onboarding sets up your dev environment step by step, and <code>suwu update</code> keeps the binary fresh. No config files to babysit.</p>
             </div>
-            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 08">
-              <span class="feature-media-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
-              </span>
-              <span class="feature-media-label">onboard-update.gif</span>
-            </div>
+            <video class="feature-media-video" src="assets/onboard-update.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the onboarding checklist and suwu update command"></video>
           </li>
         </ol>
       </div>
     </section>
 
-    <!-- Shortcuts -->
-    <section class="section" id="shortcuts">
-      <div class="container">
-        <h2>Keys, not chrome.</h2>
-        <p class="section-sub">Every binding is chosen to avoid clashing with common shell and readline keys.</p>
-        <table class="shortcut-table">
-          <caption class="visually-hidden">Keyboard shortcuts</caption>
-          <thead>
-            <tr><th scope="col">Action</th><th scope="col">Keys</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Split right</td><td><kbd>Alt</kbd> <kbd>⏎</kbd></td></tr>
-            <tr><td>Split below</td><td><kbd>Alt</kbd> <kbd>⇧</kbd> <kbd>⏎</kbd></td></tr>
-            <tr><td>Close focused tile</td><td><kbd>Alt</kbd> <kbd>Q</kbd></td></tr>
-            <tr><td>Focus next / prev</td><td><kbd>Alt</kbd> <kbd>J</kbd> / <kbd>Alt</kbd> <kbd>K</kbd></td></tr>
-            <tr><td>Move tile</td><td><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></td></tr>
-            <tr><td>Open the menu</td><td><kbd>Alt</kbd> <kbd>/</kbd></td></tr>
-            <tr><td>Copy selection</td><td>Auto-copy on select, or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>C</kbd></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
 
-    <!-- Thanks -->
     <section class="section thanks" aria-labelledby="thanks-heading">
       <div class="container thanks-inner">
-        <h2 id="thanks-heading">Standing on shoulders.</h2>
+        <h2 id="thanks-heading">Inspired by great work.</h2>
         <p class="thanks-copy">
           Suwu is inspired by <a href="https://omarchy.org/" rel="noopener">Omarchy</a> —
           the opinionated, keyboard-first Arch + Hyprland setup from DHH and team.
-          If a desktop can be joyful to drive entirely from the keyboard, so can a
-          browser terminal.
+          With that same spirit, Suwu aims to bring that same level of enjoyment to the
+          web-based remote devshell — a terminal you would actually want to use day after day.
+        </p>
+        <p class="thanks-copy">
+          Built on the shoulders of <a href="https://github.com/creack/pty" rel="noopener">creack/pty</a>,
+          <a href="https://github.com/shintaoku/libghostty-go" rel="noopener">libghostty-go</a>,
+          <a href="https://xtermjs.org" rel="noopener">xterm.js</a>,
+          <a href="https://react.dev" rel="noopener">React</a>,
+          <a href="https://tailwindcss.com" rel="noopener">Tailwind CSS</a>,
+          <a href="https://www.radix-ui.com" rel="noopener">Radix UI</a>,
+          and <a href="https://wazero.io" rel="noopener">wazero</a>.
         </p>
       </div>
     </section>
   </main>
+
+  <!-- Hero canvas animation -->
+  <script>
+  (function () {
+    var canvas = document.getElementById('hero-canvas');
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext('2d');
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var W, H, tiles = [];
+    var COLS = 7, ROWS = 3, GAP = 6, RADIUS = 8;
+    var swapTimer = 0, SWAP_MS = 4200, focusIdx = 0, focusTimer = 0;
+
+    var PALETTE = [
+      { r: 49,  g: 44,  b: 133 },
+      { r: 12,  g: 12,  b: 9   },
+      { r: 22,  g: 163, b: 74  },
+      { r: 217, g: 119, b: 6   },
+      { r: 100, g: 116, b: 139 },
+    ];
+
+    function resize() {
+      W = canvas.clientWidth;
+      H = canvas.clientHeight;
+      canvas.width  = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      build();
+    }
+
+    function build() {
+      var cw = (W - GAP * (COLS + 1)) / COLS;
+      var ch = (H - GAP * (ROWS + 1)) / ROWS;
+      tiles = [];
+      for (var r = 0; r < ROWS; r++) {
+        for (var c = 0; c < COLS; c++) {
+          var x = GAP + c * (cw + GAP);
+          var y = GAP + r * (ch + GAP);
+          tiles.push({
+            x: x, y: y, tx: x, ty: y,
+            w: cw, h: ch,
+            scale: 1,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.25 + Math.random() * 0.45,
+            alpha: 0.035 + Math.random() * 0.055,
+            color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+            hasStatus: Math.random() > 0.45,
+            hasCursor: Math.random() > 0.65,
+          });
+        }
+      }
+    }
+
+    function rrect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.arcTo(x + w, y, x + w, y + r, r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      ctx.lineTo(x + r, y + h);
+      ctx.arcTo(x, y + h, x, y + h - r, r);
+      ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
+      ctx.closePath();
+    }
+
+    var lastTime = 0;
+    function frame(now) {
+      var dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      var t = now * 0.001;
+
+      ctx.clearRect(0, 0, W, H);
+
+      swapTimer += dt * 1000;
+      if (swapTimer > SWAP_MS) { doSwap(); swapTimer = 0; }
+
+      focusTimer += dt * 1000;
+      if (focusTimer > 2800) { focusIdx = (focusIdx + 1) % tiles.length; focusTimer = 0; }
+
+      for (var i = 0; i < tiles.length; i++) {
+        var tile = tiles[i];
+
+        tile.phase += tile.speed * dt;
+        tile.scale = 0.94 + 0.06 * Math.sin(tile.phase);
+
+        tile.x += (tile.tx - tile.x) * Math.min(dt * 3, 1);
+        tile.y += (tile.ty - tile.y) * Math.min(dt * 3, 1);
+
+        var cx = tile.x + tile.w / 2;
+        var cy = tile.y + tile.h / 2;
+        var c  = tile.color;
+        var focused = i === focusIdx;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(tile.scale, tile.scale);
+        ctx.translate(-cx, -cy);
+
+        rrect(tile.x, tile.y, tile.w, tile.h, RADIUS);
+        var a = tile.alpha + (focused ? 0.035 : 0);
+        ctx.fillStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + a + ')';
+        ctx.fill();
+
+        ctx.strokeStyle = focused ? 'rgba(12,12,9,0.13)' : 'rgba(12,12,9,0.05)';
+        ctx.lineWidth = focused ? 1 : 0.5;
+        ctx.stroke();
+
+        if (tile.hasStatus) {
+          var dx = tile.x + 10, dy = tile.y + tile.h - 10;
+          ctx.beginPath(); ctx.arc(dx, dy, 2.5, 0, 6.28);
+          ctx.fillStyle = 'rgba(22,163,74,' + (0.12 + 0.08 * Math.sin(t * 1.8 + i)) + ')';
+          ctx.fill();
+          ctx.beginPath(); ctx.arc(dx + 8, dy, 2.5, 0, 6.28);
+          ctx.fillStyle = 'rgba(217,119,6,0.09)';
+          ctx.fill();
+        }
+
+        if (tile.hasCursor && Math.sin(t * 2.2 + i * 1.7) > 0) {
+          ctx.fillStyle = 'rgba(12,12,9,0.12)';
+          ctx.fillRect(tile.x + 12, tile.y + 14, 7, 14);
+        }
+
+        ctx.restore();
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    function doSwap() {
+      var a = Math.floor(Math.random() * tiles.length);
+      var b;
+      do { b = Math.floor(Math.random() * tiles.length); } while (b === a);
+
+      var tmpTx = tiles[a].tx, tmpTy = tiles[a].ty;
+      tiles[a].tx = tiles[b].tx;  tiles[a].ty = tiles[b].ty;
+      tiles[b].tx = tmpTx;       tiles[b].ty = tmpTy;
+
+      var tmpC = tiles[a].color;
+      tiles[a].color = tiles[b].color;
+      tiles[b].color = tmpC;
+
+      var tmpS = tiles[a].hasStatus;
+      tiles[a].hasStatus = tiles[b].hasStatus;
+      tiles[b].hasStatus = tmpS;
+
+      var tmpCur = tiles[a].hasCursor;
+      tiles[a].hasCursor = tiles[b].hasCursor;
+      tiles[b].hasCursor = tmpCur;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    requestAnimationFrame(frame);
+  })();
+  </script>
 
   <footer class="site-footer">
     <div class="container footer-inner">
@@ -241,8 +331,70 @@
     </div>
   </footer>
 
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
   <script>
     document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+    // Lightbox
+    (function () {
+      var lightbox   = document.getElementById('lightbox');
+      var lbVideo    = document.getElementById('lightbox-video');
+      var closeBtn   = lightbox.querySelector('.lightbox-close');
+      var lastFocus  = null;
+
+      function open(src, label) {
+        lastFocus = document.activeElement;
+        lbVideo.src = src;
+        lbVideo.setAttribute('aria-label', label || '');
+        lightbox.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        lbVideo.play();
+        closeBtn.focus();
+      }
+
+      function close() {
+        lbVideo.pause();
+        lbVideo.removeAttribute('src');
+        lightbox.classList.remove('is-open');
+        document.body.style.overflow = '';
+        if (lastFocus) lastFocus.focus();
+      }
+
+      // Attach to every demo video
+      document.querySelectorAll('.feature-media-video').forEach(function (vid) {
+        vid.style.cursor = 'pointer';
+        vid.setAttribute('tabindex', '0');
+        vid.setAttribute('role', 'button');
+        vid.setAttribute('aria-label', (vid.getAttribute('aria-label') || 'Demo') + ' — click to enlarge');
+        vid.addEventListener('click', function () {
+          open(vid.src, vid.getAttribute('aria-label'));
+        });
+        vid.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            open(vid.src, vid.getAttribute('aria-label'));
+          }
+        });
+      });
+
+      closeBtn.addEventListener('click', close);
+      lightbox.addEventListener('click', function (e) {
+        if (e.target === lightbox) close();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (!lightbox.classList.contains('is-open')) return;
+        if (e.key === 'Escape') close();
+      });
+    })();
 
     // Copy-to-clipboard for install command
     document.querySelectorAll('.copy-btn').forEach(function (btn) {
@@ -262,7 +414,6 @@
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
         } else {
-          // Fallback for non-secure contexts
           var ta = document.createElement('textarea');
           ta.value = text;
           ta.style.position = 'fixed';

@@ -231,10 +231,23 @@ kbd {
 /* ---------- Hero ---------- */
 
 .hero {
+  position: relative;
+  overflow: hidden;
   padding-block: var(--space-16) var(--space-16);
 }
 
+#hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  will-change: transform;
+}
+
 .hero-inner {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -242,8 +255,8 @@ kbd {
 }
 
 .hero-logo {
-  width: 128px;
-  height: 128px;
+  width: 256px;
+  height: 256px;
   margin-bottom: var(--space-8);
 }
 
@@ -518,6 +531,15 @@ kbd {
   color: #8a8a82;
 }
 
+.feature-media-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
 @media (max-width: 60rem) {
   .feature-row {
     grid-template-columns: 96px minmax(0, 1fr);
@@ -585,8 +607,8 @@ kbd {
 /* ---------- Thanks ---------- */
 
 .thanks {
-  background: var(--color-surface-alt);
-  border-top: 1px solid var(--color-border);
+  background: transparent;
+  border-block: none;
 }
 
 .thanks-inner {
@@ -639,6 +661,65 @@ kbd {
 .footer-github {
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+/* ---------- Lightbox ---------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(12 12 9 / 0.82);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: var(--space-8);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms ease, visibility 200ms;
+}
+
+.lightbox.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-white);
+  color: var(--color-text);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  transition: background-color 120ms ease;
+}
+
+.lightbox-close:hover {
+  background: var(--color-surface-alt);
+}
+
+.lightbox-video-wrap {
+  max-width: 1120px;
+  max-height: calc(100vh - var(--space-8) * 2);
+}
+
+.lightbox-video-wrap video {
+  display: block;
+  width: 100%;
+  max-height: calc(100vh - var(--space-8) * 2);
+  border-radius: var(--radius-md);
+  background: #000;
+  object-fit: contain;
 }
 
 /* ---------- Reduced motion ---------- */

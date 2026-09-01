@@ -42,7 +42,6 @@ import './plugins/forward'
 
 // Register app config presets (side-effect imports).
 import './configs/herdr'
-import './configs/forward'
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +

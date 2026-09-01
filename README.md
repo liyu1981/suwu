@@ -203,3 +203,7 @@ The menu (☰) also exposes splits, settings, shortcuts, and about screens.
 - Binding beyond loopback exposes the shell to everyone who can reach the
   machine's network.
 - Only run Suwu on networks and machines you trust.
+
+## License
+
+[Apache License 2.0](LICENSE)

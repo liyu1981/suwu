@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suwu — make the remote devshell enjoyable</title>
+  <meta name="description" content="Suwu makes the remote devshell enjoyable in agentic AI time: your real shell in the browser, with a keyboard-driven tiling workspace, sessions that survive refreshes, and built-in tools for files, logs, and port forwarding." />
+  <link rel="icon" type="image/svg+xml" href="logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Suwu home">
+        <img class="brand-mark" src="logo.svg" alt="" width="28" height="28" />
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="#features">Features</a>
+        <a href="#shortcuts">Shortcuts</a>
+        <a href="#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" id="top">
+      <div class="container hero-inner">
+        <img class="hero-logo" src="logo.svg" alt="Suwu logo" width="128" height="128" />
+        <h1>Suwu</h1>
+        <p class="hero-tagline">Make the remote devshell enjoyable<br />in agentic AI time.</p>
+        <p class="hero-sub">
+          Your real shell, in a browser tab. Suwu gives agents and humans alike a
+          tiling terminal that keeps running when you don't — refresh, disconnect,
+          come back tomorrow, pick up where you left off.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#install">Install Suwu</a>
+          <a class="btn btn-ghost" href="https://github.com/liyu1981/suwu" rel="noopener">View source</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Install one-liner -->
+    <section class="section install-band" id="install" aria-label="Install">
+      <div class="container">
+        <p class="install-lead">Install</p>
+        <div class="install-line install-line-lg" role="group" aria-label="Install command">
+          <code id="install-command">curl -fsSL https://raw.githubusercontent.com/liyu1981/suwu/refs/heads/master/install.sh | sh</code>
+          <button class="copy-btn" type="button" aria-label="Copy install command to clipboard" data-copy-target="install-command">Copy</button>
+        </div>
+        <p class="install-note" aria-live="polite">The download lands in <code>~/.local/bin/suwu</code> and walks you through onboarding.</p>
+      </div>
+    </section>
+
+    <!-- Demo video placeholder -->
+    <section class="section" id="demo" aria-label="Demo">
+      <div class="container">
+        <h2>See it in action.</h2>
+        <p class="section-sub">Split panes, run real commands, refresh the page — the screen comes back.</p>
+        <figure class="demo-figure">
+          <div class="demo-placeholder" role="img" aria-label="Demo video placeholder">
+            <span class="demo-play" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+            </span>
+            <span class="demo-label">Demo video coming soon</span>
+          </div>
+          <figcaption class="demo-caption">A two-minute tour of the tiling workspace, session restore, and the suwu CLI.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Features, one by one -->
+    <section class="section section-alt" id="features">
+      <div class="container">
+        <h2>Built for the way you actually work.</h2>
+        <ol class="feature-list">
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">01</span>
+            <div class="feature-body">
+              <h3>Your real shell, in a browser tab</h3>
+              <p>Everything you run is running in your actual shell — not a simulation, not a sandbox. Open a tab on your laptop, tablet, or phone and it's the same machine.</p>
+            </div>
+            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 01">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
+              </span>
+              <span class="feature-media-label">real-shell.gif</span>
+            </div>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">02</span>
+            <div class="feature-body">
+              <h3>Sessions that survive</h3>
+              <p>Refresh the page, drop the connection, even restart the server — reconnect and your terminal screen is replayed exactly as you left it, before live output resumes.</p>
+            </div>
+            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 02">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
+              </span>
+              <span class="feature-media-label">session-restore.gif</span>
+            </div>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">03</span>
+            <div class="feature-body">
+              <h3>A workspace that moves at keyboard speed</h3>
+              <p>Split, focus, move, swap, and close tiles without touching the mouse. Group them into spaces and switch workspaces like a window manager on your desktop.</p>
+            </div>
+            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 03">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
+              </span>
+              <span class="feature-media-label">tiling-spaces.gif</span>
+            </div>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">04</span>
+            <div class="feature-body">
+              <h3>More than terminals, right in the grid</h3>
+              <p>Browse and download remote files with the built-in file browser, watch logs with auto-refresh in the viewer, and forward TCP/UDP ports with a forwarding tile — all side by side with your shells.</p>
+            </div>
+            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 04">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
+              </span>
+              <span class="feature-media-label">tile-apps.gif</span>
+            </div>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">05</span>
+            <div class="feature-body">
+              <h3>A CLI that talks back to you</h3>
+              <p><code>suwu send</code> posts notifications to your screen from any script — pipe stdin, set a title. <code>suwu open</code> resolves links and actions on the remote machine. Long builds finish? You'll know.</p>
+            </div>
+            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 05">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
+              </span>
+              <span class="feature-media-label">cli-notify.gif</span>
+            </div>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">06</span>
+            <div class="feature-body">
+              <h3>Reachable, but only by you</h3>
+              <p>Access works out of the box on localhost, your LAN, or over the internet behind a reverse proxy — with password authentication, per-run tokens, and one-command HTTPS.</p>
+            </div>
+            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 06">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
+              </span>
+              <span class="feature-media-label">secure-access.gif</span>
+            </div>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">07</span>
+            <div class="feature-body">
+              <h3>Yours to tune</h3>
+              <p>Pick your font family and size, theme the colors, dial in a glassy background alpha. The interface speaks English and Chinese out of the box.</p>
+            </div>
+            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 07">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
+              </span>
+              <span class="feature-media-label">appearance-i18n.gif</span>
+            </div>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">08</span>
+            <div class="feature-body">
+              <h3>Install once, stay current</h3>
+              <p>Onboarding sets up your dev environment step by step, and <code>suwu update</code> keeps the binary fresh. No config files to babysit.</p>
+            </div>
+            <div class="feature-media" role="img" aria-label="Demo GIF placeholder for feature 08">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5 16.5 11 6 19"/></svg>
+              </span>
+              <span class="feature-media-label">onboard-update.gif</span>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Shortcuts -->
+    <section class="section" id="shortcuts">
+      <div class="container">
+        <h2>Keys, not chrome.</h2>
+        <p class="section-sub">Every binding is chosen to avoid clashing with common shell and readline keys.</p>
+        <table class="shortcut-table">
+          <caption class="visually-hidden">Keyboard shortcuts</caption>
+          <thead>
+            <tr><th scope="col">Action</th><th scope="col">Keys</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Split right</td><td><kbd>Alt</kbd> <kbd>⏎</kbd></td></tr>
+            <tr><td>Split below</td><td><kbd>Alt</kbd> <kbd>⇧</kbd> <kbd>⏎</kbd></td></tr>
+            <tr><td>Close focused tile</td><td><kbd>Alt</kbd> <kbd>Q</kbd></td></tr>
+            <tr><td>Focus next / prev</td><td><kbd>Alt</kbd> <kbd>J</kbd> / <kbd>Alt</kbd> <kbd>K</kbd></td></tr>
+            <tr><td>Move tile</td><td><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></td></tr>
+            <tr><td>Open the menu</td><td><kbd>Alt</kbd> <kbd>/</kbd></td></tr>
+            <tr><td>Copy selection</td><td>Auto-copy on select, or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>C</kbd></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Thanks -->
+    <section class="section thanks" aria-labelledby="thanks-heading">
+      <div class="container thanks-inner">
+        <h2 id="thanks-heading">Standing on shoulders.</h2>
+        <p class="thanks-copy">
+          Suwu is inspired by <a href="https://omarchy.org/" rel="noopener">Omarchy</a> —
+          the opinionated, keyboard-first Arch + Hyprland setup from DHH and team.
+          If a desktop can be joyful to drive entirely from the keyboard, so can a
+          browser terminal.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote devshell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+    // Copy-to-clipboard for install command
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var target = document.getElementById(btn.getAttribute('data-copy-target'));
+        if (!target) return;
+        var text = target.textContent.trim();
+        function done(ok) {
+          var original = 'Copy';
+          btn.textContent = ok ? 'Copied!' : 'Failed';
+          btn.classList.toggle('copy-btn-done', ok);
+          setTimeout(function () {
+            btn.textContent = original;
+            btn.classList.remove('copy-btn-done');
+          }, 2000);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+        } else {
+          // Fallback for non-secure contexts
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          done(ok);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

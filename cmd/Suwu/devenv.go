@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -50,8 +51,23 @@ func loadChecklist() ([]checklistItem, error) {
 }
 
 func binaryExists(name string) bool {
-	_, err := exec.LookPath(name)
-	return err == nil
+	if _, err := exec.LookPath(name); err == nil {
+		return true
+	}
+	// Also check asdf shims directory — after `asdf install` the shim may
+	// exist on disk but not yet be in the current shell's PATH.
+	if asdfDir := os.Getenv("ASDF_DATA_DIR"); asdfDir != "" {
+		if _, err := os.Stat(asdfDir + "/shims/" + name); err == nil {
+			return true
+		}
+	}
+	home, _ := os.UserHomeDir()
+	if home != "" {
+		if _, err := os.Stat(home + "/.asdf/shims/" + name); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func goarch() string {
@@ -63,6 +79,69 @@ func goarch() string {
 	default:
 		return runtime.GOARCH
 	}
+}
+
+// asdfShimsDir returns the asdf shims directory, checking ASDF_DATA_DIR first
+// then falling back to ~/.asdf/shims.
+func asdfShimsDir() string {
+	if dir := os.Getenv("ASDF_DATA_DIR"); dir != "" {
+		return dir + "/shims"
+	}
+	home, _ := os.UserHomeDir()
+	if home != "" {
+		return home + "/.asdf/shims"
+	}
+	return ""
+}
+
+// envWithAsdfShims returns os.Environ() with the asdf shims directory
+// prepended to PATH so that shimmed binaries (npm, node, etc.) are found.
+func envWithAsdfShims() []string {
+	shims := asdfShimsDir()
+	if shims == "" {
+		return os.Environ()
+	}
+	path := os.Getenv("PATH")
+	if strings.Contains(path, shims) {
+		return os.Environ()
+	}
+	env := make([]string, 0, len(os.Environ())+1)
+	env = append(env, "PATH="+shims+":"+path)
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, "PATH=") {
+			env = append(env, e)
+		}
+	}
+	return env
+}
+
+// localMachineIPs returns non-loopback, non-link-local IPv4 addresses.
+func localMachineIPs() []string {
+	var ips []string
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ips
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			if ipNet.IP.IsLinkLocalUnicast() || ipNet.IP.IsLoopback() || ipNet.IP.To4() == nil {
+				continue
+			}
+			ips = append(ips, ipNet.IP.String())
+		}
+	}
+	return ips
 }
 
 func fetchLatestVersion(repo string) (string, error) {
@@ -333,7 +412,7 @@ func runDevenvSetup() error {
 		} else if item.InstallCmd != "" {
 			fmt.Printf("    → running install command...\n")
 			cmd := exec.Command("bash", "-c", item.InstallCmd)
-			cmd.Env = os.Environ()
+			cmd.Env = envWithAsdfShims()
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			installErr = cmd.Run()
@@ -348,7 +427,7 @@ func runDevenvSetup() error {
 			if item.PostInstallCmd != "" {
 				fmt.Printf("    → running post-install setup...\n")
 				cmd := exec.Command("bash", "-c", item.PostInstallCmd)
-				cmd.Env = os.Environ()
+				cmd.Env = envWithAsdfShims()
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				if err := cmd.Run(); err != nil {
@@ -375,6 +454,25 @@ func runDevenvSetup() error {
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			fmt.Printf("  ⚠️  failed to start daemon: %v\n", err)
+		} else {
+			// Print IP-based access URLs so the user knows how to reach
+			// the terminal from other devices on the network.
+			if ips := localMachineIPs(); len(ips) > 0 {
+				port := os.Getenv("PORT")
+				if port == "" {
+					port = "8181"
+				}
+				scheme := "https"
+				if os.Getenv("TLS_CERT_FILE") == "" && os.Getenv("TLS_KEY_FILE") == "" {
+					scheme = "http"
+				}
+				fmt.Println()
+				fmt.Println("  📡 Other devices on this network can reach the terminal at:")
+				for _, ip := range ips {
+					fmt.Printf("     %s://%s:%s\n", scheme, ip, port)
+				}
+				fmt.Println("     (client devices must trust the CA once for https)")
+			}
 		}
 	}
 

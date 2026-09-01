@@ -141,7 +141,8 @@
       "rename": "Rename",
       "delete": "Delete",
       "viewInViewer": "Open in File Viewer",
-      "upload": "Upload to Folder"
+      "upload": "Upload to Folder",
+      "download": "Download"
     },
     "renameTitle": "Rename",
     "deleteTitle": "Delete",

@@ -136,6 +136,39 @@ export function ContextMenu({
     onClose()
   }
 
+  const handleDownload = async () => {
+    if (!entry) return
+    setLoading(true)
+    try {
+      const headers: Record<string, string> = {}
+      const creds = getCredentials()
+      if (creds) headers['Authorization'] = creds
+
+      const res = await fetch(`/api/file?path=${encodeURIComponent(fullPath)}&download=true`, {
+        cache: 'no-store',
+        headers,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error || `HTTP ${res.status}`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = entry.name
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      onClose()
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : 'Download failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!entry) return null
 
   // Rename dialog
@@ -253,6 +286,11 @@ export function ContextMenu({
             icon={<ViewIcon />}
             onClick={handleViewInViewer}
           />
+          <MenuItem
+            label={t('filebrowser.contextMenu.download')}
+            icon={<DownloadIcon />}
+            onClick={handleDownload}
+          />
         </>
       )}
     </div>
@@ -324,6 +362,16 @@ function ViewIcon() {
     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function DownloadIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   )
 }

@@ -392,6 +392,13 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	// If ?download=true, force Content-Disposition: attachment so the browser
+	// saves the file instead of trying to display it inline.
+	if r.URL.Query().Get("download") == "true" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filepath.Base(filePath)))
+	}
+
 	http.ServeFile(w, r, filePath)
 }
 

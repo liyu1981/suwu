@@ -548,7 +548,14 @@ export default function FileBrowserPage() {
             </div>
 
             {/* File entries */}
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div
+              className="min-h-0 flex-1 overflow-y-auto"
+              onContextMenu={(e) => {
+                // Only trigger if the click was on the empty area, not on an entry
+                if ((e.target as HTMLElement).closest('button')) return
+                handleContextMenu(e, null)
+              }}
+            >
               {loading && (
                 <div className="flex items-center justify-center py-12 text-xs text-white/30">
                   {t('filebrowser.loading')}
@@ -623,6 +630,7 @@ export default function FileBrowserPage() {
           onSuccess={(msg) => showToast(msg, 'success')}
           openInViewer={openInViewer}
           onUpload={() => setShowUpload(true)}
+          onNewFolder={() => fetchDir(currentPath)}
         />
       )}
 

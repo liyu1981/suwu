@@ -137,12 +137,15 @@
     "copyPath": "点击复制路径",
     "viewerEmpty": "文件查看器 — 空",
     "contextMenu": {
+      "newFolder": "新建文件夹",
       "rename": "重命名",
       "delete": "删除",
       "viewInViewer": "在文件查看器中打开",
       "upload": "上传到此文件夹",
       "download": "下载"
     },
+    "newFolderTitle": "新建文件夹",
+    "newFolderSuccess": "文件夹创建成功",
     "renameTitle": "重命名",
     "deleteTitle": "删除",
     "deleteConfirm": "确定要删除 {{name}} 吗？",

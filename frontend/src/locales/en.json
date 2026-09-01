@@ -138,12 +138,15 @@
     "copyPath": "Click to copy path",
     "viewerEmpty": "File Viewer — empty",
     "contextMenu": {
+      "newFolder": "New Folder",
       "rename": "Rename",
       "delete": "Delete",
       "viewInViewer": "Open in File Viewer",
       "upload": "Upload to Folder",
       "download": "Download"
     },
+    "newFolderTitle": "New Folder",
+    "newFolderSuccess": "Folder created successfully",
     "renameTitle": "Rename",
     "deleteTitle": "Delete",
     "deleteConfirm": "Are you sure you want to delete {{name}}?",

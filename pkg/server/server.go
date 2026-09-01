@@ -108,6 +108,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/file/mkdir" {
+		s.handleFileMkdir(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/file/chown" {
 		s.handleFileChown(w, r)
 		return
@@ -561,6 +566,44 @@ func (s *Server) handleFileChmod(w http.ResponseWriter, r *http.Request) {
 
 	slog.Debug("file mode changed", "path", filePath, "mode", req.Mode)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleFileMkdir creates a new directory.
+// POST /api/file/mkdir { "path": "/path/to/new-dir" }
+func (s *Server) handleFileMkdir(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	if req.Path == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is required"})
+		return
+	}
+
+	dirPath := filepath.Clean(req.Path)
+
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		slog.Error("mkdir failed", "path", dirPath, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("mkdir failed: %v", err)})
+		return
+	}
+
+	slog.Debug("directory created", "path", dirPath)
+	writeJSON(w, http.StatusOK, map[string]string{"path": dirPath})
 }
 
 // handleFileChown changes file ownership.

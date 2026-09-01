@@ -20,6 +20,7 @@ interface ContextMenuProps {
   onSuccess: (msg: string) => void
   openInViewer: (path: string) => void
   onUpload: () => void
+  onNewFolder: () => void
 }
 
 const MAX_VIEWER_SIZE = 100 * 1024 * 1024 // 100MB
@@ -35,12 +36,15 @@ export function ContextMenu({
   onSuccess,
   openInViewer,
   onUpload,
+  onNewFolder: _onNewFolder,
 }: ContextMenuProps) {
   const { t } = useTranslation()
   const menuRef = useRef<HTMLDivElement>(null)
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [showNewFolder, setShowNewFolder] = useState(false)
   const [renameValue, setRenameValue] = useState('')
+  const [newFolderName, setNewFolderName] = useState('')
   const [loading, setLoading] = useState(false)
 
   // Close on click outside
@@ -169,7 +173,63 @@ export function ContextMenu({
     }
   }
 
-  if (!entry) return null
+  const handleNewFolder = async () => {
+    if (!newFolderName.trim()) return
+    setLoading(true)
+    try {
+      const newPath = `${fullPath}/${newFolderName.trim()}`.replace(/\/+/g, '/')
+      await apiCall('/api/file/mkdir', { path: newPath })
+      onSuccess(t('filebrowser.newFolderSuccess'))
+      onRefresh()
+      onClose()
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : 'Failed to create folder')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // New Folder dialog
+  if (showNewFolder) {
+    return (
+      <div
+        ref={menuRef}
+        className="fixed z-50 w-[280px] rounded-xl border border-white/10 p-3 shadow-2xl backdrop-blur-xl"
+        style={{
+          left: x,
+          top: y,
+          background: 'rgba(30, 30, 30, 0.85)',
+        }}
+      >
+        <div className="mb-2 text-xs font-medium text-white/80">{t('filebrowser.newFolderTitle')}</div>
+        <input
+          type="text"
+          value={newFolderName}
+          onChange={(e) => setNewFolderName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleNewFolder()}
+          className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-sky-400/50 focus:bg-white/10"
+          autoFocus
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-1.5 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            {t('filebrowser.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={handleNewFolder}
+            disabled={loading || !newFolderName.trim()}
+            className="rounded-lg bg-sky-500/20 px-3 py-1.5 text-xs text-sky-300 transition-colors hover:bg-sky-500/30 disabled:opacity-50"
+          >
+            {t('filebrowser.confirm')}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // Rename dialog
   if (showRename) {
@@ -214,7 +274,7 @@ export function ContextMenu({
   }
 
   // Delete dialog
-  if (showDelete) {
+  if (showDelete && entry) {
     return (
       <div
         ref={menuRef}
@@ -262,23 +322,36 @@ export function ContextMenu({
       }}
     >
       <MenuItem
-        label={t('filebrowser.contextMenu.rename')}
-        icon={<RenameIcon />}
-        onClick={() => { setRenameValue(entry.name); setShowRename(true) }}
+        label={t('filebrowser.contextMenu.newFolder')}
+        icon={<NewFolderIcon />}
+        onClick={() => {
+          setNewFolderName('')
+          setShowNewFolder(true)
+        }}
       />
-      <MenuItem
-        label={t('filebrowser.contextMenu.delete')}
-        icon={<DeleteIcon />}
-        onClick={() => setShowDelete(true)}
-        danger
-      />
+      {entry && (
+        <>
+          <MenuDivider />
+          <MenuItem
+            label={t('filebrowser.contextMenu.rename')}
+            icon={<RenameIcon />}
+            onClick={() => { setRenameValue(entry.name); setShowRename(true) }}
+          />
+          <MenuItem
+            label={t('filebrowser.contextMenu.delete')}
+            icon={<DeleteIcon />}
+            onClick={() => setShowDelete(true)}
+            danger
+          />
+        </>
+      )}
       <MenuDivider />
       <MenuItem
         label={t('filebrowser.contextMenu.upload')}
         icon={<UploadIcon />}
         onClick={() => { onUpload(); onClose() }}
       />
-      {!entry.isDir && (
+      {entry && !entry.isDir && (
         <>
           <MenuDivider />
           <MenuItem
@@ -372,6 +445,16 @@ function DownloadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+function NewFolderIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      <line x1="12" y1="11" x2="12" y2="17" />
+      <line x1="9" y1="14" x2="15" y2="14" />
     </svg>
   )
 }

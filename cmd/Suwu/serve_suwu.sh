@@ -66,10 +66,16 @@ SCHEME=https
 [[ -z "$TLS_CERT_FILE" || -z "$TLS_KEY_FILE" ]] && SCHEME=http
 
 # Wildcard binds are reachable via loopback; display a clickable URL but
-# note the actual bind address.
+# note the actual bind address. When HOST=auto, resolve to a real
+# hostname so the banner shows a useful address instead of the literal
+# "auto" string.
 DISPLAY_HOST="$RESOLVED_HOST"
 BIND_NOTE=""
 case "$RESOLVED_HOST" in
+  auto)
+    BIND_NOTE=" (bound to 0.0.0.0)"
+    DISPLAY_HOST="$(hostname 2>/dev/null || echo 127.0.0.1)"
+    ;;
   0.0.0.0|::|'*'|'')
     [[ -n "$RESOLVED_HOST" ]] && BIND_NOTE=" (bound to $RESOLVED_HOST)"
     DISPLAY_HOST="127.0.0.1"

@@ -1,44 +1,49 @@
-# Suwu
+<p align="center">
+  <img src="https://raw.githubusercontent.com/liyu1981/suwu/refs/heads/master/assets/logo.svg" alt="Suwu logo" width="128" height="128" />
+</p>
 
-A browser terminal emulator backed by a real shell. Suwu pairs a Go server
-that bridges xterm.js panes to actual PTYs over WebSocket with a tiling
-window-manager frontend — split, move, focus, and resize terminal tiles by
-keyboard or hover tools, and pick up your session where you left off after a
-refresh.
+<h1 align="center">Suwu</h1>
 
-```
-┌──────────────────────────────────────────────┐
-│ Suwu                                    ☰    │
-├───────────────────────┬──────────────────────┤
-│ $ go version          │ $ tail -f var/*.log  │
-│ go version go1.25 …   │ …                    │
-│                       ├──────────────────────┤
-│                       │ $ htop               │
-└───────────────────────┴──────────────────────┘
-```
+<p align="center"><strong>Make the remote devshell enjoyable in agentic AI time.</strong></p>
+
+Your real shell, in a browser tab. Suwu gives agents and humans alike a
+tiling terminal that keeps running when you don't — refresh, disconnect,
+come back tomorrow, pick up where you left off.
 
 ## Features
 
-- **Real shell sessions** — the Go server spawns actual PTYs (`creack/pty`)
-  and forwards them to xterm.js panes over WebSocket; everything you run is
-  running in your shell.
-- **Session restore** — server-side terminal state is kept by
-  [libghostty-vt](https://github.com/shintaoku/libghostty-go) (Ghostty's VT
-  engine compiled to WASM, run in-process via wazero). A page refresh or
-  dropped socket reattaches to the same shell and replays the current screen
-  before live output resumes.
-- **Tiling workspace** — a flat, absolutely-positioned pane tree driven by a
-  pure layout module: splits, closes, and moves only mutate inline styles, so
-  iframe DOM nodes are never recreated and their PTY sessions survive every
-  layout change.
-- **Per-pane terminals** — every tile is an isolated xterm.js instance with
-  its own shell and WebSocket session.
-- **Appearance settings** — shared font family/size and theme colors
-  (including background alpha for glassy tiles), synced live to every open
-  pane via `localStorage` storage events.
-- **Thoughtful terminal behavior** — WebGL rendering with fallback, selection
-  auto-copy, `Ctrl+Shift+C` / `Cmd+C` copy, status bar with connection state
-  and a reconnect countdown that never pollutes the scrollback.
+1. **A tile-based window manager, by keyboard or mouse** — Split, focus, move,
+   and swap tiles with fast key bindings or a click and drag — whichever fits
+   the moment. Your sessions live in the layout: refresh the page, drop the
+   connection, even restart the server, and every tile comes back exactly as you
+   left it.
+
+2. **Full-featured terminals, perfect for agents** — Real shells with selection,
+   copy/paste, scrollback, and notifications — comfortable for you, and a solid
+   target for agent orchestrators like `opencode`, `pi`, and `herdr` that drive
+   many terminals at once.
+
+3. **Convenient apps for everyday dev work** — A file browser with download, a
+   file viewer with auto-refresh, and a TCP/UDP port forwarder — the small tools
+   you'd otherwise reach for a second terminal or a GUI client, right in the
+   grid next to your shells.
+
+4. **From terminal to web, with suwu commands** — `suwu send` posts a
+   notification to your screen from any script — pipe stdin, set a title.
+   `suwu forward` opens a port-forwarding tile, `suwu open` resolves links and
+   actions on the remote machine. Long builds finish? You'll know.
+
+5. **Reachable, but only by you** — Access works out of the box on localhost,
+   your LAN, or over the internet behind a reverse proxy — with password
+   authentication, per-run tokens, and one-command HTTPS.
+
+6. **Yours to tune** — Pick your font family and size, theme the colors, dial
+   in a glassy background alpha. The interface speaks English and Chinese out of
+   the box.
+
+7. **Install once, stay current** — Onboarding sets up your dev environment step
+   by step, and `suwu update` keeps the binary fresh. No config files to
+   babysit.
 
 ## Install
 
@@ -177,22 +182,6 @@ frontend/            Vite + React + TypeScript + Tailwind v4
   iframes loading `/term?pane=<id>`, positioned absolutely from pixel rects
   computed by a pure `computeTiling()` function. Shortcuts work both on the
   parent window and inside a focused pane (relayed via `postMessage`).
-
-## Keyboard shortcuts
-
-| Action              | Keys                                    |
-| ------------------- | --------------------------------------- |
-| Split right         | `Alt` `⏎`                               |
-| Split below         | `Alt` `⇧` `⏎`                           |
-| Close focused tile  | `Alt` `Q`                               |
-| Focus next / prev   | `Alt` `J` / `Alt` `K`                   |
-| Move tile           | `Alt` `←` `→` `↑` `↓`                   |
-| Open the menu       | `Alt` `/`                               |
-| Open shortcuts list | `Alt` `⇧` `/`                           |
-| Copy selection      | select to auto-copy, or `Ctrl+Shift+C` / `Cmd+C` |
-
-Every binding is chosen to avoid clashing with common shell/readline keys.
-The menu (☰) also exposes splits, settings, shortcuts, and about screens.
 
 ## Security notes
 

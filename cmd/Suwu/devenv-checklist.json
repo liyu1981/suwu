@@ -7,6 +7,13 @@
     "install_cmd": "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y git; elif command -v dnf >/dev/null 2>&1; then dnf install -y git; elif command -v yum >/dev/null 2>&1; then yum install -y git; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm git; elif command -v apk >/dev/null 2>&1; then apk add git; else echo ' unsupported package manager — install git manually' && exit 1; fi"
   },
   {
+    "id": "vim",
+    "name": "vim",
+    "description": "Terminal text editor",
+    "check_binary": "vim",
+    "install_cmd": "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y vim; elif command -v dnf >/dev/null 2>&1; then dnf install -y vim-enhanced; elif command -v yum >/dev/null 2>&1; then yum install -y vim-enhanced; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm vim; elif command -v apk >/dev/null 2>&1; then apk add vim; else echo ' unsupported package manager — install vim manually' && exit 1; fi"
+  },
+  {
     "id": "asdf",
     "name": "asdf",
     "description": "Polyglot version manager for Node.js, Python, Go, etc.",

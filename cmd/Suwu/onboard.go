@@ -250,50 +250,64 @@ func setupAuth(envPath string) error {
 }
 
 // ensureLocalBinInPath adds ~/.local/bin to PATH in shell config files
-// if it is not already present.
+// if it is not already present, and updates the current process PATH so
+// subsequent exec.Command calls can find binaries there.
 func ensureLocalBinInPath(home string) {
 	localBin := home + "/.local/bin"
 	pathLine := `export PATH="$HOME/.local/bin:$PATH"`
 
 	// Check if already in current PATH
+	alreadyInPath := false
 	for _, p := range strings.Split(os.Getenv("PATH"), ":") {
 		if p == localBin {
-			return
+			alreadyInPath = true
+			break
 		}
 	}
 
-	// Shell config files to patch (first match wins)
-	shellConfigs := []string{".bashrc", ".profile", ".zshrc"}
-	for _, cfg := range shellConfigs {
-		path := home + "/" + cfg
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
+	if !alreadyInPath {
+		// Shell config files to patch (first match wins)
+		shellConfigs := []string{".bashrc", ".profile", ".zshrc"}
+		patched := false
+		for _, cfg := range shellConfigs {
+			path := home + "/" + cfg
+			data, err := os.ReadFile(path)
+			if err != nil {
+				continue
+			}
+			content := string(data)
+			if strings.Contains(content, ".local/bin") {
+				patched = true
+				break
+			}
+			f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(f, "\n# Suwu: add ~/.local/bin to PATH\n%s\n", pathLine)
+			f.Close()
+			fmt.Printf("  ✅ added ~/.local/bin to PATH in ~/%s\n", cfg)
+			patched = true
+			break
 		}
-		content := string(data)
-		if strings.Contains(content, ".local/bin") {
-			return // already configured
+
+		if !patched {
+			// Fallback: create ~/.profile if none exist
+			path := home + "/.profile"
+			f, err := os.Create(path)
+			if err != nil {
+				fmt.Printf("  ⚠️  could not add ~/.local/bin to PATH — add it manually\n")
+			} else {
+				fmt.Fprintf(f, "# Suwu: add ~/.local/bin to PATH\n%s\n", pathLine)
+				f.Close()
+				fmt.Printf("  ✅ created ~/.profile with ~/.local/bin in PATH\n")
+			}
 		}
-		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
-		if err != nil {
-			continue
-		}
-		fmt.Fprintf(f, "\n# Suwu: add ~/.local/bin to PATH\n%s\n", pathLine)
-		f.Close()
-		fmt.Printf("  ✅ added ~/.local/bin to PATH in ~/%s\n", cfg)
-		return
 	}
 
-	// Fallback: create ~/.profile if none exist
-	path := home + "/.profile"
-	f, err := os.Create(path)
-	if err != nil {
-		fmt.Printf("  ⚠️  could not add ~/.local/bin to PATH — add it manually\n")
-		return
-	}
-	fmt.Fprintf(f, "# Suwu: add ~/.local/bin to PATH\n%s\n", pathLine)
-	f.Close()
-	fmt.Printf("  ✅ created ~/.profile with ~/.local/bin in PATH\n")
+	// Update the current process PATH so exec.Command picks it up
+	// immediately without needing a new shell session.
+	os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
 }
 
 // upsertEnv updates keys in a dotenv file. If the key exists, its line is

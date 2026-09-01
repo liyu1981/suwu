@@ -419,7 +419,15 @@ func run() error {
 	forwardManager := forward.NewManager()
 	registerForwardHandlers(notifyListener, forwardManager)
 
-	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager)
+	// Data directory (default ~/.suwu, override with SUWU_VAR).
+	dataDir := os.Getenv("SUWU_VAR")
+	if dataDir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			dataDir = filepath.Join(home, ".suwu")
+		}
+	}
+
+	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager, dataDir)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)),

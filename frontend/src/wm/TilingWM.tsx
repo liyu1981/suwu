@@ -39,6 +39,7 @@ import './plugins/viewer'
 import './plugins/filebrowser'
 import './plugins/empty'
 import './plugins/forward'
+import './plugins/dropbox'
 
 // Register app config presets (side-effect imports).
 import './configs/herdr'

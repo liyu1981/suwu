@@ -196,7 +196,26 @@
     "forward": "Port Forward",
     "forwardDesc": "TCP/UDP port forwarding",
     "empty": "Empty",
-    "emptyDesc": "Choose an application to open"
+    "emptyDesc": "Choose an application to open",
+    "dropbox": "Dropbox",
+    "dropboxDesc": "File drop & manager"
+  },
+  "dropbox": {
+    "title": "Dropbox",
+    "dropHint": "Drop files or paste here",
+    "dropHintActive": "Release to upload",
+    "uploading": "Uploading…",
+    "uploaded": "Saved",
+    "searchPlaceholder": "Search files…",
+    "delete": "Delete",
+    "copyPath": "Copy path",
+    "cleanup": "Cleanup",
+    "cleanupPlaceholder": "MB",
+    "usedSpace": "{{used}} used · {{count}} files",
+    "empty": "No files yet",
+    "loading": "Loading…",
+    "refresh": "Refresh",
+    "loadingPreview": "Loading preview…"
   },
   "auth": {
     "enterPassword": "Enter password",

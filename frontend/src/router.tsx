@@ -5,6 +5,7 @@ import TermPage from './routes/TermPage'
 import FileViewerPage from './routes/FileViewerPage'
 import FileBrowserPage from './routes/FileBrowserPage'
 import ForwardPage from './routes/ForwardPage'
+import DropboxPage from './routes/DropboxPage'
 
 const rootRoute = createRootRoute()
 
@@ -50,12 +51,19 @@ const forwardRoute = createRoute({
   component: ForwardPage,
 })
 
+const dropboxRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dropbox',
+  component: DropboxPage,
+})
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
   fileViewerRoute,
   filebrowserRoute,
   forwardRoute,
+  dropboxRoute,
 ])
 
 export const router = createRouter({ routeTree })

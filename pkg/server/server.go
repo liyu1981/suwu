@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"suwu/pkg/auth"
+	"suwu/pkg/dropbox"
 	"suwu/pkg/forward"
 	"suwu/pkg/notify"
 	"suwu/pkg/session"
@@ -42,13 +43,14 @@ type Server struct {
 	sessions  *session.Manager
 	notify    *notify.Listener
 	forwards  *forward.Manager
+	dataDir   string
 	startedAt time.Time
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
 // and managing keyed PTY sessions through mgr.
-func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener, fwds *forward.Manager) *Server {
-	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions, notify: nl, forwards: fwds, startedAt: time.Now()}
+func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener, fwds *forward.Manager, dataDir string) *Server {
+	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions, notify: nl, forwards: fwds, dataDir: dataDir, startedAt: time.Now()}
 }
 
 // StartedAt returns the server's start timestamp.
@@ -120,6 +122,27 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/file/upload" {
 		s.handleFileUpload(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/dropbox/list" {
+		s.handleDropboxList(w, r)
+		return
+	}
+	if r.URL.Path == "/api/dropbox/upload" {
+		s.handleDropboxUpload(w, r)
+		return
+	}
+	if r.URL.Path == "/api/dropbox/delete" {
+		s.handleDropboxDelete(w, r)
+		return
+	}
+	if r.URL.Path == "/api/dropbox/space" {
+		s.handleDropboxSpace(w, r)
+		return
+	}
+	if r.URL.Path == "/api/dropbox/cleanup" {
+		s.handleDropboxCleanup(w, r)
 		return
 	}
 
@@ -764,5 +787,190 @@ func (s *Server) handleServerInfo(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]string{
 		"startedAt": s.startedAt.UTC().Format(time.RFC3339),
+	})
+}
+
+// ── Dropbox handlers ───────────────────────────────────────────────
+
+func (s *Server) dropboxDir() (string, error) {
+	return dropbox.Dir(s.dataDir)
+}
+
+// handleDropboxList returns all files in the dropbox.
+// GET /api/dropbox/list?token=<token>
+func (s *Server) handleDropboxList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	dir, err := s.dropboxDir()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	entries, err := dropbox.List(dir)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"path":    dir,
+		"entries": entries,
+	})
+}
+
+// handleDropboxUpload uploads a file to the dropbox.
+// POST /api/dropbox/upload (multipart/form-data)
+func (s *Server) handleDropboxUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	dir, err := s.dropboxDir()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Parse multipart form (max 100MB).
+	if err := r.ParseMultipartForm(100 << 20); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to parse upload form"})
+		return
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "no file provided"})
+		return
+	}
+	defer file.Close()
+
+	filename := filepath.Base(handler.Filename)
+	if filename == "." || filename == ".." {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid filename"})
+		return
+	}
+
+	dest, err := dropbox.Upload(dir, filename, file)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"path": dest,
+		"size": handler.Size,
+	})
+}
+
+// handleDropboxDelete deletes a single file from the dropbox.
+// DELETE /api/dropbox/delete?name=<filename>&token=<token>
+func (s *Server) handleDropboxDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		w.Header().Set("Allow", "DELETE")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	dir, err := s.dropboxDir()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name parameter required"})
+		return
+	}
+
+	if err := dropbox.Delete(dir, name); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+// handleDropboxSpace returns total space used and file count.
+// GET /api/dropbox/space?token=<token>
+func (s *Server) handleDropboxSpace(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	dir, err := s.dropboxDir()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	info, err := dropbox.SpaceUsed(dir)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, info)
+}
+
+// handleDropboxCleanup deletes oldest files until space is under target.
+// POST /api/dropbox/cleanup?target=<bytes>&token=<token>
+func (s *Server) handleDropboxCleanup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	dir, err := s.dropboxDir()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	targetStr := r.URL.Query().Get("target")
+	if targetStr == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "target parameter required"})
+		return
+	}
+
+	target, err := strconv.ParseInt(targetStr, 10, 64)
+	if err != nil || target < 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid target value"})
+		return
+	}
+
+	deleted, err := dropbox.Cleanup(dir, target)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"deleted": deleted,
 	})
 }

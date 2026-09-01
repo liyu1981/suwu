@@ -195,7 +195,26 @@
     "forward": "端口转发",
     "forwardDesc": "TCP/UDP 端口转发",
     "empty": "空白",
-    "emptyDesc": "选择要打开的应用程序"
+    "emptyDesc": "选择要打开的应用程序",
+    "dropbox": "文件暂存",
+    "dropboxDesc": "文件投递与管理"
+  },
+  "dropbox": {
+    "title": "文件暂存",
+    "dropHint": "拖放文件或粘贴到这里",
+    "dropHintActive": "释放以上传",
+    "uploading": "上传中…",
+    "uploaded": "已保存",
+    "searchPlaceholder": "搜索文件…",
+    "delete": "删除",
+    "copyPath": "复制路径",
+    "cleanup": "清理",
+    "cleanupPlaceholder": "MB",
+    "usedSpace": "已用 {{used}} · {{count}} 个文件",
+    "empty": "暂无文件",
+    "loading": "加载中…",
+    "refresh": "刷新",
+    "loadingPreview": "加载预览…"
   },
   "auth": {
     "enterPassword": "输入密码",

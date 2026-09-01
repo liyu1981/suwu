@@ -11,6 +11,11 @@ export interface FileBrowserSessionState {
   sortDir?: 'asc' | 'desc'
 }
 
+export interface DropboxSessionState {
+  searchQuery?: string
+  sortBy?: 'name' | 'date' | 'size'
+}
+
 /** Per-tile session state entry. */
 export interface TileEntry {
   tileType: string

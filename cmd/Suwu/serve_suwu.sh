@@ -51,7 +51,7 @@ if [[ -n "${PORT:-}" ]]; then
   RESOLVED_PORT="$PORT"
 else
   RESOLVED_PORT="$(env_value PORT)"
-  RESOLVED_PORT="${RESOLVED_PORT:-8080}"
+  RESOLVED_PORT="${RESOLVED_PORT:-8181}"
 fi
 
 # TLS scheme mirrors the server's resolveTLS.

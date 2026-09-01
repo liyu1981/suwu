@@ -10,6 +10,9 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/mattn/go-isatty"
+
+	"suwu/pkg/certs"
+	"suwu/pkg/gencerts"
 )
 
 // envExample is the default ~/.config/suwu/.env template written by onboard.
@@ -24,8 +27,8 @@ const envExample = `# Suwu user-global configuration.
 # Use "auto" to auto-detect machine addresses (no password required).
 HOST=127.0.0.1
 
-# HTTP port (default 8080).
-PORT=8080
+# HTTP port (default 8181).
+PORT=8181
 
 # Data directory for logs and PID (default ~/.suwu).
 #SUWU_VAR=
@@ -127,7 +130,7 @@ func onboard() error {
 		}
 	}
 
-	// 3. Bind host + password setup
+	// 3. Bind host + password setup (always in interactive mode)
 	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
 		if err := setupAuth(envPath); err != nil {
 			return fmt.Errorf("auth setup: %w", err)
@@ -136,10 +139,20 @@ func onboard() error {
 		fmt.Println("  ⏭️  skipping auth setup (non-interactive)")
 	}
 
-	// 4. Ensure ~/.local/bin is in PATH (needed for tool installs)
+	// 4. Generate self-signed TLS certs (interactive mode only)
+	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
+		if err := generateCerts(home, cfgDir); err != nil {
+			fmt.Printf("  ⚠️  cert generation: %v\n", err)
+		}
+	}
+
+	// 5. Ensure ~/.local/bin is in PATH (needed for tool installs)
 	ensureLocalBinInPath(home)
 
-	// 5. Prepare local dev environment (interactive only)
+	// 6. Set ASDF_DATA_DIR to ~/.asdf explicitly
+	ensureAsdfDataDir(home)
+
+	// 7. Prepare local dev environment (interactive only)
 	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
 		if err := runDevenvSetup(); err != nil {
 			fmt.Printf("  ⚠️  devenv setup: %v\n", err)
@@ -154,22 +167,32 @@ func onboard() error {
 
 func setupAuth(envPath string) error {
 	var hostChoice string
+	var password string
+	var confirm string
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("Bind host — who should be able to connect?").
 			Options(
-				huh.NewOption("127.0.0.1  (local only, no password needed)", "local"),
-				huh.NewOption("auto  (detect machine addresses, no password)", "auto"),
-				huh.NewOption("custom  (specific address, requires password)", "custom"),
+				huh.NewOption("127.0.0.1  (local only)", "local"),
+				huh.NewOption("auto  (detect machine addresses)", "auto"),
+				huh.NewOption("custom  (specific address)", "custom"),
 			).
 			Value(&hostChoice),
+		huh.NewInput().
+			Title("Set a connection password (optional)").
+			Description("Leave empty to skip password protection.").
+			Password(true).
+			Value(&password),
+		huh.NewInput().
+			Title("Confirm password").
+			Password(true).
+			Value(&confirm),
 	)).WithTheme(huh.ThemeCatppuccin())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("host prompt: %w", err)
 	}
 
 	var hostValue string
-	var needPassword bool
 
 	switch hostChoice {
 	case "local":
@@ -192,58 +215,77 @@ func setupAuth(envPath string) error {
 			return fmt.Errorf("bind address cannot be empty")
 		}
 		hostValue = customHost
-		needPassword = true
 	}
 
-	if needPassword {
-		var password string
-		var confirm string
-		pwdForm := huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("Set a connection password").
-					Password(true).
-					Value(&password),
-				huh.NewInput().
-					Title("Confirm password").
-					Password(true).
-					Value(&confirm),
-			),
-		).WithTheme(huh.ThemeCatppuccin())
-		if err := pwdForm.Run(); err != nil {
-			return fmt.Errorf("password prompt: %w", err)
-		}
-		if password == "" {
-			return fmt.Errorf("password cannot be empty")
-		}
-		if password != confirm {
+	updates := map[string]string{"HOST": hostValue}
+
+	password = strings.TrimSpace(password)
+	if password != "" {
+		if confirm != password {
 			return fmt.Errorf("passwords do not match")
 		}
-
 		hash := sha256.Sum256([]byte(password))
 		hashHex := fmt.Sprintf("%x", hash)
-
-		// Write HOST and AUTH_PASS to .env
-		updates := map[string]string{
-			"HOST":      hostValue,
-			"AUTH_PASS": hashHex,
-		}
-		if err := upsertEnv(envPath, updates); err != nil {
-			return fmt.Errorf("write auth config: %w", err)
-		}
+		updates["AUTH_PASS"] = hashHex
 		fmt.Printf("  ✅ password set (sha256: %s…)\n", hashHex[:16])
 	} else {
-		if err := upsertEnv(envPath, map[string]string{"HOST": hostValue}); err != nil {
-			return fmt.Errorf("write host config: %w", err)
-		}
+		fmt.Println("  🔓 No password set")
+	}
+
+	if err := upsertEnv(envPath, updates); err != nil {
+		return fmt.Errorf("write auth config: %w", err)
 	}
 
 	if hostValue == "127.0.0.1" {
-		fmt.Println("  🔓 No password required (local only)")
+		fmt.Println("  🔓 Binding to localhost only")
 	} else if hostValue == "auto" {
-		fmt.Println("  🔓 No password required (auto-detected addresses)")
+		fmt.Println("  🔓 Auto-detecting machine addresses")
 	} else {
-		fmt.Println("  🔐 Password required to connect")
+		fmt.Printf("  🔐 Binding to %s\n", hostValue)
+	}
+
+	return nil
+}
+
+// generateCerts creates a self-signed TLS certificate pair signed by suwu's
+// persistent local CA. It auto-detects hostnames/IPs and writes certs to
+// ~/.config/suwu/, then records the paths in .env so suwu serve enables
+// https automatically.
+func generateCerts(home, cfgDir string) error {
+	// Check if certs already exist — skip silently
+	certPath := filepath.Join(cfgDir, "tls-cert.pem")
+	keyPath := filepath.Join(cfgDir, "tls-key.pem")
+	if _, err := os.Stat(certPath); err == nil {
+		if _, err := os.Stat(keyPath); err == nil {
+			fmt.Printf("  ⏭️  TLS certs already exist in %s\n", cfgDir)
+			return nil
+		}
+	}
+
+	hosts := certs.DetectHosts()
+	if len(hosts) == 0 {
+		hosts = []string{"localhost"}
+	}
+
+	fmt.Printf("  → generating TLS certs for: %s\n", strings.Join(hosts, ", "))
+
+	// Use gencerts non-interactively: --hosts, --out, --force, --no-env
+	// We write TLS paths to .env ourselves below.
+	if err := gencerts.Run([]string{
+		"--hosts", strings.Join(hosts, ","),
+		"--out", cfgDir,
+		"--force",
+		"--no-env",
+	}); err != nil {
+		return fmt.Errorf("gencerts: %w", err)
+	}
+
+	// Record TLS paths in .env
+	if err := upsertEnv(filepath.Join(cfgDir, ".env"), map[string]string{
+		"TLS_CERT_FILE": certPath,
+		"TLS_KEY_FILE":  keyPath,
+	}); err != nil {
+		return fmt.Errorf("write TLS config: %w", err)
 	}
 
 	return nil
@@ -308,6 +350,59 @@ func ensureLocalBinInPath(home string) {
 	// Update the current process PATH so exec.Command picks it up
 	// immediately without needing a new shell session.
 	os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
+}
+
+// ensureAsdfDataDir sets ASDF_DATA_DIR=~/.asdf in shell config and the
+// current process so asdf commands work correctly.
+func ensureAsdfDataDir(home string) {
+	asdfDir := home + "/.asdf"
+	envLine := `export ASDF_DATA_DIR="$HOME/.asdf"`
+
+	// Already set in current process?
+	if os.Getenv("ASDF_DATA_DIR") == asdfDir {
+		return
+	}
+
+	// Check shell configs
+	shellConfigs := []string{".bashrc", ".profile", ".zshrc"}
+	for _, cfg := range shellConfigs {
+		path := home + "/" + cfg
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(data), "ASDF_DATA_DIR") {
+			// Already configured — just set in current process
+			os.Setenv("ASDF_DATA_DIR", asdfDir)
+			return
+		}
+	}
+
+	// Not found — append to first available shell config
+	for _, cfg := range shellConfigs {
+		path := home + "/" + cfg
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			continue
+		}
+		fmt.Fprintf(f, "\n# Suwu: set ASDF_DATA_DIR\n%s\n", envLine)
+		f.Close()
+		fmt.Printf("  ✅ set ASDF_DATA_DIR in ~/%s\n", cfg)
+		os.Setenv("ASDF_DATA_DIR", asdfDir)
+		return
+	}
+
+	// Fallback: create ~/.profile
+	path := home + "/.profile"
+	f, err := os.Create(path)
+	if err != nil {
+		fmt.Printf("  ⚠️  could not set ASDF_DATA_DIR — add it manually\n")
+		return
+	}
+	fmt.Fprintf(f, "# Suwu: set ASDF_DATA_DIR\n%s\n", envLine)
+	f.Close()
+	fmt.Printf("  ✅ created ~/.profile with ASDF_DATA_DIR\n")
+	os.Setenv("ASDF_DATA_DIR", asdfDir)
 }
 
 // upsertEnv updates keys in a dotenv file. If the key exists, its line is

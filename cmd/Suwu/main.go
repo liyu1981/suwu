@@ -171,7 +171,7 @@ Flags:
                        when explicitly set, the global env is skipped)
 
 Environment variables:
-  PORT                 HTTP port (default 8080, or 8000 in dev mode)
+  PORT                 HTTP port (default 8181, or 8000 in dev mode)
   HOST                 Bind address (default 127.0.0.1)
   SUWU_DEV=true        Enable dev defaults (port 8000, air rebuild)
   SUWU_LOG_LEVEL       Log level: debug, info, warn, error (default: error)
@@ -541,7 +541,7 @@ func defaultPort(dev bool) int {
 	if dev {
 		return 8000
 	}
-	return 8080
+	return 8181
 }
 
 func formatURLHost(host string) string {

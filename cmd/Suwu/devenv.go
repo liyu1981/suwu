@@ -27,8 +27,10 @@ type checklistItem struct {
 	Name           string           `json:"name"`
 	Description    string           `json:"description"`
 	CheckBinary    string           `json:"check_binary"`
+	CheckCmd       string           `json:"check_cmd,omitempty"`
 	Depends        string           `json:"depends,omitempty"`
 	InstallCmd     string           `json:"install_cmd,omitempty"`
+	PostInstallCmd string           `json:"post_install_cmd,omitempty"`
 	GitHubRelease  *githubRelease   `json:"github_release,omitempty"`
 }
 
@@ -277,16 +279,34 @@ func runDevenvSetup() error {
 	installed := map[string]bool{}
 	// Pre-populate with already-installed tools.
 	for _, item := range items {
-		if binaryExists(item.CheckBinary) {
-			installed[item.ID] = true
+		if item.CheckBinary != "" {
+			if binaryExists(item.CheckBinary) {
+				installed[item.ID] = true
+			}
+		} else if item.CheckCmd != "" {
+			cmd := exec.Command("bash", "-c", item.CheckCmd)
+			cmd.Env = os.Environ()
+			if cmd.Run() == nil {
+				installed[item.ID] = true
+			}
 		}
 	}
 
 	for _, item := range items {
-		// Check dependency.
-		if item.Depends != "" && !installed[item.Depends] {
-			fmt.Printf("  ⏭️  %-16s skipped (%s not installed)\n", item.Name, item.Depends)
-			continue
+		// Check dependencies (comma-separated).
+		if item.Depends != "" {
+			skip := false
+			for _, dep := range strings.Split(item.Depends, ",") {
+				dep = strings.TrimSpace(dep)
+				if dep != "" && !installed[dep] {
+					fmt.Printf("  ⏭️  %-16s skipped (%s not installed)\n", item.Name, dep)
+					skip = true
+					break
+				}
+			}
+			if skip {
+				continue
+			}
 		}
 
 		if installed[item.ID] {
@@ -313,6 +333,7 @@ func runDevenvSetup() error {
 		} else if item.InstallCmd != "" {
 			fmt.Printf("    → running install command...\n")
 			cmd := exec.Command("bash", "-c", item.InstallCmd)
+			cmd.Env = os.Environ()
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			installErr = cmd.Run()
@@ -322,10 +343,40 @@ func runDevenvSetup() error {
 			fmt.Printf("    ⚠️  failed to install %s: %v\n", item.Name, installErr)
 		} else {
 			installed[item.ID] = true
+
+			// Run post-install hook if provided (e.g. asdf shims PATH setup)
+			if item.PostInstallCmd != "" {
+				fmt.Printf("    → running post-install setup...\n")
+				cmd := exec.Command("bash", "-c", item.PostInstallCmd)
+				cmd.Env = os.Environ()
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					fmt.Printf("    ⚠️  post-install setup failed: %v\n", err)
+				}
+			}
 		}
 	}
 
 	fmt.Println()
 	fmt.Println("  ✅ dev environment setup complete")
+
+	// Offer to start suwu daemon
+	var startDaemon bool
+	prompt := huh.NewConfirm().
+		Title("Start suwu daemon now?").
+		Description("Run 'suwu daemon start' to serve in the background.").
+		Value(&startDaemon)
+	if err := huh.NewForm(huh.NewGroup(prompt)).WithTheme(huh.ThemeCatppuccin()).Run(); err == nil && startDaemon {
+		fmt.Println()
+		cmd := exec.Command("suwu", "daemon", "start")
+		cmd.Env = os.Environ()
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("  ⚠️  failed to start daemon: %v\n", err)
+		}
+	}
+
 	return nil
 }

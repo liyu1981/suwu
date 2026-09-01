@@ -14,11 +14,19 @@
     "install_cmd": "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y vim; elif command -v dnf >/dev/null 2>&1; then dnf install -y vim-enhanced; elif command -v yum >/dev/null 2>&1; then yum install -y vim-enhanced; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm vim; elif command -v apk >/dev/null 2>&1; then apk add vim; else echo ' unsupported package manager — install vim manually' && exit 1; fi"
   },
   {
+    "id": "libatomic1",
+    "name": "libatomic1",
+    "description": "Runtime library required by Node.js",
+    "check_cmd": "ldconfig -p 2>/dev/null | grep -q libatomic",
+    "install_cmd": "if ldconfig -p 2>/dev/null | grep -q libatomic; then exit 0; fi; if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y libatomic1; elif command -v dnf >/dev/null 2>&1; then dnf install -y libatomic; elif command -v yum >/dev/null 2>&1; then yum install -y libatomic; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm gcc-libs; elif command -v apk >/dev/null 2>&1; then apk add libatomic; else echo ' unsupported package manager — install libatomic1 manually' && exit 1; fi"
+  },
+  {
     "id": "asdf",
     "name": "asdf",
     "description": "Polyglot version manager for Node.js, Python, Go, etc.",
     "check_binary": "asdf",
     "depends": "git",
+    "post_install_cmd": "ASDF_SHIMS=\"${ASDF_DATA_DIR:-$HOME/.asdf}/shims\" && echo \"export PATH=\\\"$ASDF_SHIMS:\\$PATH\\\"\" >> ~/.bashrc && export PATH=\"$ASDF_SHIMS:$PATH\"",
     "github_release": {
       "repo": "asdf-vm/asdf",
       "asset_pattern": "asdf-v{{ .Version }}-linux-{{ .Arch }}.tar.gz",
@@ -30,8 +38,8 @@
     "name": "asdf nodejs",
     "description": "Node.js LTS via asdf",
     "check_binary": "node",
-    "depends": "asdf",
-    "install_cmd": "asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git && asdf install nodejs lts:* && asdf global nodejs lts:*"
+    "depends": "asdf,libatomic1",
+    "install_cmd": "asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git && NODE_VERSION=$(curl -s https://nodejs.org/dist/index.json | grep -o '\"version\":\"v[^\"]*\"' | head -1 | sed -E 's/.*\"version\":\"v([^\"]+)\".*/\\1/') && asdf install nodejs $NODE_VERSION && asdf set -u nodejs $NODE_VERSION && asdf reshim nodejs"
   },
   {
     "id": "fzf",
@@ -83,6 +91,6 @@
     "description": "Minimal terminal AI coding agent",
     "check_binary": "pi",
     "depends": "asdf-nodejs",
-    "install_cmd": "npm install -g @mariozechner/pi-coding-agent"
+    "install_cmd": "npm install -g @mariozechner/pi-coding-agent && asdf reshim"
   }
 ]

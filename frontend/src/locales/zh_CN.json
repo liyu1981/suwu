@@ -102,6 +102,7 @@
   "notifications": {
     "title": "通知",
     "clearAll": "清除全部",
+    "dismiss": "关闭通知",
     "empty": "暂无通知",
     "open": "打开通知",
     "close": "关闭通知",

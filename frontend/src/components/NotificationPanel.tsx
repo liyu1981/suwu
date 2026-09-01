@@ -31,6 +31,10 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
   const [upgradingLocal, setUpgradingLocal] = useState(false)
   const needsTruncation = n.message.length > TRUNCATE_LEN
 
+  const handleDismiss = () => {
+    setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+  }
+
   const isUpgrade = n.data?.action === 'upgrade'
 
   const handleAction = () => {
@@ -70,8 +74,16 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
       : t('notifications.openInViewr')
 
   return (
-    <div className="rounded px-3 py-2 transition hover:bg-white/5">
-      <p className="break-words text-xs leading-relaxed text-popover-foreground">
+    <div className="group relative rounded px-3 py-2 transition hover:bg-white/5">
+      <button
+        type="button"
+        onClick={handleDismiss}
+        aria-label={t('notifications.dismiss')}
+        className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded text-muted-foreground opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100"
+      >
+        <CloseIcon className="h-3 w-3" />
+      </button>
+      <p className="break-words pr-4 text-xs leading-relaxed text-popover-foreground">
         {needsTruncation ? n.message.slice(0, TRUNCATE_LEN) + '…' : n.message}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-2">

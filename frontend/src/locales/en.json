@@ -102,6 +102,7 @@
   "notifications": {
     "title": "Notifications",
     "clearAll": "Clear all",
+    "dismiss": "Dismiss notification",
     "empty": "No notifications yet",
     "open": "Open notifications",
     "close": "Close notifications",

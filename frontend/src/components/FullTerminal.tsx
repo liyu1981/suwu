@@ -7,6 +7,7 @@ import { fontSizeAtom } from '../store/fonts'
 import { useTerminal } from './useTerminal'
 import { usePtySession } from './usePtySession'
 import { useTermCopy } from './useTermCopy'
+import { useBell } from './useBell'
 import { CommonTileContainer, useReportTileState } from './CommonTileContainer'
 import { CloseIcon, CopyIcon } from './icons'
 import { Toast } from './Toast'
@@ -79,6 +80,7 @@ export default function FullTerminal() {
   const reportState = useReportTileState()
   usePtySession(term, savedState, reportState)
   useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')))
+  useBell(term, containerRef)
 
   // Focus the terminal when this iframe gains focus.
   useEffect(() => {
@@ -123,7 +125,7 @@ export default function FullTerminal() {
         style={{ backgroundColor: theme.background }}
       >
         <div className="min-h-0 flex-1 p-2">
-          <div ref={containerRef} className="terminal-canvas h-full w-full" />
+          <div ref={containerRef} className="terminal-canvas relative h-full w-full" />
         </div>
         {/* Thin per-pane status bar: connection state lives here instead of
             floating over the terminal content. */}

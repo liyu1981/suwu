@@ -289,6 +289,29 @@ body {
 }
 
 /* ============================================================================
+   Terminal BEL flash — brief white overlay on \a (0x07)
+   ============================================================================ */
+
+.bell-flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: white;
+  animation: bell-flash-out 0.3s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes bell-flash-out {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ============================================================================
    Reduced motion
    ============================================================================ */
 

@@ -354,9 +354,8 @@ func runDevenvSetup() error {
 		return err
 	}
 
-	// Track which tools are installed or user chose to install.
+	// Detect which tools are already installed.
 	installed := map[string]bool{}
-	// Pre-populate with already-installed tools.
 	for _, item := range items {
 		if item.CheckBinary != "" {
 			if binaryExists(item.CheckBinary) {
@@ -371,67 +370,139 @@ func runDevenvSetup() error {
 		}
 	}
 
+	// Print detection results.
 	for _, item := range items {
-		// Check dependencies (comma-separated).
-		if item.Depends != "" {
-			skip := false
-			for _, dep := range strings.Split(item.Depends, ",") {
-				dep = strings.TrimSpace(dep)
-				if dep != "" && !installed[dep] {
-					fmt.Printf("  ⏭️  %-16s skipped (%s not installed)\n", item.Name, dep)
-					skip = true
-					break
-				}
-			}
-			if skip {
-				continue
-			}
-		}
-
 		if installed[item.ID] {
 			fmt.Printf("  ✅ %-16s already installed\n", item.Name)
-			continue
-		}
-
-		// Ask user whether to install.
-		fmt.Printf("  ❌ %-16s not found\n", item.Name)
-		var install bool
-		prompt := huh.NewConfirm().
-			Title(fmt.Sprintf("Install %s — %s?", item.Name, item.Description)).
-			Value(&install)
-		if err := huh.NewForm(huh.NewGroup(prompt)).WithTheme(huh.ThemeCatppuccin()).Run(); err != nil {
-			return fmt.Errorf("install prompt: %w", err)
-		}
-		if !install {
-			continue
-		}
-
-		var installErr error
-		if item.GitHubRelease != nil {
-			installErr = downloadGitHubBinary(item.GitHubRelease)
-		} else if item.InstallCmd != "" {
-			fmt.Printf("    → running install command...\n")
-			cmd := exec.Command("bash", "-c", item.InstallCmd)
-			cmd.Env = envWithAsdfShims()
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			installErr = cmd.Run()
-		}
-
-		if installErr != nil {
-			fmt.Printf("    ⚠️  failed to install %s: %v\n", item.Name, installErr)
 		} else {
-			installed[item.ID] = true
+			fmt.Printf("  ❌ %-16s not found\n", item.Name)
+		}
+	}
+	fmt.Println()
 
-			// Run post-install hook if provided (e.g. asdf shims PATH setup)
-			if item.PostInstallCmd != "" {
-				fmt.Printf("    → running post-install setup...\n")
-				cmd := exec.Command("bash", "-c", item.PostInstallCmd)
-				cmd.Env = envWithAsdfShims()
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				if err := cmd.Run(); err != nil {
-					fmt.Printf("    ⚠️  post-install setup failed: %v\n", err)
+	// Build list of items that need installation.
+	var toInstall []checklistItem
+	for _, item := range items {
+		if !installed[item.ID] {
+			toInstall = append(toInstall, item)
+		}
+	}
+
+	if len(toInstall) == 0 {
+		fmt.Println("  All tools are already installed.")
+	} else {
+		// Build dependency map: for each item, which IDs does it depend on.
+		depMap := map[string][]string{}
+		for _, item := range toInstall {
+			if item.Depends != "" {
+				var deps []string
+				for _, dep := range strings.Split(item.Depends, ",") {
+					dep = strings.TrimSpace(dep)
+					if dep != "" && !installed[dep] {
+						deps = append(deps, dep)
+					}
+				}
+				if len(deps) > 0 {
+					depMap[item.ID] = deps
+				}
+			}
+		}
+
+		// Show multi-select for the user to choose which tools to install.
+		options := make([]huh.Option[string], 0, len(toInstall))
+		for _, item := range toInstall {
+			options = append(options, huh.NewOption(
+				fmt.Sprintf("%s — %s", item.Name, item.Description),
+				item.ID,
+			).Selected(true))
+		}
+
+		var selected []string
+		multiSelect := huh.NewMultiSelect[string]().
+			Title("Select tools to install").
+			Description("Already installed tools are shown above. Pick which missing tools to install.").
+			Options(options...).
+			Value(&selected).
+			Filterable(true)
+
+		if err := huh.NewForm(huh.NewGroup(multiSelect)).WithTheme(huh.ThemeCatppuccin()).Run(); err != nil {
+			return fmt.Errorf("selection prompt: %w", err)
+		}
+
+		// Auto-select missing dependencies.
+		selectedSet := map[string]bool{}
+		for _, id := range selected {
+			selectedSet[id] = true
+		}
+		// Iteratively resolve dependencies until stable.
+		changed := true
+		for changed {
+			changed = false
+			for _, item := range toInstall {
+				if !selectedSet[item.ID] {
+					continue
+				}
+				if deps, ok := depMap[item.ID]; ok {
+					for _, dep := range deps {
+						if !selectedSet[dep] {
+							// Find the dep item to get its name.
+							for _, d := range toInstall {
+								if d.ID == dep {
+									fmt.Printf("  ℹ️  auto-selecting %s (dependency of %s)\n", d.Name, item.Name)
+									break
+								}
+							}
+							selectedSet[dep] = true
+							changed = true
+						}
+					}
+				}
+			}
+		}
+
+		// Rebuild ordered list from toInstall preserving checklist order.
+		var installOrder []checklistItem
+		for _, item := range toInstall {
+			if selectedSet[item.ID] {
+				installOrder = append(installOrder, item)
+			}
+		}
+
+		if len(installOrder) == 0 {
+			fmt.Println("  No tools selected for installation.")
+		} else {
+			fmt.Printf("  Installing %d tool(s)...\n\n", len(installOrder))
+
+			for _, item := range installOrder {
+				fmt.Printf("  → Installing %s...\n", item.Name)
+
+				var installErr error
+				if item.GitHubRelease != nil {
+					installErr = downloadGitHubBinary(item.GitHubRelease)
+				} else if item.InstallCmd != "" {
+					cmd := exec.Command("bash", "-c", item.InstallCmd)
+					cmd.Env = envWithAsdfShims()
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					installErr = cmd.Run()
+				}
+
+				if installErr != nil {
+					fmt.Printf("    ⚠️  failed to install %s: %v\n", item.Name, installErr)
+				} else {
+					installed[item.ID] = true
+
+					// Run post-install hook if provided (e.g. asdf shims PATH setup)
+					if item.PostInstallCmd != "" {
+						fmt.Printf("    → running post-install setup...\n")
+						cmd := exec.Command("bash", "-c", item.PostInstallCmd)
+						cmd.Env = envWithAsdfShims()
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						if err := cmd.Run(); err != nil {
+							fmt.Printf("    ⚠️  post-install setup failed: %v\n", err)
+						}
+					}
 				}
 			}
 		}

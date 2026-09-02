@@ -436,6 +436,77 @@ export function renameSpace(spaces: Space[], idx: number, name: string): Space[]
   return spaces.map((s, i) => (i === idx ? { ...s, name } : s))
 }
 
+/**
+ * Move a leaf from one space to another.
+ * Removes from source, inserts into target using smart split.
+ * Returns updated spaces array.
+ */
+export function moveLeafBetweenSpaces(
+  spaces: Space[],
+  leafId: string,
+  fromIdx: number,
+  toIdx: number,
+): Space[] {
+  const source = spaces[fromIdx]
+  const target = spaces[toIdx]
+  if (!source || !target) return spaces
+  if (fromIdx === toIdx) return spaces
+
+  // Find and copy the leaf data.
+  const leaf = findLeaf(source.layout, leafId)
+  if (!leaf || leaf.type !== 'leaf') return spaces
+
+  // Remove from source.
+  const newSourceLayout = source.layout ? closeAt(source.layout, leafId) : null
+
+  // Insert into target: if target is empty, just set the leaf.
+  // Otherwise, use smart split (resolveSplit pattern).
+  let newTargetLayout: LayoutNode
+  if (!target.layout) {
+    newTargetLayout = { ...leaf }
+  } else {
+    // Find the first leaf in target to split from.
+    const targetLeaves = leaves(target.layout)
+    const splitFrom = targetLeaves[0]
+    if (!splitFrom) {
+      newTargetLayout = { ...leaf }
+    } else {
+      // Smart split: if target is wider than tall, split right; else split down.
+      // We use a simple heuristic: always split horizontal after.
+      const { next } = splitAtWithId(target.layout, splitFrom, 'horizontal', 'after')
+      // Replace the new empty leaf with our leaf.
+      const newIds = leaves(next)
+      const emptyLeaf = newIds.find((id) => id !== splitFrom)
+      if (emptyLeaf) {
+        newTargetLayout = setLeafType(next, emptyLeaf, leaf.tileType ?? '', leaf.fontSize, leaf.fontDefault, leaf.initialPath, leaf.params)
+        // Preserve the original leaf id for iframe continuity.
+        newTargetLayout = swapLeafIds(newTargetLayout, emptyLeaf, leafId)
+      } else {
+        newTargetLayout = next
+      }
+    }
+  }
+
+  return spaces.map((s, i) => {
+    if (i === fromIdx) return { ...s, layout: newSourceLayout }
+    if (i === toIdx) return { ...s, layout: newTargetLayout }
+    return s
+  })
+}
+
+/** Swap the id of two leaves in the tree. */
+export function swapLeafIds(root: LayoutNode, idA: string, idB: string): LayoutNode {
+  if (root.type === 'leaf') {
+    if (root.id === idA) return { ...root, id: idB }
+    if (root.id === idB) return { ...root, id: idA }
+    return root
+  }
+  return {
+    ...root,
+    children: root.children.map((c) => ({ ...c, node: swapLeafIds(c.node, idA, idB) })),
+  }
+}
+
 /** Cycle the active index forward/backward with wrapping. */
 export function cycleSpace(spaces: Space[], current: number, delta: number): number {
   if (spaces.length === 0) return 0

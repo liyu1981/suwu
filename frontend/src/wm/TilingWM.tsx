@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, swapModeAtom } from './atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, swapModeAtom, focusAtom, FOCUS_SPACE_NAME } from './atoms'
 import { FONT_DEFAULT } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
   closeAt,
   computeTiling,
   cycleSpace,
+  createLeaf,
+  createSpace,
   findNeighborRect,
   findLeaf,
   findSplit,
   focusByOffset,
   leaves,
+  moveLeafBetweenSpaces,
+  splitAtWithId,
+  swapLeafIds,
   setLeafFontSize,
   setLeafType,
   splitAndFocus,
@@ -502,6 +507,126 @@ export default function TilingWM() {
     if (f) startSwap(f)
   }, [store, startSwap])
 
+  // Move a tile to another space.
+  const moveTileToSpace = useCallback(
+    (paneId: string, targetIdx: number) => {
+      const sp = store.get(spacesAtom)
+      const curIdx = store.get(activeSpaceAtom)
+      if (curIdx === targetIdx) return
+      const next = moveLeafBetweenSpaces(sp, paneId, curIdx, targetIdx)
+      store.set(spacesAtom, next)
+      store.set(activeSpaceAtom, targetIdx)
+      store.set(focusedIdAtom, paneId)
+    },
+    [store],
+  )
+
+  // ── Focus mode ──────────────────────────────────────────────────
+  const focusState = useAtomValue(focusAtom)
+  const setFocusState = useSetAtom(focusAtom)
+
+  const toggleFocus = useCallback(
+    (paneId?: string) => {
+      const id = paneId ?? store.get(focusedIdAtom)
+      if (!id) return
+
+      const current = store.get(focusAtom)
+      if (current) {
+        // Exit focus: restore source space.
+        const sp = store.get(spacesAtom)
+        const srcIdx = current.sourceSpaceIndex
+        const srcSpace = sp[srcIdx]
+        if (!srcSpace) { setFocusState(null); return }
+
+        // Restore source layout and re-insert the leaf.
+        let restoredLayout = current.sourceLayoutSnapshot
+        if (restoredLayout) {
+          // Find a leaf in restored layout to split from.
+          const restoredLeaves = leaves(restoredLayout)
+          if (restoredLeaves.length > 0) {
+            // Check if the leaf already exists in restored layout.
+            const existingLeaf = findLeaf(restoredLayout, current.paneId)
+            if (!existingLeaf) {
+              // Re-insert using smart split.
+              const splitFrom = restoredLeaves[0]
+              const { next } = splitAtWithId(restoredLayout, splitFrom, 'horizontal', 'after')
+              const newIds = leaves(next)
+              const emptyLeaf = newIds.find((nid) => nid !== splitFrom)
+              if (emptyLeaf) {
+                const originalLeaf = findLeaf(sp[0]?.layout, current.paneId)
+                if (originalLeaf?.type === 'leaf') {
+                  let swapped = swapLeafIds(next, emptyLeaf, current.paneId)
+                  swapped = setLeafType(swapped, current.paneId, originalLeaf.tileType ?? '', originalLeaf.fontSize, originalLeaf.fontDefault, originalLeaf.initialPath, originalLeaf.params)
+                  restoredLayout = swapped
+                }
+              }
+            }
+          }
+        }
+
+        // Update spaces: remove focus space (index 0), restore source.
+        const nextSpaces = sp.filter((_, i) => i !== 0).map((s, i) => {
+          // srcIdx was adjusted +1 when focus space was inserted, so original = srcIdx - 1.
+          const originalIdx = srcIdx - 1
+          if (i === originalIdx) return { ...s, layout: restoredLayout }
+          return s
+        })
+        store.set(spacesAtom, nextSpaces)
+        // activeSpace: original index = srcIdx - 1 (since focus space at 0 is removed).
+        store.set(activeSpaceAtom, Math.max(0, srcIdx - 1))
+        store.set(focusedIdAtom, current.paneId)
+        setFocusState(null)
+      } else {
+        // Enter focus: move tile to focus space (index 0).
+        const sp = store.get(spacesAtom)
+        const curIdx = store.get(activeSpaceAtom)
+        const curSpace = sp[curIdx]
+        if (!curSpace?.layout) return
+
+        const leaf = findLeaf(curSpace.layout, id)
+        if (!leaf || leaf.type !== 'leaf') return
+
+        // Snapshot source layout for restore.
+        const sourceSnapshot = curSpace.layout
+
+        // Remove from current space.
+        const newCurLayout = closeAt(curSpace.layout, id)
+
+        // Ensure focus space exists at index 0.
+        let nextSpaces = [...sp]
+        if (nextSpaces[0]?.name !== FOCUS_SPACE_NAME) {
+          const focusSpace = createSpace(FOCUS_SPACE_NAME)
+          focusSpace.layout = null
+          nextSpaces = [focusSpace, ...nextSpaces]
+          // Adjust indices: source was at curIdx, now at curIdx + 1.
+        }
+        const adjustedIdx = nextSpaces[0]?.name === FOCUS_SPACE_NAME ? curIdx + 1 : curIdx
+
+        // Set focus space layout to just the focused leaf (full viewport).
+        const focusLeaf = { ...leaf }
+        nextSpaces[0] = { ...nextSpaces[0], layout: focusLeaf }
+
+        // Update source space.
+        if (newCurLayout) {
+          nextSpaces[adjustedIdx] = { ...nextSpaces[adjustedIdx], layout: newCurLayout }
+        } else {
+          // Source space is now empty — add a placeholder leaf.
+          nextSpaces[adjustedIdx] = { ...nextSpaces[adjustedIdx], layout: createLeaf() }
+        }
+
+        store.set(spacesAtom, nextSpaces)
+        store.set(activeSpaceAtom, 0)
+        store.set(focusedIdAtom, id)
+        setFocusState({
+          paneId: id,
+          sourceSpaceIndex: adjustedIdx,
+          sourceLayoutSnapshot: sourceSnapshot,
+        })
+      }
+    },
+    [store, setFocusState],
+  )
+
   const openMenu = useCallback(() => {
     store.set(menuViewAtom, 'menu')
     store.set(menuOpenAtom, true)
@@ -550,9 +675,36 @@ export default function TilingWM() {
     if (focused && !ids.includes(focused)) setFocused(ids[0])
   }, [activeSpace])
 
+  // Exit focus mode when switching spaces (e.g., clicking a space button).
+  // We handle this by watching activeSpace changes and clearing focus state.
+  const prevActiveSpaceRef = useRef(activeSpace)
+  useEffect(() => {
+    const current = store.get(focusAtom)
+    if (current && activeSpace !== 0 && prevActiveSpaceRef.current === 0) {
+      // User switched spaces while in focus mode — exit focus.
+      const sp = store.get(spacesAtom)
+      const srcIdx = current.sourceSpaceIndex
+
+      // Remove focus space (index 0) and restore source layout.
+      const nextSpaces = sp.filter((_, i) => i !== 0).map((s, i) => {
+        const originalIdx = srcIdx - 1
+        if (i === originalIdx) return { ...s, layout: current.sourceLayoutSnapshot }
+        return s
+      })
+      store.set(spacesAtom, nextSpaces)
+      // Set active space: user clicked on a space, so use the target space index.
+      // The target is at the original index minus 1 (focus space removed).
+      const targetIdx = Math.min(activeSpace - 1, nextSpaces.length - 1)
+      store.set(activeSpaceAtom, Math.max(0, targetIdx))
+      store.set(focusedIdAtom, current.paneId)
+      setFocusState(null)
+    }
+    prevActiveSpaceRef.current = activeSpace
+  }, [activeSpace, store, setFocusState])
+
   const wmHandlers = useMemo(
-    () => ({ split, close, focusOffset, focusDirection, moveFocused, enterSwap, openMenu, openShortcuts }),
-    [split, close, focusOffset, focusDirection, moveFocused, enterSwap, openMenu, openShortcuts],
+    () => ({ split, close, focusOffset, focusDirection, moveFocused, enterSwap, toggleFocus, openMenu, openShortcuts }),
+    [split, close, focusOffset, focusDirection, moveFocused, enterSwap, toggleFocus, openMenu, openShortcuts],
   )
 
   useEffect(() => {
@@ -820,6 +972,19 @@ export default function TilingWM() {
                       move={move}
                       closeTile={closeTile}
                       startSwap={startSwap}
+                      isFocused={focusState?.paneId === id}
+                      onToggleFocus={() => toggleFocus(id)}
+                      spaces={spaces.map((s, i) => {
+                        const tileIds = leaves(s.layout)
+                        const tileLabels = tileIds.map((id) => {
+                          const leaf = findLeaf(s.layout, id)
+                          const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
+                          return tileType ? getTilePlugin(tileType)?.label ?? tileType : 'Empty'
+                        })
+                        return { index: i, name: s.name, label: String(i), tileCount: tileIds.length, tileLabels }
+                      })}
+                      activeSpaceIndex={activeSpace}
+                      onMoveToSpace={moveTileToSpace}
                     />
                   )}
                 </div>

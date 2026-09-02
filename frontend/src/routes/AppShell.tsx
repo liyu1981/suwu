@@ -10,11 +10,12 @@ import { NotificationPanel } from '../components/NotificationPanel'
 import { useNotifications } from '../hooks/useNotifications'
 import { useUpdateCheck } from '../hooks/useUpdateCheck'
 import { AuthRequiredError, fetchToken } from '../lib/api'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom } from '../wm/atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, FOCUS_SPACE_NAME } from '../wm/atoms'
 import {
   addSpace,
   findLeaf,
   leaves,
+  moveLeafBetweenSpaces,
   removeSpace,
   splitAndFocus,
   type Direction,
@@ -70,6 +71,7 @@ export default function AppShell() {
   const [, setMenuView] = useAtom(menuViewAtom)
   const [spaces] = useAtom(spacesAtom)
   const [activeSpace] = useAtom(activeSpaceAtom)
+  const [focusedId] = useAtom(focusedIdAtom)
 
   useNotifications()
   useUpdateCheck()
@@ -126,6 +128,22 @@ export default function AppShell() {
     [store],
   )
 
+  const moveTileToSpace = useCallback(
+    (leafId: string, fromIdx: number, toIdx: number) => {
+      const sp = store.get(spacesAtom)
+      // Adjust indices if focus space exists at index 0.
+      const hasFocus = sp[0]?.name === FOCUS_SPACE_NAME
+      const adjustedFrom = hasFocus ? fromIdx + 1 : fromIdx
+      const adjustedTo = hasFocus ? toIdx + 1 : toIdx
+      const next = moveLeafBetweenSpaces(sp, leafId, adjustedFrom, adjustedTo)
+      store.set(spacesAtom, next)
+      store.set(activeSpaceAtom, adjustedTo)
+      store.set(focusedIdAtom, leafId)
+      setHoveredSpace(null)
+    },
+    [store],
+  )
+
   // Hover dropdown state: which space button is hovered.
   const [hoveredSpace, setHoveredSpace] = useState<number | null>(null)
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -155,7 +173,11 @@ export default function AppShell() {
               <>
                 {/* Space indicator: numbered buttons */}
                 <div className="ml-2 flex items-center gap-0.5">
-                  {spaces.map((space, i) => (
+                  {spaces
+                    .filter((s) => s.name !== FOCUS_SPACE_NAME)
+                    .map((space, displayIdx) => {
+                      const i = spaces.indexOf(space)
+                      return (
                     <div key={space.id} className="relative">
                       <button
                         type="button"
@@ -171,7 +193,7 @@ export default function AppShell() {
                         onMouseEnter={() => onSpaceEnter(i)}
                         onMouseLeave={onSpaceLeave}
                       >
-                        {i + 1}
+                        {displayIdx + 1}
                       </button>
                       {/* Hover dropdown: tile list for this space */}
                       {hoveredSpace === i && (() => {
@@ -197,6 +219,28 @@ export default function AppShell() {
                                 )
                               })
                             )}
+                            {/* Move focused tile here */}
+                            {focusedId && i !== activeSpace && space.layout && (
+                              <>
+                                <div className="my-1.5 border-t border-white/10" />
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    moveTileToSpace(focusedId, activeSpace, i)
+                                  }}
+                                >
+                                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M5 9l4-4 4 4" />
+                                    <path d="M9 5v14" />
+                                    <path d="M19 15l-4 4-4-4" />
+                                    <path d="M15 19V5" />
+                                  </svg>
+                                  <span>{t('wm.moveToSpace', { space: i + 1 })}</span>
+                                </button>
+                              </>
+                            )}
                             {spaces.length > 1 && (
                               <>
                                 <div className="my-1.5 border-t border-white/10" />
@@ -221,7 +265,8 @@ export default function AppShell() {
                         )
                       })()}
                     </div>
-                  ))}
+                    )
+                  })}
                   <button
                     type="button"
                     className="grid h-6 w-6 place-items-center rounded text-[11px] text-white/30 transition hover:bg-white/10 hover:text-white/60"

@@ -137,3 +137,18 @@ export const menuViewAtom = atom<MenuView>('menu')
 
 /** Swap mode state: null = inactive, otherwise tracks which tile initiated the swap. */
 export const swapModeAtom = atom<string | null>(null)
+
+// ── Focus mode ──────────────────────────────────────────────────────
+
+/** Focus space is always at index 0 in spacesAtom. */
+export const FOCUS_SPACE_NAME = '__focus__'
+
+/** Metadata for the currently focused tile. */
+export interface FocusState {
+  paneId: string
+  sourceSpaceIndex: number
+  sourceLayoutSnapshot: LayoutNode | null
+}
+
+/** null = no tile focused; otherwise tracks the focused tile. */
+export const focusAtom = atom<FocusState | null>(null)

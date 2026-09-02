@@ -35,7 +35,7 @@ func testServer(t *testing.T) (*httptest.Server, *auth.Config) {
 	}
 	t.Cleanup(func() { sessions.Close() })
 	fwds := forward.NewManager()
-	srv := New(cfg, sub, sessions, nil, fwds)
+	srv := New(cfg, sub, sessions, nil, fwds, "")
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	return ts, cfg

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { fontFamilyAtom, termThemeAtom } from '../store/appearance'
@@ -11,6 +11,7 @@ import { useBell } from './useBell'
 import { CommonTileContainer, useReportTileState } from './CommonTileContainer'
 import { CloseIcon, CopyIcon } from './icons'
 import { Toast } from './Toast'
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import type { TermSessionState } from '../wm/sessionState'
 
 const STATUS_DOT = {
@@ -53,12 +54,38 @@ export default function FullTerminal() {
   const [selectionMode, setSelectionMode] = useState(false)
   const toggleSelectionMode = useCallback(() => setSelectionMode((v) => !v), [])
 
+  // ── Selection cache (only meaningful in selection mode) ──
+  const [cachedText, setCachedText] = useState('')
+  const [cachedLength, setCachedLength] = useState(0)
+  const [showCacheDialog, setShowCacheDialog] = useState(false)
+  // Ref so the dialog copy handler always reads the latest cache.
+  const cachedTextRef = useRef('')
+  const onCacheUpdate = useCallback((text: string, length: number) => {
+    setCachedText(text)
+    setCachedLength(length)
+    cachedTextRef.current = text
+  }, [])
+
   // ── Copy toast ──
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const showToast = useCallback((msg: string) => {
     setToastMsg(null) // reset to re-key the component
     requestAnimationFrame(() => setToastMsg(msg))
   }, [])
+
+  // Copy cached text, exit selection mode, show toast.
+  const copyCacheAndExit = useCallback(() => {
+    const text = cachedTextRef.current
+    if (!text) return
+    void navigator.clipboard.writeText(text).then(() => {
+      showToast(t('terminal.copied'))
+      setCachedText('')
+      setCachedLength(0)
+      cachedTextRef.current = ''
+      setSelectionMode(false)
+      setShowCacheDialog(false)
+    })
+  }, [showToast, t])
 
   // Read pane ID from URL for session state loading.
   const paneId = useMemo(() => new URLSearchParams(window.location.search).get('pane') ?? undefined, [])
@@ -79,7 +106,7 @@ export default function FullTerminal() {
 
   const reportState = useReportTileState()
   usePtySession(term, savedState, reportState)
-  useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')))
+  useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')), onCacheUpdate)
   useBell(term, containerRef)
 
   // Focus the terminal when this iframe gains focus.
@@ -143,10 +170,23 @@ export default function FullTerminal() {
           ) : (
             <span className="truncate">{status === 'connected' ? t('terminal.connected') : message || t(`terminal.${status}`)}</span>
           )}
+          {/* Clickable char-count badge — only in selection mode */}
+          {selectionMode && (
+            <button
+              type="button"
+              onClick={() => setShowCacheDialog(true)}
+              className="ml-auto shrink-0 rounded bg-sky-800/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-200 transition hover:bg-sky-700/60 hover:text-white"
+              title={t('terminal.showCachePreview')}
+            >
+              {cachedLength > 0
+                ? t('terminal.cachedChars', { count: cachedLength })
+                : t('terminal.cacheEmpty')}
+            </button>
+          )}
           <button
             type="button"
             onClick={toggleSelectionMode}
-            className="ml-auto shrink-0 rounded p-0.5 hover:bg-white/10"
+            className="shrink-0 rounded p-0.5 hover:bg-white/10"
             title={selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')}
           >
             {selectionMode ? (
@@ -159,6 +199,34 @@ export default function FullTerminal() {
         {/* Toast overlay for copy confirmation */}
         {toastMsg && <Toast message={toastMsg} />}
       </div>
+
+      {/* Cache preview dialog — shows the cached selection and allows
+          copy-to-clipboard in one step. */}
+      <Dialog open={showCacheDialog} onOpenChange={setShowCacheDialog}>
+        <DialogContent>
+          <DialogTitle>{t('terminal.cachePreview')}</DialogTitle>
+          <div className="mt-3 max-h-[50dvh] overflow-auto rounded bg-black/40 p-3 font-mono text-xs text-white/80 whitespace-pre-wrap break-all">
+            {cachedText || t('terminal.cacheEmpty')}
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCacheDialog(false)}
+              className="rounded px-3 py-1.5 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
+            >
+              {t('dialog.close')}
+            </button>
+            <button
+              type="button"
+              onClick={copyCacheAndExit}
+              disabled={!cachedText}
+              className="rounded bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t('terminal.copyAndExit')}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </CommonTileContainer>
   )
 }

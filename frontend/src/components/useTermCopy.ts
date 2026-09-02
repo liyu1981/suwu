@@ -29,14 +29,23 @@ const isMac =
 
 /**
  * Selection & clipboard behavior for the terminal:
+ *
+ * Normal mode:
  * - Selecting text auto-copies to the clipboard when the selection settles.
  * - Ctrl+Shift+C / Cmd+C always copies; Ctrl+C copies only when a selection
  *   exists, otherwise ^C reaches the shell.
  * - Ctrl+V (on Linux/Windows) and Cmd+V / Ctrl+Shift+V (on macOS) paste from
  *   the system clipboard into the PTY.
- * - Selection mode (toggled via Alt+C): blocks all keyboard input to the
- *   terminal so the user can freely select text; Ctrl/Cmd+C copies the
- *   selection and exits selection mode. Alt+C also exits.
+ *
+ * Selection mode (toggled via Alt+C):
+ * - Blocks all keyboard input to the terminal so the user can freely select
+ *   text with the mouse.
+ * - Selections are cached in memory (not auto-copied). The onCacheUpdate
+ *   callback notifies the caller with the latest cached text and its length.
+ * - Ctrl/Cmd+C copies the cached selection to the clipboard and exits
+ *   selection mode.
+ * - Alt+C exits selection mode without copying.
+ * - Exiting selection mode for any reason clears the cache.
  *
  * Paste needs an explicit handler on Linux/Windows: xterm maps the Ctrl+V
  * keydown to a literal ^V (0x16, readline quoted-insert) and cancels the
@@ -51,20 +60,39 @@ export function useTermCopy(
   selectionMode: boolean,
   onToggleSelectionMode: () => void,
   onCopy?: () => void,
+  onCacheUpdate?: (text: string, length: number) => void,
 ) {
   // Mutable refs so the key handler always sees the latest callbacks without
   // re-registering the handler on every render.
   const onToggleRef = useRef(onToggleSelectionMode);
   const onCopyRef = useRef(onCopy);
+  const onCacheUpdateRef = useRef(onCacheUpdate);
   useEffect(() => { onToggleRef.current = onToggleSelectionMode; }, [onToggleSelectionMode]);
   useEffect(() => { onCopyRef.current = onCopy; }, [onCopy]);
+  useEffect(() => { onCacheUpdateRef.current = onCacheUpdate; }, [onCacheUpdate]);
 
   useEffect(() => {
     if (!term) return;
 
+    // ── Selection-mode cache ──
+    // While in selection mode we accumulate the latest selected text here
+    // instead of auto-copying. The cache is cleared when selection mode exits.
+    let cachedText = "";
+
     let last = "";
     let timer: number | undefined;
     const onSelectionChange = term.onSelectionChange(() => {
+      if (selectionMode) {
+        // In selection mode: cache the selection, do NOT auto-copy.
+        const sel = term.getSelection();
+        if (sel !== undefined) {
+          cachedText = sel;
+          onCacheUpdateRef.current?.(sel, sel.length);
+        }
+        return;
+      }
+
+      // Normal mode: auto-copy with 250ms debounce (existing behavior).
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         const sel = term.getSelection();
@@ -84,17 +112,20 @@ export function useTermCopy(
         // Alt+C exits selection mode (no copy).
         if (e.altKey && !meta && key === "c") {
           e.preventDefault();
+          cachedText = "";
+          onCacheUpdateRef.current?.("", 0);
           onToggleRef.current();
           return false;
         }
 
-        // Ctrl/Cmd+C copies the selection and exits selection mode.
+        // Ctrl/Cmd+C copies the cached selection and exits selection mode.
         if (meta && key === "c") {
           e.preventDefault();
-          const sel = term.getSelection();
-          if (sel) {
-            void copyText(sel).then(() => onCopyRef.current?.());
+          if (cachedText) {
+            void copyText(cachedText).then(() => onCopyRef.current?.());
           }
+          cachedText = "";
+          onCacheUpdateRef.current?.("", 0);
           onToggleRef.current();
           return false;
         }

@@ -11,6 +11,7 @@
   },
   "dialog": {
     "backToMenu": "Back to menu",
+    "close": "Close",
     "closeMenu": "Close menu"
   },
   "settings": {
@@ -90,7 +91,12 @@
     "copied": "Copied!",
     "selectionMode": "Selection mode — Alt+C to exit",
     "exitSelectionMode": "Exit selection mode (Alt+C)",
-    "enterSelectionMode": "Enter selection mode (Alt+C)"
+    "enterSelectionMode": "Enter selection mode (Alt+C)",
+    "cachedChars": "{{count}} chars",
+    "cacheEmpty": "No text selected yet",
+    "cachePreview": "Cached Selection",
+    "copyAndExit": "Copy & Exit",
+    "showCachePreview": "Show cached selection"
   },
   "pty": {
     "connecting": "Connecting...",

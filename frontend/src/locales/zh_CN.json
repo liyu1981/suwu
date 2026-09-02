@@ -11,6 +11,7 @@
   },
   "dialog": {
     "backToMenu": "返回菜单",
+    "close": "关闭",
     "closeMenu": "关闭菜单"
   },
   "settings": {
@@ -90,7 +91,12 @@
     "copied": "已复制！",
     "selectionMode": "选择模式 — Alt+C 退出",
     "exitSelectionMode": "退出选择模式 (Alt+C)",
-    "enterSelectionMode": "进入选择模式 (Alt+C)"
+    "enterSelectionMode": "进入选择模式 (Alt+C)",
+    "cachedChars": "{{count}} 个字符",
+    "cacheEmpty": "尚未选中文本",
+    "cachePreview": "已缓存的选区",
+    "copyAndExit": "复制并退出",
+    "showCachePreview": "显示已缓存的选区"
   },
   "pty": {
     "connecting": "连接中...",

@@ -162,7 +162,7 @@ func (c *Client) Detach() {
 // brand-new session. The dump is taken under the same lock the output
 // fan-out holds, so replaying the snapshot and then consuming Frames()
 // yields the exact byte order the shell produced, with no gap or overlap.
-func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []byte, error) {
+func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []byte, bool, error) {
 	if key == "" {
 		key = randomKey()
 	}
@@ -181,7 +181,7 @@ func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []
 	if created {
 		var err error
 		if s, err = m.start(key, cols, rows, cwd); err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 	} else {
 		if s.timer != nil {
@@ -198,7 +198,7 @@ func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []
 	defer cancel()
 	dump, err := s.vt.DumpScreen(ctx, libghostty.DumpVTFull)
 	if err != nil {
-		return nil, nil, fmt.Errorf("session: dump screen state: %w", err)
+		return nil, nil, false, fmt.Errorf("session: dump screen state: %w", err)
 	}
 
 	ch := make(chan []byte, subBuffer)
@@ -207,7 +207,7 @@ func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []
 	if !created {
 		snapshot = dump.VT
 	}
-	return &Client{m: m, s: s, ch: ch}, snapshot, nil
+	return &Client{m: m, s: s, ch: ch}, snapshot, created, nil
 }
 
 // start launches the shell PTY and its emulator twin. Callers hold m.mu.

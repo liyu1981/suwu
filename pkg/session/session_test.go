@@ -32,9 +32,12 @@ func TestAttachReattachRestoresScreen(t *testing.T) {
 	}
 	defer mgr.Close()
 
-	client, snapshot, err := mgr.Attach("reattach-test", 80, 24, "")
+	client, snapshot, created, err := mgr.Attach("reattach-test", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !created {
+		t.Fatal("first attach should be a new session")
 	}
 	if len(snapshot) != 0 {
 		t.Fatalf("fresh session should have no snapshot, got %d bytes", len(snapshot))
@@ -48,11 +51,14 @@ func TestAttachReattachRestoresScreen(t *testing.T) {
 
 	// Reattach on the same key: the emulator's screen dump must contain the
 	// echoed marker even though nothing was sent in between.
-	client2, snapshot, err := mgr.Attach("reattach-test", 80, 24, "")
+	client2, snapshot, created, err := mgr.Attach("reattach-test", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer client2.Detach()
+	if created {
+		t.Fatal("reattach should not be a new session")
+	}
 	if !strings.Contains(string(snapshot), "VTRESTORE-MARK-99") {
 		t.Fatalf("restored screen missing marker, got %q", snapshot)
 	}
@@ -65,12 +71,12 @@ func TestSessionKeyIsolation(t *testing.T) {
 	}
 	defer mgr.Close()
 
-	a, _, err := mgr.Attach("iso-a", 80, 24, "")
+	a, _, _, err := mgr.Attach("iso-a", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer a.Detach()
-	b, _, err := mgr.Attach("iso-b", 80, 24, "")
+	b, _, _, err := mgr.Attach("iso-b", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,12 +103,12 @@ func TestFanOutToMultipleClients(t *testing.T) {
 	}
 	defer mgr.Close()
 
-	c1, _, err := mgr.Attach("fanout", 80, 24, "")
+	c1, _, _, err := mgr.Attach("fanout", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer c1.Detach()
-	c2, _, err := mgr.Attach("fanout", 80, 24, "")
+	c2, _, _, err := mgr.Attach("fanout", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +131,7 @@ func TestTTLExpiryCreatesFreshSession(t *testing.T) {
 	defer mgr.Close()
 	mgr.SetTTL(100 * time.Millisecond)
 
-	client, _, err := mgr.Attach("ttl-test", 80, 24, "")
+	client, _, _, err := mgr.Attach("ttl-test", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,9 +140,12 @@ func TestTTLExpiryCreatesFreshSession(t *testing.T) {
 	// Wait past the TTL so the idle session is reaped.
 	time.Sleep(400 * time.Millisecond)
 
-	_, snapshot, err := mgr.Attach("ttl-test", 80, 24, "")
+	_, snapshot, created, err := mgr.Attach("ttl-test", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !created {
+		t.Fatal("expired session should have been replaced by a new one")
 	}
 	if len(snapshot) != 0 {
 		t.Fatalf("expired session should have been replaced by a fresh one, got snapshot %d bytes", len(snapshot))
@@ -150,7 +159,7 @@ func TestResizeAdoptedOnReattach(t *testing.T) {
 	}
 	defer mgr.Close()
 
-	client, _, err := mgr.Attach("resize-test", 80, 24, "")
+	client, _, _, err := mgr.Attach("resize-test", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,11 +171,14 @@ func TestResizeAdoptedOnReattach(t *testing.T) {
 
 	// Reattach with a different grid size: must not error, and the restored
 	// screen must still contain the marker.
-	client2, snapshot, err := mgr.Attach("resize-test", 120, 40, "")
+	client2, snapshot, created, err := mgr.Attach("resize-test", 120, 40, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer client2.Detach()
+	if created {
+		t.Fatal("reattach should not be a new session")
+	}
 	if !strings.Contains(string(snapshot), "RESIZE-MARK-11") {
 		t.Fatalf("restored screen missing marker after resize, got %q", snapshot)
 	}

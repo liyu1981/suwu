@@ -51,12 +51,22 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	client, snapshot, err := s.sessions.Attach(key, uint16(cols), uint16(rows), cwd)
+	client, snapshot, created, err := s.sessions.Attach(key, uint16(cols), uint16(rows), cwd)
 	if err != nil {
 		_ = conn.Close(websocket.StatusInternalError, "failed to start shell")
 		return
 	}
 	defer client.Detach()
+
+	// Send attach info as JSON control message before the snapshot.
+	// The frontend uses this to decide whether to send restore commands.
+	attachInfo, _ := json.Marshal(map[string]interface{}{
+		"type":    "attach",
+		"created": created,
+	})
+	if werr := conn.Write(ctx, websocket.MessageText, attachInfo); werr != nil {
+		return
+	}
 
 	// Reattach: replay the emulator's current screen state before live
 	// frames so a refreshed page resumes where it left off. The attach

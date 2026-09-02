@@ -154,6 +154,15 @@ func TestWebSocketBinaryFrames(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// First message is the JSON attach control message; skip it.
+	mt0, data0, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read attach message: %v", err)
+	}
+	if mt0 != websocket.MessageText || !strings.Contains(string(data0), "\"type\":\"attach\"") {
+		t.Fatalf("expected attach control message, got type=%v payload=%q", mt0, data0)
+	}
+
 	// Emit raw non-UTF-8 bytes plus a marker; the session must survive and
 	// the marker must come back on a binary frame. Every server->client
 	// frame carries raw PTY bytes, so all of them must be binary: browsers

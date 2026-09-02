@@ -70,6 +70,7 @@ export function usePtySession(
     let disposed = false
     let shellExited = false
     let cachedRestoreState: TermSessionState | null = savedState
+    let attachCreated = false  // tracks whether this is a new session
 
     const startPolling = () => {
       const key = sessionKey()
@@ -106,25 +107,33 @@ export function usePtySession(
       ws.onopen = () => {
         setStatus('connected')
         setMessage(i18n.t('pty.connected'))
-
-        if (restore?.foreground) {
-          setTimeout(() => {
-            ws.send(restore.foreground + '\r')
-          }, 500)
-          setTimeout(() => startPolling(), 3500)
-        } else {
-          startPolling()
-        }
-
-        const initCmd = new URLSearchParams(window.location.search).get('cmd')
-        if (initCmd) {
-          setTimeout(() => ws.send(initCmd + '\r'), 200)
-        }
+        // Wait for attach control message before sending restore commands
+        startPolling()
       }
 
       ws.onmessage = (event) => {
         const data = event.data
         if (typeof data === 'string') {
+          // Check for attach control message
+          try {
+            const msg = JSON.parse(data)
+            if (msg.type === 'attach') {
+              attachCreated = msg.created
+              // Send restore command only for new sessions
+              if (attachCreated && restore?.foreground) {
+                setTimeout(() => {
+                  ws.send(restore.foreground + '\r')
+                }, 500)
+              }
+              const initCmd = new URLSearchParams(window.location.search).get('cmd')
+              if (initCmd && attachCreated) {
+                setTimeout(() => ws.send(initCmd + '\r'), 200)
+              }
+              return
+            }
+          } catch {
+            // Not JSON, treat as terminal output
+          }
           term.write(data)
           return
         }

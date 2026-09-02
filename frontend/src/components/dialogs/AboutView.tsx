@@ -100,7 +100,7 @@ export default function AboutView() {
         />
         <div className="mt-4 text-center">
           <div className="text-2xl font-semibold tracking-tight text-popover-foreground">Suwu</div>
-          <div className="mt-1 text-xs text-muted-foreground italic">Make the remote devshell enjoyable in agentic AI time.</div>
+          <div className="mt-1 text-xs text-muted-foreground italic">Make the remote shell enjoyable in agentic AI time.</div>
           <div className="mt-0.5 text-xs text-muted-foreground">{t('about.version', { version: __SUWU_VERSION__ })}</div>
         </div>
         <div className="mt-3 flex flex-col items-center gap-2">

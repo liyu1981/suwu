@@ -4,7 +4,7 @@
 
 <h1 align="center">Suwu</h1>
 
-<p align="center"><strong>Make the remote devshell enjoyable in agentic AI time.</strong></p>
+<p align="center"><strong>Make the remote shell enjoyable in agentic AI time.</strong></p>
 
 Your real shell, in a browser tab. Suwu gives agents and humans alike a
 tiling terminal that keeps running when you don't — refresh, disconnect,

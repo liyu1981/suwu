@@ -434,34 +434,21 @@ kbd {
   margin: var(--space-8) 0 0;
 }
 
-.demo-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
+.demo-embed {
+  position: relative;
+  width: 100%;
   aspect-ratio: 16 / 9;
-  background: var(--color-primary);
   border-radius: var(--radius-lg);
-  color: var(--color-surface);
+  overflow: hidden;
+  background: var(--color-primary);
 }
 
-.demo-play {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  border: 1px solid #3a3a33;
-  border-radius: 50%;
-  background: #1d1d18;
-  color: var(--color-surface);
-}
-
-.demo-label {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  color: #b3b3ab;
+.demo-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
 }
 
 .demo-caption {

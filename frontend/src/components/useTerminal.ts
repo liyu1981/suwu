@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal, type ITerminalOptions, type ITheme } from '@xterm/xterm'
+import { ClipboardAddon } from '@xterm/addon-clipboard'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 
@@ -30,6 +31,7 @@ export function useTerminal(
     const fit = new FitAddon()
     fitRef.current = fit
     t.loadAddon(fit)
+    t.loadAddon(new ClipboardAddon())
     t.open(containerRef.current)
     // xterm 6 paints the theme background only on .xterm-scrollable-element;
     // the .xterm-viewport inside it keeps its stylesheet black, so the band

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, swapModeAtom, focusAtom, FOCUS_SPACE_NAME } from './atoms'
-import { FONT_DEFAULT, fontSizeAtom } from '../store/fonts'
+import { fontDefaultAtom } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
   closeAt,
@@ -14,11 +14,12 @@ import {
   findLeaf,
   findSplit,
   focusByOffset,
+  getPaneData,
   leaves,
   moveLeafBetweenSpaces,
+  setPaneData,
   splitAtWithId,
   swapLeafIds,
-  setLeafFontSize,
   setLeafType,
   splitAndFocus,
   swapLeaves,
@@ -77,10 +78,12 @@ function ChevronIcon() {
 function TileTypePicker({
   paneId,
   setLayout,
+  onSelect,
   onClose,
 }: {
   paneId: string
   setLayout: (fn: (prev: LayoutNode | null) => LayoutNode | null) => void
+  onSelect: (tileType: string) => void
   onClose: () => void
 }) {
   const { t } = useTranslation()
@@ -107,7 +110,8 @@ function TileTypePicker({
 
   const selectPlugin = (tileType: string, params?: Record<string, string>) => {
     const initialPath = (tileType === 'filebrowser' || tileType === 'fileviewer') ? homeDir ?? undefined : undefined
-    setLayout((prev) => (prev ? setLeafType(prev, paneId, tileType, FONT_DEFAULT, FONT_DEFAULT, initialPath, params) : prev))
+    setLayout((prev) => prev ? setLeafType(prev, paneId, tileType, initialPath, params) : prev)
+    onSelect(tileType)
     onClose()
   }
 
@@ -222,7 +226,9 @@ export default function TilingWM() {
   const focused = useAtomValue(focusedIdAtom)
   const setFocused = useSetAtom(focusedIdAtom)
   const setLayout = useSetAtom(layoutAtom)
-  const globalFontSize = useAtomValue(fontSizeAtom)
+  // fontDefaultAtom is the "default for new terminals" preset, not a
+  // runtime override. Each tile's actual font lives in space.paneData.
+  const fontPreset = useAtomValue(fontDefaultAtom)
 
   // Server start timestamp — identifies this server instance.
   const [serverStartedAt, setServerStartedAt] = useState<string>('')
@@ -314,10 +320,22 @@ export default function TilingWM() {
           return { ...prev, [d.paneId!]: { tileType, state: d.state! } }
         })
       }
+      // Child iframe requesting its font size (sent on mount to fix
+      // the race where the parent's postMessage arrives before the
+      // child's listener is registered).
+      if (d?.type === 'request-font-size' && typeof d.paneId === 'string') {
+        const activeSpaces = store.get(spacesAtom)
+        const activeIdx = store.get(activeSpaceAtom)
+        const activeSpace = activeSpaces[activeIdx]
+        const pane = activeSpace ? getPaneData<{ fontSize?: number; fontDefault?: number }>(activeSpace, d.paneId) : undefined
+        const fontSize = pane?.fontSize ?? fontPreset
+        const fontDefault = pane?.fontDefault ?? fontPreset
+        e.source?.postMessage({ type: 'tile-font-size', fontSize, fontDefault })
+      }
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [layout])
+  }, [layout, fontPreset, store])
 
   // Debounced write of session state to localStorage (only if changed).
   // Re-queries server startedAt before writing to handle server restarts.
@@ -557,7 +575,7 @@ export default function TilingWM() {
                 const originalLeaf = findLeaf(sp[0]?.layout, current.paneId)
                 if (originalLeaf?.type === 'leaf') {
                   let swapped = swapLeafIds(next, emptyLeaf, current.paneId)
-                  swapped = setLeafType(swapped, current.paneId, originalLeaf.tileType ?? '', originalLeaf.fontSize, originalLeaf.fontDefault, originalLeaf.initialPath, originalLeaf.params)
+                  swapped = setLeafType(swapped, current.paneId, originalLeaf.tileType ?? '', originalLeaf.initialPath, originalLeaf.params)
                   restoredLayout = swapped
                 }
               }
@@ -637,32 +655,37 @@ export default function TilingWM() {
     store.set(menuOpenAtom, true)
   }, [store])
 
-  // Per-tile font size setter: updates the leaf node in the layout tree.
+  // Per-tile font size setter: updates paneData for the active space.
   const setTileFontSize = useCallback(
     (id: string, fontSize: number) => {
-      setLayout((prev) => (prev ? setLeafFontSize(prev, id, fontSize) : prev))
+      const spaces = store.get(spacesAtom)
+      const idx = store.get(activeSpaceAtom)
+      const space = spaces[idx]
+      if (!space) return
+      store.set(spacesAtom, spaces.map((s, i) => i === idx ? setPaneData(s, id, 'fontSize', fontSize) : s))
     },
-    [setLayout],
+    [store],
   )
 
-  // Send font size to each iframe whenever the layout tree changes.
-  // Iframes read their initial fontSize from atomWithStorage; postMessage
-  // overrides it with the per-tile value stored on the leaf node.
-  // Falls back to the global fontSizeAtom (not FONT_DEFAULT) so tiles
-  // inherit the user's current font setting instead of reverting to 14px.
+  // Send font size to each iframe whenever the layout or paneData changes.
+  // Font is stored in space.paneData[paneId], falling back to fontPreset
+  // (the "new terminal default" from settings) for tiles with no explicit
+  // font set.
   useEffect(() => {
     if (!layout) return
+    const activeSpaceData = spaces[activeSpace]
     const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]')
     for (const iframe of iframes) {
       const paneId = iframe.getAttribute('data-pane')
       if (!paneId) continue
       const leaf = findLeaf(layout, paneId)
       if (leaf?.type !== 'leaf') continue
-      const fontSize = leaf.fontSize ?? globalFontSize
-      const fontDefault = leaf.fontDefault ?? FONT_DEFAULT
+      const pane = activeSpaceData ? getPaneData<{ fontSize?: number; fontDefault?: number }>(activeSpaceData, paneId) : undefined
+      const fontSize = pane?.fontSize ?? fontPreset
+      const fontDefault = pane?.fontDefault ?? fontPreset
       iframe.contentWindow?.postMessage({ type: 'tile-font-size', fontSize, fontDefault }, '*')
     }
-  }, [layout, globalFontSize])
+  }, [layout, fontPreset, spaces, activeSpace])
 
   // Keep a valid focused leaf (initial state, after close, after storage load).
   useEffect(() => {
@@ -943,8 +966,9 @@ export default function TilingWM() {
             {til.panes.map(({ id, x, y, w, h }) => {
               const leaf = space.layout ? findLeaf(space.layout, id) : null
               const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
-              const fontSize = leaf?.type === 'leaf' ? (leaf.fontSize ?? globalFontSize) : globalFontSize
-              const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
+              const pane = getPaneData<{ fontSize?: number; fontDefault?: number }>(space, id)
+              const fontSize = pane?.fontSize ?? fontPreset
+              const fontDefault = pane?.fontDefault ?? fontPreset
               const plugin = tileType ? getTilePlugin(tileType) : undefined
               const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined
               const params = leaf?.type === 'leaf' ? leaf.params : undefined
@@ -1058,6 +1082,18 @@ export default function TilingWM() {
         <TileTypePicker
           paneId={pickerPaneId}
           setLayout={setLayout}
+          onSelect={(tileType) => {
+            if (tileType !== 'term') return
+            const spaces = store.get(spacesAtom)
+            const idx = store.get(activeSpaceAtom)
+            const space = spaces[idx]
+            if (space) {
+              const existing = getPaneData<{ fontSize?: number }>(space, pickerPaneId)
+              if (!existing?.fontSize) {
+                store.set(spacesAtom, spaces.map((s: any, i: number) => i === idx ? setPaneData(s, pickerPaneId, 'fontSize', fontPreset) : s))
+              }
+            }
+          }}
           onClose={() => setPickerPaneId(null)}
         />
       )}

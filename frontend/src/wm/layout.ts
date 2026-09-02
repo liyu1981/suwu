@@ -17,14 +17,46 @@ export type SplitChild = { node: LayoutNode; size: number }
 export type SplitNode = { type: 'split'; id: string; direction: Direction; children: SplitChild[] }
 
 export type LayoutNode =
-  | { type: 'leaf'; id: string; tileType?: TileType; fontSize?: number; fontDefault?: number; initialPath?: string; params?: Record<string, string> }
+  | { type: 'leaf'; id: string; tileType?: TileType; initialPath?: string; params?: Record<string, string> }
   | SplitNode
+
+// ── Per-pane plugin data ──────────────────────────────────────────
+
+/** Generic per-pane data bag. Each tile plugin owns its own keys. */
+export type PaneData = Record<string, unknown>
+
+/** Read typed pane data for a specific pane. Returns undefined when absent. */
+export function getPaneData<T = Record<string, unknown>>(space: Space, paneId: string): T | undefined {
+  return space.paneData?.[paneId] as T | undefined
+}
+
+/** Immutably set a key in a pane's data bag. */
+export function setPaneData(space: Space, paneId: string, key: string, value: unknown): Space {
+  const prev = space.paneData ?? {}
+  const prevPane = (prev[paneId] as PaneData | undefined) ?? {}
+  return {
+    ...space,
+    paneData: { ...prev, [paneId]: { ...prevPane, [key]: value } },
+  }
+}
+
+/** Immutably set multiple keys in a pane's data bag at once. */
+export function setPaneDataMulti(space: Space, paneId: string, data: PaneData): Space {
+  const prev = space.paneData ?? {}
+  const prevPane = (prev[paneId] as PaneData | undefined) ?? {}
+  return {
+    ...space,
+    paneData: { ...prev, [paneId]: { ...prevPane, ...data } },
+  }
+}
 
 /** A space is a named group of tiles that occupies the full viewport. */
 export type Space = {
   id: string
   name: string
   layout: LayoutNode | null
+  /** Per-pane plugin data keyed by pane id. */
+  paneData?: Record<string, PaneData>
 }
 
 let counter = 0
@@ -34,11 +66,9 @@ function newId(): string {
   return `n${Date.now().toString(36)}${counter.toString(36)}`
 }
 
-export function createLeaf(id: string = newId(), tileType?: TileType, fontSize?: number, fontDefault?: number): LayoutNode {
+export function createLeaf(id: string = newId(), tileType?: TileType): LayoutNode {
   const leaf: LayoutNode = { type: 'leaf', id }
   if (tileType !== undefined) leaf.tileType = tileType
-  if (fontSize !== undefined) leaf.fontSize = fontSize
-  if (fontDefault !== undefined) leaf.fontDefault = fontDefault
   return leaf
 }
 
@@ -54,21 +84,17 @@ export function createSplit(direction: Direction, a: LayoutNode, b: LayoutNode):
   }
 }
 
-/** Immutably set the tileType (and optional font params) on a leaf node. */
+/** Immutably set the tileType on a leaf node. */
 export function setLeafType(
   root: LayoutNode,
   targetId: string,
   tileType: TileType,
-  fontSize?: number,
-  fontDefault?: number,
   initialPath?: string,
   params?: Record<string, string>,
 ): LayoutNode {
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf' && node.id === targetId) {
       const next: LayoutNode = { ...node, tileType }
-      if (fontSize !== undefined) next.fontSize = fontSize
-      if (fontDefault !== undefined) next.fontDefault = fontDefault
       if (initialPath !== undefined) next.initialPath = initialPath
       if (params !== undefined) next.params = params
       return next
@@ -81,19 +107,7 @@ export function setLeafType(
   return walk(root)
 }
 
-/** Immutably set the fontSize on a leaf node. */
-export function setLeafFontSize(root: LayoutNode, targetId: string, fontSize: number): LayoutNode {
-  const walk = (node: LayoutNode): LayoutNode => {
-    if (node.type === 'leaf' && node.id === targetId) {
-      return { ...node, fontSize }
-    }
-    if (node.type === 'split') {
-      return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
-    }
-    return node
-  }
-  return walk(root)
-}
+
 
 /** Immutably set the initialPath on a leaf node (one-shot file path for viewer/filebrowser). */
 export function setLeafInitialPath(root: LayoutNode, targetId: string, initialPath: string): LayoutNode {
@@ -478,7 +492,7 @@ export function moveLeafBetweenSpaces(
       const newIds = leaves(next)
       const emptyLeaf = newIds.find((id) => id !== splitFrom)
       if (emptyLeaf) {
-        newTargetLayout = setLeafType(next, emptyLeaf, leaf.tileType ?? '', leaf.fontSize, leaf.fontDefault, leaf.initialPath, leaf.params)
+        newTargetLayout = setLeafType(next, emptyLeaf, leaf.tileType ?? '', leaf.initialPath, leaf.params)
         // Preserve the original leaf id for iframe continuity.
         newTargetLayout = swapLeafIds(newTargetLayout, emptyLeaf, leafId)
       } else {
@@ -487,9 +501,20 @@ export function moveLeafBetweenSpaces(
     }
   }
 
+  // Copy paneData from source to target.
+  const srcPaneData = source.paneData?.[leafId]
+
   return spaces.map((s, i) => {
-    if (i === fromIdx) return { ...s, layout: newSourceLayout }
-    if (i === toIdx) return { ...s, layout: newTargetLayout }
+    if (i === fromIdx) {
+      // Remove paneData for the moved leaf from source.
+      const { [leafId]: _, ...restPaneData } = s.paneData ?? {}
+      return { ...s, layout: newSourceLayout, paneData: Object.keys(restPaneData).length > 0 ? restPaneData : undefined }
+    }
+    if (i === toIdx) {
+      // Copy paneData to target.
+      const targetPaneData = srcPaneData ? { ...(s.paneData ?? {}), [leafId]: srcPaneData } : s.paneData
+      return { ...s, layout: newTargetLayout, paneData: targetPaneData }
+    }
     return s
   })
 }

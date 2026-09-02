@@ -1,6 +1,6 @@
-import { layoutAtom, focusedIdAtom } from '../wm/atoms'
-import { splitAndFocus, setLeafType, setLeafInitialPath, computeTiling } from '../wm/layout'
-import { FONT_DEFAULT } from '../store/fonts'
+import { layoutAtom, focusedIdAtom, spacesAtom, activeSpaceAtom } from '../wm/atoms'
+import { splitAndFocus, setLeafType, setLeafInitialPath, computeTiling, setPaneData } from '../wm/layout'
+import { fontDefaultAtom } from '../store/fonts'
 import type { NotificationData } from '../store/notifications'
 import type { AutoResolveSettings } from '../store/settings'
 
@@ -62,9 +62,18 @@ function doSplit(store: Store): string | null {
 function setTypeAndFocus(store: Store, leafId: string, tileType: string): void {
   const root = store.get(layoutAtom)
   if (!root) return
-  const withType = setLeafType(root, leafId, tileType, FONT_DEFAULT, FONT_DEFAULT)
-  store.set(layoutAtom, withType)
+  store.set(layoutAtom, setLeafType(root, leafId, tileType))
   store.set(focusedIdAtom, leafId)
+  // For terminal tiles, initialize font in paneData using the global preset.
+  if (tileType === 'term') {
+    const spaces = store.get(spacesAtom)
+    const idx = store.get(activeSpaceAtom)
+    const space = spaces[idx]
+    if (space) {
+      const preset = store.get(fontDefaultAtom)
+      store.set(spacesAtom, spaces.map((s: any, i: number) => i === idx ? setPaneData(s, leafId, 'fontSize', preset) : s))
+    }
+  }
 }
 
 /**

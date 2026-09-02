@@ -1,27 +1,47 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
-import { createSpace, type LayoutNode, type Space } from './layout'
-import { FONT_DEFAULT } from '../store/fonts'
+import { createSpace, type LayoutNode, type PaneData, type Space } from './layout'
 
-/** Migrate legacy layout leaves that lack tileType / font params. */
-function migrateLayout(root: LayoutNode | null): LayoutNode | null {
-  if (!root) return root
-  if (root.type === 'leaf') {
-    if (root.tileType !== undefined) return root
+/**
+ * Migrate legacy layout leaves:
+ * 1. Leaves without tileType → default to 'term'
+ * 2. Leaves with fontSize/fontDefault → move to paneData, strip from leaf
+ *
+ * Returns { layout, paneData } so the caller can attach paneData to the Space.
+ */
+function migrateLayout(root: LayoutNode | null): { layout: LayoutNode | null; paneData: Record<string, PaneData> } {
+  const collected: Record<string, PaneData> = {}
+
+  const walk = (node: LayoutNode | null): LayoutNode | null => {
+    if (!node) return null
+    if (node.type === 'leaf') {
+      // Collect any font props that were stored on the leaf (legacy data).
+      const raw = node as unknown as { fontSize?: number; fontDefault?: number; tileType?: string }
+      if (raw.fontSize !== undefined || raw.fontDefault !== undefined) {
+        collected[node.id] = {
+          ...(raw.fontSize !== undefined ? { fontSize: raw.fontSize } : {}),
+          ...(raw.fontDefault !== undefined ? { fontDefault: raw.fontDefault } : {}),
+        }
+      }
+      // Strip old font props and ensure tileType exists.
+      const { fontSize: _fs, fontDefault: _fd, ...stripped } = raw
+      if (stripped.tileType !== undefined) {
+        return stripped as unknown as LayoutNode
+      }
+      // Legacy leaf with no tileType — default to term.
+      return { ...stripped, tileType: 'term' } as unknown as LayoutNode
+    }
     return {
-      ...root,
-      tileType: 'term',
-      fontSize: root.fontSize ?? FONT_DEFAULT,
-      fontDefault: root.fontDefault ?? FONT_DEFAULT,
+      ...node,
+      children: node.children.map((c) => ({
+        ...c,
+        node: walk(c.node) as LayoutNode,
+      })),
     }
   }
-  return {
-    ...root,
-    children: root.children.map((c) => ({
-      ...c,
-      node: migrateLayout(c.node) as LayoutNode,
-    })),
-  }
+
+  const layout = walk(root)
+  return { layout, paneData: collected }
 }
 
 // ── Space storage ──────────────────────────────────────────────────
@@ -42,10 +62,13 @@ const migratingSpacesStorage = {
       try {
         const parsed = JSON.parse(raw) as Space[]
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((s) => ({
-            ...s,
-            layout: migrateLayout(s.layout),
-          }))
+          return parsed.map((s) => {
+            const { layout, paneData } = migrateLayout(s.layout)
+            // Merge migrated paneData with any existing paneData.
+            const existing = s.paneData ?? {}
+            const merged = Object.keys(paneData).length > 0 ? { ...existing, ...paneData } : existing
+            return { ...s, layout, paneData: Object.keys(merged).length > 0 ? merged : undefined }
+          })
         }
       } catch {
         // fall through to legacy migration
@@ -56,10 +79,10 @@ const migratingSpacesStorage = {
     const legacyRaw = localStorage.getItem(LEGACY_LAYOUT_KEY)
     if (legacyRaw !== null) {
       try {
-        const layout = migrateLayout(JSON.parse(legacyRaw) as LayoutNode | null)
+        const { layout, paneData } = migrateLayout(JSON.parse(legacyRaw) as LayoutNode | null)
         localStorage.removeItem(LEGACY_LAYOUT_KEY)
         return [createSpace('Space 1')]
-          .map((s) => ({ ...s, layout }))
+          .map((s) => ({ ...s, layout, paneData: Object.keys(paneData).length > 0 ? paneData : undefined }))
       } catch {
         // ignore
       }

@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { fontFamilyAtom, termThemeAtom } from '../store/appearance'
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
-import { fontSizeAtom } from '../store/fonts'
+import { FONT_DEFAULT } from '../store/fonts'
 import { useTerminal } from './useTerminal'
 import { usePtySession } from './usePtySession'
 import { useTermCopy } from './useTermCopy'
@@ -29,16 +29,17 @@ export default function FullTerminal() {
   const { t } = useTranslation()
   const status = useAtomValue(connectionStatusAtom)
   const message = useAtomValue(connectionMessageAtom)
-  const fontSize = useAtomValue(fontSizeAtom)
   const fontFamily = useAtomValue(fontFamilyAtom)
   const theme = useAtomValue(termThemeAtom)
+
+  // Font size comes exclusively from the parent via postMessage (tile-font-size).
+  // Use a placeholder until the message arrives.
+  const [tileFontSize, setTileFontSize] = useState(FONT_DEFAULT)
 
   const { containerRef, term, setFontSize, setFontFamily, setTheme } = useTerminal(
     {
       cursorBlink: true,
-      // Options are consumed on mount; live changes flow through the setters
-      // in the effects below.
-      fontSize,
+      fontSize: tileFontSize,
       fontFamily,
       scrollback: 5000,
       // The pane wrapper paints the configurable background (alpha included);
@@ -116,11 +117,7 @@ export default function FullTerminal() {
     return () => window.removeEventListener('focus', onFocus)
   }, [term])
 
-  // Track the shared appearance settings (parent page edits them; panes
-  // receive the change via storage events).
-  useEffect(() => {
-    setFontSize(fontSize)
-  }, [fontSize, setFontSize])
+  // Apply shared appearance settings from parent (font family, theme).
   useEffect(() => {
     setFontFamily(fontFamily)
   }, [fontFamily, setFontFamily])
@@ -128,21 +125,25 @@ export default function FullTerminal() {
     setTheme({ foreground: theme.foreground, cursor: theme.cursor })
   }, [theme, setTheme])
 
-  // Per-tile font size override: the parent sends this via postMessage
-  // whenever the leaf's fontSize changes in the layout tree.
-  const [tileFontSize, setTileFontSize] = useState<number | null>(null)
+  // Font size is received from the parent via postMessage. The parent
+  // derives it from space.paneData and sends it on mount + every layout
+  // change. Until the first message arrives we use the initial state
+  // (FONT_DEFAULT).
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const d = e.data as { type?: string; fontSize?: number; fontDefault?: number } | undefined
+      const d = e.data as { type?: string; fontSize?: number } | undefined
       if (d?.type === 'tile-font-size' && typeof d.fontSize === 'number') {
         setTileFontSize(d.fontSize)
       }
     }
     window.addEventListener('message', onMsg)
+    // Request font size from parent — fixes the race where the parent
+    // sends postMessage before this iframe's listener is registered.
+    window.parent?.postMessage({ type: 'request-font-size', paneId: paneId ?? '' }, '*')
     return () => window.removeEventListener('message', onMsg)
-  }, [])
+  }, [paneId])
   useEffect(() => {
-    if (tileFontSize !== null) setFontSize(tileFontSize)
+    setFontSize(tileFontSize)
   }, [tileFontSize, setFontSize])
 
   return (

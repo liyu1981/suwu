@@ -221,6 +221,7 @@ export default function DropboxPage() {
   const bgColor = useAtomValue(fileBrowserBgAtom)
 
   const [entries, setEntries] = useState<DropboxEntry[]>([])
+  const [dropboxPath, setDropboxPath] = useState('')
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState(savedState?.searchQuery ?? '')
   const [spaceInfo, setSpaceInfo] = useState<SpaceInfo>({ used: 0, count: 0 })
@@ -248,6 +249,7 @@ export default function DropboxPage() {
       if (res.ok) {
         const data: DropboxListResponse = await res.json()
         setEntries(data.entries)
+        setDropboxPath(data.path)
       }
     } catch {
       // ignore
@@ -405,42 +407,40 @@ export default function DropboxPage() {
         onPaste={handlePaste}
         tabIndex={0}
       >
-        {/* Header */}
-        <div className="mb-2 flex items-center gap-2">
+        {/* Header — rounded top, bottom border */}
+        <div className="flex shrink-0 items-center gap-2 rounded-t-lg border-b border-white/[0.08] px-2.5 py-1.5 glass-control">
           <button
             type="button"
             onClick={() => { loadFiles(); loadSpace() }}
-            className="glass-btn grid h-5 w-5 place-items-center rounded text-white/40 transition hover:bg-white/10 hover:text-white"
+            className="grid h-5 w-5 place-items-center rounded text-white/40 transition hover:bg-white/10 hover:text-white"
             title={t('dropbox.refresh')}
           >
             <RefreshIcon className="h-3 w-3" />
           </button>
           <span className="text-xs font-semibold">{t('dropbox.title')}</span>
+          <div className="ml-auto flex items-center gap-1 glass-control rounded-md bg-white/[0.04] px-2 py-1">
+            <SearchIcon className="h-3 w-3 shrink-0 text-white/30" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('dropbox.searchPlaceholder')}
+              className="w-24 bg-transparent text-xs text-white/80 outline-none placeholder:text-white/30"
+            />
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="mb-2 flex items-center gap-1 glass-control rounded-[6px] px-2 py-1">
-          <SearchIcon className="h-3 w-3 shrink-0 text-white/30" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('dropbox.searchPlaceholder')}
-            className="w-full bg-transparent text-xs text-white/80 outline-none placeholder:text-white/30"
-          />
-        </div>
-
-        {/* Drop zone / file list */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Content — left/right borders + inset shadow */}
+        <div className="min-h-0 flex-1 overflow-y-auto border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           {loading ? (
             <div className="flex h-full items-center justify-center text-xs text-white/40">
               {t('dropbox.loading')}
             </div>
           ) : (
             <>
-              {/* Persistent drop target — large area */}
+              {/* Persistent drop target — large area with horizontal margin */}
               <div
-                className={`mb-2 flex min-h-[40%] flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
+                className={`mx-2 mt-2 flex min-h-[40%] flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
                   dragOver ? 'border-violet-400 bg-violet-500/10' : 'border-white/10'
                 }`}
               >
@@ -452,6 +452,11 @@ export default function DropboxPage() {
               </div>
 
               {/* File list */}
+              {filtered.length > 0 && (
+                <p className="mx-2 mt-4 mb-1 text-[10px] font-medium uppercase tracking-widest text-white/30">
+                  {t('dropbox.currentFiles', { path: dropboxPath })}
+                </p>
+              )}
               <div className="flex flex-col gap-0.5">
                 {filtered.map((entry) => {
                   const isExpanded = expandedFile === entry.name
@@ -508,8 +513,8 @@ export default function DropboxPage() {
           )}
         </div>
 
-        {/* Footer: space info + cleanup */}
-        <div className="glass-control mt-2 flex flex-wrap items-center gap-2 rounded-[6px] px-3 py-2">
+        {/* Footer — rounded bottom, top border */}
+        <div className="flex shrink-0 items-center gap-2 rounded-b-lg border-t border-white/[0.06] px-3 py-1.5 glass-control">
           <span className="text-[10px] text-white/50">
             {t('dropbox.usedSpace', { used: formatSize(spaceInfo.used), count: spaceInfo.count })}
           </span>

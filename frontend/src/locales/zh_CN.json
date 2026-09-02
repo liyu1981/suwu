@@ -214,7 +214,8 @@
     "empty": "暂无文件",
     "loading": "加载中…",
     "refresh": "刷新",
-    "loadingPreview": "加载预览…"
+    "loadingPreview": "加载预览…",
+    "currentFiles": "{{path}} 中的当前文件"
   },
   "auth": {
     "enterPassword": "输入密码",

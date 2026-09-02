@@ -215,7 +215,8 @@
     "empty": "No files yet",
     "loading": "Loading…",
     "refresh": "Refresh",
-    "loadingPreview": "Loading preview…"
+    "loadingPreview": "Loading preview…",
+    "currentFiles": "Current files in {{path}}"
   },
   "auth": {
     "enterPassword": "Enter password",

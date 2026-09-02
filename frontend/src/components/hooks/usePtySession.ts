@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import type { Terminal } from '@xterm/xterm'
 import i18n from 'i18next'
-import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
-import { fetchToken } from '../lib/api'
-import type { TermSessionState } from '../wm/sessionState'
+import { connectionMessageAtom, connectionStatusAtom } from '../../store/connection'
+import { fetchToken } from '../../lib/api'
+import type { TermSessionState } from '../../wm/sessionState'
 
 const RECONNECT_DELAY_MS = 2000
 const COUNTDOWN_TICK_MS = 1000
@@ -55,12 +55,15 @@ export function usePtySession(
   term: Terminal | null,
   savedState: TermSessionState | null,
   reportState: (state: Record<string, unknown>) => void,
+  paneId?: string,
 ) {
   const [, setStatus] = useAtom(connectionStatusAtom)
   const setMessage = useSetAtom(connectionMessageAtom)
 
   const wsRef = useRef<WebSocket | null>(null)
   const tokenRef = useRef('')
+  const paneIdRef = useRef(paneId)
+  paneIdRef.current = paneId
 
   useEffect(() => {
     if (!term) return
@@ -71,6 +74,7 @@ export function usePtySession(
     let shellExited = false
     let cachedRestoreState: TermSessionState | null = savedState
     let attachCreated = false  // tracks whether this is a new session
+    let initCmdSent = false  // tracks whether initCmd has been sent
 
     const startPolling = () => {
       const key = sessionKey()
@@ -125,10 +129,8 @@ export function usePtySession(
                   ws.send(restore.foreground + '\r')
                 }, 500)
               }
-              const initCmd = new URLSearchParams(window.location.search).get('cmd')
-              if (initCmd && attachCreated) {
-                setTimeout(() => ws.send(initCmd + '\r'), 200)
-              }
+              // Don't send initCmd yet - wait for first resize to ensure
+              // font size is applied before TUI app starts.
               return
             }
           } catch {
@@ -225,7 +227,27 @@ export function usePtySession(
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'resize', cols, rows }))
       }
+      // Send initCmd after first resize to ensure font size is applied
+      if (attachCreated && !initCmdSent) {
+        initCmdSent = true
+        const initCmd = new URLSearchParams(window.location.search).get('cmd')
+        if (initCmd) {
+          setTimeout(() => wsRef.current?.send(initCmd + '\r'), 50)
+        }
+      }
     })
+
+    // Fallback: send initCmd after timeout if no resize happens
+    // (e.g., font size was already correct)
+    const initCmdTimeout = setTimeout(() => {
+      if (attachCreated && !initCmdSent) {
+        initCmdSent = true
+        const initCmd = new URLSearchParams(window.location.search).get('cmd')
+        if (initCmd && wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(initCmd + '\r')
+        }
+      }
+    }, 1000)
 
     void connect()
 
@@ -233,6 +255,7 @@ export function usePtySession(
       disposed = true
       if (reconnectTimer) window.clearInterval(reconnectTimer)
       if (pollTimer) window.clearInterval(pollTimer)
+      clearTimeout(initCmdTimeout)
       wsRef.current?.close()
       wsRef.current = null
       onData.dispose()

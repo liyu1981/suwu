@@ -87,8 +87,10 @@ export function useTerminal(
   const setFontSize = useCallback((size: number) => {
     const t = termRef.current
     if (!t || t.options.fontSize === size) return
+    console.log('[useTerminal] setFontSize', size, 'current:', t.options.fontSize, 'termId:', (t as any).__termId)
     t.options.fontSize = size
-    fitRef.current?.fit()
+    // Wait for render service to update cell dimensions before fit
+    setTimeout(() => fitRef.current?.fit(), 200)
   }, [])
 
   // Runtime font family change: same re-fit need as setFontSize.

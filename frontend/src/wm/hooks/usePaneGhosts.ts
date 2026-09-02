@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { PaneLayout, Rect } from './layout'
+import type { PaneLayout, Rect } from '../layout'
 
 /** A vanished tile rendered at its last rect while it fades out. */
 export type PaneGhost = { key: string; rect: Rect }

@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { fontFamilyAtom, termThemeAtom } from '../store/appearance'
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
 import { FONT_DEFAULT } from '../store/fonts'
-import { useTerminal } from './useTerminal'
-import { usePtySession } from './usePtySession'
-import { useTermCopy } from './useTermCopy'
-import { useBell } from './useBell'
+import { useTerminal } from './hooks/useTerminal'
+import { usePtySession } from './hooks/usePtySession'
+import { useTermCopy } from './hooks/useTermCopy'
+import { useBell } from './hooks/useBell'
 import { CommonTileContainer, useReportTileState } from './CommonTileContainer'
 import { CloseIcon, CopyIcon } from './icons'
 import { Toast } from './Toast'
@@ -106,7 +106,7 @@ export default function FullTerminal() {
   }, [paneId])
 
   const reportState = useReportTileState()
-  usePtySession(term, savedState, reportState)
+  usePtySession(term, savedState, reportState, paneId)
   useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')), onCacheUpdate)
   useBell(term, containerRef)
 

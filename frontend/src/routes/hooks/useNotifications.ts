@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { useAtom, useSetAtom, useStore } from 'jotai'
-import { fetchToken } from '../lib/api'
-import { resolveAction } from '../lib/actionResolver'
-import { autoResolveAtom } from '../store/settings'
+import { fetchToken } from '../../lib/api'
+import { resolveAction } from '../../lib/actionResolver'
+import { autoResolveAtom } from '../../store/settings'
 import {
   maxEntriesAtom,
   notificationsAtom,
   panelOpenAtom,
   unreadCountAtom,
   type Notification,
-} from '../store/notifications'
+} from '../../store/notifications'
 
 const RECONNECT_DELAY_MS = 3000
 

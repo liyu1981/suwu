@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useAtom, useSetAtom, useStore } from 'jotai'
-import { fetchToken } from '../lib/api'
-import { lastUpdateCheckAtom } from '../store/update'
-import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
+import { fetchToken } from '../../lib/api'
+import { lastUpdateCheckAtom } from '../../store/update'
+import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../../store/notifications'
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
 

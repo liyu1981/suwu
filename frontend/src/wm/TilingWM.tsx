@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, swapModeAtom, focusAtom, FOCUS_SPACE_NAME } from './atoms'
-import { FONT_DEFAULT } from '../store/fonts'
+import { FONT_DEFAULT, fontSizeAtom } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
   closeAt,
@@ -222,6 +222,7 @@ export default function TilingWM() {
   const focused = useAtomValue(focusedIdAtom)
   const setFocused = useSetAtom(focusedIdAtom)
   const setLayout = useSetAtom(layoutAtom)
+  const globalFontSize = useAtomValue(fontSizeAtom)
 
   // Server start timestamp — identifies this server instance.
   const [serverStartedAt, setServerStartedAt] = useState<string>('')
@@ -647,6 +648,8 @@ export default function TilingWM() {
   // Send font size to each iframe whenever the layout tree changes.
   // Iframes read their initial fontSize from atomWithStorage; postMessage
   // overrides it with the per-tile value stored on the leaf node.
+  // Falls back to the global fontSizeAtom (not FONT_DEFAULT) so tiles
+  // inherit the user's current font setting instead of reverting to 14px.
   useEffect(() => {
     if (!layout) return
     const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]')
@@ -655,11 +658,11 @@ export default function TilingWM() {
       if (!paneId) continue
       const leaf = findLeaf(layout, paneId)
       if (leaf?.type !== 'leaf') continue
-      const fontSize = leaf.fontSize ?? FONT_DEFAULT
+      const fontSize = leaf.fontSize ?? globalFontSize
       const fontDefault = leaf.fontDefault ?? FONT_DEFAULT
       iframe.contentWindow?.postMessage({ type: 'tile-font-size', fontSize, fontDefault }, '*')
     }
-  }, [layout])
+  }, [layout, globalFontSize])
 
   // Keep a valid focused leaf (initial state, after close, after storage load).
   useEffect(() => {
@@ -940,7 +943,7 @@ export default function TilingWM() {
             {til.panes.map(({ id, x, y, w, h }) => {
               const leaf = space.layout ? findLeaf(space.layout, id) : null
               const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
-              const fontSize = leaf?.type === 'leaf' ? (leaf.fontSize ?? FONT_DEFAULT) : FONT_DEFAULT
+              const fontSize = leaf?.type === 'leaf' ? (leaf.fontSize ?? globalFontSize) : globalFontSize
               const fontDefault = leaf?.type === 'leaf' ? (leaf.fontDefault ?? FONT_DEFAULT) : FONT_DEFAULT
               const plugin = tileType ? getTilePlugin(tileType) : undefined
               const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined

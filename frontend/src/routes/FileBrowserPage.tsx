@@ -200,7 +200,7 @@ function TreeView({
   }
 
   return (
-    <nav className="select-none overflow-y-auto py-1" aria-label="Directory tree">
+    <nav className="select-none overflow-y-auto scrollbar-thin py-1" aria-label="Directory tree">
       {/* Root "/" node */}
       <button
         type="button"
@@ -534,7 +534,7 @@ export default function FileBrowserPage() {
         {/* Two-panel body */}
         <div className="flex min-h-0 flex-1 border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           {/* Left: tree view — subtle material sidebar */}
-          <div className="w-52 h-full shrink-0 overflow-y-auto border-r border-white/[0.06] bg-white/[0.02]">
+          <div className="w-52 h-full shrink-0 overflow-y-auto scrollbar-thin border-r border-white/[0.06] bg-white/[0.02]">
             {/* Scroll edge: fade mask at top/bottom of tree */}
             <div className="relative h-full">
               <TreeView key={treeRefreshKey} currentPath={currentPath} onNavigate={handleTreeNavigate} />
@@ -559,7 +559,7 @@ export default function FileBrowserPage() {
 
             {/* File entries */}
             <div
-              className="min-h-0 flex-1 overflow-y-auto"
+              className="min-h-0 flex-1 overflow-y-auto scrollbar-thin"
               onContextMenu={(e) => {
                 // Only trigger if the click was on the empty area, not on an entry
                 if ((e.target as HTMLElement).closest('button')) return

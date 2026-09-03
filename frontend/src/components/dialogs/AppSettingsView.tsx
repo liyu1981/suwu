@@ -251,7 +251,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </TabsPrimitive.Trigger>
         </TabsPrimitive.List>
 
-        <TabsPrimitive.Content value="term" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
+        <TabsPrimitive.Content value="term" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">
           {/* ── Font size ──────────────────────────────────────────── */}
           <div className={section}>
             <div className="flex items-center justify-between">
@@ -454,7 +454,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="filebrowser" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
+        <TabsPrimitive.Content value="filebrowser" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">
           <ZoomSetting
             zoom={fileBrowserZoom}
             onChange={setFileBrowserZoom}
@@ -476,7 +476,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="dropbox" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
+        <TabsPrimitive.Content value="dropbox" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">
           <ZoomSetting
             zoom={dropboxZoom}
             onChange={setDropboxZoom}
@@ -484,7 +484,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           />
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="forward" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
+        <TabsPrimitive.Content value="forward" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">
           <ZoomSetting
             zoom={forwardZoom}
             onChange={setForwardZoom}
@@ -492,7 +492,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           />
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="gitgraph" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
+        <TabsPrimitive.Content value="gitgraph" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">
           <ZoomSetting
             zoom={gitGraphZoom}
             onChange={setGitGraphZoom}

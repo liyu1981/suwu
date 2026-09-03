@@ -69,6 +69,22 @@ type GitGraphResponse struct {
 	Head    string      `json:"head"`
 }
 
+// GitWorktree represents a git worktree
+type GitWorktree struct {
+	Path       string `json:"path"`
+	Head       string `json:"head"`
+	Branch     string `json:"branch"`
+	IsMain     bool   `json:"isMain"`
+	Ahead      int    `json:"ahead"`
+	Behind     int    `json:"behind"`
+	LastActive int64  `json:"lastActive"` // unix millis of most recent commit
+}
+
+// GitWorktreesResponse is the response for the git worktrees API
+type GitWorktreesResponse struct {
+	Worktrees []GitWorktree `json:"worktrees"`
+}
+
 // writeGitError writes a JSON error response with a human-readable message.
 func writeGitError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
@@ -134,7 +150,14 @@ func (s *Server) handleGitCommits(w http.ResponseWriter, r *http.Request) {
 		branch = "HEAD"
 	}
 
-	commits, head, err := getGitCommits(repoPath, branch, count, skip)
+	// base: when provided, show only commits on branch not in base (worktree diff mode)
+	base := r.URL.Query().Get("base")
+	logBranch := branch
+	if base != "" {
+		logBranch = base + ".." + branch
+	}
+
+	commits, head, err := getGitCommits(repoPath, logBranch, count, skip)
 	if err != nil {
 		slog.Error("failed to get git commits", "error", err, "path", repoPath)
 		writeGitError(w, http.StatusBadRequest, err.Error())
@@ -170,6 +193,151 @@ func (s *Server) handleGitCommits(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// handleGitWorktrees handles GET /api/git/worktrees
+func (s *Server) handleGitWorktrees(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeGitError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	repoPath := r.URL.Query().Get("path")
+	if repoPath == "" {
+		repoPath = "."
+	}
+
+	worktrees, err := getGitWorktrees(repoPath)
+	if err != nil {
+		slog.Error("failed to get git worktrees", "error", err, "path", repoPath)
+		writeGitError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(GitWorktreesResponse{Worktrees: worktrees})
+}
+
+// getGitWorktrees lists all worktrees and computes ahead/behind vs main
+func getGitWorktrees(repoPath string) ([]GitWorktree, error) {
+	output, err := git(repoPath, "worktree", "list", "--porcelain")
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse porcelain output: blocks separated by blank lines
+	// Each block has lines like: worktree /path, HEAD hash, branch refs/heads/xxx
+	var raw []struct {
+		path string
+		head string
+		branch string
+	}
+
+	current := struct {
+		path string
+		head string
+		branch string
+	}{}
+
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			if current.path != "" {
+				raw = append(raw, current)
+				current = struct {
+					path string
+					head string
+					branch string
+				}{}
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "worktree ") {
+			current.path = strings.TrimPrefix(line, "worktree ")
+			current.path = strings.TrimRight(current.path, "'\" ")
+		} else if strings.HasPrefix(line, "HEAD ") {
+			current.head = strings.TrimPrefix(line, "HEAD ")
+			current.head = strings.TrimRight(current.head, "'\" ")
+		} else if strings.HasPrefix(line, "branch ") {
+			// branch refs/heads/feature-x
+			ref := strings.TrimPrefix(line, "branch ")
+			ref = strings.TrimRight(ref, "'\" ")
+			current.branch = strings.TrimPrefix(ref, "refs/heads/")
+		}
+	}
+	if current.path != "" {
+		raw = append(raw, current)
+	}
+
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("no worktrees found")
+	}
+
+	// Find the main worktree (the one matching repoPath, or the first one)
+	mainIdx := 0
+	mainPath := ""
+	for i, wt := range raw {
+		// Normalize paths for comparison
+		if wt.path == repoPath || strings.TrimSuffix(wt.path, "/") == strings.TrimSuffix(repoPath, "/") {
+			mainIdx = i
+			mainPath = wt.path
+			break
+		}
+	}
+	if mainPath == "" {
+		mainPath = raw[0].path
+		mainIdx = 0
+	}
+
+	// Get main branch name
+	mainBranch := raw[mainIdx].branch
+	if mainBranch == "" {
+		// fallback: try to resolve main branch name
+		if out, err := git(mainPath, "symbolic-ref", "--short", "HEAD"); err == nil {
+			mainBranch = strings.TrimSpace(out)
+		}
+	}
+	if mainBranch == "" {
+		mainBranch = "HEAD"
+	}
+
+	// Build result with ahead/behind counts and last active time
+	var worktrees []GitWorktree
+	for i, wt := range raw {
+		isMain := i == mainIdx
+		ahead, behind := 0, 0
+
+		if !isMain && mainBranch != "" {
+			// Count commits ahead: main..worktree
+			if out, err := git(wt.path, "rev-list", "--count", mainBranch+"..HEAD"); err == nil {
+				ahead, _ = strconv.Atoi(strings.TrimSpace(out))
+			}
+			// Count commits behind: worktree..main
+			if out, err := git(wt.path, "rev-list", "--count", "HEAD.."+mainBranch); err == nil {
+				behind, _ = strconv.Atoi(strings.TrimSpace(out))
+			}
+		}
+
+		// Get last commit time
+		var lastActive int64
+		if logOut, err := git(wt.path, "log", "-1", "--format=%aI", "HEAD"); err == nil {
+			if t, err := time.Parse(time.RFC3339, strings.TrimSpace(logOut)); err == nil {
+				lastActive = t.UnixMilli()
+			}
+		}
+
+		worktrees = append(worktrees, GitWorktree{
+			Path:       wt.path,
+			Head:       wt.head,
+			Branch:     wt.branch,
+			IsMain:     isMain,
+			Ahead:      ahead,
+			Behind:     behind,
+			LastActive: lastActive,
+		})
+	}
+
+	return worktrees, nil
 }
 
 // handleGitCommitDetails handles GET /api/git/commit
@@ -249,10 +417,17 @@ func getGitCommits(repoPath, branch string, maxCount, skip int) ([]GitCommit, st
 	// Validate the repository is reachable, then fetch commits
 	logArgs := []string{"log",
 		"--format=%H|%P|%an|%ae|%aI|%s",
-		"--max-count=" + strconv.Itoa(maxCount),
 	}
-	if skip > 0 {
-		logArgs = append(logArgs, "--skip="+strconv.Itoa(skip))
+
+	// When using range notation (A..B), --skip doesn't paginate correctly.
+	// Workaround: fetch skip+count, then drop the first skip entries in Go.
+	if skip > 0 && strings.Contains(branch, "..") {
+		logArgs = append(logArgs, "--max-count="+strconv.Itoa(skip+maxCount))
+	} else {
+		logArgs = append(logArgs, "--max-count="+strconv.Itoa(maxCount))
+		if skip > 0 {
+			logArgs = append(logArgs, "--skip="+strconv.Itoa(skip))
+		}
 	}
 	logArgs = append(logArgs, branch)
 
@@ -376,6 +551,11 @@ func getGitCommits(repoPath, branch string, maxCount, skip int) ([]GitCommit, st
 			Remotes: []GitRemote{},
 			Stash:   stashInfo,
 		})
+	}
+
+	// When using range notation, we fetched skip+count entries; trim the first skip.
+	if skip > 0 && strings.Contains(branch, "..") && len(commits) > skip {
+		commits = commits[skip:]
 	}
 
 	return commits, head, nil

@@ -97,7 +97,7 @@ export function UploadDialog({ currentPath, onClose, onUploadComplete, onError, 
             />
 
             {selectedFiles.length > 0 && (
-              <div className="mt-3 max-h-32 overflow-y-auto">
+              <div className="mt-3 max-h-32 overflow-y-auto scrollbar-thin">
                 {selectedFiles.map((file) => (
                   <div key={file.name} className="flex items-center justify-between py-1.5 text-[11px] text-white/60">
                     <span className="truncate tracking-[-0.01em]">{file.name}</span>

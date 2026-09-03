@@ -418,7 +418,7 @@ export default function ForwardPanel() {
         )}
 
         {/* Active mappings list */}
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           {loading && (
             <div className="flex items-center justify-center py-12 text-[11px] text-white/40">Loading...</div>
           )}

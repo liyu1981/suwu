@@ -69,7 +69,7 @@ export function ThemeSelect({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-        <div className="max-h-80 overflow-auto p-0.5">
+        <div className="max-h-80 overflow-auto scrollbar-thin p-0.5">
           {/* Custom option */}
           {!value && (
             <div className="flex items-center gap-2 rounded-sm bg-white/10 px-2 py-1.5">

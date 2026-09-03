@@ -93,7 +93,7 @@ export default function SuwuDialog() {
 
         {/* Screen content; only the body scrolls under the fixed header */}
         {view !== 'appSettings' ? (
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-0.5">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto scrollbar-thin pr-0.5">
             {view === 'menu' && <MainMenuView onSelect={setView} />}
             {view === 'shortcuts' && <ShortcutsView />}
             {view === 'settings' && <SettingsView />}

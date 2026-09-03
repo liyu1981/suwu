@@ -31,6 +31,17 @@ interface GitGraphSessionState {
   repoPath?: string;
   branch?: string;
   scrollPosition?: number;
+  selectedWorktree?: string | null;
+}
+
+interface GitWorktree {
+  path: string;
+  head: string;
+  branch: string;
+  isMain: boolean;
+  ahead: number;
+  behind: number;
+  lastActive: number; // unix millis
 }
 
 interface GitFileChange {
@@ -95,6 +106,9 @@ export default function GitGraphPage() {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [picking, setPicking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [worktrees, setWorktrees] = useState<GitWorktree[]>([]);
+  const [selectedWorktree, setSelectedWorktree] = useState<string | null>(savedState?.selectedWorktree ?? null);
+  const [showWorktreeBrowser, setShowWorktreeBrowser] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
@@ -109,11 +123,42 @@ export default function GitGraphPage() {
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  const { commits, loading, loadingMore, error, hasMore, commitHead, refresh, loadMore } = useGitGraph({ repoPath, branch, maxCount: 100, enabled: repoPath !== null });
+  // Determine the active worktree path and base for diff mode
+  const activeWorktree = worktrees.find((wt) => wt.path === selectedWorktree);
+  const activePath = activeWorktree?.path ?? repoPath ?? '.';
+  const mainWorktree = worktrees.find((wt) => wt.isMain);
+  const base = selectedWorktree !== null && mainWorktree ? mainWorktree.branch : undefined;
 
-  useEffect(() => { reportState({ repoPath: repoPath ?? undefined, branch }); }, [repoPath, branch, reportState]);
+  const { commits, loading, loadingMore, error, hasMore, commitHead, refresh, loadMore } = useGitGraph({
+    repoPath: activePath,
+    branch,
+    maxCount: 100,
+    enabled: activePath !== null,
+    base,
+  });
 
-  useEffect(() => { if (autoRefresh <= 0) return; const id = setInterval(() => refresh(), autoRefresh); return () => clearInterval(id); }, [autoRefresh, refresh]);
+  // Fetch worktrees when repoPath changes
+  const fetchWorktrees = useCallback(async () => {
+    if (!repoPath) { setWorktrees([]); return; }
+    try {
+      const data = await fetchJson<{ worktrees: GitWorktree[] }>(`/api/git/worktrees?path=${encodeURIComponent(repoPath)}`);
+      setWorktrees(data.worktrees ?? []);
+    } catch {
+      setWorktrees([]);
+    }
+  }, [repoPath]);
+
+  useEffect(() => { fetchWorktrees(); }, [fetchWorktrees]);
+
+  // Refresh both worktrees and commits
+  const refreshAll = useCallback(() => {
+    fetchWorktrees();
+    refresh();
+  }, [fetchWorktrees, refresh]);
+
+  useEffect(() => { reportState({ repoPath: repoPath ?? undefined, branch, selectedWorktree }); }, [repoPath, branch, selectedWorktree, reportState]);
+
+  useEffect(() => { if (autoRefresh <= 0) return; const id = setInterval(() => refreshAll(), autoRefresh); return () => clearInterval(id); }, [autoRefresh, refreshAll]);
 
   const handleIntervalSelect = useCallback((ms: number) => { setAutoRefresh(ms); setShowDropdown(false); }, []);
 
@@ -130,7 +175,7 @@ export default function GitGraphPage() {
     }
   }, [repoPath, branch, reportState, hasMore, loadingMore, loading, loadMore]);
 
-  const handleSelectPath = useCallback((path: string) => { setRepoPath(path); setPicking(false); setExpandedIndex(null); }, []);
+  const handleSelectPath = useCallback((path: string) => { setRepoPath(path); setPicking(false); setExpandedIndex(null); setSelectedWorktree(null); setShowWorktreeBrowser(false); }, []);
   const handleRetry = useCallback(() => { setExpandedIndex(null); refresh(); }, [refresh]);
 
   const copyPath = useCallback(async () => {
@@ -246,13 +291,54 @@ export default function GitGraphPage() {
 
   const handleCommitClick = useCallback((_commit: GitCommit, index: number) => { setExpandedIndex((prev) => (prev === index ? null : index)); }, []);
 
+  // Navigate to a parent commit: find in list, scroll to it, expand it.
+  // If not loaded yet, load more commits until found.
+  const handleParentClick = useCallback((parentHash: string) => {
+    // Search loaded commits for the parent
+    const idx = commits.findIndex((c) => c.hash === parentHash)
+    if (idx >= 0) {
+      setExpandedIndex(idx)
+      // Scroll into view
+      const row = scrollRef.current?.querySelector(`[data-commit-idx="${idx}"]`)
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    // Not found — load more until we find it or run out
+    const loadUntilFound = async () => {
+      let skip = commits.length
+      const maxAttempts = 20
+      for (let i = 0; i < maxAttempts; i++) {
+        const params = new URLSearchParams({
+          path: activePath,
+          branch,
+          count: '100',
+          skip: skip.toString(),
+        })
+        if (base) params.set('base', base)
+        const data = await fetchJson<{ commits?: GitCommit[] }>(`/api/git/commits?${params}`)
+        const newCommits = data.commits ?? []
+        if (newCommits.length === 0) break
+        const found = newCommits.findIndex((c) => c.hash === parentHash)
+        if (found >= 0) {
+          // Found — append all and expand
+          setExpandedIndex(skip + found)
+          const row = scrollRef.current?.querySelector(`[data-commit-idx="${skip + found}"]`)
+          row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          return
+        }
+        skip += newCommits.length
+      }
+    }
+    void loadUntilFound()
+  }, [commits, activePath, branch, base]);
+
   return (
     <CommonTileContainer zoomAtom={gitGraphZoomAtom}>
-      <div className="flex flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
         {/* Row 1 — toolbar (file viewer style) */}
         <div className="flex h-8 shrink-0 items-center gap-1 rounded-t-lg border-b border-white/10 px-3 py-1.5 glass-control">
-          <button type="button" onClick={refresh} className={`grid h-5 w-5 place-items-center rounded transition hover:bg-white/10 ${autoRefresh > 0 ? 'text-green-400' : 'text-white/50 hover:text-white/70'}`} title="Refresh"><RefreshIcon /></button>
+          <button type="button" onClick={refreshAll} className={`grid h-5 w-5 place-items-center rounded transition hover:bg-white/10 ${autoRefresh > 0 ? 'text-green-400' : 'text-white/50 hover:text-white/70'}`} title="Refresh"><RefreshIcon /></button>
           <button ref={refreshBtnRef} type="button" onClick={() => { if (showDropdown) { setShowDropdown(false); } else if (refreshBtnRef.current) { const r = refreshBtnRef.current.getBoundingClientRect(); setDropdownPos({ top: r.bottom + 2, left: r.left }); setShowDropdown(true); } }} className={`grid h-5 w-4 place-items-center rounded text-[10px] transition hover:bg-white/10 ${autoRefresh > 0 ? 'text-green-400' : 'text-white/40 hover:text-white/60'}`} title="Auto-refresh interval">▾</button>
           <span className="text-[11px] font-semibold tracking-wide text-white/60">Git Graph</span>
         </div>
@@ -275,25 +361,86 @@ export default function GitGraphPage() {
             <>
               <button type="button" onClick={copyPath} title="Copy repository path" className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-left text-xs text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70">
                 <svg className="h-3 w-3 shrink-0 text-white/30" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
-                <span className="truncate font-mono tracking-tight">{repoPath}</span>
+                <span className="truncate font-mono tracking-tight">{activePath}</span>
                 <span className="shrink-0 text-white/30">{copied ? <svg className="h-3 w-3 text-green-400" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg> : <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5z"/></svg>}</span>
               </button>
+              {/* Worktree selector — clickable to open worktree browser */}
+              {worktrees.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setShowWorktreeBrowser((v) => !v)}
+                  className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-all duration-150 active:scale-[0.97] ${
+                    showWorktreeBrowser
+                      ? 'bg-sky-500/20 text-sky-300'
+                      : 'bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/70'
+                  }`}
+                >
+                  <span className="text-[10px] text-white/30">Worktree:</span>
+                  <span>{selectedWorktree === null
+                    ? (mainWorktree?.branch ?? 'main')
+                    : (activeWorktree?.branch ?? '—')}
+                  </span>
+                  <svg className={`h-2.5 w-2.5 shrink-0 opacity-50 transition-transform ${showWorktreeBrowser ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+              )}
               <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-1 text-xs text-white/50">{error ? '—' : `${commits.length} commits`}</span>
               <button type="button" onClick={() => setPicking(true)} title="Change repository folder" className="shrink-0 rounded-md bg-white/[0.06] px-2.5 py-1 text-xs text-white/70 transition-all duration-150 hover:bg-white/[0.12] hover:text-white active:scale-[0.97]">Change repo</button>
             </>
           ) : <span className="px-1 text-xs text-white/50">No repository selected</span>}
         </div>
 
+        {/* Worktree browser */}
+        {showWorktreeBrowser && worktrees.length > 1 && (
+          <div className="flex flex-1 flex-col overflow-auto rounded-b-lg border-x border-b border-white/[0.10] bg-black/20 scrollbar-thin">
+            <div className="flex shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-white/35">
+              <span className="flex-1 min-w-0">Worktree dir</span>
+              <span className="w-32 shrink-0">Branch</span>
+              <span className="w-24 shrink-0">Base</span>
+              <span className="w-32 shrink-0">Last active</span>
+              <span className="w-20 shrink-0 text-right">Commits</span>
+            </div>
+            {worktrees.map((wt) => (
+              <button
+                key={wt.path}
+                type="button"
+                onClick={() => {
+                  setSelectedWorktree(wt.isMain ? null : wt.path);
+                  setShowWorktreeBrowser(false);
+                  setExpandedIndex(null);
+                }}
+                className={`flex w-full items-center px-3 py-2 text-left text-xs transition-colors ${
+                  (wt.isMain && selectedWorktree === null) || (!wt.isMain && selectedWorktree === wt.path)
+                    ? 'bg-sky-500/10 text-white'
+                    : 'text-white/70 hover:bg-white/[0.05] hover:text-white/90'
+                }`}
+              >
+                <div className="flex flex-1 min-w-0 items-center gap-1.5">
+                  <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${wt.isMain ? 'bg-sky-400' : 'bg-white/30'}`} />
+                  <span className="truncate font-mono text-[11px]">{wt.path}</span>
+                </div>
+                <span className="w-32 shrink-0 truncate text-white/60">{wt.branch || 'detached'}</span>
+                <span className="w-24 shrink-0 text-white/40">{wt.isMain ? '—' : (mainWorktree?.branch ?? 'main')}</span>
+                <span className="w-32 shrink-0 text-white/40">{wt.lastActive > 0 ? new Date(wt.lastActive).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>
+                <div className="w-20 shrink-0 flex justify-end gap-2">
+                  {wt.ahead > 0 && <span className="font-mono text-green-400">{wt.ahead} ↑</span>}
+                  {wt.behind > 0 && <span className="font-mono text-red-400">{wt.behind} ↓</span>}
+                  {wt.ahead === 0 && wt.behind === 0 && <span className="text-white/30">—</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Content */}
-        {picking || repoPath === null ? (
-          <div className="flex flex-1 overflow-hidden rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        {!showWorktreeBrowser && (picking || repoPath === null) ? (
+          <div className="flex flex-1 flex-col overflow-y-auto scrollbar-thin rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" style={{ maxHeight: `calc(${100 / (parseFloat(document.documentElement.style.zoom) || 1)}vh - 90px)` }}>
             <RepoPicker error={repoPath !== null ? error : null} onSelect={handleSelectPath} />
           </div>
-        ) : loading ? (
+        ) : !showWorktreeBrowser && loading ? (
           <div className="flex flex-1 items-center justify-center rounded-b-lg border-x border-b border-white/[0.10] bg-black/20">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
           </div>
-        ) : error ? (
+        ) : !showWorktreeBrowser && error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-lg border-x border-b border-white/[0.10] bg-black/20 p-6">
             <svg className="h-8 w-8 text-red-400" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
             <div className="max-w-sm text-center text-sm text-red-300">{error}</div>
@@ -302,22 +449,22 @@ export default function GitGraphPage() {
               <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
             </div>
           </div>
-        ) : commits.length === 0 ? (
+        ) : !showWorktreeBrowser && commits.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-lg border-x border-b border-white/[0.10] bg-black/20 p-6">
             <div className="max-w-sm text-center text-sm text-white/60">No commits found in this repository.</div>
             <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
           </div>
-        ) : (
-          <div className="min-h-0 flex-1 overflow-auto rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" onScroll={handleScroll} ref={scrollRef}>
+        ) : !showWorktreeBrowser && (
+          <div className="min-h-0 flex-1 overflow-auto rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] scrollbar-thin" onScroll={handleScroll} ref={scrollRef}>
             <div className="flex">
               <div className="sticky left-0 z-10 shrink-0" style={{ backgroundColor: bgColor }}>
                 <GraphRenderer commits={commits} commitHead={commitHead} expandedCommitIndex={expandedIndex ?? -1} onCommitClick={handleCommitClick} />
               </div>
               <div className="min-w-0 flex-1">
                 {commits.map((commit, index) => (
-                  <div key={commit.hash} style={{ minHeight: ROW_HEIGHT }}>
+                  <div key={commit.hash} data-commit-idx={index} style={{ minHeight: ROW_HEIGHT }}>
                     <CommitRow commit={commit} isExpanded={expandedIndex === index} onClick={() => handleCommitClick(commit, index)} onContextMenu={showCommitContextMenu} onBranchContextMenu={showBranchContextMenu} onTagContextMenu={showTagContextMenu} onStashContextMenu={showStashContextMenu} />
-                    {expandedIndex === index && repoPath && <ExpandedCommitRow repoPath={repoPath} hash={commit.hash} height={DETAILS_HEIGHT} />}
+                    {expandedIndex === index && repoPath && <ExpandedCommitRow repoPath={repoPath} hash={commit.hash} height={DETAILS_HEIGHT} onParentClick={handleParentClick} />}
                   </div>
                 ))}
                 {loadingMore && (
@@ -379,7 +526,7 @@ function CommitRow({ commit, isExpanded, onClick, onContextMenu, onBranchContext
 }
 
 /* ExpandedCommitRow — two-column layout: left = metadata, right = file changes */
-function ExpandedCommitRow({ repoPath, hash, height }: { repoPath: string; hash: string; height: number }) {
+function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath: string; hash: string; height: number; onParentClick?: (parentHash: string) => void }) {
   const [details, setDetails] = useState<GitCommitDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -399,7 +546,7 @@ function ExpandedCommitRow({ repoPath, hash, height }: { repoPath: string; hash:
   const copyHash = useCallback((e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(hash); setHashCopied(true); setTimeout(() => setHashCopied(false), 1200); }, [hash]);
 
   return (
-    <div className="flex overflow-y-auto border-b border-white/[0.06] bg-white/[0.03]" style={{ height }} onClick={(e) => e.stopPropagation()}>
+    <div className="flex overflow-y-auto scrollbar-thin border-b border-white/[0.06] bg-white/[0.03]" style={{ height }} onClick={(e) => e.stopPropagation()}>
       {loading ? (
         <div className="flex w-full items-center justify-center"><div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white/80" /></div>
       ) : loadError || !details ? (
@@ -432,7 +579,16 @@ function ExpandedCommitRow({ repoPath, hash, height }: { repoPath: string; hash:
               <div className="mt-1 border-t border-white/[0.06] pt-1">
                 <span className="text-white/30">Parent:</span>
                 <div className="mt-0.5 flex flex-col gap-0.5 pl-2">
-                  {(details.parents || []).map((p) => <span key={p} className="font-mono text-[10px] text-white/50">{p.slice(0, 10)}</span>)}
+                  {(details.parents || []).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onParentClick?.(p) }}
+                      className="font-mono text-[10px] text-left text-sky-400/70 transition-colors hover:text-sky-300 hover:underline"
+                    >
+                      {p.slice(0, 10)}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -445,7 +601,7 @@ function ExpandedCommitRow({ repoPath, hash, height }: { repoPath: string; hash:
           </div>
 
           {/* ── Right: file changes ───────────────────────────────── */}
-          <div className="min-w-0 flex-1 overflow-y-auto px-2 py-2">
+          <div className="min-w-0 flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
             {details.fileChanges.length === 0 ? (
               <div className="py-2 text-xs text-white/40">No file changes (empty or merge commit).</div>
             ) : details.fileChanges.map((f) => (
@@ -503,7 +659,7 @@ function FileChangeItem({ change, repoPath, hash, open, onToggle }: { change: Gi
 /* DiffView — monospace unified diff with +/- coloring */
 function DiffView({ diff }: { diff: string }) {
   return (
-    <pre className="max-h-40 overflow-auto p-2 font-mono text-[10px] leading-[1.5]">
+    <pre className="max-h-40 overflow-auto scrollbar-thin p-2 font-mono text-[10px] leading-[1.5]">
       {diff.split('\n').map((line, i) => {
         let cls = 'text-white/50';
         if (line.startsWith('+') && !line.startsWith('+++')) cls = 'bg-green-500/10 text-green-300';

@@ -31,7 +31,6 @@ function fetchDirs(dirPath: string, signal?: AbortSignal): Promise<DirEntry[]> {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       const entries: DirEntry[] = Array.isArray(data?.entries) ? data.entries : []
-      // Folders only; sort dirs first, then name.
       return entries
         .filter((e: DirEntry) => e.isDir && e.name !== '.')
         .sort((a: DirEntry, b: DirEntry) => a.name.localeCompare(b.name))
@@ -57,9 +56,9 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
   const [loading, setLoading] = useState(true)
   const [browseError, setBrowseError] = useState<string | null>(null)
   const [manualPath, setManualPath] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
 
-  // Start at the user's home directory.
   useEffect(() => {
     const headers: Record<string, string> = {}
     const creds = getCredentials()
@@ -75,7 +74,6 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
       .catch(() => {})
   }, [])
 
-  // List directories whenever the current path changes.
   useEffect(() => {
     abortRef.current?.abort()
     const ctrl = new AbortController()
@@ -95,7 +93,9 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
         setLoading(false)
       })
     return () => ctrl.abort()
-  }, [currentPath])
+  }, [currentPath, refreshKey])
+
+  const isFiltering = manualPath !== currentPath && manualPath.split('/').pop() !== ''
 
   const open = useCallback((name: string) => {
     setCurrentPath(joinPath(currentPath, name))
@@ -120,8 +120,8 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
   }, [manualPath, onSelect])
 
   return (
-    <div className="flex h-full w-full flex-col gap-3">
-      {/* Error from the graph (invalid repo, empty repo, ...) */}
+    <div className="flex flex-col gap-2 overflow-y-auto scrollbar-thin" style={{ height: '100%' }}>
+      {/* Error */}
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
           <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
@@ -131,16 +131,12 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
         </div>
       )}
 
-      <div>
-        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-white/40">
-          Choose a git repository folder
-        </div>
-        <p className="text-[11px] text-white/50">
-          Pick a folder that contains a <code className="rounded bg-white/10 px-1">.git</code>
-        </p>
+      {/* Label */}
+      <div className="text-[11px] text-white/50">
+        Pick a folder that contains a <code className="rounded bg-white/10 px-1">.git</code>
       </div>
 
-      {/* Manual path input */}
+      {/* Path input */}
       <div className="flex gap-2">
         <input
           value={manualPath}
@@ -162,31 +158,29 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1 rounded-md bg-white/5 px-2 py-1.5">
-        <button
-          type="button"
-          onClick={goHome}
-          title="Home"
-          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white"
-        >
+        <button type="button" onClick={goHome} title="Home" className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white">
           <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
             <path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.75.75 0 0 0 1.5 0v-3.665a2.25 2.25 0 0 0-.663-1.59L6.531 4.54A.75.75 0 0 0 6 4.75v9.75a.75.75 0 0 0 .75.75c.138 0 .5-.25.5-.25.2-.1.37-.14.05-.06.218.01.497 0 .7.06.35.1.35.15.5.25z" transform="scale(-1,1) translate(-14.5,0)"/>
           </svg>
         </button>
-        <button
-          type="button"
-          onClick={goUp}
-          title="Up"
-          className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white"
-        >
+        <button type="button" onClick={goUp} title="Up" className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white">
           <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
             <path d="M7.78 3.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06L9 5.56v7.69a.75.75 0 0 1-1.5 0V5.56L5.03 8.53a.75.75 0 0 1-1.06-1.06l3.81-3.75z"/>
           </svg>
         </button>
         <div className="min-w-0 flex-1 truncate pl-1 text-xs text-white/60">{currentPath}</div>
+        <button type="button" onClick={() => setRefreshKey((k) => k + 1)} title="Refresh" className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white">
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+        </button>
       </div>
 
-      {/* Directory list */}
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-white/10 bg-black/30">
+      {/* Dir list header */}
+      <div className="flex items-center rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/35">
+        <span className="flex-1">Name</span>
+      </div>
+
+      {/* Dir list — uses overflow-y-auto so it scrolls within whatever height is available */}
+      <div className="flex-1 overflow-y-auto rounded-md border border-white/10 bg-black/30 scrollbar-thin">
         {loading ? (
           <div className="flex h-full items-center justify-center p-6">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
@@ -194,20 +188,25 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
         ) : browseError ? (
           <div className="p-4 text-xs text-red-300">
             {browseError}
-            <button type="button" onClick={goUp} className="ml-2 text-white/60 underline hover:text-white">
-              Go up
-            </button>
+            <button type="button" onClick={goUp} className="ml-2 text-white/60 underline hover:text-white">Go up</button>
           </div>
         ) : dirs.length === 0 ? (
           <div className="p-4 text-xs text-white/40">No subfolders here.</div>
         ) : (
           <div className="divide-y divide-white/5">
-            {dirs.map((d) => (
+            {dirs
+              .filter((d) => {
+                if (manualPath === currentPath) return true
+                const seg = manualPath.split('/').pop() ?? ''
+                if (seg === '') return true
+                return d.name.toLowerCase().includes(seg.toLowerCase())
+              })
+              .map((d) => (
               <button
                 key={d.name}
                 type="button"
                 onDoubleClick={() => onSelect(joinPath(currentPath, d.name))}
-                onClick={() => setManualPath(joinPath(currentPath, d.name))}
+                onClick={() => isFiltering ? open(d.name) : setManualPath(joinPath(currentPath, d.name))}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
               >
                 <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400/80" viewBox="0 0 16 16" fill="currentColor">
@@ -220,16 +219,6 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
           </div>
         )}
       </div>
-
-      {/* Open current folder */}
-      <button
-        type="button"
-        disabled={loading || !!browseError}
-        onClick={() => onSelect(currentPath)}
-        className="glass-btn w-full rounded-lg bg-green-500/20 py-2 text-sm font-medium text-green-300 transition hover:bg-green-500/30 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        Use this folder
-      </button>
     </div>
   )
 }

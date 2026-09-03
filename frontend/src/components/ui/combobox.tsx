@@ -112,7 +112,7 @@ export function Combobox({
             />
           </div>
         )}
-        <div className="max-h-60 overflow-auto p-0.5">
+        <div className="max-h-60 overflow-auto scrollbar-thin p-0.5">
           {filtered.length === 0 && (
             <div className="px-2 py-1.5 text-xs text-muted-foreground">
               {editable ? (

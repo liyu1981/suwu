@@ -193,7 +193,7 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
 
   if (category === 'text' && textPreview !== null) {
     return (
-      <div className="mt-2 max-h-32 overflow-auto rounded bg-black/30 p-2">
+      <div className="mt-2 max-h-32 overflow-auto scrollbar-thin rounded bg-black/30 p-2">
         <pre className="whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed text-white/60">
           {textPreview}
         </pre>
@@ -428,7 +428,7 @@ export default function DropboxPage() {
         </div>
 
         {/* Content — left/right borders + inset shadow */}
-        <div className="min-h-0 flex-1 overflow-y-auto border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           {loading ? (
             <div className="flex h-full items-center justify-center text-xs text-white/40">
               {t('dropbox.loading')}

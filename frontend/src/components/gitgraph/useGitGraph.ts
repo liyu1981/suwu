@@ -14,6 +14,8 @@ interface UseGitGraphOptions {
   followFirstParent?: boolean;
   /** When false, no fetch is performed (e.g. no path chosen yet). */
   enabled?: boolean;
+  /** When provided, show only commits on branch not in base (worktree diff mode). */
+  base?: string;
   config?: GraphConfig;
   muteConfig?: MuteConfig;
 }
@@ -39,6 +41,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
     maxCount = 100,
     followFirstParent = false,
     enabled = true,
+    base,
     config,
     muteConfig,
   } = options;
@@ -136,6 +139,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
         count: maxCount.toString(),
         skip: commits.length.toString(),
       });
+      if (base) params.set('base', base);
 
       const response = await fetch(`/api/git/commits?${params}`);
 
@@ -160,7 +164,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
     } finally {
       setLoadingMore(false);
     }
-  }, [repoPath, branch, maxCount, enabled, loadingMore, hasMore, commits.length]);
+  }, [repoPath, branch, maxCount, enabled, loadingMore, hasMore, commits.length, base]);
 
   useEffect(() => {
     fetchCommits();

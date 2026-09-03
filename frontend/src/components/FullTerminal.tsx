@@ -211,7 +211,7 @@ export default function FullTerminal() {
       <Dialog open={showCacheDialog} onOpenChange={setShowCacheDialog}>
         <DialogContent>
           <DialogTitle>{t('terminal.cachePreview')}</DialogTitle>
-          <div className="mt-3 max-h-[50dvh] overflow-auto rounded bg-black/40 p-3 font-mono text-xs text-white/80 whitespace-pre-wrap break-all">
+          <div className="mt-3 max-h-[50dvh] overflow-auto scrollbar-thin rounded bg-black/40 p-3 font-mono text-xs text-white/80 whitespace-pre-wrap break-all">
             {cachedText || t('terminal.cacheEmpty')}
           </div>
           <div className="mt-4 flex justify-end gap-2">

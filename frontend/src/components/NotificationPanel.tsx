@@ -161,7 +161,7 @@ function TextReader({ message, onClose }: { message: string; onClose: () => void
         </button>
       </div>
       {/* Content */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-3">
         <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-popover-foreground">{message}</pre>
       </div>
     </div>
@@ -260,7 +260,7 @@ export function NotificationPanel() {
           </div>
 
           {/* Message list */}
-          <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
+          <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-2">
             {notifications.length === 0 ? (
               <EmptyState />
             ) : (

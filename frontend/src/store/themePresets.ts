@@ -11,10 +11,10 @@ export interface ThemePreset {
 const A = (hex: string) => hex + 'ff'
 
 export const THEME_PRESETS: ThemePreset[] = [
-  // ── Classic (Suwu default) ────────────────────────────────────────
+  // ── Suwu (default) ───────────────────────────────────────────────
   {
-    id: 'classic',
-    name: 'Classic',
+    id: 'suwu',
+    name: 'Suwu',
     theme: {
       background: '#1e1e1ecc',
       foreground: '#d4d4d4',

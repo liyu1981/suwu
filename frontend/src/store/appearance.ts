@@ -55,31 +55,31 @@ export interface TerminalTheme {
   brightWhite: string
 }
 
-/** Defaults matching Dracula — a popular dark theme with vibrant ANSI colors. */
+/** Defaults matching the Suwu preset (#1e1e1e at 80% opacity, neutral grays). */
 export const TERMINAL_THEME_DEFAULT: TerminalTheme = {
-  background: '#282a36cc',
-  foreground: '#f8f8f2',
-  cursor: '#f8f8f2',
-  cursorAccent: '#282a36',
+  background: '#1e1e1ecc',
+  foreground: '#d4d4d4',
+  cursor: '#d4d4d4',
+  cursorAccent: '#000000',
 
-  selectionBackground: '#44475a',
-  selectionForeground: '#f8f8f2',
+  selectionBackground: '#264f78',
+  selectionForeground: '#ffffff',
 
-  black: '#21222c',
-  red: '#ff5555',
-  green: '#50fa7b',
-  yellow: '#f1fa8c',
-  blue: '#bd93f9',
-  magenta: '#ff79c6',
-  cyan: '#8be9fd',
-  white: '#f8f8f2',
-  brightBlack: '#6272a4',
-  brightRed: '#ff6e6e',
-  brightGreen: '#69ff94',
-  brightYellow: '#ffffa5',
-  brightBlue: '#d6acff',
-  brightMagenta: '#ff92df',
-  brightCyan: '#a4ffff',
+  black: '#1e1e1e',
+  red: '#f44747',
+  green: '#6a9955',
+  yellow: '#dcdcaa',
+  blue: '#569cd6',
+  magenta: '#c586c0',
+  cyan: '#4ec9b0',
+  white: '#d4d4d4',
+  brightBlack: '#808080',
+  brightRed: '#f44747',
+  brightGreen: '#6a9955',
+  brightYellow: '#dcdcaa',
+  brightBlue: '#569cd6',
+  brightMagenta: '#c586c0',
+  brightCyan: '#4ec9b0',
   brightWhite: '#ffffff',
 }
 

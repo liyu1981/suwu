@@ -767,6 +767,23 @@ func registerForwardHandlers(l *notify.Listener, mgr *forward.Manager) {
 			return notify.CommandResponse{OK: false, Error: err.Error()}
 		}
 		msg := fmt.Sprintf("Forward started: %d → %s:%d (%s)", req.LocalPort, host, req.TargetPort, proto)
+		// Surface an action notification to the UI: the frontend's action
+		// resolver can open the port-forwarding tile (auto-resolve is off by
+		// default — the user clicks the action button instead).
+		data, _ := json.Marshal(map[string]any{
+			"action": "open",
+			"payload": map[string]any{
+				"type":       "forward",
+				"localPort":  req.LocalPort,
+				"targetHost": host,
+				"targetPort": req.TargetPort,
+				"protocol":   proto,
+			},
+		})
+		l.Broadcast(notify.Notification{
+			Message: msg,
+			Data:    data,
+		})
 		return notify.CommandResponse{OK: true, ID: f.ID, Message: msg}
 	})
 
@@ -796,6 +813,9 @@ func registerForwardHandlers(l *notify.Listener, mgr *forward.Manager) {
 		}
 		_ = mgr.Remove(id)
 		msg := fmt.Sprintf("Forward stopped: %d → %s:%d", f.ExternalPort, f.InternalHost, f.InternalPort)
+		// Surface a notification to the UI so the user sees the stop even when
+		// it came from the command line (plain message, no action).
+		l.Broadcast(notify.Notification{Message: msg})
 		return notify.CommandResponse{OK: true, Message: msg}
 	})
 

@@ -4,8 +4,13 @@ import { atomWithStorage } from 'jotai/utils'
 export interface NotificationData {
   action: string
   payload: {
-    type: 'dir' | 'file'
+    type: 'dir' | 'file' | 'forward'
     path: string
+    // forward-specific fields (type === 'forward')
+    localPort?: number
+    targetHost?: string
+    targetPort?: number
+    protocol?: string
   }
 }
 

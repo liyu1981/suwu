@@ -71,7 +71,9 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
     ? t('notifications.upgrade')
     : n.data?.payload.type === 'dir'
       ? t('notifications.openInFileBrowser')
-      : t('notifications.openInViewr')
+      : n.data?.payload.type === 'forward'
+        ? t('notifications.openForward')
+        : t('notifications.openInViewr')
 
   return (
     <div className="group relative rounded px-3 py-2 transition hover:bg-white/5">

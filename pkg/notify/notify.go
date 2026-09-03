@@ -185,6 +185,12 @@ func (l *Listener) broadcast(n Notification) {
 	}
 }
 
+// Broadcast sends a Notification to all subscribers. Used by command
+// handlers (e.g. forward-start) that want to surface an action to the UI.
+func (l *Listener) Broadcast(n Notification) {
+	l.broadcast(n)
+}
+
 // Subscribe returns a channel that receives every Notification. The channel
 // has a small buffer; slow subscribers miss messages (non-blocking send).
 func (l *Listener) Subscribe() <-chan Notification {

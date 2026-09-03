@@ -130,6 +130,7 @@
     "close": "Close notifications",
     "openInFileBrowser": "Open in File Browser",
     "openInViewr": "Open in File Viewer",
+    "openForward": "Open Port Forward",
     "read": "Read",
     "reader": "Message",
     "copy": "Copy to clipboard",

@@ -130,6 +130,7 @@
     "close": "关闭通知",
     "openInFileBrowser": "在文件浏览器中打开",
     "openInViewr": "在文件查看器中打开",
+    "openForward": "打开端口转发",
     "read": "阅读",
     "reader": "消息",
     "copy": "复制到剪贴板",

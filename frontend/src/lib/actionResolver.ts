@@ -1,5 +1,8 @@
 import { layoutAtom, focusedIdAtom, spacesAtom, activeSpaceAtom } from '../wm/atoms'
-import { splitAndFocus, setLeafType, setLeafInitialPath, computeTiling, setPaneData } from '../wm/layout'
+import {
+  splitAndFocus, setLeafType, setLeafInitialPath, computeTiling, setPaneData,
+  type LayoutNode,
+} from '../wm/layout'
 import { fontDefaultAtom } from '../store/fonts'
 import type { NotificationData } from '../store/notifications'
 import type { AutoResolveSettings } from '../store/settings'
@@ -102,6 +105,44 @@ export function openViewer(path: string, store: Store): string | null {
   return leafId
 }
 
+/** First leaf in the layout with the given tileType, if any. */
+function findLeafOfType(root: LayoutNode | null, tileType: string): LayoutNode | null {
+  if (!root) return null
+  if (root.type === 'leaf') {
+    return root.tileType === tileType ? root : null
+  }
+  for (const child of root.children) {
+    const found = findLeafOfType(child.node, tileType)
+    if (found) return found
+  }
+  return null
+}
+
+/**
+ * Open (or focus) a port-forwarding tile in the current space.
+ * If a forward tile already exists, focus it instead of duplicating.
+ */
+export function openForward(store: Store): string | null {
+  const spaces = store.get(spacesAtom)
+  const idx = store.get(activeSpaceAtom)
+  const root = spaces[idx]?.layout ?? null
+
+  const existing = findLeafOfType(root, 'forward')
+  if (existing) {
+    store.set(focusedIdAtom, existing.id)
+    // Keep layout stable; just bring the existing tile into focus.
+    const viewport = document.querySelector('[data-tiling-viewport]')
+    const el = viewport?.querySelector(`iframe[data-pane="${existing.id}"]`)
+    ;(el as HTMLElement | null)?.focus()
+    return existing.id
+  }
+
+  const leafId = doSplit(store)
+  if (!leafId) return null
+  setTypeAndFocus(store, leafId, 'forward')
+  return leafId
+}
+
 /**
  * Resolve an action from a notification. Returns true if auto-resolved,
  * false if it should show as an action button in the notification panel.
@@ -121,6 +162,10 @@ export function resolveAction(
     openViewer(path, store)
     return true
   }
+  if (type === 'forward' && autoResolve.forward) {
+    openForward(store)
+    return true
+  }
   return false
 }
 
@@ -134,6 +179,8 @@ export function executeAction(
   const { type, path } = data.payload
   if (type === 'dir') {
     openFileBrowser(path, store)
+  } else if (type === 'forward') {
+    openForward(store)
   } else {
     openViewer(path, store)
   }

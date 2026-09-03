@@ -1,9 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { atom, useAtomValue } from 'jotai'
+import type { Atom } from 'jotai'
 import { wmAction } from '../wm/shortcuts'
 import { SESSION_STATE_KEY, type SessionStore } from '../wm/sessionState'
+import { fileBrowserBgAtom } from '../store/appearance'
+import { useHtmlZoom, tileZoomStyle } from './ZoomControls'
+
+/** Default zoom atom (100%) used when the tile does not support zoom. */
+const defaultZoomAtom = atom(1)
 
 interface Props {
   paneId?: string
+  /** Jotai atom that holds this tile's zoom level (e.g. fileBrowserZoomAtom). */
+  zoomAtom?: Atom<number>
   children: React.ReactNode
 }
 
@@ -33,10 +42,14 @@ export function useReportTileState(paneId?: string) {
  * Common container for all tile iframe pages. Handles:
  * - Loading saved session state from localStorage (keyed by server startedAt)
  * - Providing it via TileSessionContext to children
+ * - Applying HTML zoom and wrapper styling when a zoomAtom is provided
  * - Notifying the parent window manager when this pane gains focus
  * - Relaying WM keyboard shortcuts (Alt+arrows, etc.) to the parent
  */
-export function CommonTileContainer({ paneId, children }: Props) {
+export function CommonTileContainer({ paneId, zoomAtom, children }: Props) {
+  const zoom = useAtomValue(zoomAtom ?? defaultZoomAtom)
+  const bgColor = useAtomValue(fileBrowserBgAtom)
+  useHtmlZoom(zoom)
   const [savedState, setSavedState] = useState<Record<string, unknown> | null>(null)
 
   // Listen for startedAt from parent TilingWM, then load saved state.
@@ -89,7 +102,9 @@ export function CommonTileContainer({ paneId, children }: Props) {
 
   return (
     <TileSessionContext.Provider value={savedState}>
-      {children}
+      <div className="flex flex-col rounded-[6px] p-2 text-sm text-white/80" style={{ ...tileZoomStyle(zoom), backgroundColor: bgColor }}>
+        {children}
+      </div>
     </TileSessionContext.Provider>
   )
 }

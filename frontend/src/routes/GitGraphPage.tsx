@@ -13,8 +13,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAtomValue } from 'jotai';
 import { CommonTileContainer, useTileSessionState, useReportTileState } from '../components/CommonTileContainer';
+import { useAtomValue } from 'jotai';
+import { fileBrowserBgAtom } from '../store/appearance';
 import { GraphRenderer } from '../components/gitgraph/GraphRenderer';
 import { useGitGraph } from '../components/gitgraph/useGitGraph';
 import { RepoPicker } from '../components/gitgraph/RepoPicker';
@@ -22,9 +23,7 @@ import { ContextMenu, type ContextMenuItem } from '../components/gitgraph/Contex
 import { ActionDialog, type DialogInput } from '../components/gitgraph/ActionDialog';
 import { useGitActions } from '../components/gitgraph/useGitActions';
 import { RefreshIcon } from '../components/icons';
-import { fileBrowserBgAtom } from '../store/appearance';
 import { gitGraphZoomAtom } from '../store/zoom';
-import { useHtmlZoom, tileZoomStyle } from '../components/ZoomControls';
 import { getCredentials } from '../lib/auth';
 import type { GitCommit } from '../components/gitgraph/graph';
 
@@ -84,8 +83,6 @@ export default function GitGraphPage() {
   const savedState = useTileSessionState<GitGraphSessionState>();
   const reportState = useReportTileState();
   const bgColor = useAtomValue(fileBrowserBgAtom);
-  const zoom = useAtomValue(gitGraphZoomAtom);
-  useHtmlZoom(zoom);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -250,8 +247,8 @@ export default function GitGraphPage() {
   const handleCommitClick = useCallback((_commit: GitCommit, index: number) => { setExpandedIndex((prev) => (prev === index ? null : index)); }, []);
 
   return (
-    <CommonTileContainer>
-      <div className="flex flex-col rounded-[6px] p-2 text-sm text-white/80" style={{ ...tileZoomStyle(zoom), backgroundColor: bgColor }}>
+    <CommonTileContainer zoomAtom={gitGraphZoomAtom}>
+      <div className="flex flex-col">
 
         {/* Row 1 — toolbar (file viewer style) */}
         <div className="flex h-8 shrink-0 items-center gap-1 rounded-t-lg border-b border-white/10 px-3 py-1.5 glass-control">

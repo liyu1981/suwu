@@ -4,8 +4,6 @@ import { getCredentials } from '../lib/auth'
 import { CommonTileContainer } from './CommonTileContainer'
 import { RefreshIcon } from './icons'
 import { forwardZoomAtom } from '../store/zoom'
-import { useHtmlZoom, tileZoomStyle } from './ZoomControls'
-import { useAtomValue } from 'jotai'
 
 interface ForwardStatus {
   id: string
@@ -88,8 +86,6 @@ function isLocalHost(host: string): boolean {
 
 export default function ForwardPanel() {
   const { t } = useTranslation()
-  const zoom = useAtomValue(forwardZoomAtom)
-  useHtmlZoom(zoom)
   const [forwards, setForwards] = useState<ForwardStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [extPort, setExtPort] = useState('')
@@ -268,8 +264,8 @@ export default function ForwardPanel() {
   const showIntPortWarning = intPort !== '' && intPortValidation.valid && isLocalHost(intHost) && intPortOpen === false
 
   return (
-    <CommonTileContainer>
-      <div className="flex h-full flex-col rounded-[6px] p-2 text-sm text-white/80" style={tileZoomStyle(zoom)}>
+    <CommonTileContainer zoomAtom={forwardZoomAtom}>
+      <div className="flex h-full flex-col">
         {/* Header — glass material */}
         <div className="flex shrink-0 items-center rounded-t-lg border-b border-white/[0.06] px-3 py-2 glass-control">
           {/* Refresh button (left) */}

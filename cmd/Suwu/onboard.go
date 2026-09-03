@@ -146,13 +146,24 @@ func onboard() error {
 		}
 	}
 
-	// 5. Ensure ~/.local/bin is in PATH (needed for tool installs)
+	// 5. Systemd user service (interactive mode, Linux only)
+	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
+		if hasSystemctl() && !hasSystemdUserService() {
+			if err := promptSystemdSetup(); err != nil {
+				fmt.Printf("  ⚠️  systemd setup: %v\n", err)
+			}
+		} else if hasSystemdUserService() {
+			fmt.Println("  ✅ systemd service already installed")
+		}
+	}
+
+	// 6. Ensure ~/.local/bin is in PATH (needed for tool installs)
 	ensureLocalBinInPath(home)
 
-	// 6. Set ASDF_DATA_DIR to ~/.asdf explicitly
+	// 7. Set ASDF_DATA_DIR to ~/.asdf explicitly
 	ensureAsdfDataDir(home)
 
-	// 7. Prepare local dev environment (interactive only)
+	// 8. Prepare local dev environment (interactive only)
 	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
 		if err := runDevenvSetup(); err != nil {
 			fmt.Printf("  ⚠️  devenv setup: %v\n", err)
@@ -289,6 +300,33 @@ func generateCerts(home, cfgDir string) error {
 	}
 
 	return nil
+}
+
+// promptSystemdSetup asks the user whether to install a systemd user service
+// for automatic restart and seamless upgrades.
+func promptSystemdSetup() error {
+	var choice bool
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title("Use systemd for automatic restart?").
+			Description(
+				"systemd can auto-restart Suwu on crash and enable\n" +
+					"seamless upgrades (no manual restart needed).\n\n" +
+					"Install systemd user service?").
+			Value(&choice),
+	)).WithTheme(huh.ThemeCatppuccin())
+
+	if err := form.Run(); err != nil {
+		return err
+	}
+
+	if !choice {
+		fmt.Println("  ⏭️  skipping systemd setup")
+		fmt.Println("     (upgrades will require manual restart)")
+		return nil
+	}
+
+	return installSystemdService()
 }
 
 // ensureLocalBinInPath adds ~/.local/bin to PATH in shell config files

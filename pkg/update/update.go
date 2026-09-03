@@ -363,3 +363,25 @@ func stopDaemonByPIDFile(pidFile string) error {
 
 	return nil
 }
+
+// ── systemd helpers ──────────────────────────────────────────────────
+
+// HasSystemdService returns true if the user-level systemd service file exists.
+func HasSystemdService() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	path := filepath.Join(home, ".config", "systemd", "user", "suwu.service")
+	_, err = os.Stat(path)
+	return err == nil
+}
+
+// SystemctlRestart restarts the suwu user service via systemctl.
+func SystemctlRestart() error {
+	out, err := exec.Command("systemctl", "--user", "restart", "suwu").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("systemctl restart: %s (%w)", strings.TrimSpace(string(out)), err)
+	}
+	return nil
+}

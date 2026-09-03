@@ -265,16 +265,22 @@ Interactive initial setup wizard. Configures:
 Manage a background Suwu server daemon.
 
 Commands:
-  start       Start the daemon
+  start       Start the daemon (systemd or embedded script)
   stop        Stop the daemon
   restart     Restart the daemon
   status      Show daemon status
-  logs        Show daemon logs
+  logs        Follow daemon logs
+  install     Install systemd user service (if available)
+  uninstall   Remove systemd user service
+
+When a systemd user service is installed, start/stop/restart/status/logs
+are delegated to systemctl --user / journalctl --user automatically.
 
 Examples:
   suwu daemon start
   suwu daemon status
   suwu daemon logs
+  suwu daemon install
 `)
 	case "upgrade":
 		fmt.Print(`Usage: suwu upgrade [flags]

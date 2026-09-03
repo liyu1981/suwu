@@ -122,34 +122,57 @@ func (s *Server) handleUpdateUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wasRunning := update.IsDaemonRunning()
-	if wasRunning {
-		slog.Info("stopping daemon for upgrade")
-		if err := update.StopDaemon(); err != nil {
+	usesSystemd := update.HasSystemdService()
+
+	if usesSystemd {
+		// systemd handles restart — just replace the binary and restart.
+		slog.Info("downloading and replacing binary (systemd)", "version", info.Version)
+		if err := update.DownloadAndReplace(context.Background(), *asset, binPath); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 				"ok":    false,
-				"error": "failed to stop daemon: " + err.Error(),
+				"error": "upgrade failed: " + err.Error(),
 			})
 			return
 		}
-	}
+		slog.Info("restarting systemd service")
+		if err := update.SystemctlRestart(); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"ok":    false,
+				"error": "binary replaced but restart failed: " + err.Error(),
+			})
+			return
+		}
+	} else {
+		// Embedded script — stop, replace, start.
+		if wasRunning {
+			slog.Info("stopping daemon for upgrade")
+			if err := update.StopDaemon(); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+					"ok":    false,
+					"error": "failed to stop daemon: " + err.Error(),
+				})
+				return
+			}
+		}
 
-	slog.Info("downloading and replacing binary", "version", info.Version)
-	if err := update.DownloadAndReplace(context.Background(), *asset, binPath); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"ok":    false,
-			"error": "upgrade failed: " + err.Error(),
-		})
-		return
-	}
+		slog.Info("downloading and replacing binary", "version", info.Version)
+		if err := update.DownloadAndReplace(context.Background(), *asset, binPath); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"ok":    false,
+				"error": "upgrade failed: " + err.Error(),
+			})
+			return
+		}
 
-	if wasRunning {
-		slog.Info("restarting daemon after upgrade")
-		_ = update.StartDaemon()
+		if wasRunning {
+			slog.Info("restarting daemon after upgrade")
+			_ = update.StartDaemon()
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"ok":        true,
 		"version":   info.Version,
-		"restarted": wasRunning,
+		"restarted": wasRunning || usesSystemd,
 	})
 }

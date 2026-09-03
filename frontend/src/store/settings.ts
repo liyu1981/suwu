@@ -5,10 +5,13 @@ export interface AutoResolveSettings {
   fileviewer: boolean
   /** Open the port-forwarding tile when suwu forward starts — disabled by default. */
   forward: boolean
+  /** Open the git graph tile when suwu gitgraph is used — enabled by default. */
+  gitgraph: boolean
 }
 
 export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-resolve', {
   filebrowser: true,
   fileviewer: true,
   forward: false,
+  gitgraph: true,
 })

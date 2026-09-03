@@ -149,6 +149,21 @@ export default function GitGraphPage() {
     e.preventDefault();
     e.stopPropagation();
     const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+
+    // Special context menu for uncommitted changes
+    if (commit.hash === 'UNCOMMITTED') {
+      const items: ContextMenuItem[][] = [
+        [
+          { label: 'Stash Uncommitted...', onClick: () => setDialog({ title: 'Stash Changes', message: 'Stash all uncommitted changes?', inputs: [{ type: 'text', name: 'Message', defaultValue: '' }], actionLabel: 'Stash', onAction: (v) => { gitAction('stash', { message: String(v['Message']), includeUntracked: 'true' }); refresh(); } }) },
+          { label: 'Reset All...', onClick: () => setDialog({ title: 'Reset Working Directory', message: 'Discard ALL uncommitted changes? This cannot be undone.', actionLabel: 'Reset', onAction: () => { gitAction('reset-hard', {}); refresh(); } }) },
+          { label: 'Clean Untracked...', onClick: () => setDialog({ title: 'Clean Untracked', message: 'Remove all untracked files? This cannot be undone.', actionLabel: 'Clean', onAction: () => { gitAction('clean', {}); refresh(); } }) },
+        ],
+      ];
+      setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
+      return;
+    }
+
+    // Normal commit context menu
     const items: ContextMenuItem[][] = [
       [
         { label: 'Checkout', onClick: () => { gitAction('checkout-commit', { hash: commit.hash }); refresh(); } },
@@ -346,9 +361,14 @@ export default function GitGraphPage() {
 /* CommitRow — exactly ROW_HEIGHT tall to align with the graph grid */
 function CommitRow({ commit, isExpanded, onClick, onContextMenu, onBranchContextMenu, onTagContextMenu, onStashContextMenu }: { commit: GitCommit; isExpanded: boolean; onClick: () => void; onContextMenu: (e: React.MouseEvent, c: GitCommit) => void; onBranchContextMenu: (e: React.MouseEvent, branch: string) => void; onTagContextMenu: (e: React.MouseEvent, tag: { name: string; annotated: boolean }) => void; onStashContextMenu: (e: React.MouseEvent, stash: { selector: string; baseHash: string }) => void }) {
   const date = new Date(commit.date);
+  const isUncommitted = commit.hash === 'UNCOMMITTED';
   return (
-    <div className={`flex h-6 cursor-pointer items-center text-xs leading-none transition-colors ${isExpanded ? 'bg-white/10' : 'hover:bg-white/5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={onClick} onContextMenu={(e) => onContextMenu(e, commit)}>
-      <div className="w-20 shrink-0 pl-2 text-[11px] text-white/50">{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+    <div className={`flex h-6 cursor-pointer items-center text-xs leading-none transition-colors ${isExpanded ? 'bg-white/10' : isUncommitted ? 'bg-orange-500/5 hover:bg-orange-500/10' : 'hover:bg-white/5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={onClick} onContextMenu={(e) => onContextMenu(e, commit)}>
+      {isUncommitted ? (
+        <div className="w-20 shrink-0 pl-2 text-[11px] text-orange-400/70">now</div>
+      ) : (
+        <div className="w-20 shrink-0 pl-2 text-[11px] text-white/50">{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+      )}
       <div className="min-w-0 flex-1 truncate text-white/90">{commit.message}</div>
       <div className="ml-2 flex shrink-0 items-center gap-1">
         {(commit.heads || []).map((h) => <span key={h} onContextMenu={(e) => { e.stopPropagation(); onBranchContextMenu(e, h); }} className="cursor-pointer rounded-full bg-blue-500/20 px-1.5 py-[1px] text-[10px] text-blue-400 hover:bg-blue-500/30">{h}</span>)}

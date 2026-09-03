@@ -4,7 +4,7 @@ import { atomWithStorage } from 'jotai/utils'
 export interface NotificationData {
   action: string
   payload: {
-    type: 'dir' | 'file' | 'forward'
+    type: 'dir' | 'file' | 'forward' | 'gitgraph'
     path: string
     // forward-specific fields (type === 'forward')
     localPort?: number

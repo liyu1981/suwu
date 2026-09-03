@@ -101,6 +101,11 @@ func main() {
 				log.Fatalf("open: %v", err)
 			}
 			return
+		case "gitgraph":
+			if err := gitgraphMain(os.Args[2:]); err != nil {
+				log.Fatalf("gitgraph: %v", err)
+			}
+			return
 		case "forward":
 			if err := forwardCmd(os.Args[2:]); err != nil {
 				log.Fatalf("forward: %v", err)
@@ -140,6 +145,8 @@ Usage:
                            (e.g. cat log | suwu send)
   suwu open [--sock <path>] <path>
                            open a file or directory in the running Suwu session
+  suwu gitgraph [--sock <path>] <dir>
+                           open git graph for a repository directory
   suwu forward [flags] <localport> [targethost] <targetport>
                            create TCP/UDP port forwarding through the server
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
@@ -719,6 +726,76 @@ func openMain(args []string) error {
 		return err
 	}
 	fmt.Printf("Opened: %s (%s)\n", absPath, pathType)
+	return nil
+}
+
+// gitgraphAction is the JSON payload sent by `suwu gitgraph`.
+type gitgraphAction struct {
+	Action  string          `json:"action"`
+	Payload gitgraphPayload `json:"payload"`
+}
+
+type gitgraphPayload struct {
+	Type string `json:"type"`
+	Path string `json:"path"`
+}
+
+func gitgraphMain(args []string) error {
+	fs := flag.NewFlagSet("gitgraph", flag.ContinueOnError)
+	sock := fs.String("sock", "", "path to the notify socket (default ~/.suwu/suwu.sock, or $SUWU_SOCK_PATH)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if fs.NArg() == 0 {
+		return fmt.Errorf("usage: suwu gitgraph [--sock <path>] <dir>")
+	}
+	rawPath := fs.Args()[0]
+
+	absPath, err := filepath.Abs(rawPath)
+	if err != nil {
+		return fmt.Errorf("resolve path: %w", err)
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", absPath, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", absPath)
+	}
+
+	action := gitgraphAction{
+		Action: "gitgraph",
+		Payload: gitgraphPayload{
+			Type: "gitgraph",
+			Path: absPath,
+		},
+	}
+
+	data, err := json.Marshal(action)
+	if err != nil {
+		return fmt.Errorf("marshal action: %w", err)
+	}
+
+	sockPath, err := resolveSockPath(*sock)
+	if err != nil {
+		return err
+	}
+
+	n := notify.Notification{
+		Message: fmt.Sprintf("Git Graph: %s", absPath),
+		Data:    data,
+	}
+	nJSON, err := json.Marshal(n)
+	if err != nil {
+		return fmt.Errorf("marshal notification: %w", err)
+	}
+
+	if err := notify.Send(sockPath, string(nJSON)); err != nil {
+		return err
+	}
+	fmt.Printf("Git Graph: %s\n", absPath)
 	return nil
 }
 

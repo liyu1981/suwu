@@ -141,6 +141,29 @@ func (s *Server) handleGitCommits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for uncommitted changes and prepend if present
+	uncommittedCount := 0
+	if statusOut, err := git(repoPath, "status", "--untracked-files=all", "--porcelain"); err == nil {
+		lines := strings.Split(strings.TrimSpace(statusOut), "\n")
+		if len(lines) > 0 && lines[0] != "" {
+			uncommittedCount = len(lines)
+		}
+	}
+
+	if uncommittedCount > 0 && skip == 0 && head != "" {
+		commits = append([]GitCommit{{
+			Hash:    "UNCOMMITTED",
+			Parents: []string{head},
+			Author:  "*",
+			Date:    time.Now().UnixMilli(),
+			Message: fmt.Sprintf("Uncommitted Changes (%d)", uncommittedCount),
+			Heads:   []string{},
+			Tags:    []GitTag{},
+			Remotes: []GitRemote{},
+			Stash:   nil,
+		}}, commits...)
+	}
+
 	resp := GitGraphResponse{
 		Commits: commits,
 		Head:    head,
@@ -164,6 +187,22 @@ func (s *Server) handleGitCommitDetails(w http.ResponseWriter, r *http.Request) 
 	hash := r.URL.Query().Get("hash")
 	if hash == "" {
 		writeGitError(w, http.StatusBadRequest, "Missing hash parameter")
+		return
+	}
+
+	// Handle uncommitted changes specially
+	if hash == "UNCOMMITTED" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"hash":        "UNCOMMITTED",
+			"parents":     []string{},
+			"author":      "*",
+			"date":        time.Now().UnixMilli(),
+			"committer":   "*",
+			"message":     "Uncommitted Changes",
+			"body":        "",
+			"fileChanges": getUncommittedFileChanges(repoPath),
+		})
 		return
 	}
 
@@ -393,6 +432,79 @@ func getGitCommitDetails(repoPath, hash string) (*GitCommitDetails, error) {
 	return details, nil
 }
 
+// getUncommittedFileChanges gets the file changes in the working directory.
+func getUncommittedFileChanges(repoPath string) []GitFileChange {
+	var changes []GitFileChange
+
+	// Get staged changes
+	if out, err := git(repoPath, "diff", "--cached", "--name-status"); err == nil {
+		for _, line := range strings.Split(out, "\n") {
+			if line == "" {
+				continue
+			}
+			fields := strings.Fields(line)
+			if len(fields) < 2 {
+				continue
+			}
+			t := fields[0]
+			changeType := "M"
+			if strings.HasPrefix(t, "A") {
+				changeType = "A"
+			} else if strings.HasPrefix(t, "D") {
+				changeType = "D"
+			} else if strings.HasPrefix(t, "R") {
+				changeType = "R"
+			} else if strings.HasPrefix(t, "U") {
+				changeType = "U"
+			}
+			newPath := fields[len(fields)-1]
+			oldPath := newPath
+			if changeType == "R" && len(fields) >= 3 {
+				oldPath = fields[1]
+			}
+			changes = append(changes, GitFileChange{OldPath: oldPath, NewPath: newPath, Type: changeType, Adds: 0, Dels: 0})
+		}
+	}
+
+	// Get unstaged changes
+	if out, err := git(repoPath, "diff", "--name-status"); err == nil {
+		for _, line := range strings.Split(out, "\n") {
+			if line == "" {
+				continue
+			}
+			fields := strings.Fields(line)
+			if len(fields) < 2 {
+				continue
+			}
+			t := fields[0]
+			changeType := "M"
+			if strings.HasPrefix(t, "D") {
+				changeType = "D"
+			} else if strings.HasPrefix(t, "R") {
+				changeType = "R"
+			}
+			newPath := fields[len(fields)-1]
+			oldPath := newPath
+			if changeType == "R" && len(fields) >= 3 {
+				oldPath = fields[1]
+			}
+			changes = append(changes, GitFileChange{OldPath: oldPath, NewPath: newPath, Type: changeType, Adds: 0, Dels: 0})
+		}
+	}
+
+	// Get untracked files
+	if out, err := git(repoPath, "ls-files", "--others", "--exclude-standard"); err == nil {
+		for _, line := range strings.Split(out, "\n") {
+			if line == "" {
+				continue
+			}
+			changes = append(changes, GitFileChange{OldPath: line, NewPath: line, Type: "U", Adds: 0, Dels: 0})
+		}
+	}
+
+	return changes
+}
+
 // getGitFileChanges gets the file changes for a commit (with add/del counts).
 func getGitFileChanges(repoPath, hash string) ([]GitFileChange, error) {
 	// --name-status gives the change type and paths (handles renames properly)
@@ -496,25 +608,34 @@ func (s *Server) handleGitDiff(w http.ResponseWriter, r *http.Request) {
 	newPath := r.URL.Query().Get("newPath")
 	oldPath := r.URL.Query().Get("oldPath")
 
-	// Build git show args: hash -- [oldPath newPath]
-	args := []string{"-C", repoPath, "show", "--format=", "--no-renames", "-U3", hash, "--"}
-	added := false
-	if oldPath != "" && oldPath != newPath {
-		// Reverts: the text before the arrow (old name) is the file as changed
-		args = append(args, "--renames")
-		args = append(args, oldPath)
-		added = true
-	}
-	if newPath != "" {
-		args = append(args, newPath)
-		added = true
-	}
-	if !added {
-		writeGitError(w, http.StatusBadRequest, "Missing file parameter")
-		return
-	}
+	var cmd *exec.Cmd
 
-	cmd := exec.Command("git", args...)
+	// Handle UNCOMMITTED: diff working directory against HEAD
+	if hash == "UNCOMMITTED" {
+		if newPath != "" {
+			cmd = exec.Command("git", "-C", repoPath, "diff", "HEAD", "--", newPath)
+		} else {
+			cmd = exec.Command("git", "-C", repoPath, "diff", "HEAD")
+		}
+	} else {
+		// Build git show args: hash -- [oldPath newPath]
+		args := []string{"-C", repoPath, "show", "--format=", "--no-renames", "-U3", hash, "--"}
+		added := false
+		if oldPath != "" && oldPath != newPath {
+			args = append(args, "--renames")
+			args = append(args, oldPath)
+			added = true
+		}
+		if newPath != "" {
+			args = append(args, newPath)
+			added = true
+		}
+		if !added {
+			writeGitError(w, http.StatusBadRequest, "Missing file parameter")
+			return
+		}
+		cmd = exec.Command("git", args...)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Fall back: diff against parent for the given path

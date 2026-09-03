@@ -144,6 +144,18 @@ export function openForward(store: Store): string | null {
 }
 
 /**
+ * Open a git graph tile navigated to the given repository path.
+ */
+export function openGitGraph(path: string, store: Store): string | null {
+  const leafId = doSplit(store)
+  if (!leafId) return null
+  setTypeAndFocus(store, leafId, 'gitgraph')
+  const root = store.get(layoutAtom)
+  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path))
+  return leafId
+}
+
+/**
  * Resolve an action from a notification. Returns true if auto-resolved,
  * false if it should show as an action button in the notification panel.
  */
@@ -154,6 +166,10 @@ export function resolveAction(
 ): boolean {
   const { type, path } = data.payload
 
+  if (type === 'gitgraph' && autoResolve.gitgraph) {
+    openGitGraph(path, store)
+    return true
+  }
   if (type === 'dir' && autoResolve.filebrowser) {
     openFileBrowser(path, store)
     return true
@@ -177,7 +193,9 @@ export function executeAction(
   store: Store,
 ): void {
   const { type, path } = data.payload
-  if (type === 'dir') {
+  if (type === 'gitgraph') {
+    openGitGraph(path, store)
+  } else if (type === 'dir') {
     openFileBrowser(path, store)
   } else if (type === 'forward') {
     openForward(store)

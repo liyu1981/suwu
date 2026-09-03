@@ -206,7 +206,7 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
               <button
                 key={d.name}
                 type="button"
-                onDoubleClick={() => open(d.name)}
+                onDoubleClick={() => onSelect(joinPath(currentPath, d.name))}
                 onClick={() => setManualPath(joinPath(currentPath, d.name))}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-white/70 transition hover:bg-white/10 hover:text-white"
               >

@@ -18,6 +18,9 @@ import { CommonTileContainer, useTileSessionState, useReportTileState } from '..
 import { GraphRenderer } from '../components/gitgraph/GraphRenderer';
 import { useGitGraph } from '../components/gitgraph/useGitGraph';
 import { RepoPicker } from '../components/gitgraph/RepoPicker';
+import { ContextMenu, type ContextMenuItem } from '../components/gitgraph/ContextMenu';
+import { ActionDialog, type DialogInput } from '../components/gitgraph/ActionDialog';
+import { useGitActions } from '../components/gitgraph/useGitActions';
 import { RefreshIcon } from '../components/icons';
 import { fileBrowserBgAtom } from '../store/appearance';
 import { gitGraphZoomAtom } from '../store/zoom';
@@ -138,6 +141,97 @@ export default function GitGraphPage() {
     try { await navigator.clipboard.writeText(repoPath); setCopied(true); setTimeout(() => setCopied(false), 1200); } catch { /* noop */ }
   }, [repoPath]);
 
+  const { execute: gitAction } = useGitActions(repoPath ?? '.');
+  const [contextMenu, setContextMenu] = useState<{ items: ContextMenuItem[][]; pos: { x: number; y: number } } | null>(null);
+  const [dialog, setDialog] = useState<{ title: string; message: string; inputs?: DialogInput[]; actionLabel?: string; onAction: (v: Record<string, string | boolean>) => void } | null>(null);
+
+  const showCommitContextMenu = useCallback((e: React.MouseEvent, commit: GitCommit) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const items: ContextMenuItem[][] = [
+      [
+        { label: 'Checkout', onClick: () => { gitAction('checkout-commit', { hash: commit.hash }); refresh(); } },
+        { label: 'Cherry Pick...', onClick: () => setDialog({ title: 'Cherry Pick', message: `Cherry pick <b>${commit.hash.slice(0, 7)}</b>?`, inputs: [{ type: 'checkbox', name: 'No Commit', checked: false }], actionLabel: 'Cherry Pick', onAction: (v) => { gitAction('cherry-pick', { hash: commit.hash, noCommit: String(v['No Commit']) }); refresh(); } }) },
+        { label: 'Revert...', onClick: () => setDialog({ title: 'Revert', message: `Revert commit <b>${commit.hash.slice(0, 7)}</b>?`, actionLabel: 'Revert', onAction: () => { gitAction('revert', { hash: commit.hash }); refresh(); } }) },
+      ],
+      [
+        { label: 'Create Branch...', onClick: () => setDialog({ title: 'Create Branch', message: `Create a new branch at <b>${commit.hash.slice(0, 7)}</b>:`, inputs: [{ type: 'text', name: 'Branch name', defaultValue: '' }], actionLabel: 'Create', onAction: (v) => { const name = String(v['Branch name']).trim(); if (name) { gitAction('create-branch', { name, startPoint: commit.hash }); refresh(); } } }) },
+        { label: 'Add Tag...', onClick: () => setDialog({ title: 'Add Tag', message: `Add tag at <b>${commit.hash.slice(0, 7)}</b>:`, inputs: [{ type: 'text', name: 'Tag name', defaultValue: '' }, { type: 'text', name: 'Message', defaultValue: '' }], actionLabel: 'Create Tag', onAction: (v) => { const name = String(v['Tag name']).trim(); if (name) { gitAction('add-tag', { name, hash: commit.hash, message: String(v['Message']), annotated: 'true' }); refresh(); } } }) },
+      ],
+      [
+        { label: 'Reset to Commit...', onClick: () => setDialog({ title: 'Reset', message: `Reset current branch to <b>${commit.hash.slice(0, 7)}</b>?`, inputs: [{ type: 'radio', name: 'Mode', options: [{ label: 'Soft — keep changes, reset head', value: 'soft' }, { label: 'Mixed — keep working tree, reset index', value: 'mixed' }, { label: 'Hard — discard all changes', value: 'hard' }], defaultValue: 'mixed' }], actionLabel: 'Reset', onAction: (v) => { gitAction('reset-to-commit', { hash: commit.hash, mode: String(v['Mode']) }); refresh(); } }) },
+        { label: 'Merge...', onClick: () => setDialog({ title: 'Merge', message: `Merge <b>${commit.hash.slice(0, 7)}</b> into current branch?`, actionLabel: 'Merge', onAction: () => { gitAction('merge', { ref: commit.hash }); refresh(); } }) },
+        { label: 'Rebase on Commit...', onClick: () => setDialog({ title: 'Rebase', message: `Rebase current branch onto <b>${commit.hash.slice(0, 7)}</b>?`, actionLabel: 'Rebase', onAction: () => { gitAction('rebase', { upstream: commit.hash }); refresh(); } }) },
+      ],
+      [
+        { label: 'Copy Hash', onClick: () => navigator.clipboard.writeText(commit.hash) },
+        { label: 'Copy Message', onClick: () => navigator.clipboard.writeText(commit.message) },
+      ],
+    ];
+    setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
+  }, [gitAction, refresh]);
+
+  const showBranchContextMenu = useCallback((e: React.MouseEvent, branchName: string) => {
+    e.preventDefault();
+    const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const isCurrent = branchName === commitHead;
+    const items: ContextMenuItem[][] = [
+      [
+        { label: 'Checkout', disabled: isCurrent, onClick: () => { gitAction('checkout-branch', { branch: branchName }); refresh(); } },
+        { label: 'Rename...', onClick: () => setDialog({ title: 'Rename Branch', message: `Rename <b>${branchName}</b> to:`, inputs: [{ type: 'text', name: 'New name', defaultValue: branchName }], actionLabel: 'Rename', onAction: (v) => { const name = String(v['New name']).trim(); if (name && name !== branchName) { gitAction('rename-branch', { oldName: branchName, newName: name }); refresh(); } } }) },
+        { label: 'Delete...', disabled: isCurrent, onClick: () => setDialog({ title: 'Delete Branch', message: `Delete branch <b>${branchName}</b>?`, inputs: [{ type: 'checkbox', name: 'Force delete', checked: false }], actionLabel: 'Delete', onAction: (v) => { gitAction('delete-branch', { branch: branchName, force: String(v['Force delete']) }); refresh(); } }) },
+      ],
+      [
+        { label: 'Merge...', onClick: () => setDialog({ title: 'Merge', message: `Merge <b>${branchName}</b> into current branch?`, actionLabel: 'Merge', onAction: () => { gitAction('merge', { ref: branchName }); refresh(); } }) },
+        { label: 'Rebase on Branch...', onClick: () => setDialog({ title: 'Rebase', message: `Rebase current branch onto <b>${branchName}</b>?`, actionLabel: 'Rebase', onAction: () => { gitAction('rebase', { upstream: branchName }); refresh(); } }) },
+        { label: 'Push...', onClick: () => setDialog({ title: 'Push Branch', message: `Push <b>${branchName}</b> to remote?`, inputs: [{ type: 'checkbox', name: 'Set Upstream', checked: true }, { type: 'radio', name: 'Mode', options: [{ label: 'Normal', value: 'normal' }, { label: 'Force With Lease', value: 'forceWithLease' }, { label: 'Force', value: 'force' }], defaultValue: 'normal' }], actionLabel: 'Push', onAction: (v) => { gitAction('push-branch', { branch: branchName, setUpstream: String(v['Set Upstream']), force: v['Mode'] === 'force' ? 'true' : 'false', forceWithLease: v['Mode'] === 'forceWithLease' ? 'true' : 'false' }); refresh(); } }) },
+      ],
+      [
+        { label: 'Fetch', onClick: () => { gitAction('fetch', {}); refresh(); } },
+      ],
+      [
+        { label: 'Copy Name', onClick: () => navigator.clipboard.writeText(branchName) },
+      ],
+    ];
+    setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
+  }, [gitAction, refresh, commitHead]);
+
+  const showTagContextMenu = useCallback((e: React.MouseEvent, tag: { name: string; annotated: boolean }) => {
+    e.preventDefault();
+    const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const items: ContextMenuItem[][] = [
+      [
+        { label: 'Delete...', onClick: () => setDialog({ title: 'Delete Tag', message: `Delete tag <b>${tag.name}</b>?`, actionLabel: 'Delete', onAction: () => { gitAction('delete-tag', { name: tag.name }); refresh(); } }) },
+        { label: 'Push...', onClick: () => setDialog({ title: 'Push Tag', message: `Push tag <b>${tag.name}</b> to remote?`, actionLabel: 'Push', onAction: () => { gitAction('push-tag', { name: tag.name }); refresh(); } }) },
+      ],
+      [
+        { label: 'Copy Name', onClick: () => navigator.clipboard.writeText(tag.name) },
+      ],
+    ];
+    setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
+  }, [gitAction, refresh]);
+
+  const showStashContextMenu = useCallback((e: React.MouseEvent, stash: { selector: string; baseHash: string }) => {
+    e.preventDefault();
+    const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const items: ContextMenuItem[][] = [
+      [
+        { label: 'Apply...', onClick: () => setDialog({ title: 'Apply Stash', message: `Apply stash <b>${stash.selector}</b>?`, inputs: [{ type: 'checkbox', name: 'Reinstate Index', checked: false }], actionLabel: 'Apply', onAction: (v) => { gitAction('stash-apply', { selector: stash.selector, reinstateIndex: String(v['Reinstate Index']) }); refresh(); } }) },
+        { label: 'Pop...', onClick: () => setDialog({ title: 'Pop Stash', message: `Pop stash <b>${stash.selector}</b>?`, inputs: [{ type: 'checkbox', name: 'Reinstate Index', checked: false }], actionLabel: 'Pop', onAction: (v) => { gitAction('stash-pop', { selector: stash.selector, reinstateIndex: String(v['Reinstate Index']) }); refresh(); } }) },
+        { label: 'Drop...', onClick: () => setDialog({ title: 'Drop Stash', message: `Drop stash <b>${stash.selector}</b>?`, actionLabel: 'Drop', onAction: () => { gitAction('stash-drop', { selector: stash.selector }); refresh(); } }) },
+      ],
+      [
+        { label: 'Create Branch From...', onClick: () => setDialog({ title: 'Branch From Stash', message: `Create a branch from stash <b>${stash.selector}</b>:`, inputs: [{ type: 'text', name: 'Branch name', defaultValue: '' }], actionLabel: 'Create', onAction: (v) => { const name = String(v['Branch name']).trim(); if (name) { gitAction('branch-from-stash', { branch: name, selector: stash.selector }); refresh(); } } }) },
+      ],
+      [
+        { label: 'Copy Selector', onClick: () => navigator.clipboard.writeText(stash.selector) },
+        { label: 'Copy Hash', onClick: () => navigator.clipboard.writeText(stash.baseHash) },
+      ],
+    ];
+    setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
+  }, [gitAction, refresh]);
+
   const handleCommitClick = useCallback((_commit: GitCommit, index: number) => { setExpandedIndex((prev) => (prev === index ? null : index)); }, []);
 
   return (
@@ -210,7 +304,7 @@ export default function GitGraphPage() {
               <div className="min-w-0 flex-1">
                 {commits.map((commit, index) => (
                   <div key={commit.hash} style={{ minHeight: ROW_HEIGHT }}>
-                    <CommitRow commit={commit} isExpanded={expandedIndex === index} onClick={() => handleCommitClick(commit, index)} />
+                    <CommitRow commit={commit} isExpanded={expandedIndex === index} onClick={() => handleCommitClick(commit, index)} onContextMenu={showCommitContextMenu} onBranchContextMenu={showBranchContextMenu} onTagContextMenu={showTagContextMenu} onStashContextMenu={showStashContextMenu} />
                     {expandedIndex === index && repoPath && <ExpandedCommitRow repoPath={repoPath} hash={commit.hash} height={DETAILS_HEIGHT} />}
                   </div>
                 ))}
@@ -230,21 +324,38 @@ export default function GitGraphPage() {
           </div>
         )}
       </div>
+
+      {/* Context menu */}
+      {contextMenu && <ContextMenu items={contextMenu.items} position={contextMenu.pos} onClose={() => setContextMenu(null)} />}
+
+      {/* Action dialog */}
+      {dialog && (
+        <ActionDialog
+          title={dialog.title}
+          message={dialog.message}
+          inputs={dialog.inputs}
+          actionLabel={dialog.actionLabel}
+          onAction={(v) => { dialog.onAction(v); setDialog(null); }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
     </CommonTileContainer>
   );
 }
 
 /* CommitRow — exactly ROW_HEIGHT tall to align with the graph grid */
-function CommitRow({ commit, isExpanded, onClick }: { commit: GitCommit; isExpanded: boolean; onClick: () => void }) {
+function CommitRow({ commit, isExpanded, onClick, onContextMenu, onBranchContextMenu, onTagContextMenu, onStashContextMenu }: { commit: GitCommit; isExpanded: boolean; onClick: () => void; onContextMenu: (e: React.MouseEvent, c: GitCommit) => void; onBranchContextMenu: (e: React.MouseEvent, branch: string) => void; onTagContextMenu: (e: React.MouseEvent, tag: { name: string; annotated: boolean }) => void; onStashContextMenu: (e: React.MouseEvent, stash: { selector: string; baseHash: string }) => void }) {
   const date = new Date(commit.date);
   return (
-    <div className={`flex h-6 cursor-pointer items-center text-xs leading-none transition-colors ${isExpanded ? 'bg-white/10' : 'hover:bg-white/5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={onClick}>
+    <div className={`flex h-6 cursor-pointer items-center text-xs leading-none transition-colors ${isExpanded ? 'bg-white/10' : 'hover:bg-white/5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={onClick} onContextMenu={(e) => onContextMenu(e, commit)}>
       <div className="w-20 shrink-0 pl-2 text-[11px] text-white/50">{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
       <div className="min-w-0 flex-1 truncate text-white/90">{commit.message}</div>
       <div className="ml-2 flex shrink-0 items-center gap-1">
-        {(commit.heads || []).map((h) => <span key={h} className="rounded-full bg-blue-500/20 px-1.5 py-[1px] text-[10px] text-blue-400">{h}</span>)}
-        {(commit.tags || []).map((t) => <span key={t.name} className="rounded-full bg-yellow-500/20 px-1.5 py-[1px] text-[10px] text-yellow-400">{t.name}</span>)}
+        {(commit.heads || []).map((h) => <span key={h} onContextMenu={(e) => { e.stopPropagation(); onBranchContextMenu(e, h); }} className="cursor-pointer rounded-full bg-blue-500/20 px-1.5 py-[1px] text-[10px] text-blue-400 hover:bg-blue-500/30">{h}</span>)}
+        {(commit.tags || []).map((t) => <span key={t.name} onContextMenu={(e) => { e.stopPropagation(); onTagContextMenu(e, t); }} className="cursor-pointer rounded-full bg-yellow-500/20 px-1.5 py-[1px] text-[10px] text-yellow-400 hover:bg-yellow-500/30">{t.name}</span>)}
+        {commit.stash && <span onContextMenu={(e) => { e.stopPropagation(); onStashContextMenu(e, commit.stash!); }} className="cursor-pointer rounded-full bg-purple-500/20 px-1.5 py-[1px] text-[10px] text-purple-400 hover:bg-purple-500/30">{commit.stash.selector}</span>}
       </div>
+      <div className="ml-2 w-24 shrink-0 truncate text-white/40">{commit.author}</div>
       <div className="ml-2 w-14 shrink-0 pr-2 text-right font-mono text-[10px] text-white/40">{commit.hash.slice(0, 7)}</div>
     </div>
   );

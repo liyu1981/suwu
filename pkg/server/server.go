@@ -161,6 +161,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/git/action" {
+		s.handleGitAction(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/git/branches" {
 		s.handleGitBranches(w, r)
 		return

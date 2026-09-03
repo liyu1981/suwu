@@ -438,7 +438,8 @@ export default function FileBrowserPage() {
 
   const handleContextMenu = useCallback((e: React.MouseEvent, entry: FileEntry | null) => {
     e.preventDefault()
-    setContextMenu({ x: e.clientX, y: e.clientY, entry })
+    const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+    setContextMenu({ x: e.clientX / zoom, y: e.clientY / zoom, entry })
   }, [])
 
   const openInViewer = useCallback((path: string) => {

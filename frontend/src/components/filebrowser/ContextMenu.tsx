@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCredentials } from '../../lib/auth'
 
@@ -67,8 +67,8 @@ export function ContextMenu({
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  // Adjust position to stay within viewport
-  useEffect(() => {
+  // Adjust position to stay within viewport (useLayoutEffect to avoid flicker)
+  useLayoutEffect(() => {
     if (!menuRef.current) return
     const rect = menuRef.current.getBoundingClientRect()
     const padding = 8

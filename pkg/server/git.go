@@ -39,8 +39,10 @@ type GitRemote struct {
 
 // GitStash represents a git stash entry
 type GitStash struct {
-	Selector string `json:"selector"`
+	Hash     string `json:"hash"`
 	BaseHash string `json:"baseHash"`
+	Selector string `json:"selector"`
+	Message  string `json:"message"`
 }
 
 // GitCommitDetails represents detailed commit information
@@ -269,6 +271,25 @@ func getGitCommits(repoPath, branch string, maxCount, skip int) ([]GitCommit, st
 		}
 	}
 
+	// Get stashes matched to commits
+	stashList := []GitStash{}
+	if stashOut, err := git(repoPath, "stash", "list", "--format=%H|%P|%gd|%gs"); err == nil {
+		for _, line := range strings.Split(stashOut, "\n") {
+			if line == "" {
+				continue
+			}
+			parts := strings.SplitN(line, "|", 4)
+			if len(parts) >= 4 {
+				stashList = append(stashList, GitStash{
+					Hash:     parts[0],
+					BaseHash: parts[1],
+					Selector: parts[2],
+					Message:  parts[3],
+				})
+			}
+		}
+	}
+
 	// Parse commit lines
 	var commits []GitCommit
 	for _, line := range strings.Split(output, "\n") {
@@ -296,6 +317,15 @@ func getGitCommits(repoPath, branch string, maxCount, skip int) ([]GitCommit, st
 			heads = hs
 		}
 
+		// Match stash to this commit if its base hash matches
+		var stashInfo *GitStash
+		for i := range stashList {
+			if stashList[i].BaseHash == hash {
+				stashInfo = &stashList[i]
+				break
+			}
+		}
+
 		commits = append(commits, GitCommit{
 			Hash:    hash,
 			Parents: parents,
@@ -305,7 +335,7 @@ func getGitCommits(repoPath, branch string, maxCount, skip int) ([]GitCommit, st
 			Heads:   heads,
 			Tags:    commitTags,
 			Remotes: []GitRemote{},
-			Stash:   nil,
+			Stash:   stashInfo,
 		})
 	}
 

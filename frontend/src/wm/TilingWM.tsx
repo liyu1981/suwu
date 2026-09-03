@@ -956,10 +956,16 @@ export default function TilingWM() {
               <div className="flex h-full w-full items-center justify-center">
                 <button
                   type="button"
-                  onClick={() => split('horizontal')}
+                  onClick={() => {
+                    // Create a single empty leaf, then open the picker for it.
+                    const id = createLeaf().id
+                    store.set(layoutAtom, createLeaf(id))
+                    store.set(focusedIdAtom, id)
+                    setPickerPaneId(id)
+                  }}
                   className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
                 >
-                  + {t('wm.newTile').replace('+ ', '')}
+                  + {t('wm.openApp')}
                 </button>
               </div>
             )}

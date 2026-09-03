@@ -29,7 +29,7 @@ function EmptyTile({ paneId, onOpenPicker }: { paneId: string; onOpenPicker?: (i
         onClick={() => onOpenPicker?.(paneId)}
         className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
       >
-        + {i18n.t('wm.addTile').replace('+ ', '')}
+        {i18n.t('wm.openApp')}
       </button>
     </div>
   )

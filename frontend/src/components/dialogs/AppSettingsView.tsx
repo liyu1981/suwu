@@ -222,13 +222,14 @@ export default function AppSettingsView(props: { onClose: () => void }) {
   const activePresetId = useMemo(() => matchPresetId(termTheme), [termTheme])
 
   return (
-    <div>
-      <TabsPrimitive.Root
-        value={tab}
-        onValueChange={setTab}
-        orientation="vertical"
-        className="flex items-start gap-3"
-      >
+    <div className="flex h-full flex-col">
+      <div className="flex min-h-0 flex-1">
+        <TabsPrimitive.Root
+          value={tab}
+          onValueChange={setTab}
+          orientation="vertical"
+          className="flex h-full w-full"
+        >
         <TabsPrimitive.List
           aria-label="Application Settings sections"
           className="flex w-28 shrink-0 flex-col gap-1"
@@ -250,7 +251,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </TabsPrimitive.Trigger>
         </TabsPrimitive.List>
 
-        <TabsPrimitive.Content value="term" className="min-w-0 flex-1">
+        <TabsPrimitive.Content value="term" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
           {/* ── Font size ──────────────────────────────────────────── */}
           <div className={section}>
             <div className="flex items-center justify-between">
@@ -453,7 +454,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="filebrowser" className="min-w-0 flex-1">
+        <TabsPrimitive.Content value="filebrowser" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
           <ZoomSetting
             zoom={fileBrowserZoom}
             onChange={setFileBrowserZoom}
@@ -475,7 +476,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="dropbox" className="min-w-0 flex-1">
+        <TabsPrimitive.Content value="dropbox" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
           <ZoomSetting
             zoom={dropboxZoom}
             onChange={setDropboxZoom}
@@ -483,7 +484,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           />
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="forward" className="min-w-0 flex-1">
+        <TabsPrimitive.Content value="forward" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
           <ZoomSetting
             zoom={forwardZoom}
             onChange={setForwardZoom}
@@ -491,7 +492,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           />
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="gitgraph" className="min-w-0 flex-1">
+        <TabsPrimitive.Content value="gitgraph" className="min-h-0 min-w-0 flex-1 overflow-y-auto pl-3">
           <ZoomSetting
             zoom={gitGraphZoom}
             onChange={setGitGraphZoom}
@@ -499,10 +500,11 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           />
         </TabsPrimitive.Content>
       </TabsPrimitive.Root>
+      </div>
 
       {/* Footer: Term tab only — restore default */}
       {tab === 'term' && (
-        <div className="mt-4 flex justify-end">
+        <div className="flex shrink-0 justify-end pt-2">
           <button
             type="button"
             onClick={() => {

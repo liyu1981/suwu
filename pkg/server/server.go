@@ -146,6 +146,26 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/git/commits" {
+		s.handleGitCommits(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/git/commit" {
+		s.handleGitCommitDetails(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/git/diff" {
+		s.handleGitDiff(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/git/branches" {
+		s.handleGitBranches(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/session-state" {
 		s.handleSessionState(w, r)
 		return

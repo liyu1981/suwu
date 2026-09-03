@@ -4,6 +4,8 @@ import { CommonTileContainer, useTileSessionState, useReportTileState } from '..
 import { CheckIcon, CopyIcon, FileIcon, RefreshIcon, SearchIcon, TrashIcon } from '../components/icons'
 import { fetchToken } from '../lib/api'
 import { fileBrowserBgAtom } from '../store/appearance'
+import { dropboxZoomAtom } from '../store/zoom'
+import { useHtmlZoom, tileZoomStyle } from '../components/ZoomControls'
 import { useAtomValue } from 'jotai'
 import type { DropboxSessionState } from '../wm/sessionState'
 
@@ -219,6 +221,8 @@ export default function DropboxPage() {
   const savedState = useTileSessionState<DropboxSessionState>()
   const reportState = useReportTileState()
   const bgColor = useAtomValue(fileBrowserBgAtom)
+  const zoom = useAtomValue(dropboxZoomAtom)
+  useHtmlZoom(zoom)
 
   const [entries, setEntries] = useState<DropboxEntry[]>([])
   const [dropboxPath, setDropboxPath] = useState('')
@@ -399,8 +403,8 @@ export default function DropboxPage() {
     <CommonTileContainer>
       <div
         ref={containerRef}
-        className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px] p-2 text-sm text-white/80"
-        style={{ backgroundColor: bgColor }}
+        className="flex flex-col rounded-[6px] p-2 text-sm text-white/80"
+        style={{ ...tileZoomStyle(zoom), backgroundColor: bgColor }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

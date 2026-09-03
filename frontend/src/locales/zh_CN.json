@@ -23,7 +23,6 @@
     "custom": "自定义",
     "themePresets": "主题预设",
     "themePresetHint": "选择内置主题或自定义下方各个颜色。",
-    "custom": "自定义",
     "bgOpacity": "背景不透明度",
     "bgOpacityHint": "立即应用到所有终端窗口。与主题预设独立设置。",
     "lineHeight": "行高",
@@ -54,8 +53,13 @@
     "reset": "重置",
     "fileBrowserHint": "立即应用到所有文件浏览器窗口。降低不透明度可让工作区透过显示。",
     "language": "语言",
-    "resetBtn": "重置 ({{size}}px)",
-    "saveAsDefault": "保存为默认"
+    "dropboxTab": "网盘",
+    "forwardTab": "端口转发",
+    "gitGraphTab": "Git 图谱",
+    "zoom": "缩放",
+    "zoomHint": "缩放 {{app}} 窗格内的界面（100%–500%），不改变平铺布局。立即应用到所有 {{app}} 窗格。",
+    "restoreDefault": "恢复默认",
+    "save": "保存"
   },
   "shortcuts": {
     "description": "使用键盘操作任意窗口；操作将应用于当前聚焦的窗口。",

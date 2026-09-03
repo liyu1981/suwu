@@ -16,6 +16,14 @@ export interface DropboxSessionState {
   sortBy?: 'name' | 'date' | 'size'
 }
 
+export interface GitGraphSessionState {
+  repoPath?: string
+  branch?: string
+  expandedCommitIndex?: number | null
+  scrollPosition?: number
+  showRemoteBranches?: boolean
+}
+
 /** Per-tile session state entry. */
 export interface TileEntry {
   tileType: string

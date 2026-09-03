@@ -6,6 +6,7 @@ import FileViewerPage from './routes/FileViewerPage'
 import FileBrowserPage from './routes/FileBrowserPage'
 import ForwardPage from './routes/ForwardPage'
 import DropboxPage from './routes/DropboxPage'
+import GitGraphPage from './routes/GitGraphPage'
 
 const rootRoute = createRootRoute()
 
@@ -57,6 +58,12 @@ const dropboxRoute = createRoute({
   component: DropboxPage,
 })
 
+const gitgraphRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/gitgraph',
+  component: GitGraphPage,
+})
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -64,6 +71,7 @@ const routeTree = rootRoute.addChildren([
   filebrowserRoute,
   forwardRoute,
   dropboxRoute,
+  gitgraphRoute,
 ])
 
 export const router = createRouter({ routeTree })

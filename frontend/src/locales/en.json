@@ -23,7 +23,6 @@
     "custom": "Custom",
     "themePresets": "Theme presets",
     "themePresetHint": "Choose a built-in theme or customize individual colors below.",
-    "custom": "Custom",
     "bgOpacity": "Background opacity",
     "bgOpacityHint": "Applied instantly to all terminal panes. Independent of the theme preset.",
     "lineHeight": "Line height",
@@ -54,8 +53,13 @@
     "reset": "Reset",
     "fileBrowserHint": "Applied instantly to all file browser panes. Lower the opacity to let the workspace show through.",
     "language": "Language",
-    "resetBtn": "Reset ({{size}}px)",
-    "saveAsDefault": "Save as default"
+    "dropboxTab": "Dropbox",
+    "forwardTab": "Port Forwarding",
+    "gitGraphTab": "Git Graph",
+    "zoom": "Zoom",
+    "zoomHint": "Scales the interface inside the {{app}} tile (100%–500%) without changing the tile layout. Applied instantly to all {{app}} panes.",
+    "restoreDefault": "Restore default",
+    "save": "Save"
   },
   "shortcuts": {
     "description": "Work on any tile from the keyboard; actions apply to the focused tile.",

@@ -12,6 +12,8 @@ import {
   fontFamilyAtom,
   termThemeAtom,
 } from '../../store/appearance'
+import { dropboxZoomAtom, fileBrowserZoomAtom, forwardZoomAtom, gitGraphZoomAtom, clampZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from '../../store/zoom'
+import { ZoomControls } from '../ZoomControls'
 import { THEME_PRESETS, matchPresetId } from '../../store/themePresets'
 import { alphaOf, hex6Of, withAlpha } from '../../lib/color'
 import { Combobox } from '../ui/combobox'
@@ -86,6 +88,39 @@ function GroupToggle(props: { label: string; open: boolean; onToggle: () => void
   )
 }
 
+/**
+ * Zoom setting for an app: A− / % / A+ buttons plus a slider (100%–500%).
+ */
+function ZoomSetting(props: { zoom: number; onChange: (z: number) => void; hint: string }) {
+  const { zoom, onChange, hint } = props
+  const { t } = useTranslation()
+  const pct = Math.round(zoom * 100)
+  return (
+    <div className={section}>
+      <div className="flex items-center justify-between">
+        <span className={sectionLabel}>{t('settings.zoom')}</span>
+        <span className="font-mono text-xs text-popover-foreground">{pct}%</span>
+      </div>
+      <div className="mt-2">
+        <ZoomControls zoom={zoom} onChange={onChange} />
+      </div>
+      <div className="mt-2">
+        <input
+          type="range"
+          min={ZOOM_MIN}
+          max={ZOOM_MAX}
+          step={ZOOM_STEP}
+          value={zoom}
+          onChange={(e) => onChange(clampZoom(Number(e.target.value)))}
+          aria-label="Zoom level"
+          className="h-1 w-full cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
+        />
+      </div>
+      <p className={sectionHint}>{hint}</p>
+    </div>
+  )
+}
+
 // ── ANSI color key lists ─────────────────────────────────────────────
 
 const ANSI_NORMAL: (keyof TerminalTheme)[] = [
@@ -110,19 +145,31 @@ const FONT_ITEMS = FONT_FAMILIES.map((f) => ({ label: f.label, value: f.value })
 // ── Main component ───────────────────────────────────────────────────
 
 /**
- * Application Settings screen: Term Settings and File Browser settings,
- * with font-size Reset / Save as default actions.
+ * Application Settings screen. Each app gets a tab; the Term tab owns the
+ * font-size Reset / Save-as-default footer actions, other tabs expose their
+ * own settings (background color, zoom level) with no footer.
  */
 export default function AppSettingsView(props: { onClose: () => void }) {
   const { onClose } = props
   const { t } = useTranslation()
+  const [tab, setTab] = useState('term')
+
+  // Term
   const [fontSize, setFontSize] = useAtom(fontSizeAtom)
   const [defaultSize, setDefaultSize] = useAtom(fontDefaultAtom)
   const [lineHeight, setLineHeight] = useAtom(lineHeightAtom)
   const [lineHeightDefault, setLineHeightDefault] = useAtom(lineHeightDefaultAtom)
   const [fontFamily, setFontFamily] = useAtom(fontFamilyAtom)
   const [termTheme, setTermTheme] = useAtom(termThemeAtom)
+
+  // File Browser
   const [fileBrowserBg, setFileBrowserBg] = useAtom(fileBrowserBgAtom)
+  const [fileBrowserZoom, setFileBrowserZoom] = useAtom(fileBrowserZoomAtom)
+
+  // Dropbox / Port Forwarding / Git Graph
+  const [dropboxZoom, setDropboxZoom] = useAtom(dropboxZoomAtom)
+  const [forwardZoom, setForwardZoom] = useAtom(forwardZoomAtom)
+  const [gitGraphZoom, setGitGraphZoom] = useAtom(gitGraphZoomAtom)
 
   // ── Collapsible groups state ────────────────────────────────────
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -177,7 +224,8 @@ export default function AppSettingsView(props: { onClose: () => void }) {
   return (
     <div>
       <TabsPrimitive.Root
-        defaultValue="term"
+        value={tab}
+        onValueChange={setTab}
         orientation="vertical"
         className="flex items-start gap-3"
       >
@@ -190,6 +238,15 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="filebrowser" className={tabBtn}>
             {t('settings.fileBrowserTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="dropbox" className={tabBtn}>
+            {t('settings.dropboxTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="forward" className={tabBtn}>
+            {t('settings.forwardTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="gitgraph" className={tabBtn}>
+            {t('settings.gitGraphTab')}
           </TabsPrimitive.Trigger>
         </TabsPrimitive.List>
 
@@ -237,7 +294,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
 
           {/* ── Font family (combobox with custom input) ───────────── */}
-          <div className={`${section} mt-3`}>
+          <div className={`${section} mt-4`}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.fontFamily')}</span>
             </div>
@@ -254,7 +311,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
 
           {/* ── Line height ────────────────────────────────────────── */}
-          <div className={`${section} mt-3`}>
+          <div className={`${section} mt-4`}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.lineHeight')}</span>
               <span className="font-mono text-xs text-popover-foreground">{lineHeight.toFixed(1)}</span>
@@ -297,7 +354,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
 
           {/* ── Theme presets (dropdown with color swatches) ────────── */}
-          <div className={`${section} mt-3`}>
+          <div className={`${section} mt-4`}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.themePresets')}</span>
               <button
@@ -319,7 +376,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
 
           {/* ── Global background opacity ──────────────────────────── */}
-          <div className={`${section} mt-3`}>
+          <div className={`${section} mt-4`}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.bgOpacity')}</span>
               <span className="font-mono text-xs text-popover-foreground">{bgPct}%</span>
@@ -340,7 +397,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
 
           {/* ── Theme color editors (collapsible groups) ───────────── */}
           {/* Core */}
-          <div className={`${section} mt-3`}>
+          <div className={`${section} mt-4`}>
             <GroupToggle
               label={t('settings.coreColors')}
               open={openGroups.core}
@@ -357,7 +414,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
 
           {/* Selection */}
-          <div className={`${section} mt-3`}>
+          <div className={`${section} mt-4`}>
             <GroupToggle
               label={t('settings.selectionColors')}
               open={openGroups.selection}
@@ -372,7 +429,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </div>
 
           {/* ANSI colors */}
-          <div className={`${section} mt-3`}>
+          <div className={`${section} mt-4`}>
             <GroupToggle
               label={t('settings.ansiColors')}
               open={openGroups.ansi}
@@ -397,7 +454,12 @@ export default function AppSettingsView(props: { onClose: () => void }) {
         </TabsPrimitive.Content>
 
         <TabsPrimitive.Content value="filebrowser" className="min-w-0 flex-1">
-          <div className={section}>
+          <ZoomSetting
+            zoom={fileBrowserZoom}
+            onChange={setFileBrowserZoom}
+            hint={t('settings.zoomHint', { app: t('settings.fileBrowserTab') })}
+          />
+          <div className={`${section} mt-4`}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.bgColor')}</span>
               <button
@@ -412,31 +474,47 @@ export default function AppSettingsView(props: { onClose: () => void }) {
             <p className={sectionHint}>{t('settings.fileBrowserHint')}</p>
           </div>
         </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="dropbox" className="min-w-0 flex-1">
+          <ZoomSetting
+            zoom={dropboxZoom}
+            onChange={setDropboxZoom}
+            hint={t('settings.zoomHint', { app: t('settings.dropboxTab') })}
+          />
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="forward" className="min-w-0 flex-1">
+          <ZoomSetting
+            zoom={forwardZoom}
+            onChange={setForwardZoom}
+            hint={t('settings.zoomHint', { app: t('settings.forwardTab') })}
+          />
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="gitgraph" className="min-w-0 flex-1">
+          <ZoomSetting
+            zoom={gitGraphZoom}
+            onChange={setGitGraphZoom}
+            hint={t('settings.zoomHint', { app: t('settings.gitGraphTab') })}
+          />
+        </TabsPrimitive.Content>
       </TabsPrimitive.Root>
 
-      <div className="mt-4 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setFontSize(defaultSize)
-            setLineHeight(lineHeightDefault)
-          }}
-          className={`${actionBtn} text-muted-foreground hover:text-white`}
-        >
-          {t('settings.resetBtn', { size: defaultSize })}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setDefaultSize(fontSize)
-            setLineHeightDefault(lineHeight)
-            onClose()
-          }}
-          className={actionBtn}
-        >
-          {t('settings.saveAsDefault')}
-        </button>
-      </div>
+      {/* Footer: Term tab only — restore default */}
+      {tab === 'term' && (
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setFontSize(defaultSize)
+              setLineHeight(lineHeightDefault)
+            }}
+            className="rounded px-3 py-1.5 text-xs font-semibold glass-btn bg-white/10 text-popover-foreground text-muted-foreground hover:text-white"
+          >
+            {t('settings.restoreDefault')}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -3,6 +3,8 @@ import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { getCredentials } from '../lib/auth'
 import { fileBrowserBgAtom } from '../store/appearance'
+import { fileBrowserZoomAtom } from '../store/zoom'
+import { useHtmlZoom, tileZoomStyle } from '../components/ZoomControls'
 import { CommonTileContainer, useTileSessionState, useReportTileState } from '../components/CommonTileContainer'
 import { ContextMenu } from '../components/filebrowser/ContextMenu'
 import { Toast } from '../components/filebrowser/Toast'
@@ -326,6 +328,8 @@ function TreeNodeItem({
 export default function FileBrowserPage() {
   const { t } = useTranslation()
   const bgColor = useAtomValue(fileBrowserBgAtom)
+  const zoom = useAtomValue(fileBrowserZoomAtom)
+  useHtmlZoom(zoom)
   const savedState = useTileSessionState<FileBrowserSessionState>()
   const reportState = useReportTileState()
 
@@ -494,11 +498,15 @@ export default function FileBrowserPage() {
   return (
     <CommonTileContainer>
       <div
-        className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px] p-2 text-sm text-white/80"
-        style={{ backgroundColor: bgColor }}
+        className="flex flex-col rounded-[6px] p-2 text-sm text-white/80"
+        style={{ ...tileZoomStyle(zoom), backgroundColor: bgColor }}
       >
         {/* Toolbar — glass material, content scrolls under */}
         <div className="flex shrink-0 items-center gap-0.5 rounded-t-lg border-b border-white/[0.08] px-2.5 py-1.5 glass-control">
+          <button type="button" onClick={() => fetchDir(currentPath)} className={toolbarBtn} title={t('filebrowser.refresh')}>
+            <RefreshIcon />
+          </button>
+          <div className="mx-0.5 h-4 w-px bg-white/10" />
           <button type="button" onClick={goBack} disabled={historyIndex <= 0} className={toolbarBtn} title={t('filebrowser.back')}>
             <ChevronLeftIcon />
           </button>
@@ -511,10 +519,6 @@ export default function FileBrowserPage() {
           </button>
           <button type="button" onClick={goHome} className={toolbarBtn} title={t('filebrowser.home')}>
             <HomeIcon />
-          </button>
-          <div className="mx-0.5 h-4 w-px bg-white/10" />
-          <button type="button" onClick={() => fetchDir(currentPath)} className={toolbarBtn} title={t('filebrowser.refresh')}>
-            <RefreshIcon />
           </button>
 
           {/* Path bar — click to copy */}

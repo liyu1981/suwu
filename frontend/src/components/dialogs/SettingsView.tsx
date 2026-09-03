@@ -4,6 +4,7 @@ import i18n from 'i18next'
 import { Tabs as TabsPrimitive } from 'radix-ui'
 import { maxEntriesAtom } from '../../store/notifications'
 import { autoResolveAtom } from '../../store/settings'
+import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
 
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
 const sectionLabel = 'text-xs font-medium text-muted-foreground'
@@ -134,15 +135,15 @@ export default function SettingsView() {
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.language')}</span>
             </div>
-            <select
-              value={i18n.language}
-              onChange={(e) => i18n.changeLanguage(e.target.value)}
-              aria-label={t('settings.language')}
-              className="mt-2 h-8 w-full rounded border border-white/10 bg-black/30 px-2 text-xs text-popover-foreground focus:border-sky-400/60 focus:outline-none"
-            >
-              <option value="en">{t('lang.en')}</option>
-              <option value="zh_CN">{t('lang.zh_CN')}</option>
-            </select>
+            <Select value={i18n.language} onValueChange={(v) => i18n.changeLanguage(v)}>
+              <SelectTrigger aria-label={t('settings.language')} className="mt-2">
+                <span>{i18n.language === 'en' ? t('lang.en') : t('lang.zh_CN')}</span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">{t('lang.en')}</SelectItem>
+                <SelectItem value="zh_CN">{t('lang.zh_CN')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </TabsPrimitive.Content>
       </TabsPrimitive.Root>

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { fontFamilyAtom, termThemeAtom } from '../store/appearance'
+import { fontFamilyAtom, termThemeAtom, themeToXtermTheme } from '../store/appearance'
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
-import { FONT_DEFAULT } from '../store/fonts'
+import { FONT_DEFAULT, lineHeightAtom } from '../store/fonts'
 import { useTerminal } from './hooks/useTerminal'
 import { usePtySession } from './hooks/usePtySession'
 import { useTermCopy } from './hooks/useTermCopy'
@@ -31,22 +31,24 @@ export default function FullTerminal() {
   const message = useAtomValue(connectionMessageAtom)
   const fontFamily = useAtomValue(fontFamilyAtom)
   const theme = useAtomValue(termThemeAtom)
+  const lineHeight = useAtomValue(lineHeightAtom)
 
   // Font size comes exclusively from the parent via postMessage (tile-font-size).
   // Use a placeholder until the message arrives.
   const [tileFontSize, setTileFontSize] = useState(FONT_DEFAULT)
 
-  const { containerRef, term, setFontSize, setFontFamily, setTheme } = useTerminal(
+  const { containerRef, term, setFontSize, setFontFamily, setLineHeight, setTheme } = useTerminal(
     {
       cursorBlink: true,
       fontSize: tileFontSize,
       fontFamily,
+      lineHeight,
       scrollback: 5000,
       // The pane wrapper paints the configurable background (alpha included);
       // the terminal grid itself stays transparent so the color is composited
       // exactly once, over the wrapper.
       allowTransparency: true,
-      theme: { background: '#00000000', foreground: theme.foreground, cursor: theme.cursor },
+      theme: { ...themeToXtermTheme(theme), background: '#00000000' },
     },
     { cols: 80, rows: 24 },
   )
@@ -117,12 +119,15 @@ export default function FullTerminal() {
     return () => window.removeEventListener('focus', onFocus)
   }, [term])
 
-  // Apply shared appearance settings from parent (font family, theme).
+  // Apply shared appearance settings from parent (font family, line height, theme).
   useEffect(() => {
     setFontFamily(fontFamily)
   }, [fontFamily, setFontFamily])
   useEffect(() => {
-    setTheme({ foreground: theme.foreground, cursor: theme.cursor })
+    setLineHeight(lineHeight)
+  }, [lineHeight, setLineHeight])
+  useEffect(() => {
+    setTheme({ ...themeToXtermTheme(theme), background: '#00000000' })
   }, [theme, setTheme])
 
   // Font size is received from the parent via postMessage. The parent

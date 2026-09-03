@@ -101,6 +101,15 @@ export function useTerminal(
     fitRef.current?.fit()
   }, [])
 
+  // Runtime line height change: xterm recalculates cell dimensions on the
+  // next render; the fit addon re-measures after a short delay.
+  const setLineHeight = useCallback((lh: number) => {
+    const t = termRef.current
+    if (!t || t.options.lineHeight === lh) return
+    t.options.lineHeight = lh
+    setTimeout(() => fitRef.current?.fit(), 200)
+  }, [])
+
   // Runtime theme change: xterm diffs the parsed colors internally and
   // repaints every open renderer (webgl or dom) on its own.
   const setTheme = useCallback((theme: ITheme) => {
@@ -109,6 +118,6 @@ export function useTerminal(
     t.options.theme = { ...t.options.theme, ...theme }
   }, [])
 
-  return { containerRef, term, setFontSize, setFontFamily, setTheme }
+  return { containerRef, term, setFontSize, setFontFamily, setLineHeight, setTheme }
 }
 

@@ -154,7 +154,7 @@ export default function FullTerminal() {
   return (
     <CommonTileContainer paneId={paneId}>
       <div
-        className="flex h-screen w-screen flex-col overflow-hidden rounded-[6px]"
+        className="flex h-screen flex-col overflow-hidden rounded-[6px]"
         style={{ backgroundColor: theme.background }}
       >
         <div className="min-h-0 flex-1 p-2">

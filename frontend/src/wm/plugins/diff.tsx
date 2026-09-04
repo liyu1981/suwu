@@ -37,6 +37,10 @@ registerTilePlugin({
   id: 'diff',
   get label() { return i18n.t('plugin.diff') },
   get description() { return i18n.t('plugin.diffDesc') },
+  supportedParams: [
+    { key: 'file1path', label: 'File 1 path', description: 'First file to compare' },
+    { key: 'file2path', label: 'File 2 path', description: 'Second file to compare' },
+  ],
   render: (paneId, context?: TileRenderContext) => {
     const p = new URLSearchParams({ pane: paneId })
     if (context?.initialPath) {

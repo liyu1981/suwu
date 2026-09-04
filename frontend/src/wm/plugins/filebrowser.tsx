@@ -5,11 +5,16 @@ registerTilePlugin({
   id: 'filebrowser',
   get label() { return i18n.t('plugin.fileBrowser') },
   get description() { return i18n.t('plugin.fileBrowserDesc') },
+  supportedParams: [
+    { key: 'path', label: 'Path', description: 'Initial directory to show' },
+  ],
   render: (paneId, context?: TileRenderContext) => {
-    const pathParam = context?.initialPath ? `&path=${encodeURIComponent(context.initialPath)}` : ''
+    const p = new URLSearchParams({ pane: paneId })
+    const path = context?.initialPath ?? context?.params?.path
+    if (path) p.set('path', path)
     return (
       <iframe
-        src={`/filebrowser?pane=${paneId}${pathParam}`}
+        src={`/filebrowser?${p}`}
         title={`filebrowser-${paneId}`}
         data-pane={paneId}
         className="h-full w-full border-0 bg-transparent"

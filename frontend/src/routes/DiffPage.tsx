@@ -186,8 +186,8 @@ export default function DiffPage() {
   const diffFontFamily = useAtomValue(diffFontFamilyAtom);
 
   const urlParams = new URLSearchParams(window.location.search);
-  const file1Param = urlParams.get('file1');
-  const file2Param = urlParams.get('file2');
+  const file1Param = urlParams.get('file1') ?? urlParams.get('file1path');
+  const file2Param = urlParams.get('file2') ?? urlParams.get('file2path');
 
   const [result, setResult] = useState<DiffResult | null>(null);
   const [loading, setLoading] = useState(true);

@@ -9,6 +9,7 @@ export interface FileBrowserSessionState {
   currentPath: string
   sortKey?: string
   sortDir?: 'asc' | 'desc'
+  showHidden?: boolean
 }
 
 export interface DropboxSessionState {

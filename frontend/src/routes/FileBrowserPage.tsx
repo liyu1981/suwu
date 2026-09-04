@@ -80,9 +80,11 @@ interface TreeNode {
 
 function TreeView({
   currentPath,
+  showHidden,
   onNavigate,
 }: {
   currentPath: string
+  showHidden: boolean
   onNavigate: (path: string) => void
 }) {
   const { t } = useTranslation()
@@ -101,7 +103,7 @@ function TreeView({
         const data = await fetchFiles('/')
         if (cancelled) return
         const dirs = data.entries
-          .filter((e) => e.isDir)
+          .filter((e) => e.isDir && (showHidden || !e.name.startsWith('.')))
           .map((e): TreeNode => ({
             path: data.path === '/' ? `/${e.name}` : `${data.path}/${e.name}`,
             name: e.name,
@@ -116,7 +118,8 @@ function TreeView({
       }
     })()
     return () => { cancelled = true }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHidden])
 
   // Auto-expand ancestors of currentPath (re-runs when tree data loads)
   useEffect(() => {
@@ -140,7 +143,7 @@ function TreeView({
           try {
             const data = await fetchFiles(node.path)
             node.children = data.entries
-              .filter((e) => e.isDir)
+              .filter((e) => e.isDir && (showHidden || !e.name.startsWith('.')))
               .map((e): TreeNode => ({
                 path: data.path === '/' ? `/${e.name}` : `${data.path}/${e.name}`,
                 name: e.name,
@@ -164,7 +167,7 @@ function TreeView({
       setRootChildren([...rootChildren])
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPath, rootChildren])
+  }, [currentPath, rootChildren, showHidden])
 
   const toggleNode = useCallback(async (node: TreeNode) => {
     node.expanded = !node.expanded
@@ -177,7 +180,7 @@ function TreeView({
       try {
         const data = await fetchFiles(node.path)
         node.children = data.entries
-          .filter((e) => e.isDir)
+          .filter((e) => e.isDir && (showHidden || !e.name.startsWith('.')))
           .map((e): TreeNode => ({
             path: data.path === '/' ? `/${e.name}` : `${data.path}/${e.name}`,
             name: e.name,
@@ -189,7 +192,8 @@ function TreeView({
       }
     }
     setRootChildren((prev) => prev ? [...prev] : prev)
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHidden])
 
   if (loading) {
     return (
@@ -220,6 +224,7 @@ function TreeView({
           node={node}
           depth={1}
           currentPath={currentPath}
+          showHidden={showHidden}
           onNavigate={onNavigate}
           onToggle={toggleNode}
         />
@@ -232,12 +237,14 @@ function TreeNodeItem({
   node,
   depth,
   currentPath,
+  showHidden,
   onNavigate,
   onToggle,
 }: {
   node: TreeNode
   depth: number
   currentPath: string
+  showHidden: boolean
   onNavigate: (path: string) => void
   onToggle: (node: TreeNode) => void
 }) {
@@ -304,12 +311,13 @@ function TreeNodeItem({
       </button>
       {node.expanded && node.children && (
         <div>
-          {node.children.map((child) => (
+          {node.children.filter((c) => showHidden || !c.name.startsWith('.')).map((child) => (
             <TreeNodeItem
               key={child.path}
               node={child}
               depth={depth + 1}
               currentPath={currentPath}
+              showHidden={showHidden}
               onNavigate={onNavigate}
               onToggle={onToggle}
             />
@@ -343,6 +351,7 @@ export default function FileBrowserPage() {
   const [treeRefreshKey, setTreeRefreshKey] = useState(0)
   const [copied, setCopied] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<FileEntry | null>(null)
+  const [showHidden, setShowHidden] = useState(savedState?.showHidden ?? false)
   const abortRef = useRef<AbortController | null>(null)
 
   // Context menu state
@@ -382,12 +391,12 @@ export default function FileBrowserPage() {
     void fetchDir(initPath)
   }, [fetchDir, initPath])
 
-  // Report state to parent WM on navigation/sort changes.
+  // Report state to parent WM on navigation/sort/showHidden changes.
   useEffect(() => {
     if (!loading && currentPath) {
-      reportState({ currentPath, sortKey, sortDir })
+      reportState({ currentPath, sortKey, sortDir, showHidden })
     }
-  }, [currentPath, sortKey, sortDir, loading, reportState])
+  }, [currentPath, sortKey, sortDir, showHidden, loading, reportState])
 
   const navigateTo = useCallback((dirPath: string) => {
     const newHistory = history.slice(0, historyIndex + 1)
@@ -466,7 +475,9 @@ export default function FileBrowserPage() {
     setTimeout(() => setCopied(false), 1500)
   }, [currentPath])
 
-  const sorted = [...entries].sort((a, b) => {
+  const filtered = showHidden ? entries : entries.filter((e) => !e.name.startsWith('.'))
+
+  const sorted = [...filtered].sort((a, b) => {
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
     let cmp = 0
     switch (sortKey) {
@@ -537,7 +548,7 @@ export default function FileBrowserPage() {
           <div className="w-52 shrink-0 overflow-y-auto scrollbar-thin border-r border-white/[0.06] bg-white/[0.02]">
             {/* Scroll edge: fade mask at top/bottom of tree */}
             <div className="relative">
-              <TreeView key={treeRefreshKey} currentPath={currentPath} onNavigate={handleTreeNavigate} />
+              <TreeView key={treeRefreshKey} currentPath={currentPath} showHidden={showHidden} onNavigate={handleTreeNavigate} />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/20 to-transparent" />
             </div>
           </div>
@@ -621,14 +632,28 @@ export default function FileBrowserPage() {
         {/* Status bar — glass material */}
         <div className="flex shrink-0 items-center justify-between rounded-b-[6px] border-t border-white/[0.06] px-3 py-1.5 text-[10px] text-white/25 glass-control">
           <span className="tracking-wide">{t('filebrowser.itemCount', { count: sorted.length })}</span>
-          <button
-            type="button"
-            onClick={() => setShowUpload(true)}
-            className="ml-2 grid h-5 w-5 place-items-center rounded-md text-white/30 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/60 active:scale-90"
-            title={t('filebrowser.contextMenu.upload')}
-          >
-            <UploadIcon className="h-3 w-3" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setShowHidden((v) => !v)}
+              className={`grid h-5 w-5 place-items-center rounded-md transition-all duration-150 hover:bg-white/[0.08] active:scale-90 ${showHidden ? 'text-green-400/70 hover:text-green-300' : 'text-white/30 hover:text-white/60'}`}
+              title={showHidden ? t('filebrowser.hideHidden') : t('filebrowser.showHidden')}
+            >
+              {showHidden ? (
+                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.948L.75 3.146a.75.75 0 0 0 0 1.081l2.958 2.958A6.97 6.97 0 0 1 8 3.5c5 0 8 5.5 8 5.5s-.576 1.278-1.641 2.738L13.36 11.238zM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>
+              ) : (
+                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowUpload(true)}
+              className="grid h-5 w-5 place-items-center rounded-md text-white/30 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/60 active:scale-90"
+              title={t('filebrowser.contextMenu.upload')}
+            >
+              <UploadIcon className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </div>
 

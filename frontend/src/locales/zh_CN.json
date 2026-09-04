@@ -166,6 +166,8 @@
     "home": "主目录",
     "refresh": "刷新",
     "copyPath": "点击复制路径",
+    "showHidden": "显示隐藏文件",
+    "hideHidden": "隐藏隐藏文件",
     "viewerEmpty": "文件查看器 — 空",
     "contextMenu": {
       "newFolder": "新建文件夹",

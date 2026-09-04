@@ -167,6 +167,8 @@
     "home": "Home",
     "refresh": "Refresh",
     "copyPath": "Click to copy path",
+    "showHidden": "Show hidden files",
+    "hideHidden": "Hide hidden files",
     "viewerEmpty": "File Viewer — empty",
     "contextMenu": {
       "newFolder": "New Folder",

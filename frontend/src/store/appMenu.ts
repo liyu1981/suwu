@@ -3,14 +3,22 @@ import type { AppConfig } from '../wm/appConfigs'
 import type { TilePlugin } from '../wm/tilePlugins'
 
 export interface AppMenuItem {
-  /** Unique identifier — matches plugin id or app config id. */
+  /** Unique identifier — matches plugin id, config id, or a custom `custom-*` id. */
   id: string
   /** Whether this app appears in the "New App" picker. */
   visible: boolean
   /** Display order (lower = higher in list). Managed by drag reorder. */
   order: number
-  /** For config-only apps: editable params. Undefined for real plugins. */
+  /** Editable params merged into the plugin iframe src. */
   params?: Record<string, string>
+  /** True when user-created (not from the AppConfig code registry). */
+  isCustom?: boolean
+  /** Metadata for custom items (label, description, which plugin to use). */
+  customConfig?: {
+    label: string
+    description?: string
+    pluginId: string
+  }
 }
 
 /**
@@ -23,16 +31,41 @@ export const appMenuAtom = atomWithStorage<AppMenuItem[]>('suwu:app-menu', [])
 const DEFAULT_HIDDEN = new Set(['fileviewer', 'diff'])
 
 /**
+ * Create a blank custom app entry ready for editing.
+ */
+export function createCustomApp(
+  plugins: TilePlugin[],
+  maxOrder: number,
+): AppMenuItem {
+  // Prefer a plugin that accepts params; fall back to first non-empty plugin.
+  const defaultPlugin =
+    plugins.find((p) => p.id !== 'empty' && p.supportedParams && p.supportedParams.length > 0)?.id ??
+    plugins.find((p) => p.id !== 'empty')?.id ??
+    'term'
+  return {
+    id: `custom-${Date.now()}`,
+    visible: true,
+    order: maxOrder + 1,
+    params: {},
+    isCustom: true,
+    customConfig: {
+      label: 'New App',
+      pluginId: defaultPlugin,
+    },
+  }
+}
+
+/**
  * Merge the live registry (plugins + configs) with the stored user
  * preferences. Adds new entries, removes stale ones, preserves user
- * overrides.
+ * overrides.  Custom (user-created) items are kept as-is.
  */
 export function bootstrapAppMenu(
   plugins: TilePlugin[],
   configs: AppConfig[],
   current: AppMenuItem[],
 ): AppMenuItem[] {
-  const allIds = new Set<string>()
+  const registryIds = new Set<string>()
   const byId = new Map<string, AppMenuItem>()
 
   // Index current stored items.
@@ -46,7 +79,7 @@ export function bootstrapAppMenu(
   // Merge plugins (skip 'empty' — it's a placeholder, not a real app).
   for (const p of plugins) {
     if (p.id === 'empty') continue
-    allIds.add(p.id)
+    registryIds.add(p.id)
     if (!byId.has(p.id)) {
       maxOrder++
       byId.set(p.id, {
@@ -59,7 +92,7 @@ export function bootstrapAppMenu(
 
   // Merge app configs.
   for (const c of configs) {
-    allIds.add(c.id)
+    registryIds.add(c.id)
     if (!byId.has(c.id)) {
       maxOrder++
       byId.set(c.id, {
@@ -84,10 +117,10 @@ export function bootstrapAppMenu(
     }
   }
 
-  // Filter out stale entries (plugins/configs removed from code).
+  // Keep: registry items + custom (user-created) items. Drop the rest.
   const result: AppMenuItem[] = []
   for (const [id, item] of byId) {
-    if (allIds.has(id)) {
+    if (item.isCustom || registryIds.has(id)) {
       result.push(item)
     }
   }
@@ -96,7 +129,7 @@ export function bootstrapAppMenu(
 }
 
 /**
- * Return visible apps in order, merged from plugins + configs.
+ * Return visible apps in order, merged from plugins + configs + custom items.
  */
 export function getVisibleApps(
   plugins: TilePlugin[],
@@ -120,15 +153,38 @@ export function getVisibleApps(
   for (const item of sorted) {
     if (!item.visible) continue
 
+    // Real plugin
     const plugin = pluginMap.get(item.id)
     if (plugin) {
       result.push({ kind: 'plugin', plugin, params: item.params })
       continue
     }
 
+    // Registry config
     const config = configMap.get(item.id)
     if (config) {
       result.push({ kind: 'config', config, params: item.params ?? config.params })
+      continue
+    }
+
+    // Custom item → synthesise an AppConfig for the picker.
+    if (item.isCustom && item.customConfig) {
+      const targetPlugin = pluginMap.get(item.customConfig.pluginId)
+      if (targetPlugin) {
+        result.push({
+          kind: 'config',
+          config: {
+            id: item.id,
+            label: item.customConfig.label,
+            description: item.customConfig.description,
+            pluginId: item.customConfig.pluginId,
+            params: item.params ?? {},
+            iconBg: '',
+            iconLetter: '',
+          },
+          params: item.params,
+        })
+      }
     }
   }
 

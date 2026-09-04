@@ -229,7 +229,16 @@
     "showAll": "全部显示",
     "hideAll": "全部隐藏",
     "configure": "配置",
-    "allHidden": "所有应用均已隐藏。请显示一些应用以使用新建应用选择器。"
+    "collapse": "收起",
+    "allHidden": "所有应用均已隐藏。请显示一些应用以使用新建应用选择器。",
+    "addCustom": "添加自定义应用",
+    "remove": "移除",
+    "label": "名称",
+    "descField": "描述",
+    "plugin": "插件",
+    "params": "参数",
+    "addParam": "添加参数",
+    "noParams": "无可配置参数"
   },
   "plugin": {
     "terminal": "终端",
@@ -238,8 +247,6 @@
     "viewerDesc": "查看文件和文档",
     "fileBrowser": "文件浏览器",
     "fileBrowserDesc": "浏览远程文件和文件夹",
-    "herdr": "Herdr",
-    "herdrDesc": "带有 herdr 命令的 shell",
     "forward": "端口转发",
     "forwardDesc": "TCP/UDP 端口转发",
     "empty": "空白",

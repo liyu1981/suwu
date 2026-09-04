@@ -36,7 +36,7 @@ import { TileTools } from './TileTools'
 import { usePaneGhosts } from './hooks/usePaneGhosts'
 import { getTilePlugin, getAllTilePlugins } from './tilePlugins'
 import { getAllAppConfigs } from './appConfigs'
-import { appMenuAtom, bootstrapAppMenu, getVisibleApps } from '../store/appMenu'
+import { appMenuAtom, getVisibleApps } from '../store/appMenu'
 import { getAppIconClasses, getAppIconLetter } from './appIcons'
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 import { SESSION_STATE_KEY, MAX_SERVER_SESSIONS, type TileSessionMap, type SessionStore } from './sessionState'
@@ -51,8 +51,7 @@ import './plugins/dropbox'
 import './plugins/gitgraph'
 import './plugins/diff'
 
-// Register app config presets (side-effect imports).
-import './configs/herdr'
+
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +
@@ -60,9 +59,9 @@ const appRow =
   'hover:bg-white/10 hover:text-popover-foreground active:bg-white/15 active:text-popover-foreground ' +
   'focus-visible:bg-white/10 focus-visible:text-popover-foreground'
 
-function AppIcon({ id, label }: { id: string; label?: string }) {
-  const classes = getAppIconClasses(id)
-  const letter = getAppIconLetter(id, label ?? id)
+function AppIcon({ id, label, pluginId }: { id: string; label?: string; pluginId?: string }) {
+  const classes = getAppIconClasses(id, pluginId)
+  const letter = getAppIconLetter(id, label ?? id, pluginId)
   return (
     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${classes.bg} ${classes.text}`}>
       {letter}
@@ -96,14 +95,6 @@ function TileTypePicker({
   const [menuItems, setMenuItems] = useAtom(appMenuAtom)
   const navRef = useRef<HTMLElement>(null)
   const [homeDir, setHomeDir] = useState<string | null>(null)
-
-  // Bootstrap app menu from registry on mount.
-  useEffect(() => {
-    const bootstrapped = bootstrapAppMenu(plugins, appConfigs, menuItems)
-    if (JSON.stringify(bootstrapped) !== JSON.stringify(menuItems)) {
-      setMenuItems(bootstrapped)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Get visible apps in user-defined order.
   const visibleApps = getVisibleApps(plugins, appConfigs, menuItems)
@@ -197,7 +188,7 @@ function TileTypePicker({
                   onClick={() => selectPlugin(c.pluginId, item.params ?? c.params)}
                   className={appRow}
                 >
-                  <AppIcon id={c.id} label={c.label} />
+                  <AppIcon id={c.id} label={c.label} pluginId={c.pluginId} />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-popover-foreground">{c.label}</div>
                     {c.description && (

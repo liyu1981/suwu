@@ -230,7 +230,16 @@
     "showAll": "Show all",
     "hideAll": "Hide all",
     "configure": "Configure",
-    "allHidden": "All apps are hidden. Show some to use the New App picker."
+    "collapse": "Collapse",
+    "allHidden": "All apps are hidden. Show some to use the New App picker.",
+    "addCustom": "Add Custom App",
+    "remove": "Remove",
+    "label": "Label",
+    "descField": "Description",
+    "plugin": "Plugin",
+    "params": "Parameters",
+    "addParam": "Add Parameter",
+    "noParams": "No configurable parameters"
   },
   "plugin": {
     "terminal": "Terminal",
@@ -239,8 +248,6 @@
     "viewerDesc": "View files and documents",
     "fileBrowser": "File Browser",
     "fileBrowserDesc": "Browse remote files and folders",
-    "herdr": "Herdr",
-    "herdrDesc": "Shell with herdr command",
     "forward": "Port Forward",
     "forwardDesc": "TCP/UDP port forwarding",
     "empty": "Empty",

@@ -36,6 +36,9 @@ registerTilePlugin({
   id: 'gitgraph',
   get label() { return 'Git Graph' },
   get description() { return 'Visual commit history' },
+  supportedParams: [
+    { key: 'path', label: 'Repository path', description: 'Git repo to display' },
+  ],
   render: (paneId, context?: TileRenderContext) => {
     const p = new URLSearchParams({ pane: paneId })
     if (context?.initialPath) {

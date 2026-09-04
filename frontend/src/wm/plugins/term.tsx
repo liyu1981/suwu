@@ -49,6 +49,10 @@ registerTilePlugin({
   id: 'term',
   get label() { return i18n.t('plugin.terminal') },
   get description() { return i18n.t('plugin.terminalDesc') },
+  supportedParams: [
+    { key: 'cmd', label: 'Command', description: 'Shell command to execute' },
+    { key: 'cwd', label: 'Working directory', description: 'Initial directory path' },
+  ],
   render: (paneId, context?: TileRenderContext) => {
     const p = new URLSearchParams({ pane: paneId })
     if (context?.params) {

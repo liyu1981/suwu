@@ -24,10 +24,20 @@ export interface TileRenderContext {
   params?: Record<string, string>
 }
 
+/** Documentation for a single parameter a plugin accepts. */
+export interface PluginParamDoc {
+  key: string
+  label: string
+  description?: string
+  defaultValue?: string
+}
+
 export interface TilePlugin {
   id: TileType
   label: string
   description?: string
+  /** Declared parameters this plugin accepts (shown as hints in the editor). */
+  supportedParams?: PluginParamDoc[]
   /** Render the tile content (iframe, React component, etc.). */
   render: (paneId: string, context?: TileRenderContext) => ReactNode
   /**

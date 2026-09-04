@@ -284,6 +284,14 @@ kbd {
   margin-bottom: var(--space-8);
 }
 
+.hero-badge {
+  margin-bottom: var(--space-6);
+}
+
+.hero-badge img {
+  display: inline-block;
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;

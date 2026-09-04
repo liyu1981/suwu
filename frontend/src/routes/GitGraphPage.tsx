@@ -577,6 +577,15 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
               <span className="text-white/80">{new Date(details.date).toLocaleString()}</span>
             </div>
 
+            {/* Message */}
+            <div className="mt-1 border-t border-white/[0.06] pt-1">
+              <span className="text-white/30">Message:</span>
+              <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-relaxed text-white/80">{details.message}</p>
+              {details.body && details.body !== details.message && (
+                <p className="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-white/50">{details.body}</p>
+              )}
+            </div>
+
             {/* Parents */}
             {(details.parents || []).length > 0 && (
               <div className="mt-1 border-t border-white/[0.06] pt-1">

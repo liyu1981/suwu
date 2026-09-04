@@ -4,6 +4,8 @@
 
 <h1 align="center">Suwu</h1>
 
+<p align="center"><a href="https://www.producthunt.com/products/suwu-omarchy-inspired-web-remote-shell?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-suwu-omarchy-inspired-web-remote-shell" target="_blank" rel="noopener noreferrer"><img alt="Suwu: Omarchy inspired web remote shell - Make the remote shell enjoyable in agentic AI time. | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1239408&amp;theme=light&amp;t=1788485234791"></a></p>
+
 <p align="center"><strong>Make the remote shell enjoyable in agentic AI time.</strong></p>
 
 Your real shell, in a browser tab. Suwu gives agents and humans alike a

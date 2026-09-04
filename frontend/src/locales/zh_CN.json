@@ -56,6 +56,8 @@
     "dropboxTab": "网盘",
     "forwardTab": "端口转发",
     "gitGraphTab": "Git 图谱",
+    "diffTab": "差异对比",
+    "diffFontFamilyHint": "差异视图的字体。系统 UI 使用操作系统的默认比例字体。",
     "zoom": "缩放",
     "zoomHint": "缩放 {{app}} 窗格内的界面（100%–500%），不改变平铺布局。立即应用到所有 {{app}} 窗格。",
     "restoreDefault": "恢复默认",
@@ -232,7 +234,9 @@
     "empty": "空白",
     "emptyDesc": "选择要打开的应用程序",
     "dropbox": "文件暂存",
-    "dropboxDesc": "文件投递与管理"
+    "dropboxDesc": "文件投递与管理",
+    "diff": "差异对比",
+    "diffDesc": "并排文件对比"
   },
   "dropbox": {
     "title": "文件暂存",

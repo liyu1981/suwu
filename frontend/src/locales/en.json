@@ -56,6 +56,8 @@
     "dropboxTab": "Dropbox",
     "forwardTab": "Port Forwarding",
     "gitGraphTab": "Git Graph",
+    "diffTab": "Diff",
+    "diffFontFamilyHint": "Font family for the diff view. System UI uses your OS default proportional font.",
     "zoom": "Zoom",
     "zoomHint": "Scales the interface inside the {{app}} tile (100%–500%) without changing the tile layout. Applied instantly to all {{app}} panes.",
     "restoreDefault": "Restore default",
@@ -233,7 +235,9 @@
     "empty": "Empty",
     "emptyDesc": "Choose an application to open",
     "dropbox": "Dropbox",
-    "dropboxDesc": "File drop & manager"
+    "dropboxDesc": "File drop & manager",
+    "diff": "Diff",
+    "diffDesc": "Side-by-side file comparison"
   },
   "dropbox": {
     "title": "Dropbox",

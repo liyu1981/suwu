@@ -7,6 +7,7 @@ import FileBrowserPage from './routes/FileBrowserPage'
 import ForwardPage from './routes/ForwardPage'
 import DropboxPage from './routes/DropboxPage'
 import GitGraphPage from './routes/GitGraphPage'
+import DiffPage from './routes/DiffPage'
 
 const rootRoute = createRootRoute()
 
@@ -64,6 +65,12 @@ const gitgraphRoute = createRoute({
   component: GitGraphPage,
 })
 
+const diffRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/diff',
+  component: DiffPage,
+})
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -72,6 +79,7 @@ const routeTree = rootRoute.addChildren([
   forwardRoute,
   dropboxRoute,
   gitgraphRoute,
+  diffRoute,
 ])
 
 export const router = createRouter({ routeTree })

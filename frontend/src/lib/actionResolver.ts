@@ -156,6 +156,32 @@ export function openGitGraph(path: string, store: Store): string | null {
 }
 
 /**
+ * Open a diff tile comparing two files.
+ */
+export function openDiff(file1: string, file2: string, store: Store): string | null {
+  const leafId = doSplit(store)
+  if (!leafId) return null
+  setTypeAndFocus(store, leafId, 'diff')
+  const root = store.get(layoutAtom)
+  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, file1))
+  // Pass file2 via params so the plugin includes it in the iframe URL.
+  const root2 = store.get(layoutAtom)
+  if (root2) {
+    const walk = (node: LayoutNode): LayoutNode => {
+      if (node.type === 'leaf' && node.id === leafId) {
+        return { ...node, params: { file2 } }
+      }
+      if (node.type === 'split') {
+        return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+      }
+      return node
+    }
+    store.set(layoutAtom, walk(root2))
+  }
+  return leafId
+}
+
+/**
  * Resolve an action from a notification. Returns true if auto-resolved,
  * false if it should show as an action button in the notification panel.
  */
@@ -168,6 +194,10 @@ export function resolveAction(
 
   if (type === 'gitgraph' && autoResolve.gitgraph) {
     openGitGraph(path, store)
+    return true
+  }
+  if (type === 'diff' && autoResolve.diff && data.payload.file1 && data.payload.file2) {
+    openDiff(data.payload.file1, data.payload.file2, store)
     return true
   }
   if (type === 'dir' && autoResolve.filebrowser) {
@@ -195,6 +225,8 @@ export function executeAction(
   const { type, path } = data.payload
   if (type === 'gitgraph') {
     openGitGraph(path, store)
+  } else if (type === 'diff' && data.payload.file1 && data.payload.file2) {
+    openDiff(data.payload.file1, data.payload.file2, store)
   } else if (type === 'dir') {
     openFileBrowser(path, store)
   } else if (type === 'forward') {

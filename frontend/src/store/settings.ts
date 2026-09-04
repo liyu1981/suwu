@@ -7,6 +7,8 @@ export interface AutoResolveSettings {
   forward: boolean
   /** Open the git graph tile when suwu gitgraph is used — enabled by default. */
   gitgraph: boolean
+  /** Open the diff tile when suwu diff is used — enabled by default. */
+  diff: boolean
 }
 
 export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-resolve', {
@@ -14,4 +16,5 @@ export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-r
   fileviewer: true,
   forward: false,
   gitgraph: true,
+  diff: true,
 })

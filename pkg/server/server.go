@@ -156,6 +156,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/file/diff" {
+		s.handleFileDiff(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/git/diff" {
 		s.handleGitDiff(w, r)
 		return
@@ -818,6 +823,52 @@ func (s *Server) handleServerInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"startedAt": s.startedAt.UTC().Format(time.RFC3339),
 	})
+}
+
+// handleFileDiff computes a unified diff between two files.
+// GET /api/file/diff?file1=/path/to/a&file2=/path/to/b&token=<token>
+func (s *Server) handleFileDiff(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	if validateRequest(w, r, s.cfg) == "" {
+		return
+	}
+
+	file1 := r.URL.Query().Get("file1")
+	file2 := r.URL.Query().Get("file2")
+	if file1 == "" || file2 == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "file1 and file2 parameters required"})
+		return
+	}
+
+	file1 = filepath.Clean(file1)
+	file2 = filepath.Clean(file2)
+
+	if _, err := os.Stat(file1); err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("file1 not found: %v", err)})
+		return
+	}
+	if _, err := os.Stat(file2); err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("file2 not found: %v", err)})
+		return
+	}
+
+	cmd := exec.Command("diff", "-u", "--", file1, file2)
+	out, err := cmd.CombinedOutput()
+	// diff exits 1 when files differ — that's not an error for us.
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() > 1 {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": string(out)})
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"diff": string(out), "file1": file1, "file2": file2})
 }
 
 // ── Dropbox handlers ───────────────────────────────────────────────

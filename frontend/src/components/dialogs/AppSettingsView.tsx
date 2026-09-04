@@ -4,15 +4,17 @@ import { useTranslation } from 'react-i18next'
 import { Tabs as TabsPrimitive } from 'radix-ui'
 import { FONT_MAX, FONT_MIN, LINE_HEIGHT_DEFAULT, LINE_HEIGHT_MAX, LINE_HEIGHT_MIN, LINE_HEIGHT_STEP, clampFont, clampLineHeight, fontDefaultAtom, fontSizeAtom, lineHeightAtom, lineHeightDefaultAtom } from '../../store/fonts'
 import {
+  DIFF_FONT_FAMILIES,
   FILE_BROWSER_BG_DEFAULT,
   FONT_FAMILIES,
   TERMINAL_THEME_DEFAULT,
   type TerminalTheme,
+  diffFontFamilyAtom,
   fileBrowserBgAtom,
   fontFamilyAtom,
   termThemeAtom,
 } from '../../store/appearance'
-import { dropboxZoomAtom, fileBrowserZoomAtom, forwardZoomAtom, gitGraphZoomAtom, clampZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from '../../store/zoom'
+import { dropboxZoomAtom, diffZoomAtom, fileBrowserZoomAtom, forwardZoomAtom, gitGraphZoomAtom, clampZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from '../../store/zoom'
 import { ZoomControls } from '../ZoomControls'
 import { THEME_PRESETS, matchPresetId } from '../../store/themePresets'
 import { alphaOf, hex6Of, withAlpha } from '../../lib/color'
@@ -141,6 +143,7 @@ const ANSI_LABELS: Record<string, string> = {
 // ── Font combobox items ──────────────────────────────────────────────
 
 const FONT_ITEMS = FONT_FAMILIES.map((f) => ({ label: f.label, value: f.value }))
+const DIFF_FONT_ITEMS = DIFF_FONT_FAMILIES.map((f) => ({ label: f.label, value: f.value }))
 
 // ── Main component ───────────────────────────────────────────────────
 
@@ -166,10 +169,12 @@ export default function AppSettingsView(props: { onClose: () => void }) {
   const [fileBrowserBg, setFileBrowserBg] = useAtom(fileBrowserBgAtom)
   const [fileBrowserZoom, setFileBrowserZoom] = useAtom(fileBrowserZoomAtom)
 
-  // Dropbox / Port Forwarding / Git Graph
+  // Dropbox / Port Forwarding / Git Graph / Diff
   const [dropboxZoom, setDropboxZoom] = useAtom(dropboxZoomAtom)
   const [forwardZoom, setForwardZoom] = useAtom(forwardZoomAtom)
   const [gitGraphZoom, setGitGraphZoom] = useAtom(gitGraphZoomAtom)
+  const [diffZoom, setDiffZoom] = useAtom(diffZoomAtom)
+  const [diffFontFamily, setDiffFontFamily] = useAtom(diffFontFamilyAtom)
 
   // ── Collapsible groups state ────────────────────────────────────
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -248,6 +253,9 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="gitgraph" className={tabBtn}>
             {t('settings.gitGraphTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="diff" className={tabBtn}>
+            {t('settings.diffTab')}
           </TabsPrimitive.Trigger>
         </TabsPrimitive.List>
 
@@ -498,6 +506,34 @@ export default function AppSettingsView(props: { onClose: () => void }) {
             onChange={setGitGraphZoom}
             hint={t('settings.zoomHint', { app: t('settings.gitGraphTab') })}
           />
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="diff" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">
+          {/* Font family */}
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.fontFamily')}</span>
+            </div>
+            <div className="mt-2">
+              <Combobox
+                items={DIFF_FONT_ITEMS}
+                value={diffFontFamily}
+                onChange={setDiffFontFamily}
+                placeholder={t('settings.fontFamily')}
+                editable
+              />
+            </div>
+            <p className={sectionHint}>{t('settings.diffFontFamilyHint')}</p>
+          </div>
+
+          {/* Zoom */}
+          <div className={`${section} mt-4`}>
+            <ZoomSetting
+              zoom={diffZoom}
+              onChange={setDiffZoom}
+              hint={t('settings.zoomHint', { app: t('settings.diffTab') })}
+            />
+          </div>
         </TabsPrimitive.Content>
       </TabsPrimitive.Root>
       </div>

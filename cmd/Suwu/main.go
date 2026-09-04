@@ -106,6 +106,11 @@ func main() {
 				log.Fatalf("gitgraph: %v", err)
 			}
 			return
+		case "diff":
+			if err := diffMain(os.Args[2:]); err != nil {
+				log.Fatalf("diff: %v", err)
+			}
+			return
 		case "forward":
 			if err := forwardCmd(os.Args[2:]); err != nil {
 				log.Fatalf("forward: %v", err)
@@ -147,6 +152,8 @@ Usage:
                            open a file or directory in the running Suwu session
   suwu gitgraph [--sock <path>] <dir>
                            open git graph for a repository directory
+  suwu diff [--sock <path>] <file1> <file2>
+                           open a side-by-side diff view between two files
   suwu forward [flags] <localport> [targethost] <targetport>
                            create TCP/UDP port forwarding through the server
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
@@ -239,6 +246,20 @@ Examples:
   suwu forward --proto udp 23000 localhost 3000
   suwu forward --stop 23000
   suwu forward --list
+`)
+	case "diff":
+		fmt.Print(`Usage: suwu diff [flags] <file1> <file2>
+
+Open a side-by-side diff view between two files in the browser.
+Sends a notification to the running server which opens a diff tile.
+
+Flags:
+  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
+                   or $SUWU_SOCK_PATH)
+
+Examples:
+  suwu diff old.go new.go
+  suwu diff ~/project/v1.go ~/project/v2.go
 `)
 	case "gencerts":
 		fmt.Print(`Usage: suwu gencerts [flags]

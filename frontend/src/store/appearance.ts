@@ -136,3 +136,19 @@ export const FILE_BROWSER_BG_DEFAULT = '#1e1e1ecc'
  * Uses the same atomWithStorage + localStorage sync pattern as terminal theme.
  */
 export const fileBrowserBgAtom = atomWithStorage<string>('suwu.filebrowser-bg', FILE_BROWSER_BG_DEFAULT)
+
+// ── Diff view settings ──────────────────────────────────────────────
+
+/** Font families for the diff view — includes both mono and proportional. */
+export const DIFF_FONT_FAMILIES = [
+  { label: 'System UI', value: `system-ui, -apple-system, sans-serif` },
+  { label: 'JetBrains Mono', value: `'JetBrains Mono', Menlo, Monaco, monospace` },
+  { label: 'Menlo', value: `Menlo, Monaco, 'Courier New', monospace` },
+  { label: 'SF Mono', value: `'SF Mono', ui-monospace, Menlo, monospace` },
+  { label: 'Fira Code', value: `'Fira Code', 'Courier New', monospace` },
+  { label: 'Courier New', value: `'Courier New', monospace` },
+] as const
+
+export const DIFF_FONT_FAMILY_DEFAULT = DIFF_FONT_FAMILIES[0].value
+
+export const diffFontFamilyAtom = atomWithStorage<string>('suwu.diff-font-family', DIFF_FONT_FAMILY_DEFAULT)

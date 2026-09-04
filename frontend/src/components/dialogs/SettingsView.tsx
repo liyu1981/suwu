@@ -144,6 +144,15 @@ export default function SettingsView() {
                   onCheckedChange={(v) => setAutoResolve({ ...autoResolve, gitgraph: v })}
                 />
               </div>
+              <div className="flex items-center justify-between py-2.5">
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs text-popover-foreground">{t('plugin.diff')}</span>
+                </div>
+                <Toggle
+                  checked={autoResolve.diff}
+                  onCheckedChange={(v) => setAutoResolve({ ...autoResolve, diff: v })}
+                />
+              </div>
             </div>
           </div>
         </TabsPrimitive.Content>

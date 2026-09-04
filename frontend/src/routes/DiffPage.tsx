@@ -17,7 +17,8 @@ import { CommonTileContainer } from '../components/CommonTileContainer';
 import { useAtomValue } from 'jotai';
 import { diffFontFamilyAtom, fileBrowserBgAtom } from '../store/appearance';
 import { diffZoomAtom } from '../store/zoom';
-import { getCredentials } from '../lib/auth';
+import { fetchJson } from '../lib/format';
+import { setPageTransparent } from '../lib/constants';
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
@@ -151,16 +152,7 @@ function parseDiff(raw: string): DiffLine[] {
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const headers: Record<string, string> = {};
-  const creds = getCredentials();
-  if (creds) headers['Authorization'] = creds;
-  const res = await fetch(url, { cache: 'no-store', headers });
-  let data: (T & { error?: string }) | null = null;
-  try { data = await res.json(); } catch { data = null; }
-  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-  return data as T;
-}
+
 
 /* ── Inline word-diff renderer ─────────────────────────────────── */
 
@@ -192,7 +184,6 @@ function WordDiffLine({ text, pairedText, side }: { text: string; pairedText: st
 export default function DiffPage() {
   const bgColor = useAtomValue(fileBrowserBgAtom);
   const diffFontFamily = useAtomValue(diffFontFamilyAtom);
-  const diffZoom = useAtomValue(diffZoomAtom);
 
   const urlParams = new URLSearchParams(window.location.search);
   const file1Param = urlParams.get('file1');
@@ -242,7 +233,7 @@ export default function DiffPage() {
   }, [file1Param, file2Param]);
 
   useEffect(() => {
-    document.documentElement.style.backgroundColor = 'transparent';
+    setPageTransparent();
   }, []);
 
   const parsed = useMemo(() => (result ? parseDiff(result.diff) : []), [result]);

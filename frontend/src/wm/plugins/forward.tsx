@@ -5,7 +5,7 @@ registerTilePlugin({
   id: 'forward',
   get label() { return i18n.t('plugin.forward') },
   get description() { return i18n.t('plugin.forwardDesc') },
-  render: (paneId, context?: TileRenderContext) => {
+  render: (paneId, _context?: TileRenderContext) => {
     const p = new URLSearchParams({ pane: paneId })
     return (
       <iframe

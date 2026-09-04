@@ -4,14 +4,8 @@ import standardPreset from '@file-viewer/preset-standard'
 import { getCredentials } from '../lib/auth'
 import { CommonTileContainer } from '../components/CommonTileContainer'
 import { RefreshIcon } from '../components/icons'
-
-const intervals = [
-  { label: 'Off', value: 0 },
-  { label: '5s', value: 5000 },
-  { label: '10s', value: 10000 },
-  { label: '30s', value: 30000 },
-  { label: '60s', value: 60000 },
-]
+import { setPageTransparent } from '../lib/constants'
+import { useAutoRefreshDropdown, AutoRefreshDropdown, AutoRefreshTrigger } from '../components/AutoRefreshDropdown'
 
 /**
  * Full-space file viewer page loaded inside each file viewer pane's iframe.
@@ -29,10 +23,7 @@ export default function FileViewerPage() {
   const [error, setError] = useState<string | null>(null)
   const [renderError, setRenderError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(0)
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropdownState = useAutoRefreshDropdown()
   const abortRef = useRef<AbortController | null>(null)
 
   const viewerOptions = useMemo(() => ({
@@ -93,7 +84,7 @@ export default function FileViewerPage() {
 
   // Make background transparent so the tiling WM background shows through.
   useEffect(() => {
-    document.documentElement.style.backgroundColor = 'transparent'
+    setPageTransparent()
   }, [])
 
   // Catch unhandled promise rejections from renderers (e.g. image decode failures).
@@ -128,51 +119,14 @@ export default function FileViewerPage() {
     return () => clearInterval(timer)
   }, [autoRefresh, filePath, fetchFile])
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!showDropdown) return
-    const onClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [showDropdown])
-
   const handleRefresh = useCallback(() => {
     if (filePath) fetchFile(filePath)
   }, [filePath, fetchFile])
 
   const handleIntervalSelect = useCallback((ms: number) => {
     setAutoRefresh(ms)
-    setShowDropdown(false)
-  }, [])
-
-  // Dropdown rendered via portal-like fixed positioning
-  const dropdown = showDropdown ? (
-    <div
-      ref={dropdownRef}
-      className="fixed z-[9999] w-28 rounded border border-white/10 bg-black/95 py-1 shadow-xl backdrop-blur-xl"
-      style={{ top: dropdownPos.top, left: dropdownPos.left }}
-    >
-      {intervals.map((iv) => (
-        <button
-          key={iv.value}
-          type="button"
-          onClick={() => handleIntervalSelect(iv.value)}
-          className={`flex w-full items-center px-3 py-1 text-left transition hover:bg-white/10 ${
-            autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'
-          }`}
-        >
-          {iv.label}
-          {autoRefresh === iv.value && iv.value > 0 && (
-            <span className="ml-auto text-[10px] text-green-400/60">●</span>
-          )}
-        </button>
-      ))}
-    </div>
-  ) : null
+    dropdownState.close()
+  }, [dropdownState])
 
   if (error) {
     return (
@@ -180,7 +134,7 @@ export default function FileViewerPage() {
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
           <span className="text-red-400/70">{error}</span>
         </div>
-        {dropdown}
+        {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
       </CommonTileContainer>
     )
   }
@@ -191,7 +145,7 @@ export default function FileViewerPage() {
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
           <span className="text-white/30">Loading...</span>
         </div>
-        {dropdown}
+        {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
       </CommonTileContainer>
     )
   }
@@ -210,25 +164,7 @@ export default function FileViewerPage() {
         <RefreshIcon />
       </button>
       {/* Auto-refresh dropdown trigger */}
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={() => {
-          if (showDropdown) {
-            setShowDropdown(false)
-          } else if (btnRef.current) {
-            const rect = btnRef.current.getBoundingClientRect()
-            setDropdownPos({ top: rect.bottom + 2, left: rect.left })
-            setShowDropdown(true)
-          }
-        }}
-        className={`grid h-5 w-4 place-items-center rounded text-[10px] transition hover:bg-white/10 ${
-          autoRefresh > 0 ? 'text-green-400' : 'text-white/40 hover:text-white/60'
-        }`}
-        title="Auto-refresh interval"
-      >
-        ▾
-      </button>
+      <AutoRefreshTrigger btnRef={dropdownState.btnRef} isActive={autoRefresh > 0} onClick={dropdownState.toggle} />
       <span className="truncate text-white/50" title={filePath}>{filePath}</span>
     </div>
   ) : null
@@ -247,7 +183,7 @@ export default function FileViewerPage() {
             <span className="text-[10px] text-white/25">{fileName}</span>
           </div>
         </div>
-        {dropdown}
+        {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
       </CommonTileContainer>
     )
   }
@@ -265,7 +201,7 @@ export default function FileViewerPage() {
           />
         </div>
       </div>
-      {dropdown}
+      {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
     </CommonTileContainer>
   )
 }

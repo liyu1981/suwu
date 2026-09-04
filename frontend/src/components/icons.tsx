@@ -271,3 +271,20 @@ export function SearchIcon({ className = 'h-3 w-3' }: { className?: string }) {
     </svg>
   )
 }
+
+export function EyeIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor">
+      <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
+      <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>
+    </svg>
+  )
+}
+
+export function EyeOffIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor">
+      <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.948L.75 3.146a.75.75 0 0 0 0 1.081l2.958 2.958A6.97 6.97 0 0 1 8 3.5c5 0 8 5.5 8 5.5s-.576 1.278-1.641 2.738L13.36 11.238zM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/>
+    </svg>
+  )
+}

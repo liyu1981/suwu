@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getCredentials } from '../lib/auth'
 import { CommonTileContainer } from './CommonTileContainer'
 import { RefreshIcon } from './icons'
 import { forwardZoomAtom } from '../store/zoom'
+import { isLocalHost } from '../lib/format'
+
+import { getCredentials } from '../lib/auth'
+import { useAutoRefreshDropdown, AutoRefreshDropdown, AutoRefreshTrigger } from './AutoRefreshDropdown'
 
 interface ForwardStatus {
   id: string
@@ -24,13 +27,7 @@ const STATUS_COLORS = {
   error: 'bg-red-500',
 } as const
 
-const AUTO_REFRESH_INTERVALS = [
-  { label: 'Off', value: 0 },
-  { label: '5s', value: 5000 },
-  { label: '10s', value: 10000 },
-  { label: '30s', value: 30000 },
-  { label: '60s', value: 60000 },
-] as const
+
 
 const inputClass =
   'rounded-lg bg-white/[0.08] border border-white/[0.12] px-2.5 py-1.5 text-white/90 placeholder-white/35 outline-none transition-all duration-150 focus:bg-white/[0.14] focus:ring-1'
@@ -40,9 +37,6 @@ const inputInvalid = 'border-red-500/40 focus:border-red-500/40 focus:ring-red-5
 
 const btnPrimary =
   'shrink-0 rounded-lg bg-cyan-500/25 px-3.5 py-1.5 font-medium text-cyan-300 transition-all duration-150 hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed'
-
-const btnDanger =
-  'rounded-lg bg-red-500/15 px-2 py-1 text-[10px] font-medium text-red-400/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-400 active:scale-[0.97]'
 
 async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
   const headers: Record<string, string> = {}
@@ -56,6 +50,11 @@ async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
   }
   return res.json()
 }
+
+const btnDanger =
+  'rounded-lg bg-red-500/15 px-2 py-1 text-[10px] font-medium text-red-400/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-400 active:scale-[0.97]'
+
+
 
 function formatUptime(startedAt: string): string {
   const start = new Date(startedAt).getTime()
@@ -79,11 +78,6 @@ function validatePort(value: string, occupied: number[]): { valid: boolean; erro
   return { valid: true }
 }
 
-function isLocalHost(host: string): boolean {
-  const h = host.toLowerCase().trim()
-  return h === '' || h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0'
-}
-
 export default function ForwardPanel() {
   const { t } = useTranslation()
   const [forwards, setForwards] = useState<ForwardStatus[]>([])
@@ -96,26 +90,11 @@ export default function ForwardPanel() {
   const [error, setError] = useState<string | null>(null)
   const [serverPorts, setServerPorts] = useState<number[]>([])
   const [intPortOpen, setIntPortOpen] = useState<boolean | null>(null)
-  const [extPortCheck, setExtPortCheck] = useState(0)
   const checkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Auto-refresh (file-viewer style: interval dropdown)
   const [autoRefresh, setAutoRefresh] = useState(0)
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const autoBtnRef = useRef<HTMLButtonElement>(null)
-
-  // Close the auto-refresh dropdown on outside click.
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
+  const dropdown = useAutoRefreshDropdown()
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -175,28 +154,6 @@ export default function ForwardPanel() {
     }
   }, [intPort, intHost, serverPorts])
 
-  // Debounced check for external port occupancy
-  useEffect(() => {
-    if (checkTimerRef.current) {
-      clearTimeout(checkTimerRef.current)
-    }
-
-    const n = parseInt(extPort, 10)
-    if (isNaN(n) || n < 1024 || n > 65535) {
-      return
-    }
-
-    checkTimerRef.current = setTimeout(() => {
-      // trigger re-render by updating a counter
-      setExtPortCheck((c) => c + 1)
-    }, 300)
-
-    return () => {
-      if (checkTimerRef.current) clearTimeout(checkTimerRef.current)
-    }
-  }, [extPort, serverPorts])
-
-  const extPortOccupied = parseInt(extPort, 10) > 0 && serverPorts.includes(parseInt(extPort, 10))
   const extPortValidation = validatePort(extPort, serverPorts)
   const intPortValidation = validatePort(intPort, [])
   const canCreate = extPort !== '' && intPort !== '' && extPortValidation.valid && intPortValidation.valid
@@ -279,53 +236,15 @@ export default function ForwardPanel() {
           >
             <RefreshIcon className="h-3 w-3" />
           </button>
-          {/* Auto-refresh dropdown trigger (file-viewer design) */}
-          <button
-            ref={autoBtnRef}
-            type="button"
-            onClick={() => {
-              if (showDropdown) {
-                setShowDropdown(false)
-              } else if (autoBtnRef.current) {
-                const rect = autoBtnRef.current.getBoundingClientRect()
-                setDropdownPos({ top: rect.bottom + 2, left: rect.left })
-                setShowDropdown(true)
-              }
-            }}
-            className={`grid h-5 w-4 place-items-center rounded text-[10px] transition-all duration-150 hover:bg-white/[0.08] ${
-              autoRefresh > 0 ? 'text-green-400' : 'text-white/30 hover:text-white/60'
-            }`}
-            title="Auto-refresh interval"
-          >
-            ▾
-          </button>
+          {/* Auto-refresh dropdown trigger */}
+          <AutoRefreshTrigger btnRef={dropdown.btnRef} isActive={autoRefresh > 0} onClick={dropdown.toggle} />
           <span className="ml-1.5 text-[11px] font-semibold tracking-wide text-white/60">{t('forward.title')}</span>
           <div className="flex-1" />
         </div>
 
-        {/* Auto-refresh dropdown (portal-like, matches file viewer) */}
-        {showDropdown && (
-          <div
-            ref={dropdownRef}
-            className="fixed z-[9999] w-28 rounded border border-white/10 bg-black/95 py-1 shadow-xl backdrop-blur-xl"
-            style={{ top: dropdownPos.top, left: dropdownPos.left }}
-          >
-            {AUTO_REFRESH_INTERVALS.map((iv) => (
-              <button
-                key={iv.value}
-                type="button"
-                onClick={() => { setAutoRefresh(iv.value); setShowDropdown(false) }}
-                className={`flex w-full items-center px-3 py-1 text-left transition hover:bg-white/10 ${
-                  autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'
-                }`}
-              >
-                {iv.label}
-                {autoRefresh === iv.value && iv.value > 0 && (
-                  <span className="ml-auto text-[10px] text-green-400/60">●</span>
-                )}
-              </button>
-            ))}
-          </div>
+        {/* Auto-refresh dropdown */}
+        {dropdown.showDropdown && (
+          <AutoRefreshDropdown value={autoRefresh} onChange={(ms) => { setAutoRefresh(ms); dropdown.close() }} dropdownRef={dropdown.dropdownRef} dropdownPos={dropdown.dropdownPos} />
         )}
 
         {/* Config row — glass material with better spacing */}

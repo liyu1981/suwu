@@ -20,31 +20,12 @@ interface FileListResponse {
   entries: FileEntry[]
 }
 
-function formatSize(bytes: number): string {
-  if (bytes === 0) return ''
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let i = 0
-  let size = bytes
-  while (size >= 1024 && i < units.length - 1) {
-    size /= 1024
-    i++
-  }
-  return `${i === 0 ? size : size.toFixed(1)} ${units[i]}`
-}
 
-function formatDate(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diff = now.getTime() - d.getTime()
-  const day = 86400000
-  if (diff < day) return t('filebrowser.today')
-  if (diff < day * 2) return t('filebrowser.yesterday')
-  if (diff < day * 7) return t('filebrowser.daysAgo', { count: Math.floor(diff / day) })
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
-}
 
 // ── Icons (re-exported from shared module) ──
-import { FolderIcon, FolderOpenIcon, FileIcon, TreeChevronIcon, HomeIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, RefreshIcon, CopyIcon, CheckIcon, UploadIcon } from '../components/icons'
+import { FolderIcon, FolderOpenIcon, FileIcon, TreeChevronIcon, HomeIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, RefreshIcon, CopyIcon, CheckIcon, UploadIcon, EyeIcon, EyeOffIcon } from '../components/icons'
+import { formatSize, formatDate } from '../lib/format'
+import { TOOLBAR_BTN, setPageTransparent } from '../lib/constants'
 
 // ── API helper ──
 
@@ -361,7 +342,7 @@ export default function FileBrowserPage() {
 
   // Override the opaque :root background so the translucent bgColor shows through.
   useEffect(() => {
-    document.documentElement.style.backgroundColor = 'transparent'
+    setPageTransparent()
   }, [])
 
   const fetchDir = useCallback(async (dirPath: string) => {
@@ -639,11 +620,7 @@ export default function FileBrowserPage() {
               className={`grid h-5 w-5 place-items-center rounded-md transition-all duration-150 hover:bg-white/[0.08] active:scale-90 ${showHidden ? 'text-green-400/70 hover:text-green-300' : 'text-white/30 hover:text-white/60'}`}
               title={showHidden ? t('filebrowser.hideHidden') : t('filebrowser.showHidden')}
             >
-              {showHidden ? (
-                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.948L.75 3.146a.75.75 0 0 0 0 1.081l2.958 2.958A6.97 6.97 0 0 1 8 3.5c5 0 8 5.5 8 5.5s-.576 1.278-1.641 2.738L13.36 11.238zM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>
-              ) : (
-                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>
-              )}
+              {showHidden ? <EyeIcon /> : <EyeOffIcon />}
             </button>
             <button
               type="button"
@@ -697,5 +674,4 @@ export default function FileBrowserPage() {
   )
 }
 
-const toolbarBtn =
-  'grid h-7 w-7 place-items-center rounded-md text-white/40 transition-all duration-150 glass-btn hover:bg-white/[0.08] hover:text-white/80 active:scale-90 disabled:cursor-not-allowed disabled:opacity-20'
+const toolbarBtn = TOOLBAR_BTN

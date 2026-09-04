@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import FullTerminal from '../components/FullTerminal'
+import { setPageTransparent } from '../lib/constants'
 
 /**
  * Full-space terminal page loaded inside each tiling pane's iframe.
@@ -10,7 +11,7 @@ export default function TermPage() {
   // background; the global stylesheet gives `html` an opaque page color,
   // which would sit behind it and defeat the alpha channel.
   useEffect(() => {
-    document.documentElement.style.backgroundColor = 'transparent'
+    setPageTransparent()
   }, [])
   return <FullTerminal />
 }

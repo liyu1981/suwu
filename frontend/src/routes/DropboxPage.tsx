@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CommonTileContainer, useTileSessionState, useReportTileState } from '../components/CommonTileContainer'
+import { formatSize, relativeTime } from '../lib/format'
+import { setPageTransparent } from '../lib/constants'
 import { CheckIcon, CopyIcon, FileIcon, RefreshIcon, SearchIcon, TrashIcon } from '../components/icons'
 import { fetchToken } from '../lib/api'
 import { dropboxZoomAtom } from '../store/zoom'
@@ -41,29 +43,7 @@ function getFileExt(name: string): string {
   return dot >= 0 ? name.slice(dot + 1).toUpperCase() : '?'
 }
 
-function formatSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let i = 0
-  let size = bytes
-  while (size >= 1024 && i < units.length - 1) {
-    size /= 1024
-    i++
-  }
-  return `${i === 0 ? size : size.toFixed(1)} ${units[i]}`
-}
 
-function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const sec = Math.floor(diff / 1000)
-  if (sec < 60) return t('notifications.justNow')
-  const min = Math.floor(sec / 60)
-  if (min < 60) return t('notifications.minutesAgo', { count: min })
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return t('notifications.hoursAgo', { count: hr })
-  const d = Math.floor(hr / 24)
-  return t('notifications.daysAgo', { count: d })
-}
 
 // ── Thumbnail preview component ──
 
@@ -232,7 +212,7 @@ export default function DropboxPage() {
 
   // Set transparent background.
   useEffect(() => {
-    document.documentElement.style.backgroundColor = 'transparent'
+    setPageTransparent()
   }, [])
 
   // Report session state.

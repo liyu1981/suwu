@@ -24,7 +24,9 @@ import { ActionDialog, type DialogInput } from '../components/gitgraph/ActionDia
 import { useGitActions } from '../components/gitgraph/useGitActions';
 import { RefreshIcon } from '../components/icons';
 import { gitGraphZoomAtom } from '../store/zoom';
-import { getCredentials } from '../lib/auth';
+import { fetchJson } from '../lib/format';
+import { setPageTransparent } from '../lib/constants';
+import { useAutoRefreshDropdown, AutoRefreshDropdown, AutoRefreshTrigger } from '../components/AutoRefreshDropdown';
 import type { GitCommit } from '../components/gitgraph/graph';
 
 interface GitGraphSessionState {
@@ -66,29 +68,14 @@ interface GitCommitDetails {
 const ROW_HEIGHT = 24;
 const DETAILS_HEIGHT = 260;
 
-const intervals = [
-  { label: 'Off', value: 0 },
-  { label: '5s', value: 5000 },
-  { label: '10s', value: 10000 },
-  { label: '30s', value: 30000 },
-  { label: '60s', value: 60000 },
-];
+
 
 function resolveInitPath(saved: GitGraphSessionState | null): string | null {
   const urlPath = new URLSearchParams(window.location.search).get('path');
   return saved?.repoPath ?? urlPath ?? null;
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const headers: Record<string, string> = {};
-  const creds = getCredentials();
-  if (creds) headers['Authorization'] = creds;
-  const res = await fetch(url, { cache: 'no-store', headers });
-  let data: (T & { error?: string }) | null = null;
-  try { data = await res.json(); } catch { data = null; }
-  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-  return data as T;
-}
+
 
 export default function GitGraphPage() {
   const savedState = useTileSessionState<GitGraphSessionState>();
@@ -97,7 +84,7 @@ export default function GitGraphPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    document.documentElement.style.backgroundColor = 'transparent';
+    setPageTransparent();
   }, []);
 
   const initPath = resolveInitPath(savedState);
@@ -110,18 +97,7 @@ export default function GitGraphPage() {
   const [selectedWorktree, setSelectedWorktree] = useState<string | null>(savedState?.selectedWorktree ?? null);
   const [showWorktreeBrowser, setShowWorktreeBrowser] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(0);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const refreshBtnRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowDropdown(false);
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
+  const dropdown = useAutoRefreshDropdown();
 
   // Determine the active worktree path and base for diff mode
   const activeWorktree = worktrees.find((wt) => wt.path === selectedWorktree);
@@ -160,7 +136,7 @@ export default function GitGraphPage() {
 
   useEffect(() => { if (autoRefresh <= 0) return; const id = setInterval(() => refreshAll(), autoRefresh); return () => clearInterval(id); }, [autoRefresh, refreshAll]);
 
-  const handleIntervalSelect = useCallback((ms: number) => { setAutoRefresh(ms); setShowDropdown(false); }, []);
+  const handleIntervalSelect = useCallback((ms: number) => { setAutoRefresh(ms); dropdown.close(); }, [dropdown]);
 
   useEffect(() => { if (scrollRef.current && savedState?.scrollPosition) scrollRef.current.scrollTop = savedState.scrollPosition; }, [savedState?.scrollPosition]);
 
@@ -342,20 +318,13 @@ export default function GitGraphPage() {
         {/* Row 1 — toolbar (file viewer style) */}
         <div className="flex h-8 shrink-0 items-center gap-1 rounded-t-[6px] border-b border-white/10 px-3 py-1.5 glass-control">
           <button type="button" onClick={refreshAll} className={`grid h-5 w-5 place-items-center rounded transition hover:bg-white/10 ${autoRefresh > 0 ? 'text-green-400' : 'text-white/50 hover:text-white/70'}`} title="Refresh"><RefreshIcon /></button>
-          <button ref={refreshBtnRef} type="button" onClick={() => { if (showDropdown) { setShowDropdown(false); } else if (refreshBtnRef.current) { const r = refreshBtnRef.current.getBoundingClientRect(); setDropdownPos({ top: r.bottom + 2, left: r.left }); setShowDropdown(true); } }} className={`grid h-5 w-4 place-items-center rounded text-[10px] transition hover:bg-white/10 ${autoRefresh > 0 ? 'text-green-400' : 'text-white/40 hover:text-white/60'}`} title="Auto-refresh interval">▾</button>
+          <AutoRefreshTrigger btnRef={dropdown.btnRef} isActive={autoRefresh > 0} onClick={dropdown.toggle} />
           <span className="text-[11px] font-semibold tracking-wide text-white/60">Git Graph</span>
         </div>
 
         {/* Auto-refresh dropdown */}
-        {showDropdown && (
-          <div ref={dropdownRef} className="fixed z-[9999] w-28 rounded border border-white/10 bg-black/95 py-1 shadow-xl backdrop-blur-xl" style={dropdownPos}>
-            {intervals.map((iv) => (
-              <button key={iv.value} type="button" onClick={() => handleIntervalSelect(iv.value)} className={`flex w-full items-center px-3 py-1 text-left transition hover:bg-white/10 ${autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'}`}>
-                {iv.label}
-                {autoRefresh === iv.value && iv.value > 0 && <span className="ml-auto text-[10px] text-green-400/60">●</span>}
-              </button>
-            ))}
-          </div>
+        {dropdown.showDropdown && (
+          <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdown.dropdownRef} dropdownPos={dropdown.dropdownPos} />
         )}
 
         {/* Row 2 — repo path bar */}

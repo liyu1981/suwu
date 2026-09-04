@@ -156,7 +156,7 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="flex h-24 items-center justify-center text-xs text-white/30">
+          <div className="flex h-24 items-center justify-center text-white/30">
             {t('dropbox.loadingPreview')}
           </div>
         )}
@@ -178,12 +178,12 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
               preload="auto"
               muted
             />
-            <div className="flex h-24 items-center justify-center text-xs text-white/30">
+            <div className="flex h-24 items-center justify-center text-white/30">
               {t('dropbox.loadingPreview')}
             </div>
           </>
         ) : (
-          <div className="flex h-24 items-center justify-center text-xs text-white/30">
+          <div className="flex h-24 items-center justify-center text-white/30">
             {t('dropbox.loadingPreview')}
           </div>
         )}
@@ -204,7 +204,7 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
   // Other: show file type badge.
   return (
     <div className="mt-2 flex justify-center">
-      <div className="flex h-16 w-24 items-center justify-center rounded bg-white/5 text-xs font-medium text-white/30">
+      <div className="flex h-16 w-24 items-center justify-center rounded bg-white/5 font-medium text-white/30">
         {getFileExt(entry.name)}
       </div>
     </div>
@@ -394,10 +394,10 @@ export default function DropboxPage() {
   )
 
   return (
-    <CommonTileContainer zoomAtom={dropboxZoomAtom}>
+    <CommonTileContainer zoomAtom={dropboxZoomAtom} noPadding>
       <div
         ref={containerRef}
-        className="flex flex-col"
+        className="flex min-h-0 flex-1 flex-col"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -405,7 +405,7 @@ export default function DropboxPage() {
         tabIndex={0}
       >
         {/* Header — rounded top, bottom border */}
-        <div className="flex shrink-0 items-center gap-2 rounded-t-lg border-b border-white/[0.08] px-2.5 py-1.5 glass-control">
+        <div className="flex shrink-0 items-center gap-2 rounded-t-[6px] border-b border-white/[0.08] px-2.5 py-1.5 glass-control">
           <button
             type="button"
             onClick={() => { loadFiles(); loadSpace() }}
@@ -414,38 +414,40 @@ export default function DropboxPage() {
           >
             <RefreshIcon className="h-3 w-3" />
           </button>
-          <span className="text-xs font-semibold">{t('dropbox.title')}</span>
-          <div className="ml-auto flex items-center gap-1 glass-control rounded-md bg-white/[0.04] px-2 py-1">
-            <SearchIcon className="h-3 w-3 shrink-0 text-white/30" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('dropbox.searchPlaceholder')}
-              className="w-24 bg-transparent text-xs text-white/80 outline-none placeholder:text-white/30"
-            />
-          </div>
+          <span className="font-semibold">{t('dropbox.title')}</span>
         </div>
 
         {/* Content — left/right borders + inset shadow */}
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           {loading ? (
-            <div className="flex h-full items-center justify-center text-xs text-white/40">
+            <div className="flex h-full items-center justify-center text-white/40">
               {t('dropbox.loading')}
             </div>
           ) : (
             <>
               {/* Persistent drop target — large area with horizontal margin */}
               <div
-                className={`mx-2 mt-2 flex min-h-[40%] flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
+                className={`mx-2 mt-2 flex min-h-[30%] flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
                   dragOver ? 'border-violet-400 bg-violet-500/10' : 'border-white/10'
                 }`}
               >
                 <FileIcon className="h-8 w-8 text-white/20" />
-                <p className="text-xs text-white/40">
+                <p className="text-white/40">
                   {dragOver ? t('dropbox.dropHintActive') : t('dropbox.dropHint')}
                 </p>
-                {uploading && <p className="text-xs text-violet-400">{t('dropbox.uploading')}</p>}
+                {uploading && <p className="text-violet-400">{t('dropbox.uploading')}</p>}
+              </div>
+
+              {/* Search input — below drop area */}
+              <div className="mx-2 mt-2 flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5">
+                <SearchIcon className="h-3 w-3 shrink-0 text-white/30" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('dropbox.searchPlaceholder')}
+                  className="flex-1 bg-transparent text-white/80 outline-none placeholder:text-white/30"
+                />
               </div>
 
               {/* File list */}
@@ -471,7 +473,7 @@ export default function DropboxPage() {
                         tabIndex={0}
                       >
                         <FileIcon className="h-3.5 w-3.5 shrink-0 text-white/40" />
-                        <span className="min-w-0 flex-1 truncate text-xs">{entry.name}</span>
+                        <span className="min-w-0 flex-1 truncate">{entry.name}</span>
                         <span className="shrink-0 text-[10px] text-white/40">{formatSize(entry.size)}</span>
                         <span className="hidden shrink-0 text-[10px] text-white/30 sm:inline">{relativeTime(entry.modTime, t)}</span>
                         <button
@@ -511,7 +513,7 @@ export default function DropboxPage() {
         </div>
 
         {/* Footer — rounded bottom, top border */}
-        <div className="flex shrink-0 items-center gap-2 rounded-b-lg border-t border-white/[0.06] px-3 py-1.5 glass-control">
+        <div className="flex shrink-0 items-center gap-2 rounded-b-[6px] border-t border-white/[0.06] px-3 py-1.5 glass-control">
           <span className="text-[10px] text-white/50">
             {t('dropbox.usedSpace', { used: formatSize(spaceInfo.used), count: spaceInfo.count })}
           </span>

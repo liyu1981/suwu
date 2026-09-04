@@ -5,6 +5,7 @@
   },
   "menu": {
     "shortcuts": "键盘快捷键",
+    "appMenu": "应用菜单",
     "appSettings": "应用设置",
     "settings": "系统设置",
     "about": "关于"
@@ -219,6 +220,14 @@
     "addSpace": "添加空间",
     "deleteSpace": "删除空间",
     "emptySpace": "空白"
+  },
+  "appMenu": {
+    "description": "选择哪些应用出现在新建应用选择器中及其显示顺序。",
+    "dragHint": "拖拽以重新排序",
+    "showAll": "全部显示",
+    "hideAll": "全部隐藏",
+    "configure": "配置",
+    "allHidden": "所有应用均已隐藏。请显示一些应用以使用新建应用选择器。"
   },
   "plugin": {
     "terminal": "终端",

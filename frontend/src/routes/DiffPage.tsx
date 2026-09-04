@@ -253,11 +253,11 @@ export default function DiffPage() {
   const fileName2 = file2Param ? file2Param.split('/').pop() ?? file2Param : '—';
 
   return (
-    <CommonTileContainer zoomAtom={diffZoomAtom}>
+    <CommonTileContainer zoomAtom={diffZoomAtom} noPadding>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
         {/* Row 1 — toolbar */}
-        <div className="flex h-8 shrink-0 items-center gap-2 rounded-t-lg border-b border-white/10 px-3 py-1.5 glass-control">
+        <div className="flex h-8 shrink-0 items-center gap-2 rounded-t-[6px] border-b border-white/10 px-3 py-1.5 glass-control">
           <span className="text-[11px] font-semibold tracking-wide text-white/60">Diff</span>
           <div className="ml-2 flex items-center gap-1.5 text-[10px] text-white/40">
             <span className="truncate max-w-[200px]">{fileName1}</span>
@@ -274,21 +274,21 @@ export default function DiffPage() {
 
         {/* Content */}
         {loading ? (
-          <div className="flex flex-1 items-center justify-center rounded-b-lg border-x border-b border-white/[0.10] bg-black/20">
+          <div className="flex flex-1 items-center justify-center rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
           </div>
         ) : error ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-lg border-x border-b border-white/[0.10] bg-black/20 p-6">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
             <svg className="h-8 w-8 text-red-400" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
-            <div className="max-w-sm text-center text-sm text-red-300">{error}</div>
+            <div className="max-w-sm text-center text-red-300">{error}</div>
           </div>
         ) : parsed.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-lg border-x border-b border-white/[0.10] bg-black/20 p-6">
-            <div className="text-sm text-white/60">Files are identical — no differences.</div>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
+            <div className="text-white/60">Files are identical — no differences.</div>
           </div>
         ) : (
           /* Side-by-side diff */
-          <div className="min-h-0 flex-1 flex rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="min-h-0 flex-1 flex rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             {/* Left panel — file1 */}
             <div className="min-w-0 flex-1 flex flex-col border-r border-white/[0.06]" style={{ backgroundColor: bgColor }}>
               <div className="flex items-center border-b border-white/[0.06] bg-white/[0.03] px-3 py-1">

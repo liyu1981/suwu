@@ -146,7 +146,7 @@ export const layoutAtom = atom(
 export const focusedIdAtom = atom('')
 
 /** Which screen the unified Suwu menu dialog is showing. */
-export type MenuView = 'menu' | 'shortcuts' | 'settings' | 'appSettings' | 'about'
+export type MenuView = 'menu' | 'shortcuts' | 'settings' | 'appMenu' | 'appSettings' | 'about'
 
 /**
  * Whether the unified Suwu menu dialog is open. Owns the burger menu, the

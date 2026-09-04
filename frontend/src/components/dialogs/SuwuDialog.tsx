@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { menuOpenAtom, menuViewAtom, type MenuView } from '../../wm/atoms'
 import AboutView from './AboutView'
+import AppMenuView from './AppMenuView'
 import AppSettingsView from './AppSettingsView'
 import MainMenuView from './MainMenuView'
 import SettingsView from './SettingsView'
@@ -48,6 +49,7 @@ export default function SuwuDialog() {
   const TITLES: Record<MenuView, string> = {
     menu: t('app.title'),
     shortcuts: t('menu.shortcuts'),
+    appMenu: t('menu.appMenu'),
     appSettings: t('menu.appSettings'),
     settings: t('menu.settings'),
     about: t('menu.about'),
@@ -96,6 +98,7 @@ export default function SuwuDialog() {
           <div className="mt-3 min-h-0 flex-1 overflow-y-auto scrollbar-thin pr-0.5">
             {view === 'menu' && <MainMenuView onSelect={setView} />}
             {view === 'shortcuts' && <ShortcutsView />}
+            {view === 'appMenu' && <AppMenuView />}
             {view === 'settings' && <SettingsView />}
             {view === 'about' && <AboutView />}
           </div>

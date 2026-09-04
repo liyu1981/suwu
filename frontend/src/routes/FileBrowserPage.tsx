@@ -200,7 +200,7 @@ function TreeView({
   }
 
   return (
-    <nav className="select-none overflow-y-auto scrollbar-thin py-1" aria-label="Directory tree">
+    <nav className="select-none py-1" aria-label="Directory tree">
       {/* Root "/" node */}
       <button
         type="button"
@@ -491,10 +491,10 @@ export default function FileBrowserPage() {
   }
 
   return (
-    <CommonTileContainer zoomAtom={fileBrowserZoomAtom}>
-      <div className="flex flex-col">
+    <CommonTileContainer zoomAtom={fileBrowserZoomAtom} noPadding>
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Toolbar — glass material, content scrolls under */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-t-lg border-b border-white/[0.08] px-2.5 py-1.5 glass-control">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-t-[6px] border-b border-white/[0.08] px-2.5 py-1.5 glass-control">
           <button type="button" onClick={() => fetchDir(currentPath)} className={toolbarBtn} title={t('filebrowser.refresh')}>
             <RefreshIcon />
           </button>
@@ -517,7 +517,7 @@ export default function FileBrowserPage() {
           <button
             type="button"
             onClick={copyPath}
-            className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2.5 py-1 text-left text-xs text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.99]"
+            className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2.5 py-1 text-left text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.99]"
             title={t('filebrowser.copyPath')}
           >
             <span className="truncate font-mono tracking-tight">{currentPath}</span>
@@ -534,9 +534,9 @@ export default function FileBrowserPage() {
         {/* Two-panel body */}
         <div className="flex min-h-0 flex-1 border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           {/* Left: tree view — subtle material sidebar */}
-          <div className="w-52 h-full shrink-0 overflow-y-auto scrollbar-thin border-r border-white/[0.06] bg-white/[0.02]">
+          <div className="w-52 shrink-0 overflow-y-auto scrollbar-thin border-r border-white/[0.06] bg-white/[0.02]">
             {/* Scroll edge: fade mask at top/bottom of tree */}
-            <div className="relative h-full">
+            <div className="relative">
               <TreeView key={treeRefreshKey} currentPath={currentPath} onNavigate={handleTreeNavigate} />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/20 to-transparent" />
             </div>
@@ -567,17 +567,17 @@ export default function FileBrowserPage() {
               }}
             >
               {loading && (
-                <div className="flex items-center justify-center py-12 text-xs text-white/30">
+                <div className="flex items-center justify-center py-12 text-white/30">
                   {t('filebrowser.loading')}
                 </div>
               )}
               {error && (
-                <div className="flex items-center justify-center py-12 text-xs text-red-400/80">
+                <div className="flex items-center justify-center py-12 text-red-400/80">
                   {error}
                 </div>
               )}
               {!loading && !error && sorted.length === 0 && (
-                <div className="flex items-center justify-center py-12 text-xs text-white/30">
+                <div className="flex items-center justify-center py-12 text-white/30">
                   {t('filebrowser.emptyFolder')}
                 </div>
               )}
@@ -619,7 +619,7 @@ export default function FileBrowserPage() {
         </div>
 
         {/* Status bar — glass material */}
-        <div className="flex shrink-0 items-center justify-between rounded-b-lg border-t border-white/[0.06] px-3 py-1.5 text-[10px] text-white/25 glass-control">
+        <div className="flex shrink-0 items-center justify-between rounded-b-[6px] border-t border-white/[0.06] px-3 py-1.5 text-[10px] text-white/25 glass-control">
           <span className="tracking-wide">{t('filebrowser.itemCount', { count: sorted.length })}</span>
           <button
             type="button"

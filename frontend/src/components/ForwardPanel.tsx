@@ -33,13 +33,13 @@ const AUTO_REFRESH_INTERVALS = [
 ] as const
 
 const inputClass =
-  'rounded-lg bg-white/[0.08] border border-white/[0.12] px-2.5 py-1.5 text-xs text-white/90 placeholder-white/35 outline-none transition-all duration-150 focus:bg-white/[0.14] focus:ring-1'
+  'rounded-lg bg-white/[0.08] border border-white/[0.12] px-2.5 py-1.5 text-white/90 placeholder-white/35 outline-none transition-all duration-150 focus:bg-white/[0.14] focus:ring-1'
 
 const inputValid = 'focus:border-green-500/40 focus:ring-green-500/20'
 const inputInvalid = 'border-red-500/40 focus:border-red-500/40 focus:ring-red-500/20'
 
 const btnPrimary =
-  'shrink-0 rounded-lg bg-cyan-500/25 px-3.5 py-1.5 text-xs font-medium text-cyan-300 transition-all duration-150 hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed'
+  'shrink-0 rounded-lg bg-cyan-500/25 px-3.5 py-1.5 font-medium text-cyan-300 transition-all duration-150 hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed'
 
 const btnDanger =
   'rounded-lg bg-red-500/15 px-2 py-1 text-[10px] font-medium text-red-400/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-400 active:scale-[0.97]'
@@ -264,10 +264,10 @@ export default function ForwardPanel() {
   const showIntPortWarning = intPort !== '' && intPortValidation.valid && isLocalHost(intHost) && intPortOpen === false
 
   return (
-    <CommonTileContainer zoomAtom={forwardZoomAtom}>
+    <CommonTileContainer zoomAtom={forwardZoomAtom} noPadding>
       <div className="flex h-full flex-col">
         {/* Header — glass material */}
-        <div className="flex shrink-0 items-center rounded-t-lg border-b border-white/[0.06] px-3 py-2 glass-control">
+        <div className="flex shrink-0 items-center rounded-t-[6px] border-b border-white/[0.06] px-3 py-2 glass-control">
           {/* Refresh button (left) */}
           <button
             type="button"
@@ -315,7 +315,7 @@ export default function ForwardPanel() {
                 key={iv.value}
                 type="button"
                 onClick={() => { setAutoRefresh(iv.value); setShowDropdown(false) }}
-                className={`flex w-full items-center px-3 py-1 text-left text-xs transition hover:bg-white/10 ${
+                className={`flex w-full items-center px-3 py-1 text-left transition hover:bg-white/10 ${
                   autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'
                 }`}
               >
@@ -418,7 +418,7 @@ export default function ForwardPanel() {
         )}
 
         {/* Active mappings list */}
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           {loading && (
             <div className="flex items-center justify-center py-12 text-[11px] text-white/40">Loading...</div>
           )}

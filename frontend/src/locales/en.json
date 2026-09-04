@@ -5,6 +5,7 @@
   },
   "menu": {
     "shortcuts": "Keyboard shortcuts",
+    "appMenu": "App Menu",
     "appSettings": "App Settings",
     "settings": "System Settings",
     "about": "About"
@@ -220,6 +221,14 @@
     "addSpace": "Add space",
     "deleteSpace": "Delete space",
     "emptySpace": "Empty"
+  },
+  "appMenu": {
+    "description": "Choose which apps appear in the New App picker and their display order.",
+    "dragHint": "Drag to reorder",
+    "showAll": "Show all",
+    "hideAll": "Hide all",
+    "configure": "Configure",
+    "allHidden": "All apps are hidden. Show some to use the New App picker."
   },
   "plugin": {
     "terminal": "Terminal",

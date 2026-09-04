@@ -336,11 +336,11 @@ export default function GitGraphPage() {
   }, [loadMore]);
 
   return (
-    <CommonTileContainer zoomAtom={gitGraphZoomAtom}>
+    <CommonTileContainer zoomAtom={gitGraphZoomAtom} noPadding>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
         {/* Row 1 — toolbar (file viewer style) */}
-        <div className="flex h-8 shrink-0 items-center gap-1 rounded-t-lg border-b border-white/10 px-3 py-1.5 glass-control">
+        <div className="flex h-8 shrink-0 items-center gap-1 rounded-t-[6px] border-b border-white/10 px-3 py-1.5 glass-control">
           <button type="button" onClick={refreshAll} className={`grid h-5 w-5 place-items-center rounded transition hover:bg-white/10 ${autoRefresh > 0 ? 'text-green-400' : 'text-white/50 hover:text-white/70'}`} title="Refresh"><RefreshIcon /></button>
           <button ref={refreshBtnRef} type="button" onClick={() => { if (showDropdown) { setShowDropdown(false); } else if (refreshBtnRef.current) { const r = refreshBtnRef.current.getBoundingClientRect(); setDropdownPos({ top: r.bottom + 2, left: r.left }); setShowDropdown(true); } }} className={`grid h-5 w-4 place-items-center rounded text-[10px] transition hover:bg-white/10 ${autoRefresh > 0 ? 'text-green-400' : 'text-white/40 hover:text-white/60'}`} title="Auto-refresh interval">▾</button>
           <span className="text-[11px] font-semibold tracking-wide text-white/60">Git Graph</span>
@@ -350,7 +350,7 @@ export default function GitGraphPage() {
         {showDropdown && (
           <div ref={dropdownRef} className="fixed z-[9999] w-28 rounded border border-white/10 bg-black/95 py-1 shadow-xl backdrop-blur-xl" style={dropdownPos}>
             {intervals.map((iv) => (
-              <button key={iv.value} type="button" onClick={() => handleIntervalSelect(iv.value)} className={`flex w-full items-center px-3 py-1 text-left text-xs transition hover:bg-white/10 ${autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'}`}>
+              <button key={iv.value} type="button" onClick={() => handleIntervalSelect(iv.value)} className={`flex w-full items-center px-3 py-1 text-left transition hover:bg-white/10 ${autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'}`}>
                 {iv.label}
                 {autoRefresh === iv.value && iv.value > 0 && <span className="ml-auto text-[10px] text-green-400/60">●</span>}
               </button>
@@ -362,7 +362,7 @@ export default function GitGraphPage() {
         <div className="flex shrink-0 items-center gap-2 border-b border-x border-white/[0.10] bg-white/[0.03] px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           {repoPath ? (
             <>
-              <button type="button" onClick={copyPath} title="Copy repository path" className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-left text-xs text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70">
+              <button type="button" onClick={copyPath} title="Copy repository path" className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-left text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70">
                 <svg className="h-3 w-3 shrink-0 text-white/30" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
                 <span className="truncate font-mono tracking-tight">{activePath}</span>
                 <span className="shrink-0 text-white/30">{copied ? <svg className="h-3 w-3 text-green-400" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg> : <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5z"/></svg>}</span>
@@ -372,7 +372,7 @@ export default function GitGraphPage() {
                 <button
                   type="button"
                   onClick={() => setShowWorktreeBrowser((v) => !v)}
-                  className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-all duration-150 active:scale-[0.97] ${
+                  className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 transition-all duration-150 active:scale-[0.97] ${
                     showWorktreeBrowser
                       ? 'bg-sky-500/20 text-sky-300'
                       : 'bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/70'
@@ -386,15 +386,15 @@ export default function GitGraphPage() {
                   <svg className={`h-2.5 w-2.5 shrink-0 opacity-50 transition-transform ${showWorktreeBrowser ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>
                 </button>
               )}
-              <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-1 text-xs text-white/50">{error ? '—' : `${commits.length} commits`}</span>
-              <button type="button" onClick={() => setPicking(true)} title="Change repository folder" className="shrink-0 rounded-md bg-white/[0.06] px-2.5 py-1 text-xs text-white/70 transition-all duration-150 hover:bg-white/[0.12] hover:text-white active:scale-[0.97]">Change repo</button>
+              <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-1 text-white/50">{error ? '—' : `${commits.length} commits`}</span>
+              <button type="button" onClick={() => setPicking(true)} title="Change repository folder" className="shrink-0 rounded-md bg-white/[0.06] px-2.5 py-1 text-white/70 transition-all duration-150 hover:bg-white/[0.12] hover:text-white active:scale-[0.97]">Change repo</button>
             </>
-          ) : <span className="px-1 text-xs text-white/50">No repository selected</span>}
+          ) : <span className="px-1 text-white/50">No repository selected</span>}
         </div>
 
         {/* Worktree browser */}
         {showWorktreeBrowser && worktrees.length > 1 && (
-          <div className="flex flex-1 flex-col overflow-auto rounded-b-lg border-x border-b border-white/[0.10] bg-black/20 scrollbar-thin">
+          <div className="flex flex-1 flex-col overflow-auto rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 scrollbar-thin">
             <div className="flex shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-white/35">
               <span className="flex-1 min-w-0">Worktree dir</span>
               <span className="w-32 shrink-0">Branch</span>
@@ -411,7 +411,7 @@ export default function GitGraphPage() {
                   setShowWorktreeBrowser(false);
                   setExpandedIndex(null);
                 }}
-                className={`flex w-full items-center px-3 py-2 text-left text-xs transition-colors ${
+                className={`flex w-full items-center px-3 py-2 text-left transition-colors ${
                   (wt.isMain && selectedWorktree === null) || (!wt.isMain && selectedWorktree === wt.path)
                     ? 'bg-sky-500/10 text-white'
                     : 'text-white/70 hover:bg-white/[0.05] hover:text-white/90'
@@ -436,29 +436,29 @@ export default function GitGraphPage() {
 
         {/* Content */}
         {!showWorktreeBrowser && (picking || repoPath === null) ? (
-          <div className="flex flex-1 flex-col overflow-y-auto scrollbar-thin rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" style={{ maxHeight: `calc(${100 / (parseFloat(document.documentElement.style.zoom) || 1)}vh - 90px)` }}>
+          <div className="flex flex-1 flex-col overflow-y-auto scrollbar-thin rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" style={{ maxHeight: `calc(${100 / (parseFloat(document.documentElement.style.zoom) || 1)}vh - 90px)` }}>
             <RepoPicker error={repoPath !== null ? error : null} onSelect={handleSelectPath} />
           </div>
         ) : !showWorktreeBrowser && loading ? (
-          <div className="flex flex-1 items-center justify-center rounded-b-lg border-x border-b border-white/[0.10] bg-black/20">
+          <div className="flex flex-1 items-center justify-center rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
           </div>
         ) : !showWorktreeBrowser && error ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-lg border-x border-b border-white/[0.10] bg-black/20 p-6">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
             <svg className="h-8 w-8 text-red-400" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
-            <div className="max-w-sm text-center text-sm text-red-300">{error}</div>
+            <div className="max-w-sm text-center text-red-300">{error}</div>
             <div className="flex gap-2">
-              <button type="button" onClick={handleRetry} className="rounded-md bg-white/10 px-3 py-1.5 text-xs text-white/80 transition hover:bg-white/20 hover:text-white">Retry</button>
-              <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
+              <button type="button" onClick={handleRetry} className="rounded-md bg-white/10 px-3 py-1.5 text-white/80 transition hover:bg-white/20 hover:text-white">Retry</button>
+              <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
             </div>
           </div>
         ) : !showWorktreeBrowser && commits.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-lg border-x border-b border-white/[0.10] bg-black/20 p-6">
-            <div className="max-w-sm text-center text-sm text-white/60">No commits found in this repository.</div>
-            <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
+            <div className="max-w-sm text-center text-white/60">No commits found in this repository.</div>
+            <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
           </div>
         ) : !showWorktreeBrowser && (
-          <div className="min-h-0 flex-1 overflow-auto rounded-b-lg border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] scrollbar-thin" onScroll={handleScroll} ref={scrollRef}>
+          <div className="min-h-0 flex-1 overflow-auto rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] scrollbar-thin" onScroll={handleScroll} ref={scrollRef}>
             <div className="flex">
               <div className="sticky left-0 z-10 shrink-0" style={{ backgroundColor: bgColor }}>
                 <GraphRenderer commits={commits} commitHead={commitHead} expandedCommitIndex={expandedIndex ?? -1} onCommitClick={handleCommitClick} />
@@ -510,7 +510,7 @@ function CommitRow({ commit, isExpanded, onClick, onContextMenu, onBranchContext
   const date = new Date(commit.date);
   const isUncommitted = commit.hash === 'UNCOMMITTED';
   return (
-    <div className={`flex h-6 cursor-pointer items-center text-xs leading-none transition-colors ${isExpanded ? 'bg-white/10' : isUncommitted ? 'bg-orange-500/5 hover:bg-orange-500/10' : 'hover:bg-white/5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={onClick} onContextMenu={(e) => onContextMenu(e, commit)}>
+    <div className={`flex h-6 cursor-pointer items-center leading-none transition-colors ${isExpanded ? 'bg-white/10' : isUncommitted ? 'bg-orange-500/5 hover:bg-orange-500/10' : 'hover:bg-white/5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={onClick} onContextMenu={(e) => onContextMenu(e, commit)}>
       {isUncommitted ? (
         <div className="w-20 shrink-0 pl-2 text-[11px] text-orange-400/70">now</div>
       ) : (
@@ -553,7 +553,7 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
       {loading ? (
         <div className="flex w-full items-center justify-center"><div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white/80" /></div>
       ) : loadError || !details ? (
-        <div className="flex w-full items-center justify-center px-4 text-xs text-red-300">{loadError || 'Failed to load commit details'}</div>
+        <div className="flex w-full items-center justify-center px-4 text-red-300">{loadError || 'Failed to load commit details'}</div>
       ) : (
         <>
           {/* ── Left: commit metadata ──────────────────────────────── */}
@@ -615,7 +615,7 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
           {/* ── Right: file changes ───────────────────────────────── */}
           <div className="min-w-0 flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
             {(details.fileChanges ?? []).length === 0 ? (
-              <div className="py-2 text-xs text-white/40">No file changes (empty or merge commit).</div>
+              <div className="py-2 text-white/40">No file changes (empty or merge commit).</div>
             ) : (details.fileChanges ?? []).map((f) => (
               <FileChangeItem key={f.newPath + f.oldPath} change={f} repoPath={repoPath} hash={hash} open={openDiff === f.newPath} onToggle={() => setOpenDiff(openDiff === f.newPath ? null : f.newPath)} />
             ))}
@@ -647,7 +647,7 @@ function FileChangeItem({ change, repoPath, hash, open, onToggle }: { change: Gi
 
   return (
     <div className="mb-1">
-      <button type="button" onClick={onToggle} className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs transition hover:bg-white/[0.06] ${open ? 'bg-white/[0.06]' : ''}`}>
+      <button type="button" onClick={onToggle} className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left transition hover:bg-white/[0.06] ${open ? 'bg-white/[0.06]' : ''}`}>
         <span className={`w-4 shrink-0 rounded text-center font-mono text-[10px] font-bold ${CHANGE_STYLES[change.type] ?? CHANGE_STYLES.M}`}>{change.type}</span>
         <span className="min-w-0 flex-1 truncate font-mono tracking-tight text-white/75 hover:text-white">
           {change.newPath}

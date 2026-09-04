@@ -161,7 +161,7 @@ export default function FileViewerPage() {
           key={iv.value}
           type="button"
           onClick={() => handleIntervalSelect(iv.value)}
-          className={`flex w-full items-center px-3 py-1 text-left text-xs transition hover:bg-white/10 ${
+          className={`flex w-full items-center px-3 py-1 text-left transition hover:bg-white/10 ${
             autoRefresh === iv.value ? 'text-green-400' : 'text-white/60'
           }`}
         >
@@ -178,7 +178,7 @@ export default function FileViewerPage() {
     return (
       <CommonTileContainer paneId={paneRef.current ?? undefined}>
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
-          <span className="text-sm text-red-400/70">{error}</span>
+          <span className="text-red-400/70">{error}</span>
         </div>
         {dropdown}
       </CommonTileContainer>
@@ -189,7 +189,7 @@ export default function FileViewerPage() {
     return (
       <CommonTileContainer paneId={paneRef.current ?? undefined}>
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
-          <span className="text-sm text-white/30">Loading...</span>
+          <span className="text-white/30">Loading...</span>
         </div>
         {dropdown}
       </CommonTileContainer>
@@ -229,7 +229,7 @@ export default function FileViewerPage() {
       >
         ▾
       </button>
-      <span className="truncate text-xs text-white/50" title={filePath}>{filePath}</span>
+      <span className="truncate text-white/50" title={filePath}>{filePath}</span>
     </div>
   ) : null
 
@@ -243,7 +243,7 @@ export default function FileViewerPage() {
               <circle cx="12" cy="12" r="10" />
               <path d="M15 9l-6 6M9 9l6 6" />
             </svg>
-            <p className="max-w-[80%] text-center text-xs text-white/40">{renderError}</p>
+            <p className="max-w-[80%] text-center text-white/40">{renderError}</p>
             <span className="text-[10px] text-white/25">{fileName}</span>
           </div>
         </div>

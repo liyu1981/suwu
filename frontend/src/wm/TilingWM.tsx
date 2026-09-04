@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { useAtomValue, useSetAtom, useStore } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, swapModeAtom, focusAtom, FOCUS_SPACE_NAME } from './atoms'
 import { fontDefaultAtom } from '../store/fonts'
@@ -34,8 +34,10 @@ import { openViewer, openFileBrowser } from '../lib/actionResolver'
 import { getCredentials } from '../lib/auth'
 import { TileTools } from './TileTools'
 import { usePaneGhosts } from './hooks/usePaneGhosts'
-import { getTilePlugin, getAllTilePlugins, type TilePlugin } from './tilePlugins'
-import { getAllAppConfigs, type AppConfig } from './appConfigs'
+import { getTilePlugin, getAllTilePlugins } from './tilePlugins'
+import { getAllAppConfigs } from './appConfigs'
+import { appMenuAtom, bootstrapAppMenu, getVisibleApps } from '../store/appMenu'
+import { getAppIconClasses, getAppIconLetter } from './appIcons'
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 import { SESSION_STATE_KEY, MAX_SERVER_SESSIONS, type TileSessionMap, type SessionStore } from './sessionState'
 
@@ -58,11 +60,11 @@ const appRow =
   'hover:bg-white/10 hover:text-popover-foreground active:bg-white/15 active:text-popover-foreground ' +
   'focus-visible:bg-white/10 focus-visible:text-popover-foreground'
 
-function AppIcon({ id }: { id: string }) {
-  const bg = id === 'term' ? 'bg-sky-500/20 text-sky-400' : id === 'fileviewer' ? 'bg-amber-500/20 text-amber-400' : id === 'forward' ? 'bg-cyan-500/20 text-cyan-400' : id === 'gitgraph' ? 'bg-green-500/20 text-green-400' : id === 'diff' ? 'bg-purple-500/20 text-purple-400' : 'bg-white/10 text-white/40'
-  const letter = id === 'forward' ? 'F' : id === 'gitgraph' ? 'G' : id === 'diff' ? 'D' : id.charAt(0).toUpperCase()
+function AppIcon({ id, label }: { id: string; label?: string }) {
+  const classes = getAppIconClasses(id)
+  const letter = getAppIconLetter(id, label ?? id)
   return (
-    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${bg}`}>
+    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${classes.bg} ${classes.text}`}>
       {letter}
     </div>
   )
@@ -89,10 +91,22 @@ function TileTypePicker({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const plugins = getAllTilePlugins().filter((p) => p.id !== 'empty')
+  const plugins = getAllTilePlugins()
   const appConfigs = getAllAppConfigs()
+  const [menuItems, setMenuItems] = useAtom(appMenuAtom)
   const navRef = useRef<HTMLElement>(null)
   const [homeDir, setHomeDir] = useState<string | null>(null)
+
+  // Bootstrap app menu from registry on mount.
+  useEffect(() => {
+    const bootstrapped = bootstrapAppMenu(plugins, appConfigs, menuItems)
+    if (JSON.stringify(bootstrapped) !== JSON.stringify(menuItems)) {
+      setMenuItems(bootstrapped)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Get visible apps in user-defined order.
+  const visibleApps = getVisibleApps(plugins, appConfigs, menuItems)
 
   useEffect(() => {
     navRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
@@ -142,15 +156,6 @@ function TileTypePicker({
     rows[next].focus()
   }
 
-  // Build a merged list: real plugins first, then app config presets.
-  type PickerItem =
-    | { kind: 'plugin'; plugin: TilePlugin }
-    | { kind: 'config'; config: AppConfig }
-  const items: PickerItem[] = [
-    ...plugins.map((p) => ({ kind: 'plugin' as const, plugin: p })),
-    ...appConfigs.map((c) => ({ kind: 'config' as const, config: c })),
-  ]
-
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="w-[min(92vw,28rem)]" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
@@ -158,7 +163,12 @@ function TileTypePicker({
         <p className="mt-1 text-xs text-muted-foreground">{t('wm.chooseApp')}</p>
         <nav ref={navRef} aria-label="Applications" onKeyDown={onKeyDown} className="mt-3">
           <div className="divide-y divide-white/5 rounded-[6px] border border-white/10 bg-black/20">
-            {items.map((item) => {
+            {visibleApps.length === 0 && (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                {t('appMenu.allHidden')}
+              </div>
+            )}
+            {visibleApps.map((item) => {
               if (item.kind === 'plugin') {
                 const p = item.plugin
                 return (
@@ -168,7 +178,7 @@ function TileTypePicker({
                     onClick={() => selectPlugin(p.id)}
                     className={appRow}
                   >
-                    <AppIcon id={p.id} />
+                    <AppIcon id={p.id} label={p.label} />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-popover-foreground">{p.label}</div>
                       {p.description && (
@@ -180,17 +190,14 @@ function TileTypePicker({
                 )
               }
               const c = item.config
-              const letter = (c.iconLetter ?? c.label.charAt(0)).toUpperCase()
               return (
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => selectPlugin(c.pluginId, c.params)}
+                  onClick={() => selectPlugin(c.pluginId, item.params ?? c.params)}
                   className={appRow}
                 >
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${c.iconBg}`}>
-                    {letter}
-                  </div>
+                  <AppIcon id={c.id} label={c.label} />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-popover-foreground">{c.label}</div>
                     {c.description && (

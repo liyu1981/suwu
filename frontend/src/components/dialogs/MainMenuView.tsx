@@ -2,7 +2,7 @@ import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'rea
 import { useTranslation } from 'react-i18next'
 
 /** The sub-screens reachable from the menu list. */
-export type MenuSelection = 'shortcuts' | 'settings' | 'appSettings' | 'about'
+export type MenuSelection = 'shortcuts' | 'settings' | 'appMenu' | 'appSettings' | 'about'
 
 const menuRow =
   'flex w-full cursor-pointer select-none items-center justify-between gap-2 rounded px-3 py-2 text-left ' +
@@ -59,6 +59,10 @@ export default function MainMenuView(props: { onSelect: (view: MenuSelection) =>
     <nav ref={navRef} aria-label="Menu" onKeyDown={onKeyDown} className="flex flex-col gap-0.5">
       <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('shortcuts')}>
         {t('menu.shortcuts')}
+        <ChevronIcon />
+      </button>
+      <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('appMenu')}>
+        {t('menu.appMenu')}
         <ChevronIcon />
       </button>
       <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('appSettings')}>

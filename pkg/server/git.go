@@ -156,6 +156,11 @@ func (s *Server) handleGitCommits(w http.ResponseWriter, r *http.Request) {
 	if base != "" {
 		logBranch = base + ".." + branch
 	}
+	// The frontend counts the UNCOMMITTED entry (prepended on first load) in
+	// commits.length, so skip is off by 1 on subsequent loads. Adjust here.
+	if skip > 0 {
+		skip--
+	}
 
 	commits, head, err := getGitCommits(repoPath, logBranch, count, skip)
 	if err != nil {
@@ -723,7 +728,7 @@ func getGitFileChanges(repoPath, hash string) ([]GitFileChange, error) {
 		numstats = append(numstats, numstatLine{adds: adds, dels: dels, path: p})
 	}
 
-	var changes []GitFileChange
+	changes := make([]GitFileChange, 0)
 	i := 0
 	for _, line := range strings.Split(nameOut, "\n") {
 		if line == "" || strings.HasPrefix(line, " ") {

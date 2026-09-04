@@ -291,46 +291,49 @@ export default function GitGraphPage() {
 
   const handleCommitClick = useCallback((_commit: GitCommit, index: number) => { setExpandedIndex((prev) => (prev === index ? null : index)); }, []);
 
+  // Keep a ref to the latest commits so async loops see updated data
+  const commitsRef = useRef(commits)
+  commitsRef.current = commits
+
   // Navigate to a parent commit: find in list, scroll to it, expand it.
-  // If not loaded yet, load more commits until found.
+  // If not loaded yet, call loadMore repeatedly until found.
   const handleParentClick = useCallback((parentHash: string) => {
     // Search loaded commits for the parent
-    const idx = commits.findIndex((c) => c.hash === parentHash)
+    const idx = commitsRef.current.findIndex((c) => c.hash === parentHash)
     if (idx >= 0) {
       setExpandedIndex(idx)
-      // Scroll into view
       const row = scrollRef.current?.querySelector(`[data-commit-idx="${idx}"]`)
       row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
-    // Not found — load more until we find it or run out
+    // Not found — load more via useGitGraph until found or exhausted
     const loadUntilFound = async () => {
-      let skip = commits.length
       const maxAttempts = 20
       for (let i = 0; i < maxAttempts; i++) {
-        const params = new URLSearchParams({
-          path: activePath,
-          branch,
-          count: '100',
-          skip: skip.toString(),
+        const prevLen = commitsRef.current.length
+        loadMore()
+        // Wait for commits state to update (or timeout)
+        await new Promise<void>((resolve) => {
+          const start = Date.now()
+          const check = () => {
+            if (commitsRef.current.length > prevLen || Date.now() - start > 3000) resolve()
+            else requestAnimationFrame(check)
+          }
+          requestAnimationFrame(check)
         })
-        if (base) params.set('base', base)
-        const data = await fetchJson<{ commits?: GitCommit[] }>(`/api/git/commits?${params}`)
-        const newCommits = data.commits ?? []
-        if (newCommits.length === 0) break
-        const found = newCommits.findIndex((c) => c.hash === parentHash)
-        if (found >= 0) {
-          // Found — append all and expand
-          setExpandedIndex(skip + found)
-          const row = scrollRef.current?.querySelector(`[data-commit-idx="${skip + found}"]`)
+        const idx = commitsRef.current.findIndex((c) => c.hash === parentHash)
+        if (idx >= 0) {
+          setExpandedIndex(idx)
+          const row = scrollRef.current?.querySelector(`[data-commit-idx="${idx}"]`)
           row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
           return
         }
-        skip += newCommits.length
+        // No more commits loaded — exhausted
+        if (commitsRef.current.length === prevLen) break
       }
     }
     void loadUntilFound()
-  }, [commits, activePath, branch, base]);
+  }, [loadMore]);
 
   return (
     <CommonTileContainer zoomAtom={gitGraphZoomAtom}>
@@ -595,16 +598,16 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
 
             {/* Add/Del summary */}
             <div className="mt-auto flex gap-2 border-t border-white/[0.06] pt-1.5">
-              <span className="font-mono text-green-400">+{details.fileChanges.reduce((s, f) => s + (f.adds || 0), 0)}</span>
-              <span className="font-mono text-red-400">−{details.fileChanges.reduce((s, f) => s + (f.dels || 0), 0)}</span>
+              <span className="font-mono text-green-400">+{(details.fileChanges ?? []).reduce((s, f) => s + (f.adds || 0), 0)}</span>
+              <span className="font-mono text-red-400">−{(details.fileChanges ?? []).reduce((s, f) => s + (f.dels || 0), 0)}</span>
             </div>
           </div>
 
           {/* ── Right: file changes ───────────────────────────────── */}
           <div className="min-w-0 flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
-            {details.fileChanges.length === 0 ? (
+            {(details.fileChanges ?? []).length === 0 ? (
               <div className="py-2 text-xs text-white/40">No file changes (empty or merge commit).</div>
-            ) : details.fileChanges.map((f) => (
+            ) : (details.fileChanges ?? []).map((f) => (
               <FileChangeItem key={f.newPath + f.oldPath} change={f} repoPath={repoPath} hash={hash} open={openDiff === f.newPath} onToggle={() => setOpenDiff(openDiff === f.newPath ? null : f.newPath)} />
             ))}
           </div>

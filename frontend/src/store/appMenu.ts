@@ -2,18 +2,38 @@ import { atomWithStorage } from 'jotai/utils'
 import type { AppConfig } from '../wm/appConfigs'
 import type { TilePlugin } from '../wm/tilePlugins'
 
-export interface AppMenuItem {
-  /** Unique identifier — matches plugin id, config id, or a custom `custom-*` id. */
+// ── Data model (blacklist approach) ──────────────────────────────
+
+export interface CustomApp {
+  /** Unique identifier (always starts with `custom-`). */
   id: string
-  /** Whether this app appears in the "New App" picker. */
-  visible: boolean
-  /** Display order (lower = higher in list). Managed by drag reorder. */
+  /** Display order among all apps (lower = higher in list). */
   order: number
   /** Editable params merged into the plugin iframe src. */
+  params: Record<string, string>
+  /** User-defined label, description, and target plugin. */
+  config: {
+    label: string
+    description?: string
+    pluginId: string
+  }
+}
+
+export interface AppMenuState {
+  /** IDs of registry apps the user has explicitly hidden (blacklist). */
+  hiddenApps: string[]
+  /** Custom apps created by the user. */
+  customApps: CustomApp[]
+}
+
+// ── Legacy type for migration ────────────────────────────────────
+
+interface LegacyAppMenuItem {
+  id: string
+  visible: boolean
+  order: number
   params?: Record<string, string>
-  /** True when user-created (not from the AppConfig code registry). */
   isCustom?: boolean
-  /** Metadata for custom items (label, description, which plugin to use). */
   customConfig?: {
     label: string
     description?: string
@@ -21,187 +41,130 @@ export interface AppMenuItem {
   }
 }
 
-/**
- * Persisted app menu state: visibility, order, and config params.
- * Bootstrapped from the live plugin/config registry on first load.
- */
-export const appMenuAtom = atomWithStorage<AppMenuItem[]>('suwu:app-menu', [])
+// ── Atom ─────────────────────────────────────────────────────────
 
-/** Apps hidden by default on first visit. */
-const DEFAULT_HIDDEN = new Set(['fileviewer', 'diff'])
+const EMPTY_STATE: AppMenuState = { hiddenApps: [], customApps: [] }
 
 /**
- * Create a blank custom app entry ready for editing.
+ * Persisted app menu state. Uses a blacklist model: all registry apps
+ * are visible by default; the user stores which ones they've hidden.
  */
-export function createCustomApp(
-  plugins: TilePlugin[],
-  maxOrder: number,
-): AppMenuItem {
-  // Prefer a plugin that accepts params; fall back to first non-empty plugin.
-  const defaultPlugin =
-    plugins.find((p) => p.id !== 'empty' && p.supportedParams && p.supportedParams.length > 0)?.id ??
-    plugins.find((p) => p.id !== 'empty')?.id ??
-    'term'
-  return {
-    id: `custom-${Date.now()}`,
-    visible: true,
-    order: maxOrder + 1,
-    params: {},
-    isCustom: true,
-    customConfig: {
-      label: 'New App',
-      pluginId: defaultPlugin,
-    },
-  }
+export const appMenuAtom = atomWithStorage<AppMenuState | LegacyAppMenuItem[]>(
+  'suwu:app-menu',
+  EMPTY_STATE,
+)
+
+// ── Pure helpers ─────────────────────────────────────────────────
+
+/** Check if a registry app is visible (not in the blacklist). */
+export function isRegistryAppVisible(id: string, state: AppMenuState): boolean {
+  return !state.hiddenApps.includes(id)
 }
 
-/**
- * Merge the live registry (plugins + configs) with the stored user
- * preferences. Adds new entries, removes stale ones, preserves user
- * overrides.  Custom (user-created) items are kept as-is.
- */
-export function bootstrapAppMenu(
+/** Get the combined order of all apps (registry + custom). */
+function getUnifiedOrder(
   plugins: TilePlugin[],
   configs: AppConfig[],
-  current: AppMenuItem[],
-): AppMenuItem[] {
-  const registryIds = new Set<string>()
-  const byId = new Map<string, AppMenuItem>()
+  state: AppMenuState,
+): Map<string, number> {
+  const order = new Map<string, number>()
 
-  // Index current stored items.
-  for (const item of current) {
-    byId.set(item.id, item)
+  // Registry items: use customApps order if present, otherwise registry index.
+  const allRegistry = [...plugins.filter((p) => p.id !== 'empty'), ...configs]
+  for (let i = 0; i < allRegistry.length; i++) {
+    const id = allRegistry[i].id
+    const custom = state.customApps.find((c) => c.id === id)
+    order.set(id, custom?.order ?? i)
   }
 
-  // Determine max order from current items.
-  let maxOrder = current.reduce((m, i) => Math.max(m, i.order), -1)
-
-  // Merge plugins (skip 'empty' — it's a placeholder, not a real app).
-  for (const p of plugins) {
-    if (p.id === 'empty') continue
-    registryIds.add(p.id)
-    if (!byId.has(p.id)) {
-      maxOrder++
-      byId.set(p.id, {
-        id: p.id,
-        visible: !DEFAULT_HIDDEN.has(p.id),
-        order: maxOrder,
-      })
+  // Custom-only items (not in registry).
+  for (const c of state.customApps) {
+    if (!order.has(c.id)) {
+      order.set(c.id, c.order)
     }
   }
 
-  // Merge app configs.
-  for (const c of configs) {
-    registryIds.add(c.id)
-    if (!byId.has(c.id)) {
-      maxOrder++
-      byId.set(c.id, {
-        id: c.id,
-        visible: !DEFAULT_HIDDEN.has(c.id),
-        order: maxOrder,
-        params: { ...c.params },
-      })
-    } else {
-      // Ensure stored config items have params (backfill from registry).
-      const stored = byId.get(c.id)!
-      if (!stored.params) {
-        stored.params = { ...c.params }
-      } else {
-        // Add any new param keys from registry, preserve user values.
-        for (const [k, v] of Object.entries(c.params)) {
-          if (!(k in stored.params)) {
-            stored.params[k] = v
-          }
-        }
-      }
-    }
-  }
-
-  // Keep: registry items + custom (user-created) items. Drop the rest.
-  const result: AppMenuItem[] = []
-  for (const [id, item] of byId) {
-    if (item.isCustom || registryIds.has(id)) {
-      result.push(item)
-    }
-  }
-
-  return result
+  return order
 }
 
 /**
  * Return visible apps in order, merged from plugins + configs + custom items.
+ * Registry apps are always included unless explicitly hidden.
  */
 export function getVisibleApps(
   plugins: TilePlugin[],
   configs: AppConfig[],
-  menuItems: AppMenuItem[],
+  state: AppMenuState,
 ): Array<
   | { kind: 'plugin'; plugin: TilePlugin; params?: Record<string, string> }
   | { kind: 'config'; config: AppConfig; params?: Record<string, string> }
 > {
   const pluginMap = new Map(plugins.map((p) => [p.id, p]))
   const configMap = new Map(configs.map((c) => [c.id, c]))
+  const order = getUnifiedOrder(plugins, configs, state)
+  const hiddenSet = new Set(state.hiddenApps)
 
-  // Build list from menuItems (which has the order).
-  const sorted = [...menuItems].sort((a, b) => a.order - b.order)
-
-  const result: Array<
-    | { kind: 'plugin'; plugin: TilePlugin; params?: Record<string, string> }
-    | { kind: 'config'; config: AppConfig; params?: Record<string, string> }
-  > = []
-
-  for (const item of sorted) {
-    if (!item.visible) continue
-
-    // Real plugin
-    const plugin = pluginMap.get(item.id)
-    if (plugin) {
-      result.push({ kind: 'plugin', plugin, params: item.params })
-      continue
-    }
-
-    // Registry config
-    const config = configMap.get(item.id)
-    if (config) {
-      result.push({ kind: 'config', config, params: item.params ?? config.params })
-      continue
-    }
-
-    // Custom item → synthesise an AppConfig for the picker.
-    if (item.isCustom && item.customConfig) {
-      const targetPlugin = pluginMap.get(item.customConfig.pluginId)
-      if (targetPlugin) {
-        result.push({
-          kind: 'config',
-          config: {
-            id: item.id,
-            label: item.customConfig.label,
-            description: item.customConfig.description,
-            pluginId: item.customConfig.pluginId,
-            params: item.params ?? {},
-            iconBg: '',
-            iconLetter: '',
-          },
-          params: item.params,
-        })
-      }
-    }
+  interface AppEntry {
+    id: string
+    kind: 'plugin' | 'config'
+    order: number
+    plugin?: TilePlugin
+    config?: AppConfig
+    params?: Record<string, string>
   }
 
-  // If no menuItems match (e.g. empty storage), fall back to registry order.
-  if (result.length === 0) {
-    for (const p of plugins) {
-      if (p.id === 'empty') continue
-      if (!DEFAULT_HIDDEN.has(p.id)) {
-        result.push({ kind: 'plugin', plugin: p })
-      }
-    }
-    for (const c of configs) {
-      if (!DEFAULT_HIDDEN.has(c.id)) {
-        result.push({ kind: 'config', config: c })
-      }
-    }
+  const entries: AppEntry[] = []
+
+  // Add all registry plugins (except 'empty' placeholder).
+  for (const p of plugins) {
+    if (p.id === 'empty') continue
+    if (hiddenSet.has(p.id)) continue
+    entries.push({
+      id: p.id,
+      kind: 'plugin',
+      order: order.get(p.id) ?? 0,
+      plugin: p,
+    })
   }
 
-  return result
+  // Add all registry configs.
+  for (const c of configs) {
+    if (hiddenSet.has(c.id)) continue
+    entries.push({
+      id: c.id,
+      kind: 'config',
+      order: order.get(c.id) ?? 0,
+      config: c,
+    })
+  }
+
+  // Add custom-only items (not backed by a registry plugin/config).
+  for (const custom of state.customApps) {
+    if (pluginMap.has(custom.id) || configMap.has(custom.id)) continue
+    const targetPlugin = pluginMap.get(custom.config.pluginId)
+    if (!targetPlugin) continue
+    entries.push({
+      id: custom.id,
+      kind: 'config',
+      order: order.get(custom.id) ?? 0,
+      config: {
+        id: custom.id,
+        label: custom.config.label,
+        description: custom.config.description,
+        pluginId: custom.config.pluginId,
+        params: custom.params,
+        iconBg: '',
+        iconLetter: '',
+      },
+      params: custom.params,
+    })
+  }
+
+  // Sort by unified order.
+  entries.sort((a, b) => a.order - b.order)
+
+  return entries.map((e) => {
+    if (e.kind === 'plugin') return { kind: 'plugin' as const, plugin: e.plugin!, params: e.params }
+    return { kind: 'config' as const, config: e.config!, params: e.params }
+  })
 }

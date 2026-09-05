@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { appMenuAtom, bootstrapAppMenu, createCustomApp } from '../../store/appMenu'
+import { appMenuAtom, type AppMenuState, type CustomApp } from '../../store/appMenu'
 import { getAllTilePlugins } from '../../wm/tilePlugins'
 import { getAllAppConfigs } from '../../wm/appConfigs'
 import { getAppIconClasses, getAppIconLetter } from '../../wm/appIcons'
@@ -304,59 +304,157 @@ function EditingForm({
   )
 }
 
+// ── Display row item ─────────────────────────────────────────────────
+
+interface DisplayItem {
+  id: string
+  label: string
+  description?: string
+  visible: boolean
+  isCustom: boolean
+  isConfig: boolean
+  pluginId?: string
+  params?: Record<string, string>
+  customConfig?: { label: string; description?: string; pluginId: string }
+  order: number
+}
+
 // ── Main component ───────────────────────────────────────────────────
 
 /**
  * App Menu settings screen. Lists all registered apps with visibility
  * toggles, drag-to-reorder, and inline param editing for config-only apps.
- * Users can also create arbitrary custom app entries.
+ * Uses a blacklist model: all registry apps are visible by default;
+ * the user stores which ones they've hidden.
  */
 export default function AppMenuView() {
   const { t } = useTranslation()
-  const [menuItems, setMenuItems] = useAtom(appMenuAtom)
+  const [menuState, setMenuState] = useAtom(appMenuAtom)
 
-  // Bootstrap from registry if needed.
   const plugins = useMemo(() => getAllTilePlugins(), [])
   const configs = useMemo(() => getAllAppConfigs(), [])
 
-  const items = useMemo(
-    () => bootstrapAppMenu(plugins, configs, menuItems),
-    [plugins, configs, menuItems],
+  // Derive the current state (handle legacy migration in atom).
+  const state: AppMenuState = useMemo(() => {
+    if (!menuState || typeof menuState !== 'object' || Array.isArray(menuState)) {
+      return { hiddenApps: [], customApps: [] }
+    }
+    return menuState as AppMenuState
+  }, [menuState])
+
+  const setState = useCallback(
+    (fn: (prev: AppMenuState) => AppMenuState) => {
+      setMenuState((prev) => {
+        const current: AppMenuState = (!prev || typeof prev !== 'object' || Array.isArray(prev))
+          ? { hiddenApps: [], customApps: [] }
+          : prev as AppMenuState
+        return fn(current)
+      })
+    },
+    [setMenuState],
   )
 
   // Plugin/config lookup for labels/descriptions.
   const pluginMap = useMemo(() => new Map(plugins.map((p) => [p.id, p])), [plugins])
   const configMap = useMemo(() => new Map(configs.map((c) => [c.id, c])), [configs])
+  const hiddenSet = useMemo(() => new Set(state.hiddenApps), [state.hiddenApps])
 
-  // Sort items by order.
-  const sorted = useMemo(() => [...items].sort((a, b) => a.order - b.order), [items])
+  // Build unified display list (all apps: registry + custom).
+  const displayItems: DisplayItem[] = useMemo(() => {
+    const items: DisplayItem[] = []
+
+    // Registry plugins (except 'empty').
+    for (const p of plugins) {
+      if (p.id === 'empty') continue
+      items.push({
+        id: p.id,
+        label: p.label,
+        description: p.description,
+        visible: !hiddenSet.has(p.id),
+        isCustom: false,
+        isConfig: false,
+        order: items.length,
+      })
+    }
+
+    // Registry configs.
+    for (const c of configs) {
+      items.push({
+        id: c.id,
+        label: c.label,
+        description: c.description,
+        visible: !hiddenSet.has(c.id),
+        isCustom: false,
+        isConfig: true,
+        params: c.params,
+        order: items.length,
+      })
+    }
+
+    // Custom-only items (not backed by registry).
+    for (const custom of state.customApps) {
+      if (pluginMap.has(custom.id) || configMap.has(custom.id)) continue
+      items.push({
+        id: custom.id,
+        label: custom.config.label,
+        description: custom.config.description,
+        visible: true, // custom apps are always visible
+        isCustom: true,
+        isConfig: true,
+        pluginId: custom.config.pluginId,
+        params: custom.params,
+        customConfig: custom.config,
+        order: items.length,
+      })
+    }
+
+    return items
+  }, [plugins, configs, hiddenSet, state.customApps, pluginMap, configMap])
 
   // ── Toggle visibility ──────────────────────────────────────────
   const toggleVisible = useCallback(
     (id: string) => {
-      setMenuItems((prev: typeof menuItems) =>
-        prev.map((item) => (item.id === id ? { ...item, visible: !item.visible } : item)),
-      )
+      setState((prev) => {
+        const isHidden = prev.hiddenApps.includes(id)
+        return {
+          ...prev,
+          hiddenApps: isHidden
+            ? prev.hiddenApps.filter((h) => h !== id)
+            : [...prev.hiddenApps, id],
+        }
+      })
     },
-    [setMenuItems],
+    [setState],
   )
 
   // ── Show / Hide all ────────────────────────────────────────────
-  const allVisible = sorted.every((i) => i.visible)
+  const allVisible = displayItems.every((i) => i.visible)
   const toggleAll = useCallback(() => {
-    const next = !allVisible
-    setMenuItems((prev: typeof menuItems) => prev.map((item) => ({ ...item, visible: next })))
-  }, [allVisible, setMenuItems])
+    setState((prev) => {
+      if (allVisible) {
+        // Hide all registry apps.
+        const registryIds = plugins
+          .filter((p) => p.id !== 'empty')
+          .map((p) => p.id)
+          .concat(configs.map((c) => c.id))
+        return { ...prev, hiddenApps: registryIds }
+      }
+      // Show all: clear the blacklist.
+      return { ...prev, hiddenApps: [] }
+    })
+  }, [allVisible, setState, plugins, configs])
 
-  // ── Drag to reorder ────────────────────────────────────────────
+  // ── Drag to reorder (custom apps only) ─────────────────────────
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const dragStartY = useRef(0)
   const dragStartIdx = useRef(0)
   const currentIdx = useRef(0)
-  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const onDragStart = useCallback(
     (id: string, e: ReactPointerEvent) => {
+      // Only custom apps can be reordered.
+      if (!id.startsWith('custom-')) return
+
       e.preventDefault()
       e.stopPropagation()
 
@@ -366,26 +464,30 @@ export default function AppMenuView() {
       el.setPointerCapture(e.pointerId)
       setDraggingId(id)
       dragStartY.current = e.clientY
-      dragStartIdx.current = sorted.findIndex((i) => i.id === id)
+      dragStartIdx.current = displayItems.findIndex((i) => i.id === id)
       currentIdx.current = dragStartIdx.current
 
       const onMove = (ev: PointerEvent) => {
         const delta = ev.clientY - dragStartY.current
         const rowHeight = el.offsetHeight + 4 // gap
         const offset = Math.round(delta / rowHeight)
-        const newIdx = Math.max(0, Math.min(sorted.length - 1, dragStartIdx.current + offset))
+        const newIdx = Math.max(0, Math.min(displayItems.length - 1, dragStartIdx.current + offset))
 
         if (newIdx !== currentIdx.current) {
           currentIdx.current = newIdx
-          // Reorder items array.
-          setMenuItems((prev: typeof menuItems) => {
-            const sortedItems = [...prev].sort((a, b) => a.order - b.order)
-            const fromIdx = sortedItems.findIndex((i) => i.id === id)
+          setState((prev) => {
+            const customApps = [...prev.customApps]
+            const fromIdx = customApps.findIndex((c) => c.id === id)
             if (fromIdx === -1) return prev
-            const [moved] = sortedItems.splice(fromIdx, 1)
-            sortedItems.splice(newIdx, 0, moved)
+            const [moved] = customApps.splice(fromIdx, 1)
+            // Insert at the target position among custom apps.
+            const targetCustomIdx = Math.min(newIdx, customApps.length)
+            customApps.splice(targetCustomIdx, 0, moved)
             // Reassign orders.
-            return sortedItems.map((item, i) => ({ ...item, order: i }))
+            return {
+              ...prev,
+              customApps: customApps.map((c, i) => ({ ...c, order: i })),
+            }
           })
         }
       }
@@ -399,7 +501,7 @@ export default function AppMenuView() {
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [sorted, setMenuItems],
+    [displayItems, setState],
   )
 
   // ── Expand / collapse ──────────────────────────────────────────
@@ -413,58 +515,75 @@ export default function AppMenuView() {
     })
   }, [])
 
-  // ── Is this a config-only item? (not a real plugin) ────────────
-  const isConfigItem = useCallback(
-    (id: string) => {
-      // Custom items are always config items.
-      const item = items.find((i) => i.id === id)
-      if (item?.isCustom) return true
-      // Registry config items (not a plugin).
-      return !pluginMap.has(id)
-    },
-    [items, pluginMap],
-  )
-
   // ── Update a config/custom item ────────────────────────────────
-  const updateItem = useCallback(
-    (id: string, patch: { params?: Record<string, string>; customConfig?: { label: string; description?: string; pluginId: string } }) => {
-      setMenuItems((prev: typeof menuItems) =>
-        prev.map((item) => {
-          if (item.id !== id) return item
-          return { ...item, ...patch }
-        }),
-      )
+  const updateCustomParams = useCallback(
+    (id: string, params: Record<string, string>) => {
+      setState((prev) => ({
+        ...prev,
+        customApps: prev.customApps.map((c) =>
+          c.id === id ? { ...c, params } : c,
+        ),
+      }))
     },
-    [setMenuItems],
+    [setState],
   )
 
-  // ── Delete a config/custom item ────────────────────────────────
-  const deleteItem = useCallback(
+  const updateCustomConfig = useCallback(
+    (id: string, config: { label: string; description?: string; pluginId: string }) => {
+      setState((prev) => ({
+        ...prev,
+        customApps: prev.customApps.map((c) =>
+          c.id === id ? { ...c, config } : c,
+        ),
+      }))
+    },
+    [setState],
+  )
+
+  // ── Delete a custom item ───────────────────────────────────────
+  const deleteCustom = useCallback(
     (id: string) => {
-      setMenuItems((prev: typeof menuItems) => prev.filter((item) => item.id !== id))
+      setState((prev) => ({
+        ...prev,
+        customApps: prev.customApps.filter((c) => c.id !== id),
+      }))
       setExpandedIds((prev) => { const next = new Set(prev); next.delete(id); return next })
     },
-    [setMenuItems],
+    [setState],
   )
 
   // ── Create a new custom app ────────────────────────────────────
   const addCustom = useCallback(() => {
-    const maxOrder = items.reduce((m, i) => Math.max(m, i.order), -1)
-    const newItem = createCustomApp(plugins, maxOrder)
-    setMenuItems((prev: typeof menuItems) => [...prev, newItem])
-    // Auto-expand the new item.
-    setExpandedIds((prev) => new Set(prev).add(newItem.id))
-  }, [items, plugins, setMenuItems])
+    const pluginsWithParams = plugins.filter((p) => p.id !== 'empty' && p.supportedParams && p.supportedParams.length > 0)
+    const defaultPlugin = pluginsWithParams[0]?.id ?? plugins.find((p) => p.id !== 'empty')?.id ?? 'term'
+    const maxOrder = state.customApps.reduce((m, c) => Math.max(m, c.order), -1)
+
+    const newCustom: CustomApp = {
+      id: `custom-${Date.now()}`,
+      order: maxOrder + 1,
+      params: {},
+      config: {
+        label: 'New App',
+        pluginId: defaultPlugin,
+      },
+    }
+
+    setState((prev) => ({
+      ...prev,
+      customApps: [...prev.customApps, newCustom],
+    }))
+    setExpandedIds((prev) => new Set(prev).add(newCustom.id))
+  }, [plugins, state.customApps, setState])
 
   // ── Determine icon for an item ─────────────────────────────────
   const getIcon = useCallback(
-    (item: { id: string; customConfig?: { pluginId: string } }) => {
-      const pluginId = item.customConfig?.pluginId
+    (item: DisplayItem) => {
+      const pluginId = item.isCustom ? item.pluginId : undefined
       return {
         classes: getAppIconClasses(item.id, pluginId),
         letter: getAppIconLetter(
           item.id,
-          pluginMap.get(item.id)?.label ?? configMap.get(item.id)?.label ?? item.id,
+          pluginMap.get(item.id)?.label ?? configMap.get(item.id)?.label ?? item.label,
           pluginId,
         ),
       }
@@ -488,12 +607,7 @@ export default function AppMenuView() {
 
       {/* App list */}
       <div className="divide-y divide-white/5 rounded-[6px] border border-white/10 bg-black/20">
-        {sorted.map((item) => {
-          const plugin = pluginMap.get(item.id)
-          const config = configMap.get(item.id)
-          const label = plugin?.label ?? config?.label ?? item.customConfig?.label ?? item.id
-          const description = plugin?.description ?? config?.description ?? item.customConfig?.description
-          const configItem = isConfigItem(item.id)
+        {displayItems.map((item) => {
           const expanded = expandedIds.has(item.id)
           const { classes: iconClasses, letter } = getIcon(item)
 
@@ -501,10 +615,11 @@ export default function AppMenuView() {
             <div key={item.id} data-app-row>
               {/* Row content — the grabbable / draggable surface */}
               <div
-                ref={(el) => { if (el) rowRefs.current.set(item.id, el) }}
                 className={`${row} ${draggingId === item.id ? 'bg-white/5' : ''}`}
               >
-                <DragHandle onPointerDown={(e) => onDragStart(item.id, e)} />
+                {item.isCustom && (
+                  <DragHandle onPointerDown={(e) => onDragStart(item.id, e)} />
+                )}
 
                 {/* Icon */}
                 <div
@@ -515,11 +630,11 @@ export default function AppMenuView() {
 
                 {/* Label + description + expand toggle */}
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-popover-foreground">{label}</div>
-                  {description && (
-                    <div className="text-[11px] text-muted-foreground">{description}</div>
+                  <div className="text-sm font-medium text-popover-foreground">{item.label}</div>
+                  {item.description && (
+                    <div className="text-[11px] text-muted-foreground">{item.description}</div>
                   )}
-                  {configItem && (
+                  {item.isConfig && (
                     <button
                       type="button"
                       onClick={() => toggleExpand(item.id)}
@@ -539,12 +654,24 @@ export default function AppMenuView() {
               </div>
 
               {/* Expanded editing form (config items only) — below the row */}
-              {configItem && expanded && (
+              {item.isConfig && expanded && (
                 <EditingForm
-                  item={item}
+                  item={{
+                    id: item.id,
+                    params: item.params,
+                    customConfig: item.customConfig ?? (item.isCustom ? { label: item.label, description: item.description, pluginId: item.pluginId ?? 'term' } : undefined),
+                  }}
                   plugins={plugins}
-                  onUpdate={(patch) => updateItem(item.id, patch)}
-                  onDelete={() => deleteItem(item.id)}
+                  onUpdate={(patch) => {
+                    if (item.isCustom) {
+                      if (patch.params) updateCustomParams(item.id, patch.params)
+                      if (patch.customConfig) updateCustomConfig(item.id, patch.customConfig)
+                    }
+                    // Registry config items: params would be stored via a future feature.
+                  }}
+                  onDelete={() => {
+                    if (item.isCustom) deleteCustom(item.id)
+                  }}
                 />
               )}
             </div>

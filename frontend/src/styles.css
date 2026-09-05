@@ -46,10 +46,21 @@ body {
   height: 100%;
 }
 
-/* xterm keeps `overflow-y: scroll` on its viewport, which paints a scrollbar
-   track (and corner) at the pane's bottom-right even when there is nothing to
-   scroll. Hide it entirely — wheel scrollback still works because xterm
-   scrolls the viewport programmatically in response to wheel events. */
+/* ── xterm scrollbar styling ─────────────────────────────────────────────────
+
+   xterm v6 draws its own VS Code-style scrollbar (a .slider div inside
+   .xterm-scrollable-element), positioned and sized inline by JS — so native
+   scrollbar CSS does nothing for it. Two layers here:
+
+   1. Hide the native viewport scrollbar (v6 still sets overflow-y: scroll,
+      which would paint a second, native bar on top).
+   2. Restyle the custom DOM thumb to the app-wide thin look (6px, white/15,
+      rounded) and hide it unless the cursor is over the pane (hover-reveal,
+      same behavior as every other tile's scrollbars). !important is required
+      to beat xterm's injected theme stylesheet and its inline geometry.
+   Native scrollbar styles cannot fade, so the reveal is intentionally
+   instant; xterm's own visibility controller still fades the bar out after
+   inactivity while the cursor stays inside the pane. */
 .terminal-canvas .xterm-viewport {
   overflow-x: hidden;
   scrollbar-width: none; /* Firefox */
@@ -57,6 +68,25 @@ body {
 .terminal-canvas .xterm-viewport::-webkit-scrollbar,
 .terminal-canvas .xterm-viewport::-webkit-scrollbar-corner {
   display: none; /* Chromium/Safari, includes the scrollbar corner */
+}
+
+/* Thin thumb — matches .scrollbar-thin used across the app */
+.terminal-canvas .xterm-scrollable-element > .scrollbar > .slider {
+  width: 6px !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 3px !important;
+}
+.terminal-canvas .xterm-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+.terminal-canvas .xterm-scrollable-element > .scrollbar > .slider.active {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Hover-reveal: fully hidden whenever the cursor is outside the pane */
+.terminal-canvas:not(:hover) .xterm-scrollable-element > .scrollbar {
+  opacity: 0 !important;
+  pointer-events: none;
 }
 
 /* ============================================================================

@@ -12,6 +12,8 @@ interface UseGitGraphOptions {
   branch?: string;
   maxCount?: number;
   followFirstParent?: boolean;
+  /** When true, include commits from all branches (git log --all). */
+  allBranches?: boolean;
   /** When false, no fetch is performed (e.g. no path chosen yet). */
   enabled?: boolean;
   /** When provided, show only commits on branch not in base (worktree diff mode). */
@@ -40,6 +42,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
     branch = 'HEAD',
     maxCount = 100,
     followFirstParent = false,
+    allBranches = false,
     enabled = true,
     base,
     config,
@@ -99,6 +102,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
         branch: branch,
         count: maxCount.toString(),
       });
+      if (allBranches && !base) params.set('all', 'true');
 
       const response = await fetch(`/api/git/commits?${params}`);
 
@@ -124,7 +128,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
     } finally {
       setLoading(false);
     }
-  }, [repoPath, branch, maxCount, enabled]);
+  }, [repoPath, branch, maxCount, enabled, allBranches, base]);
 
   // Load more commits (append to existing list)
   const loadMore = useCallback(async () => {
@@ -140,6 +144,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
         skip: commits.length.toString(),
       });
       if (base) params.set('base', base);
+      if (allBranches && !base) params.set('all', 'true');
 
       const response = await fetch(`/api/git/commits?${params}`);
 
@@ -164,7 +169,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
     } finally {
       setLoadingMore(false);
     }
-  }, [repoPath, branch, maxCount, enabled, loadingMore, hasMore, commits.length, base]);
+  }, [repoPath, branch, maxCount, enabled, loadingMore, hasMore, commits.length, base, allBranches]);
 
   useEffect(() => {
     fetchCommits();

@@ -34,6 +34,7 @@ interface GitGraphSessionState {
   branch?: string;
   scrollPosition?: number;
   selectedWorktree?: string | null;
+  allBranches?: boolean;
 }
 
 interface GitWorktree {
@@ -96,6 +97,7 @@ export default function GitGraphPage() {
   const [worktrees, setWorktrees] = useState<GitWorktree[]>([]);
   const [selectedWorktree, setSelectedWorktree] = useState<string | null>(savedState?.selectedWorktree ?? null);
   const [showWorktreeBrowser, setShowWorktreeBrowser] = useState(false);
+  const [allBranches, setAllBranches] = useState(savedState?.allBranches ?? true);
   const [autoRefresh, setAutoRefresh] = useState(0);
   const dropdown = useAutoRefreshDropdown();
 
@@ -111,6 +113,7 @@ export default function GitGraphPage() {
     maxCount: 100,
     enabled: activePath !== null,
     base,
+    allBranches,
   });
 
   // Fetch worktrees when repoPath changes
@@ -132,7 +135,7 @@ export default function GitGraphPage() {
     refresh();
   }, [fetchWorktrees, refresh]);
 
-  useEffect(() => { reportState({ repoPath: repoPath ?? undefined, branch, selectedWorktree }); }, [repoPath, branch, selectedWorktree, reportState]);
+  useEffect(() => { reportState({ repoPath: repoPath ?? undefined, branch, selectedWorktree, allBranches }); }, [repoPath, branch, selectedWorktree, allBranches, reportState]);
 
   useEffect(() => { if (autoRefresh <= 0) return; const id = setInterval(() => refreshAll(), autoRefresh); return () => clearInterval(id); }, [autoRefresh, refreshAll]);
 
@@ -335,6 +338,21 @@ export default function GitGraphPage() {
                 <svg className="h-3 w-3 shrink-0 text-white/30" viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/></svg>
                 <span className="truncate font-mono tracking-tight">{activePath}</span>
                 <span className="shrink-0 text-white/30">{copied ? <svg className="h-3 w-3 text-green-400" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg> : <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5z"/></svg>}</span>
+              </button>
+              {/* All-branches toggle */}
+              <button
+                type="button"
+                onClick={() => { setAllBranches((v) => !v); setExpandedIndex(null); }}
+                disabled={selectedWorktree !== null}
+                className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 transition-all duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30 ${
+                  allBranches && selectedWorktree === null
+                    ? 'bg-sky-500/20 text-sky-300'
+                    : 'bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/70'
+                }`}
+                title={selectedWorktree !== null ? 'All branches is not available in worktree diff mode' : allBranches ? 'Showing all branches — click to show current branch only' : 'Show all branches'}
+              >
+                <svg className="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"/></svg>
+                <span className="text-[10px]">All</span>
               </button>
               {/* Worktree selector — clickable to open worktree browser */}
               {worktrees.length > 1 && (

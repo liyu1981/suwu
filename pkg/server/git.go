@@ -156,13 +156,15 @@ func (s *Server) handleGitCommits(w http.ResponseWriter, r *http.Request) {
 	if base != "" {
 		logBranch = base + ".." + branch
 	}
+	// all: when true, include commits from all branches (git log --all).
+	all := r.URL.Query().Get("all") == "true"
 	// The frontend counts the UNCOMMITTED entry (prepended on first load) in
 	// commits.length, so skip is off by 1 on subsequent loads. Adjust here.
 	if skip > 0 {
 		skip--
 	}
 
-	commits, head, err := getGitCommits(repoPath, logBranch, count, skip)
+	commits, head, err := getGitCommits(repoPath, logBranch, count, skip, all)
 	if err != nil {
 		slog.Error("failed to get git commits", "error", err, "path", repoPath)
 		writeGitError(w, http.StatusBadRequest, err.Error())
@@ -418,7 +420,7 @@ func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 }
 
 // getGitCommits fetches commits from a git repository
-func getGitCommits(repoPath, branch string, maxCount, skip int) ([]GitCommit, string, error) {
+func getGitCommits(repoPath, branch string, maxCount, skip int, all bool) ([]GitCommit, string, error) {
 	// Validate the repository is reachable, then fetch commits
 	logArgs := []string{"log",
 		"--format=%H|%P|%an|%ae|%aI|%s",
@@ -433,6 +435,11 @@ func getGitCommits(repoPath, branch string, maxCount, skip int) ([]GitCommit, st
 		if skip > 0 {
 			logArgs = append(logArgs, "--skip="+strconv.Itoa(skip))
 		}
+	}
+	// --all: include commits from every local and remote-tracking branch,
+	// not just those reachable from the selected branch ("all branches" view).
+	if all {
+		logArgs = append(logArgs, "--all")
 	}
 	logArgs = append(logArgs, branch)
 

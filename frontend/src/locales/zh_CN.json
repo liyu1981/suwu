@@ -249,6 +249,8 @@
     "fileBrowserDesc": "浏览远程文件和文件夹",
     "forward": "端口转发",
     "forwardDesc": "TCP/UDP 端口转发",
+    "graphic": "图形应用",
+    "graphicDesc": "串流远程 X11 图形应用",
     "empty": "空白",
     "emptyDesc": "选择要打开的应用程序",
     "dropbox": "文件暂存",

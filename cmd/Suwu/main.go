@@ -48,6 +48,7 @@ import (
 	"suwu/pkg/envfile"
 	"suwu/pkg/forward"
 	"suwu/pkg/gencerts"
+	"suwu/pkg/graphic"
 	"suwu/pkg/logging"
 	"suwu/pkg/notify"
 	"suwu/pkg/pty"
@@ -515,6 +516,7 @@ func run() error {
 		fmt.Println("  shutdown exceeded 5s; forcing exit")
 		os.Exit(0)
 	}()
+	graphic.StopDisplay() // kill Xorg first — don't orphan it
 	server.CloseAll()
 	sessions.Close()
 	notifyListener.Close()

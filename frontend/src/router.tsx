@@ -8,6 +8,7 @@ import ForwardPage from './routes/ForwardPage'
 import DropboxPage from './routes/DropboxPage'
 import GitGraphPage from './routes/GitGraphPage'
 import DiffPage from './routes/DiffPage'
+import BrowserPage from './routes/BrowserPage'
 
 const rootRoute = createRootRoute()
 
@@ -71,6 +72,12 @@ const diffRoute = createRoute({
   component: DiffPage,
 })
 
+const browserRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/browser',
+  component: BrowserPage,
+})
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -80,6 +87,7 @@ const routeTree = rootRoute.addChildren([
   dropboxRoute,
   gitgraphRoute,
   diffRoute,
+  browserRoute,
 ])
 
 export const router = createRouter({ routeTree })

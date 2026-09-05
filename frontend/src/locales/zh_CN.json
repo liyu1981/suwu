@@ -254,7 +254,9 @@
     "dropbox": "文件暂存",
     "dropboxDesc": "文件投递与管理",
     "diff": "差异对比",
-    "diffDesc": "并排文件对比"
+    "diffDesc": "并排文件对比",
+    "browser": "浏览器",
+    "browserDesc": "浏览网页"
   },
   "dropbox": {
     "title": "文件暂存",
@@ -298,6 +300,15 @@
     "portRequired": "端口必须在 1024 到 65535 之间",
     "portOccupied": "端口已被占用",
     "refreshPorts": "刷新已占用端口"
+  },
+  "browser": {
+    "omniPlaceholder": "搜索或输入网址",
+    "back": "后退",
+    "forward": "前进",
+    "refresh": "刷新",
+    "openNewTab": "在新标签页中打开",
+    "openExternal": "在新标签页中打开",
+    "loadError": "无法加载此网站。它可能禁止在 iframe 中嵌入。"
   },
   "lang": {
     "en": "English",

@@ -14,6 +14,7 @@ const COLOR_MAP: Record<string, { bg: string; text: string; letter: string }> = 
   gitgraph: { bg: 'bg-green-500/20', text: 'text-green-400', letter: 'G' },
   diff: { bg: 'bg-purple-500/20', text: 'text-purple-400', letter: 'D' },
   dropbox: { bg: 'bg-pink-500/20', text: 'text-pink-400', letter: 'D' },
+  browser: { bg: 'bg-blue-500/20', text: 'text-blue-400', letter: 'B' },
 }
 
 const DEFAULT_COLORS = { bg: 'bg-white/10', text: 'text-white/40', letter: '' }

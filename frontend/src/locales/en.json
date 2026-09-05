@@ -255,7 +255,9 @@
     "dropbox": "Dropbox",
     "dropboxDesc": "File drop & manager",
     "diff": "Diff",
-    "diffDesc": "Side-by-side file comparison"
+    "diffDesc": "Side-by-side file comparison",
+    "browser": "Browser",
+    "browserDesc": "Browse the web"
   },
   "dropbox": {
     "title": "Dropbox",
@@ -299,6 +301,15 @@
     "portRequired": "Port must be between 1024 and 65535",
     "portOccupied": "Port is already in use",
     "refreshPorts": "Refresh occupied ports"
+  },
+  "browser": {
+    "omniPlaceholder": "Search or enter URL",
+    "back": "Back",
+    "forward": "Forward",
+    "refresh": "Refresh",
+    "openNewTab": "Open in new tab",
+    "openExternal": "Open in new tab",
+    "loadError": "This site could not be loaded. It may block embedding in iframes."
   },
   "lang": {
     "en": "English",

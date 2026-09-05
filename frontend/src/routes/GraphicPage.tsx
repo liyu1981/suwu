@@ -1,14 +1,14 @@
 import { useEffect, useMemo } from 'react'
-import GraphicAppPane from '../components/GraphicAppPane'
+import GUIAppPane from '../components/GraphicAppPane'
 import { CommonTileContainer } from '../components/CommonTileContainer'
 import { graphicZoomAtom } from '../store/zoom'
 import { setPageTransparent } from '../lib/constants'
 
 /**
- * Full-space graphic app page loaded inside each tiling pane's iframe.
- * Streams a remote X11 display (Xvfb) onto a canvas with input injection.
+ * Full-space GUI app page loaded inside each tiling pane's iframe.
+ * Streams a remote X11 display onto a canvas with input injection.
  */
-export default function GraphicPage() {
+export default function GUIAppPage() {
   useEffect(() => {
     setPageTransparent()
   }, [])
@@ -26,7 +26,7 @@ export default function GraphicPage() {
 
   return (
     <CommonTileContainer zoomAtom={graphicZoomAtom} noPadding>
-      <GraphicAppPane key={`${paneId}-${display ?? ''}-${title ?? ''}-${desktop ?? ''}-${fps ?? ''}`} display={display} title={title} desktop={desktop} fps={fps} />
+      <GUIAppPane key={`${paneId}-${display ?? ''}-${title ?? ''}-${desktop ?? ''}-${fps ?? ''}`} display={display} title={title} desktop={desktop} fps={fps} />
     </CommonTileContainer>
   )
 }

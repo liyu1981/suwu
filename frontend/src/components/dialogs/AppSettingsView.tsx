@@ -14,7 +14,7 @@ import {
   fontFamilyAtom,
   termThemeAtom,
 } from '../../store/appearance'
-import { dropboxZoomAtom, diffZoomAtom, fileBrowserZoomAtom, forwardZoomAtom, gitGraphZoomAtom, clampZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from '../../store/zoom'
+import { dropboxZoomAtom, diffZoomAtom, fileBrowserZoomAtom, forwardZoomAtom, gitGraphZoomAtom, guiappFpsAtom, clampZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from '../../store/zoom'
 import { ZoomControls } from '../ZoomControls'
 import { THEME_PRESETS, matchPresetId } from '../../store/themePresets'
 import { alphaOf, hex6Of, withAlpha } from '../../lib/color'
@@ -175,6 +175,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
   const [gitGraphZoom, setGitGraphZoom] = useAtom(gitGraphZoomAtom)
   const [diffZoom, setDiffZoom] = useAtom(diffZoomAtom)
   const [diffFontFamily, setDiffFontFamily] = useAtom(diffFontFamilyAtom)
+  const [guiappFps, setGuiappFps] = useAtom(guiappFpsAtom)
 
   // ── Collapsible groups state ────────────────────────────────────
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -256,6 +257,9 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="diff" className={tabBtn}>
             {t('settings.diffTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="guiapp" className={tabBtn}>
+            {t('settings.guiappTab')}
           </TabsPrimitive.Trigger>
         </TabsPrimitive.List>
 
@@ -533,6 +537,40 @@ export default function AppSettingsView(props: { onClose: () => void }) {
               onChange={setDiffZoom}
               hint={t('settings.zoomHint', { app: t('settings.diffTab') })}
             />
+          </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="guiapp" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.guiappFps')}</span>
+              <span className="font-mono text-xs text-popover-foreground">{guiappFps} FPS</span>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setGuiappFps(30)}
+                className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  guiappFps === 30
+                    ? 'bg-sky-500/25 text-sky-300'
+                    : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-popover-foreground'
+                }`}
+              >
+                30 FPS
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuiappFps(60)}
+                className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  guiappFps === 60
+                    ? 'bg-sky-500/25 text-sky-300'
+                    : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-popover-foreground'
+                }`}
+              >
+                60 FPS
+              </button>
+            </div>
+            <p className={sectionHint}>{t('settings.guiappFpsHint')}</p>
           </div>
         </TabsPrimitive.Content>
       </TabsPrimitive.Root>

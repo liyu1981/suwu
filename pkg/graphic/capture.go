@@ -25,7 +25,7 @@ import (
 const (
 	DefaultWidth  = 1280
 	DefaultHeight = 720
-	DefaultFPS    = 30
+	DefaultFPS    = 60
 	MaxFPS        = 60
 	JPEGQuality   = 60
 )

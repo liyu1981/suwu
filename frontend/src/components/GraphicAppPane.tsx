@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAtomValue } from 'jotai'
 import { fetchToken } from '../lib/api'
+import { guiappFpsAtom } from '../store/zoom'
 
 interface GraphicAppProps {
   /** X11 display to stream, e.g. ":99". */
@@ -18,22 +20,19 @@ const DEFAULT_W = 1280
 const DEFAULT_H = 720
 
 /**
- * GraphicAppPane — streams a remote X11 display onto a canvas and injects
- * mouse/keyboard input back into it (see graphic_app_plan.md).
- * Server: /ws/graphic (pkg/graphic).
- *
- * Sizing: the pane's pixel size is sent to the server (connect query +
- * "resize" control messages), which sizes the X display to match — so the
- * captured frame fills the tile with no letterbox bands. The canvas adopts
- * each frame's dimensions; CSS object-fit: contain letterboxes only while
- * a resize is still propagating.
+ * GUIAppPane — streams a remote X11 display onto a canvas and injects
+ * mouse/keyboard input back into it. Shows a header with the display
+ * number and connection status.
  */
-export default function GraphicAppPane({ display = ':99', title, desktop, fps }: GraphicAppProps) {
+export default function GUIAppPane({ display = ':99', title, desktop, fps: fpsProp }: GraphicAppProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
+  const canvasWrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const [status, setStatus] = useState<ConnState>('connecting')
   const [statusMsg, setStatusMsg] = useState('')
+  const fpsSetting = useAtomValue(guiappFpsAtom)
+  const fps = fpsProp ?? fpsSetting
 
   // ── Frame rendering (latest-wins decode, frame-sized canvas) ─
   const decodeBusy = useRef(false)
@@ -72,7 +71,7 @@ export default function GraphicAppPane({ display = ':99', title, desktop, fps }:
     let attempt = 0
 
     const paneSize = () => {
-      const rect = wrapRef.current?.getBoundingClientRect()
+      const rect = canvasWrapRef.current?.getBoundingClientRect()
       return {
         w: rect ? Math.round(rect.width) : DEFAULT_W,
         h: rect ? Math.round(rect.height) : DEFAULT_H,
@@ -135,7 +134,7 @@ export default function GraphicAppPane({ display = ':99', title, desktop, fps }:
 
   // ── Pane resize → ask the server to resize the X display ─────
   useEffect(() => {
-    const el = wrapRef.current
+    const el = canvasWrapRef.current
     if (!el) return
 
     let timer: number | undefined
@@ -225,37 +224,43 @@ export default function GraphicAppPane({ display = ':99', title, desktop, fps }:
   }, [getCoords, send])
 
   return (
-    <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black">
-      <canvas
-        ref={canvasRef}
-        width={DEFAULT_W}
-        height={DEFAULT_H}
-        className="h-full w-full select-none"
-        style={{ objectFit: 'contain', background: '#000' }}
-        onMouseMove={onMouseMove}
-        onMouseDown={onMouseDown}
-        onMouseUp={onMouseUp}
-        onContextMenu={(e) => e.preventDefault()}
-        onKeyDown={onKeyDown}
-        onWheel={onWheel}
-        tabIndex={0}
-      />
-      {status !== 'connected' && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-black/70 backdrop-blur-sm">
-          {status === 'connecting' ? (
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
-          ) : (
-            <svg className="h-8 w-8 text-white/25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4" />
-              <path d="M12 16h.01" />
-            </svg>
-          )}
-          <p className="max-w-xs text-center text-[11px] text-white/50">
-            {status === 'disconnected' && statusMsg ? statusMsg : status === 'connecting' ? 'Connecting…' : 'Disconnected'}
-          </p>
-        </div>
-      )}
+    <div ref={wrapRef} className="flex h-full w-full flex-col overflow-hidden bg-black">
+      {/* Header bar */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.08] bg-white/[0.05] px-3 py-1.5">
+        {/* Status indicator */}
+        <div className={`h-2 w-2 rounded-full ${
+          status === 'connected' ? 'bg-green-500' :
+          status === 'connecting' ? 'bg-amber-500 animate-pulse' :
+          'bg-red-500'
+        }`} />
+        {/* Display info + status */}
+        <span className="text-[11px] font-semibold tracking-wide text-white/60">
+          DISPLAY {display}
+        </span>
+        <span className="text-[10px] text-white/40">
+          {status === 'connected' ? 'Connected' :
+           status === 'connecting' ? 'Connecting…' :
+           statusMsg || 'Disconnected'}
+        </span>
+      </div>
+
+      {/* Canvas area with margin */}
+      <div ref={canvasWrapRef} className="min-h-0 min-w-0 flex-1 p-[0.5rem]">
+        <canvas
+          ref={canvasRef}
+          width={DEFAULT_W}
+          height={DEFAULT_H}
+          className="h-full w-full select-none rounded bg-black"
+          style={{ objectFit: 'contain' }}
+          onMouseMove={onMouseMove}
+          onMouseDown={onMouseDown}
+          onMouseUp={onMouseUp}
+          onContextMenu={(e) => e.preventDefault()}
+          onKeyDown={onKeyDown}
+          onWheel={onWheel}
+          tabIndex={0}
+        />
+      </div>
     </div>
   )
 }

@@ -15,6 +15,7 @@ const COLOR_MAP: Record<string, { bg: string; text: string; letter: string }> = 
   diff: { bg: 'bg-purple-500/20', text: 'text-purple-400', letter: 'D' },
   dropbox: { bg: 'bg-pink-500/20', text: 'text-pink-400', letter: 'D' },
   graphic: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', letter: 'X' },
+  guiapp: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', letter: 'G' },
 }
 
 const DEFAULT_COLORS = { bg: 'bg-white/10', text: 'text-white/40', letter: '' }

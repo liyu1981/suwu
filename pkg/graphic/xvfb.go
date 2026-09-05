@@ -14,9 +14,9 @@ import (
 // displayRe matches local virtual display numbers (":99", ":1", ...).
 var displayRe = regexp.MustCompile(`^:(\d+)$`)
 
-// xorgCmd tracks the running Xorg process so StopDisplay can kill it
-// when the server shuts down (avoids orphaned X servers).
-var xorgCmd *exec.Cmd
+// xorgCmd/picomCmd track running processes so StopDisplay can kill them
+// when the server shuts down (avoids orphaned processes).
+var xorgCmd, picomCmd *exec.Cmd
 
 // Xorg+dummy virtual buffer ceiling (matches the generated xorg.conf's
 // Virtual option — any pane size up to 4K fits without a server restart).
@@ -66,6 +66,7 @@ func EnsureDisplay(display string, width, height int) error {
 
 	if waitReady(display, 5*time.Second) {
 		slog.Debug("graphic: Xorg ready", "display", display)
+		startPicom(display)
 		return nil
 	}
 
@@ -206,10 +207,42 @@ func startXorg(display string, width, height int) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-// StopDisplay kills the Xorg process started by EnsureDisplay, cleaning
-// up the socket and lock file. Called by the server on shutdown so the
-// X server doesn't outlive its owner.
+// startPicom launches picom (compositor) on the display so that ARGB
+// windows (like Chromium's popup menus) are properly composited. Without
+// a compositor, transparent areas appear black because the raw premultiplied
+// RGB values are captured instead of the blended result.
+func startPicom(display string) {
+	if _, err := exec.LookPath("picom"); err != nil {
+		slog.Warn("graphic: picom not installed, ARGB menus may appear black")
+		return
+	}
+	cmd := exec.Command("picom",
+		"--daemon",
+		"--backend", "xrender",
+		"--vsync",
+		"--no-fading-openclose",
+	)
+	cmd.Env = append(os.Environ(), "DISPLAY="+display)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		slog.Warn("graphic: failed to start picom", "error", err)
+		return
+	}
+	picomCmd = cmd
+	go func() { _ = cmd.Wait() }()
+	slog.Debug("graphic: picom started", "display", display)
+}
+
+// StopDisplay kills the Xorg and picom processes started by
+// EnsureDisplay, cleaning up socket and lock files. Called by the server
+// on shutdown so these processes don't outlive their owner.
 func StopDisplay() {
+	if picomCmd != nil && picomCmd.Process != nil {
+		slog.Debug("graphic: stopping picom", "pid", picomCmd.Process.Pid)
+		_ = picomCmd.Process.Kill()
+		_ = picomCmd.Wait()
+		picomCmd = nil
+	}
 	if xorgCmd != nil && xorgCmd.Process != nil {
 		slog.Debug("graphic: stopping Xorg", "pid", xorgCmd.Process.Pid)
 		_ = xorgCmd.Process.Kill()

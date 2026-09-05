@@ -28,11 +28,13 @@ func (s *Server) handleGraphicWS(w http.ResponseWriter, r *http.Request) {
 	if params.Display == "" {
 		params.Display = ":99"
 	}
-	// Default: capture the single app window — auto-picking the largest
-	// mapped window when no title is given, falling back to the full
-	// desktop while no window exists. desktop=1 forces full-desktop capture.
-	params.Mode = graphic.CaptureSingleWindow
-	if q.Get("desktop") == "1" {
+	// Default: capture the full desktop so composited overlays (popup menus,
+	// tooltips) are visible. desktop=0 also uses full desktop; this is the
+	// only mode that works correctly with a compositor like picom.
+	// Single-window mode (desktop=1) captures the window directly and misses
+	// override-redirect overlays like Chromium's burger menu.
+	params.Mode = graphic.CaptureFullDesktop
+	if q.Get("desktop") == "0" {
 		params.Mode = graphic.CaptureFullDesktop
 	}
 	if fps, err := strconv.Atoi(q.Get("fps")); err == nil && fps > 0 {

@@ -107,7 +107,7 @@ export default function GitGraphPage() {
   const mainWorktree = worktrees.find((wt) => wt.isMain);
   const base = selectedWorktree !== null && mainWorktree ? mainWorktree.branch : undefined;
 
-  const { commits, loading, loadingMore, error, hasMore, commitHead, refresh, loadMore } = useGitGraph({
+  const { commits, loading, loadingMore, error, hasMore, commitHead, refresh, loadMore, graphLayout } = useGitGraph({
     repoPath: activePath,
     branch,
     maxCount: 100,
@@ -453,7 +453,7 @@ export default function GitGraphPage() {
               <div className="min-w-0 flex-1">
                 {commits.map((commit, index) => (
                   <div key={commit.hash} data-commit-idx={index} style={{ minHeight: ROW_HEIGHT }}>
-                    <CommitRow commit={commit} isExpanded={expandedIndex === index} onClick={() => handleCommitClick(commit, index)} onContextMenu={showCommitContextMenu} onBranchContextMenu={showBranchContextMenu} onTagContextMenu={showTagContextMenu} onStashContextMenu={showStashContextMenu} />
+                    <CommitRow commit={commit} branchColors={graphLayout?.branchColors} isExpanded={expandedIndex === index} onClick={() => handleCommitClick(commit, index)} onContextMenu={showCommitContextMenu} onBranchContextMenu={showBranchContextMenu} onTagContextMenu={showTagContextMenu} onStashContextMenu={showStashContextMenu} />
                     {expandedIndex === index && repoPath && <ExpandedCommitRow repoPath={repoPath} hash={commit.hash} height={DETAILS_HEIGHT} onParentClick={handleParentClick} />}
                   </div>
                 ))}
@@ -493,7 +493,7 @@ export default function GitGraphPage() {
 }
 
 /* CommitRow — exactly ROW_HEIGHT tall to align with the graph grid */
-function CommitRow({ commit, isExpanded, onClick, onContextMenu, onBranchContextMenu, onTagContextMenu, onStashContextMenu }: { commit: GitCommit; isExpanded: boolean; onClick: () => void; onContextMenu: (e: React.MouseEvent, c: GitCommit) => void; onBranchContextMenu: (e: React.MouseEvent, branch: string) => void; onTagContextMenu: (e: React.MouseEvent, tag: { name: string; annotated: boolean }) => void; onStashContextMenu: (e: React.MouseEvent, stash: { selector: string; baseHash: string }) => void }) {
+function CommitRow({ commit, branchColors, isExpanded, onClick, onContextMenu, onBranchContextMenu, onTagContextMenu, onStashContextMenu }: { commit: GitCommit; branchColors?: Record<string, string>; isExpanded: boolean; onClick: () => void; onContextMenu: (e: React.MouseEvent, c: GitCommit) => void; onBranchContextMenu: (e: React.MouseEvent, branch: string) => void; onTagContextMenu: (e: React.MouseEvent, tag: { name: string; annotated: boolean }) => void; onStashContextMenu: (e: React.MouseEvent, stash: { selector: string; baseHash: string }) => void }) {
   const date = new Date(commit.date);
   const isUncommitted = commit.hash === 'UNCOMMITTED';
   return (
@@ -505,9 +505,9 @@ function CommitRow({ commit, isExpanded, onClick, onContextMenu, onBranchContext
       )}
       <div className="min-w-0 flex-1 truncate text-white/90">{commit.message}</div>
       <div className="ml-2 flex shrink-0 items-center gap-1">
-        {(commit.heads || []).map((h) => <span key={h} onContextMenu={(e) => { e.stopPropagation(); onBranchContextMenu(e, h); }} className="cursor-pointer rounded-full bg-blue-500/20 px-1.5 py-[1px] text-[10px] text-blue-400 hover:bg-blue-500/30">{h}</span>)}
-        {(commit.tags || []).map((t) => <span key={t.name} onContextMenu={(e) => { e.stopPropagation(); onTagContextMenu(e, t); }} className="cursor-pointer rounded-full bg-yellow-500/20 px-1.5 py-[1px] text-[10px] text-yellow-400 hover:bg-yellow-500/30">{t.name}</span>)}
-        {commit.stash && <span onContextMenu={(e) => { e.stopPropagation(); onStashContextMenu(e, commit.stash!); }} className="cursor-pointer rounded-full bg-purple-500/20 px-1.5 py-[1px] text-[10px] text-purple-400 hover:bg-purple-500/30">{commit.stash.selector}</span>}
+        {(commit.heads || []).map((h) => <span key={h} onContextMenu={(e) => { e.stopPropagation(); onBranchContextMenu(e, h); }} style={{ backgroundColor: (branchColors?.[h] ?? '#3b82f6') + '33', color: branchColors?.[h] ?? '#60a5fa' }} className="cursor-pointer rounded-full px-1.5 py-[1px] transition-[filter] hover:brightness-125">{h}</span>)}
+        {(commit.tags || []).map((t) => <span key={t.name} onContextMenu={(e) => { e.stopPropagation(); onTagContextMenu(e, t); }} className="cursor-pointer rounded-full bg-yellow-500/20 px-1.5 py-[1px] text-yellow-400 hover:bg-yellow-500/30">{t.name}</span>)}
+        {commit.stash && <span onContextMenu={(e) => { e.stopPropagation(); onStashContextMenu(e, commit.stash!); }} className="cursor-pointer rounded-full bg-purple-500/20 px-1.5 py-[1px] text-purple-400 hover:bg-purple-500/30">{commit.stash.selector}</span>}
       </div>
       <div className="ml-2 w-24 shrink-0 truncate text-white/40">{commit.author}</div>
       <div className="ml-2 w-14 shrink-0 pr-2 text-right font-mono text-[10px] text-white/40">{commit.hash.slice(0, 7)}</div>
@@ -670,3 +670,4 @@ function DiffView({ diff }: { diff: string }) {
     </pre>
   );
 }
+

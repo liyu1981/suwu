@@ -72,6 +72,8 @@ export interface GraphEdge {
 export interface GraphLayout {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** Branch name → lane color, for coloring branch label chips. */
+  branchColors: Record<string, string>;
   width: number;
   height: number;
 }
@@ -371,15 +373,22 @@ export class Graph {
       }
     }
 
-    // Generate nodes
+    // Generate nodes (and a branch-name → lane-color map for chips)
     const nodes: GraphNode[] = [];
+    const branchColors: Record<string, string> = {};
     for (const vertex of this.vertices) {
       if (vertex.getBranch() === null) continue;
 
       const point = vertex.getPoint();
+      const laneColor = this.config.colors[vertex.getColour() % this.config.colors.length];
       const color = vertex.getIsCommitted()
-        ? this.config.colors[vertex.getColour() % this.config.colors.length]
+        ? laneColor
         : '#808080';
+
+      // Map each branch label at this commit to its lane color
+      for (const head of this.commits[vertex.id]?.heads ?? []) {
+        branchColors[head] = laneColor;
+      }
 
       nodes.push({
         id: vertex.id,
@@ -396,6 +405,7 @@ export class Graph {
     return {
       nodes,
       edges,
+      branchColors,
       width: this.getContentWidth(),
       height: this.getHeight(expandedCommitIndex),
     };

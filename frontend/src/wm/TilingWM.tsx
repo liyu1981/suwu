@@ -50,6 +50,7 @@ import './plugins/forward'
 import './plugins/dropbox'
 import './plugins/gitgraph'
 import './plugins/diff'
+import './plugins/xdisplay'
 
 
 

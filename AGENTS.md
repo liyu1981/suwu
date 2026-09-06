@@ -17,3 +17,7 @@ When creating a new release version:
 6. **Release notes** — the release body MUST document what changed between this version and the previous version. Use `git log PREV..HEAD --oneline` to enumerate commits, group them by type (features, fixes, improvements), and write a clear summary.
 
 **Never delete and recreate a release with `gh release create`** — this removes CI-built binaries. If the release notes need updating, use `gh release edit vX.Y.Z --notes '...'` instead.
+
+### Co-Authored-By
+
+Do NOT add `Co-Authored-By` trailers to commit messages unless the user explicitly requests it. If you want to add one, confirm with the user first.

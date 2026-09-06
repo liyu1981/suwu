@@ -75,6 +75,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/ws/xdisplay" {
+		s.handleXDisplayWS(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/token" {
 		s.handleToken(w, r)
 		return

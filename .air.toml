@@ -9,7 +9,11 @@ tmp_dir = "tmp"
 
 [build]
 # Order matters: the web tree must be fresh before `go build` embeds it.
-cmd = "pnpm build:web && go build -ldflags \"-s -w -X suwu/pkg/version.Version=$(node -p 'require(\"./package.json\").version')\" -o ./tmp/suwu ./cmd/Suwu"
+# The vite step retries once after 2s: concurrent vite runs (e.g. a manual
+# build racing this one) corrupt the shared outDir and fail transiently;
+# without the retry, stop_on_error=false leaves the old binary running with
+# stale embedded assets and the UI silently stops updating.
+cmd = "pnpm build:web || { sleep 2; pnpm build:web; } && go build -ldflags \"-s -w -X suwu/pkg/version.Version=$(node -p 'require(\"./package.json\").version')\" -o ./tmp/suwu ./cmd/Suwu"
 bin = "./tmp/suwu"
 args_bin = ["serve", "--env-file", ".env"]
 include_ext = ["go", "ts", "tsx", "css", "html", "mod", "sum"]

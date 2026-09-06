@@ -60,10 +60,13 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
   // Default config
   const defaultConfig: GraphConfig = {
     style: 'curved',
+    // Bright palette tuned for the app's dark backgrounds (the original
+    // vscode-git-graph colors are GitHub-light and too dim here). Adjacent
+    // slots alternate warm/cool hues to keep neighbouring lanes distinct.
     colors: [
-      '#0366d6', '#6f42c1', '#e36209', '#00875a', '#5067d6',
-      '#f97583', '#79b8ff', '#b392f0', '#f9826c', '#85e89d',
-      '#56d4dd', '#da3633', '#fdd663', '#0457c0', '#6e40c9',
+      '#58a6ff', '#f778ba', '#7ee787', '#e3b341', '#bc8cff',
+      '#ffa657', '#56d4dd', '#f85149', '#a3e635', '#d2a8ff',
+      '#ffa198', '#79c0ff', '#ffdf5d', '#3fb950', '#f0abfc',
     ],
     grid: {
       x: 24,

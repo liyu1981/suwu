@@ -16,8 +16,26 @@ interface GraphicAppProps {
 
 type ConnState = 'connecting' | 'connected' | 'disconnected'
 
+type DepComponent = {
+  name: string
+  description: string
+  installed: boolean
+}
+
+type DepError = {
+  type: 'missing_deps'
+  components: DepComponent[]
+  install: Record<string, string>
+}
+
 const DEFAULT_W = 1280
 const DEFAULT_H = 720
+
+const distroLabels: Record<string, string> = {
+  debian: 'Ubuntu / Debian',
+  redhat: 'Red Hat / CentOS / Fedora',
+  arch: 'Arch Linux',
+}
 
 /**
  * GUIAppPane — streams a remote X11 display onto a canvas and injects
@@ -31,6 +49,7 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
   const wsRef = useRef<WebSocket | null>(null)
   const [status, setStatus] = useState<ConnState>('connecting')
   const [statusMsg, setStatusMsg] = useState('')
+  const [depError, setDepError] = useState<DepError | null>(null)
   const fpsSetting = useAtomValue(xdisplayFpsAtom)
   const fps = fpsProp ?? fpsSetting
 
@@ -81,6 +100,7 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
     const connect = async () => {
       if (disposed) return
       setStatus('connecting')
+      setDepError(null)
       try {
         const token = await fetchToken()
         if (disposed) return
@@ -106,6 +126,17 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
         ws.onclose = (ev) => {
           if (disposed) return
           setStatus('disconnected')
+          // Try to parse structured dependency error from server.
+          try {
+            const data = JSON.parse(ev.reason)
+            if (data.type === 'missing_deps') {
+              setDepError(data as DepError)
+              setStatusMsg('')
+              return
+            }
+          } catch {
+            // Not JSON — use raw reason.
+          }
           setStatusMsg(ev.reason || 'Connection closed')
           // Cap retries at ~5s; the server sends a reason on failure.
           attempt = Math.min(attempt + 1, 5)
@@ -132,6 +163,14 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
       wsRef.current = null
     }
   }, [display, title, desktop, fps, drawFrame])
+
+  const handleRetry = useCallback(() => {
+    setDepError(null)
+    setStatusMsg('')
+    // Trigger reconnection by closing existing ws.
+    wsRef.current?.close()
+    wsRef.current = null
+  }, [])
 
   // ── Pane resize → ask the server to resize the X display ─────
   useEffect(() => {
@@ -241,7 +280,7 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
         <span className="text-[10px] text-white/40">
           {status === 'connected' ? 'Connected' :
            status === 'connecting' ? 'Connecting…' :
-           statusMsg || 'Disconnected'}
+           depError ? 'Missing dependencies' : statusMsg || 'Disconnected'}
         </span>
       </div>
 
@@ -262,6 +301,64 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
           tabIndex={0}
         />
       </div>
+
+      {/* Dependency error overlay */}
+      {depError && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="mx-4 max-w-md rounded-xl border border-white/10 bg-gray-900 p-5 shadow-2xl">
+            <div className="mb-4 flex items-center gap-2">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4" />
+                <path d="M12 16h.01" />
+              </svg>
+              <h3 className="text-sm font-semibold text-white">X Display Requirements Not Met</h3>
+            </div>
+
+            {/* Component status list */}
+            <div className="mb-4 rounded-lg border border-white/5 bg-black/30 p-3">
+              {depError.components.map((c) => (
+                <div key={c.name} className="flex items-center gap-2 py-1">
+                  {c.installed ? (
+                    <svg className="h-4 w-4 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    <svg className="h-4 w-4 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6L6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  )}
+                  <span className={`text-xs ${c.installed ? 'text-white/60' : 'text-white/90'}`}>
+                    {c.name}
+                    <span className="ml-1.5 text-white/40">{c.description}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Install commands */}
+            <div className="mb-4 space-y-2">
+              <p className="text-[11px] font-medium text-white/50">Install missing packages:</p>
+              {Object.entries(depError.install).map(([distro, cmd]) => (
+                <div key={distro} className="rounded-md bg-black/40 px-3 py-2">
+                  <p className="mb-1 text-[10px] font-medium text-white/40 capitalize">{distroLabels[distro] ?? distro}</p>
+                  <code className="block font-mono text-[11px] text-green-400/90">{cmd}</code>
+                </div>
+              ))}
+            </div>
+
+            {/* Retry button */}
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="w-full rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20"
+            >
+              🔄 Retry
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

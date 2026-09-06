@@ -6,13 +6,140 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
 
 // displayRe matches local virtual display numbers (":99", ":1", ...).
 var displayRe = regexp.MustCompile(`^:(\d+)$`)
+
+// DepComponent describes one system dependency.
+type DepComponent struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Installed   bool   `json:"installed"`
+}
+
+// DepError is returned when required system dependencies are missing.
+type DepError struct {
+	Components []DepComponent     `json:"components"`
+	Install    map[string]string  `json:"install"` // distro -> install command
+}
+
+func (e *DepError) Error() string {
+	var missing []string
+	for _, c := range e.Components {
+		if !c.Installed {
+			missing = append(missing, c.Name)
+		}
+	}
+	return fmt.Sprintf("missing dependencies: %s", strings.Join(missing, ", "))
+}
+
+// requiredBins lists the binaries that must exist on the system.
+var requiredBins = []struct {
+	Bin         string
+	Description string
+}{
+	{"Xorg", "X server"},
+	{"xdotool", "input injection"},
+	{"picom", "compositor"},
+}
+
+// distroPackages maps distro families to their package names for each
+// required binary (same order as requiredBins).
+var distroPackages = map[string][]string{
+	"debian": {"xserver-xorg-core", "xserver-xorg-video-dummy", "xdotool", "picom"},
+	"redhat": {"xorg-x11-server-Xorg", "xorg-x11-dummy-driver", "xdotool", "picom"},
+	"arch":   {"xorg-server", "xf86-video-dummy", "xdotool", "picom"},
+}
+
+// distroInstallCmd maps distro families to one-liner install commands.
+var distroInstallCmd = map[string]string{
+	"debian": "sudo apt install xserver-xorg-core xserver-xorg-video-dummy xdotool picom",
+	"redhat": "sudo dnf install xorg-x11-server-Xorg xorg-x11-dummy-driver xdotool picom",
+	"arch":   "sudo pacman -S xorg-server xf86-video-dummy xdotool picom",
+}
+
+// CheckDependencies verifies that all required system binaries are
+// available. Returns nil if everything is installed, or a *DepError
+// describing what's missing and how to install it.
+func CheckDependencies() *DepError {
+	var components []DepComponent
+	allOk := true
+
+	for _, req := range requiredBins {
+		_, err := exec.LookPath(req.Bin)
+		components = append(components, DepComponent{
+			Name:        req.Bin,
+			Description: req.Description,
+			Installed:   err == nil,
+		})
+		if err != nil {
+			allOk = false
+		}
+	}
+
+	if allOk {
+		return nil
+	}
+
+	// Build filtered install command (only missing packages).
+	install := buildInstallCommands(components)
+
+	return &DepError{
+		Components: components,
+		Install:    install,
+	}
+}
+
+// detectDistro reads /etc/os-release to determine the distro family.
+func detectDistro() string {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		if runtime.GOOS == "linux" {
+			return "debian" // fallback
+		}
+		return ""
+	}
+	content := strings.ToLower(string(data))
+	switch {
+	case strings.Contains(content, "id=ubuntu") || strings.Contains(content, "id=debian") ||
+		strings.Contains(content, "id=linuxmint") || strings.Contains(content, "id=pop"):
+		return "debian"
+	case strings.Contains(content, "id=fedora") || strings.Contains(content, "id=centos") ||
+		strings.Contains(content, "id=rhel") || strings.Contains(content, "id=rocky") ||
+		strings.Contains(content, "id=almalinux"):
+		return "redhat"
+	case strings.Contains(content, "id=arch") || strings.Contains(content, "id=endeavouros"):
+		return "arch"
+	default:
+		return "debian" // fallback
+	}
+}
+
+// buildInstallCommands builds per-distro install commands containing
+// only the missing packages.
+func buildInstallCommands(components []DepComponent) map[string]string {
+	// Collect missing package names per distro.
+	allMissing := map[string][]string{}
+	for distro, pkgs := range distroPackages {
+		for i, comp := range components {
+			if !comp.Installed {
+				allMissing[distro] = append(allMissing[distro], pkgs[i])
+			}
+		}
+	}
+
+	result := map[string]string{}
+	result["debian"] = "sudo apt install " + strings.Join(allMissing["debian"], " ")
+	result["redhat"] = "sudo dnf install " + strings.Join(allMissing["redhat"], " ")
+	result["arch"] = "sudo pacman -S " + strings.Join(allMissing["arch"], " ")
+	return result
+}
 
 // xorgCmd/picomCmd track running processes so StopDisplay can kill them
 // when the server shuts down (avoids orphaned processes).

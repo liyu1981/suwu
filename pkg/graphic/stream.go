@@ -38,6 +38,14 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 		params.FPS = MaxFPS
 	}
 
+	// Check system dependencies before attempting to start the display.
+	if depErr := CheckDependencies(); depErr != nil {
+		slog.Warn("graphic: missing dependencies", "error", depErr)
+		data, _ := json.Marshal(depErr)
+		_ = conn.Close(websocket.StatusInternalError, string(data))
+		return
+	}
+
 	if err := EnsureDisplay(params.Display, params.Width, params.Height); err != nil {
 		slog.Warn("graphic: display not available", "display", params.Display, "error", err)
 		_ = conn.Close(websocket.StatusInternalError, err.Error())

@@ -122,6 +122,11 @@ func main() {
 				log.Fatalf("upgrade: %v", err)
 			}
 			return
+		case "use":
+			if err := useCmd(os.Args[2:]); err != nil {
+				log.Fatalf("use: %v", err)
+			}
+			return
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -165,6 +170,8 @@ Usage:
                            manage a background daemon (default data: ~/.suwu)
   suwu upgrade [--check] [--force]
                            check for updates and upgrade if available
+  suwu use [--sock <path>] <command> [args...]
+                           run command with DISPLAY set to available X display
 
 Configuration precedence:
   --env-file explicitly given → that file only
@@ -327,6 +334,20 @@ Examples:
   suwu upgrade --check
   suwu upgrade --force
 `)
+case "use":
+	fmt.Print(`Usage: suwu use [--sock <path>] <command> [args...]
+
+Run a command with DISPLAY set to an available X display.
+Shows a TUI to select which display to use.
+
+Flags:
+  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock)
+
+Examples:
+  suwu use chromium --new-window https://www.google.com
+  suwu use firefox
+  suwu use xterm
+`)
 	default:
 		fmt.Printf("Unknown subcommand: %s\nRun 'suwu help' for usage.\n", cmd)
 	}
@@ -453,6 +474,7 @@ func run() error {
 
 	forwardManager := forward.NewManager()
 	registerForwardHandlers(notifyListener, forwardManager)
+	registerXDisplayHandlers(notifyListener)
 
 	// Data directory (default ~/.suwu, override with SUWU_VAR).
 	dataDir := os.Getenv("SUWU_VAR")
@@ -922,6 +944,16 @@ func registerForwardHandlers(l *notify.Listener, mgr *forward.Manager) {
 	l.RegisterHandler("forward-list", func(cmd notify.Command) notify.CommandResponse {
 		all := mgr.StatusAll()
 		data, _ := json.Marshal(all)
+		return notify.CommandResponse{OK: true, Data: data}
+	})
+}
+
+func registerXDisplayHandlers(l *notify.Listener) {
+	l.RegisterHandler("xdisplay-list", func(cmd notify.Command) notify.CommandResponse {
+		displays := xdisplay.ListActiveDisplays()
+		data, _ := json.Marshal(struct {
+			Displays []string `json:"displays"`
+		}{Displays: displays})
 		return notify.CommandResponse{OK: true, Data: data}
 	})
 }

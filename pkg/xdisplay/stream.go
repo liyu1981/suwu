@@ -79,6 +79,23 @@ func ReleaseDisplay(display, connectionID string) {
 	}
 }
 
+// ListActiveDisplays returns a list of currently active display numbers.
+func ListActiveDisplays() []string {
+	activeDisplaysMu.Lock()
+	defer activeDisplaysMu.Unlock()
+
+	var displays []string
+	for display := range activeDisplays {
+		// Strip the colon prefix for display number.
+		num := display
+		if len(num) > 0 && num[0] == ':' {
+			num = num[1:]
+		}
+		displays = append(displays, num)
+	}
+	return displays
+}
+
 // startReaper starts a timer to kill the Xorg after reaperTimeout.
 // Must be called with activeDisplaysMu held.
 func startReaper(display string) {

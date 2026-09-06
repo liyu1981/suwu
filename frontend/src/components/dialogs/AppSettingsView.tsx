@@ -14,7 +14,7 @@ import {
   fontFamilyAtom,
   termThemeAtom,
 } from '../../store/appearance'
-import { dropboxZoomAtom, diffZoomAtom, fileBrowserZoomAtom, forwardZoomAtom, gitGraphZoomAtom, guiappFpsAtom, clampZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from '../../store/zoom'
+import { dropboxZoomAtom, diffZoomAtom, fileBrowserZoomAtom, forwardZoomAtom, gitGraphZoomAtom, xdisplayFpsAtom, clampZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from '../../store/zoom'
 import { ZoomControls } from '../ZoomControls'
 import { THEME_PRESETS, matchPresetId } from '../../store/themePresets'
 import { alphaOf, hex6Of, withAlpha } from '../../lib/color'
@@ -175,7 +175,7 @@ export default function AppSettingsView(props: { onClose: () => void }) {
   const [gitGraphZoom, setGitGraphZoom] = useAtom(gitGraphZoomAtom)
   const [diffZoom, setDiffZoom] = useAtom(diffZoomAtom)
   const [diffFontFamily, setDiffFontFamily] = useAtom(diffFontFamilyAtom)
-  const [guiappFps, setGuiappFps] = useAtom(guiappFpsAtom)
+  const [xdisplayFps, setXdisplayFps] = useAtom(xdisplayFpsAtom)
 
   // ── Collapsible groups state ────────────────────────────────────
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -544,14 +544,14 @@ export default function AppSettingsView(props: { onClose: () => void }) {
           <div className={section}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.guiappFps')}</span>
-              <span className="font-mono text-xs text-popover-foreground">{guiappFps} FPS</span>
+              <span className="font-mono text-xs text-popover-foreground">{xdisplayFps} FPS</span>
             </div>
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
-                onClick={() => setGuiappFps(30)}
+                onClick={() => setXdisplayFps(30)}
                 className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  guiappFps === 30
+                  xdisplayFps === 30
                     ? 'bg-sky-500/25 text-sky-300'
                     : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-popover-foreground'
                 }`}
@@ -560,9 +560,9 @@ export default function AppSettingsView(props: { onClose: () => void }) {
               </button>
               <button
                 type="button"
-                onClick={() => setGuiappFps(60)}
+                onClick={() => setXdisplayFps(60)}
                 className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  guiappFps === 60
+                  xdisplayFps === 60
                     ? 'bg-sky-500/25 text-sky-300'
                     : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-popover-foreground'
                 }`}

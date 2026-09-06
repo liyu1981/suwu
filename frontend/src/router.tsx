@@ -72,15 +72,9 @@ const diffRoute = createRoute({
   component: DiffPage,
 })
 
-const graphicRoute = createRoute({
+const xdisplayRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/graphic',
-  component: GUIAppPage,
-})
-
-const guiappRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/guiapp',
+  path: '/xdisplay',
   component: GUIAppPage,
 })
 
@@ -93,8 +87,7 @@ const routeTree = rootRoute.addChildren([
   dropboxRoute,
   gitgraphRoute,
   diffRoute,
-  graphicRoute,
-  guiappRoute,
+  xdisplayRoute,
 ])
 
 export const router = createRouter({ routeTree })

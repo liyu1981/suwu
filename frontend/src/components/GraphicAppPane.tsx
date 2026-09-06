@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { fetchToken } from '../lib/api'
-import { guiappFpsAtom } from '../store/zoom'
+import { xdisplayFpsAtom } from '../store/zoom'
 
 interface GraphicAppProps {
-  /** X11 display to stream, e.g. ":99". */
+  /** X11 display number to stream, e.g. "99" for :99. */
   display?: string
   /** When set, capture only the window matching this WM_CLASS/name. */
   title?: string
@@ -24,14 +24,14 @@ const DEFAULT_H = 720
  * mouse/keyboard input back into it. Shows a header with the display
  * number and connection status.
  */
-export default function GUIAppPane({ display = ':99', title, desktop, fps: fpsProp }: GraphicAppProps) {
+export default function GUIAppPane({ display = '99', title, desktop, fps: fpsProp }: GraphicAppProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasWrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const [status, setStatus] = useState<ConnState>('connecting')
   const [statusMsg, setStatusMsg] = useState('')
-  const fpsSetting = useAtomValue(guiappFpsAtom)
+  const fpsSetting = useAtomValue(xdisplayFpsAtom)
   const fps = fpsProp ?? fpsSetting
 
   // ── Frame rendering (latest-wins decode, frame-sized canvas) ─
@@ -86,7 +86,8 @@ export default function GUIAppPane({ display = ':99', title, desktop, fps: fpsPr
         if (disposed) return
 
         const { w, h } = paneSize()
-        const params = new URLSearchParams({ display, token, w: String(w), h: String(h) })
+    const displayParam = display.startsWith(':') ? display : `:${display}`
+        const params = new URLSearchParams({ display: displayParam, token, w: String(w), h: String(h) })
         if (title) params.set('title', title)
         if (desktop) params.set('desktop', desktop)
         if (fps && fps !== 30) params.set('fps', String(fps))
@@ -235,7 +236,7 @@ export default function GUIAppPane({ display = ':99', title, desktop, fps: fpsPr
         }`} />
         {/* Display info + status */}
         <span className="text-[11px] font-semibold tracking-wide text-white/60">
-          DISPLAY {display}
+          DISPLAY :{display.replace(/^:/, '')}
         </span>
         <span className="text-[10px] text-white/40">
           {status === 'connected' ? 'Connected' :

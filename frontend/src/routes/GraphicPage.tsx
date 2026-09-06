@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import GUIAppPane from '../components/GraphicAppPane'
 import { CommonTileContainer } from '../components/CommonTileContainer'
-import { graphicZoomAtom } from '../store/zoom'
+import { xdisplayZoomAtom } from '../store/zoom'
 import { setPageTransparent } from '../lib/constants'
 
 /**
@@ -25,7 +25,7 @@ export default function GUIAppPage() {
   }, [])
 
   return (
-    <CommonTileContainer zoomAtom={graphicZoomAtom} noPadding>
+    <CommonTileContainer zoomAtom={xdisplayZoomAtom} noPadding>
       <GUIAppPane key={`${paneId}-${display ?? ''}-${title ?? ''}-${desktop ?? ''}-${fps ?? ''}`} display={display} title={title} desktop={desktop} fps={fps} />
     </CommonTileContainer>
   )

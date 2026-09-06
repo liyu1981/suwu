@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"suwu/pkg/auth"
 	"suwu/pkg/graphic"
@@ -27,6 +28,8 @@ func (s *Server) handleGraphicWS(w http.ResponseWriter, r *http.Request) {
 	}
 	if params.Display == "" {
 		params.Display = ":99"
+	} else if !strings.HasPrefix(params.Display, ":") {
+		params.Display = ":" + params.Display
 	}
 	// Default: capture the full desktop so composited overlays (popup menus,
 	// tooltips) are visible. desktop=0 also uses full desktop; this is the

@@ -43,7 +43,7 @@ interface LegacyAppMenuItem {
 
 // ── Atom ─────────────────────────────────────────────────────────
 
-const EMPTY_STATE: AppMenuState = { hiddenApps: ['guiapp'], customApps: [] }
+const EMPTY_STATE: AppMenuState = { hiddenApps: [], customApps: [] }
 
 /**
  * Persisted app menu state. Uses a blacklist model: all registry apps

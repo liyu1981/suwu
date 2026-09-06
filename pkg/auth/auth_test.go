@@ -2,7 +2,9 @@ package auth
 
 import (
 	"encoding/base64"
+	"strconv"
 	"testing"
+	"time"
 )
 
 func TestParseHostHeader(t *testing.T) {
@@ -225,9 +227,117 @@ func TestCreateConfigDefaultNoPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.BindHost != "127.0.0.1" {
-		t.Errorf("default bind host = %q, want 127.0.0.1", cfg.BindHost)
+		t.Errorf("bind host = %q, want 127.0.0.1", cfg.BindHost)
 	}
 	if cfg.PasswordHash != "" {
 		t.Error("default config should not require password")
+	}
+}
+
+func TestGenerateSigningKey(t *testing.T) {
+	key1 := GenerateSigningKey("token1")
+	key2 := GenerateSigningKey("token1")
+	key3 := GenerateSigningKey("token2")
+	if len(key1) != 32 {
+		t.Errorf("key length = %d, want 32", len(key1))
+	}
+	// Same token → same key.
+	for i := range key1 {
+		if key1[i] != key2[i] {
+			t.Fatal("same token produced different keys")
+		}
+	}
+	// Different token → different key.
+	same := true
+	for i := range key1 {
+		if key1[i] != key3[i] {
+			same = false
+			break
+		}
+	}
+	if same {
+		t.Fatal("different tokens produced same key")
+	}
+}
+
+func TestSignAndValidate(t *testing.T) {
+	key := GenerateSigningKey("test-token")
+	sig := SignRequest(key, "GET", "/api/files", "1700000000")
+	if sig == "" {
+		t.Fatal("SignRequest returned empty signature")
+	}
+	// Valid signature.
+	if !ValidateSignature(key, "GET", "/api/files", "1700000000", sig) {
+		t.Fatal("valid signature rejected")
+	}
+	// Wrong method.
+	if ValidateSignature(key, "POST", "/api/files", "1700000000", sig) {
+		t.Fatal("wrong method accepted")
+	}
+	// Wrong path.
+	if ValidateSignature(key, "GET", "/api/other", "1700000000", sig) {
+		t.Fatal("wrong path accepted")
+	}
+	// Wrong timestamp.
+	if ValidateSignature(key, "GET", "/api/files", "1700000001", sig) {
+		t.Fatal("wrong timestamp accepted")
+	}
+	// Wrong key.
+	wrongKey := GenerateSigningKey("other-token")
+	if ValidateSignature(wrongKey, "GET", "/api/files", "1700000000", sig) {
+		t.Fatal("wrong key accepted")
+	}
+}
+
+func TestValidateTimestamp(t *testing.T) {
+	now := time.Now().Unix()
+	// Current time — should pass.
+	if !ValidateTimestamp(strconv.FormatInt(now, 10), 60*time.Second) {
+		t.Fatal("current timestamp rejected")
+	}
+	// 30 seconds ago — should pass.
+	if !ValidateTimestamp(strconv.FormatInt(now-30, 10), 60*time.Second) {
+		t.Fatal("30s old timestamp rejected")
+	}
+	// 90 seconds ago — should fail.
+	if ValidateTimestamp(strconv.FormatInt(now-90, 10), 60*time.Second) {
+		t.Fatal("90s old timestamp accepted")
+	}
+	// Future timestamp — should fail.
+	if ValidateTimestamp(strconv.FormatInt(now+10, 10), 60*time.Second) {
+		t.Fatal("future timestamp accepted")
+	}
+	// Invalid string — should fail.
+	if ValidateTimestamp("not-a-number", 60*time.Second) {
+		t.Fatal("invalid string accepted")
+	}
+}
+
+func TestTokenRotation(t *testing.T) {
+	cfg := &Config{
+		Token:       "initial-token",
+		SigningKey:  GenerateSigningKey("initial-token"),
+		TokenExpiry: time.Now().Add(-time.Hour), // expired
+	}
+	// Token should be invalid (expired).
+	if cfg.TokenValid() {
+		t.Fatal("expired token reported as valid")
+	}
+	// Rotate.
+	newToken, err := cfg.RotateToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newToken == "initial-token" {
+		t.Fatal("token was not rotated")
+	}
+	if !cfg.TokenValid() {
+		t.Fatal("new token reported as invalid")
+	}
+	// Old signing key should not validate new token's signatures.
+	oldKey := GenerateSigningKey("initial-token")
+	sig := SignRequest(cfg.SigningKey, "GET", "/test", "1700000000")
+	if ValidateSignature(oldKey, "GET", "/test", "1700000000", sig) {
+		t.Fatal("old key accepted new signature")
 	}
 }

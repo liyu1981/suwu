@@ -19,7 +19,7 @@ func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -72,7 +72,7 @@ func (s *Server) handleUpdateUpgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 

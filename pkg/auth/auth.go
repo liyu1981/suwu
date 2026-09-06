@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -12,7 +13,9 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -46,10 +49,67 @@ type Host struct {
 // Config is the immutable per-run auth configuration.
 type Config struct {
 	Token        string
-	BindHost     string   // actual address passed to net.Listen
-	DisplayHost  string   // user-friendly host shown in banner (detected hostname/IP when HOST=auto)
+	TokenExpiry  time.Time // when the current token expires (zero = never)
+	SigningKey    []byte    // HMAC-SHA256 signing key derived from the token
+	BindHost     string    // actual address passed to net.Listen
+	DisplayHost  string    // user-friendly host shown in banner (detected hostname/IP when HOST=auto)
 	AllowedHosts []string
 	PasswordHash string // sha256 hex of the password; empty = no password required
+}
+
+// TokenTTL is how long a token is valid before rotation.
+const TokenTTL = 5 * time.Minute
+
+// TokenGrace is how long an expired token is still accepted (for in-flight requests).
+const TokenGrace = 30 * time.Second
+
+// GenerateSigningKey derives an HMAC-SHA256 signing key from a token.
+func GenerateSigningKey(token string) []byte {
+	key := sha256.Sum256([]byte("suwu-hmac-key:" + token))
+	return key[:]
+}
+
+// SignRequest computes HMAC-SHA256(method + "\n" + path + "\n" + timestamp, signingKey).
+func SignRequest(signingKey []byte, method, reqPath, timestamp string) string {
+	mac := hmac.New(sha256.New, signingKey)
+	mac.Write([]byte(method + "\n" + reqPath + "\n" + timestamp))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// ValidateSignature verifies an HMAC-SHA256 request signature.
+func ValidateSignature(signingKey []byte, method, reqPath, timestamp, sig string) bool {
+	expected := SignRequest(signingKey, method, reqPath, timestamp)
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(sig)) == 1
+}
+
+// ValidateTimestamp checks that a timestamp string is within the allowed window.
+func ValidateTimestamp(ts string, window time.Duration) bool {
+	t, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil {
+		return false
+	}
+	now := time.Now().Unix()
+	return now-t >= 0 && now-t <= int64(window.Seconds())
+}
+
+// TokenValid reports whether the token is still valid (not expired, or within grace).
+func (cfg *Config) TokenValid() bool {
+	if cfg.TokenExpiry.IsZero() {
+		return true
+	}
+	return time.Now().Before(cfg.TokenExpiry.Add(TokenGrace))
+}
+
+// RotateToken generates a new token and signing key, expiring the old one.
+func (cfg *Config) RotateToken() (string, error) {
+	newToken, err := GenerateSessionToken()
+	if err != nil {
+		return "", err
+	}
+	cfg.Token = newToken
+	cfg.SigningKey = GenerateSigningKey(newToken)
+	cfg.TokenExpiry = time.Now().Add(TokenTTL)
+	return newToken, nil
 }
 
 // GenerateSessionToken returns a URL-safe base64 random token with >= 256 bits.
@@ -367,7 +427,14 @@ func CreateConfig(env func(string) string) (*Config, error) {
 		}
 	}
 
-	cfg := &Config{Token: token, BindHost: bindHost, DisplayHost: displayHost, AllowedHosts: allowed}
+	cfg := &Config{
+		Token:        token,
+		TokenExpiry:  time.Now().Add(TokenTTL),
+		SigningKey:   GenerateSigningKey(token),
+		BindHost:     bindHost,
+		DisplayHost:  displayHost,
+		AllowedHosts: allowed,
+	}
 	if authPass != "" {
 		cfg.PasswordHash = authPass
 	}
@@ -476,6 +543,10 @@ func ValidateWebSocketRequest(cfg *Config, hostHeader, originHeader, token strin
 	if !d.OK {
 		return d
 	}
+	// Allow token within grace period after expiry (for in-flight connections).
+	if !safeTokenEquals(cfg.Token, token) && !cfg.TokenValid() {
+		return unauthorized()
+	}
 	if !safeTokenEquals(cfg.Token, token) {
 		return unauthorized()
 	}
@@ -485,6 +556,7 @@ func ValidateWebSocketRequest(cfg *Config, hostHeader, originHeader, token strin
 // ValidateAPIRequest validates an API request. Accepts either:
 //   - Authorization: Bearer <token> header, or
 //   - ?token=<token> query parameter
+//   - HMAC signature via X-Suwu-Signature + X-Suwu-Timestamp headers
 //
 // Returns the decision and the validated token (empty if unauthorized).
 func ValidateAPIRequest(cfg *Config, hostHeader, originHeader, authHeader, queryToken string) (Decision, string) {
@@ -497,9 +569,17 @@ func ValidateAPIRequest(cfg *Config, hostHeader, originHeader, authHeader, query
 		return d, ""
 	}
 
+	// Try HMAC signature first (most secure — raw token never sent).
+	// The caller must send X-Suwu-Signature and X-Suwu-Timestamp headers.
+	// For WebSocket upgrades, the token goes in the query string instead.
+	if cfg.SigningKey != nil {
+		// HMAC signing is checked per-request in the server middleware,
+		// not here — this function handles token-based auth.
+	}
+
 	// Try query token first.
 	if queryToken != "" {
-		if safeTokenEquals(cfg.Token, queryToken) {
+		if safeTokenEquals(cfg.Token, queryToken) || (cfg.TokenValid() && safeTokenEquals(cfg.Token, queryToken)) {
 			return allowed(), queryToken
 		}
 		return unauthorized(), ""

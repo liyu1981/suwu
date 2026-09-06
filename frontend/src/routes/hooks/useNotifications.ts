@@ -98,7 +98,7 @@ export function useNotifications() {
     const connect = async () => {
       if (disposed) return
       try {
-        const token = await fetchToken()
+        const { token } = await fetchToken()
         if (!disposed) open(token)
       } catch {
         if (disposed) return

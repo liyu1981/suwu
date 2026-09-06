@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"suwu/pkg/auth"
@@ -23,6 +24,23 @@ import (
 	"suwu/pkg/notify"
 	"suwu/pkg/session"
 )
+
+// CSP is the Content-Security-Policy applied to all HTML responses.
+// - No inline scripts, no eval, no remote scripts
+// - WebSocket connections allowed to same origin
+// - Frame ancestors blocked (no framing by other pages)
+const csp =
+	"default-src 'self'; " +
+		"script-src 'self'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"connect-src 'self' ws: wss:; " +
+		"img-src 'self' data: blob:; " +
+		"font-src 'self'; " +
+		"object-src 'none'; " +
+		"frame-ancestors 'self'; " +
+		"base-uri 'self'; " +
+		"form-action 'self'; " +
+		"frame-src 'self'"
 
 var mimeTypes = map[string]string{
 	".html": "text/html",
@@ -45,12 +63,22 @@ type Server struct {
 	forwards  *forward.Manager
 	dataDir   string
 	startedAt time.Time
+	rateLimit *RateLimiter
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
 // and managing keyed PTY sessions through mgr.
 func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener, fwds *forward.Manager, dataDir string) *Server {
-	return &Server{cfg: cfg, assets: assetsFS, sessions: sessions, notify: nl, forwards: fwds, dataDir: dataDir, startedAt: time.Now()}
+	return &Server{
+		cfg:       cfg,
+		assets:    assetsFS,
+		sessions:  sessions,
+		notify:    nl,
+		forwards:  fwds,
+		dataDir:   dataDir,
+		startedAt: time.Now(),
+		rateLimit: NewRateLimiter(),
+	}
 }
 
 // StartedAt returns the server's start timestamp.
@@ -285,12 +313,88 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 	if ctype, ok := mimeTypes[path.Ext(name)]; ok {
 		w.Header().Set("Content-Type", ctype)
 	}
+	// Security headers (CSP set only on HTML documents to avoid blocking WebSocket upgrades)
+	if path.Ext(name) == ".html" {
+		w.Header().Set("Content-Security-Policy", csp)
+	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(data)
 }
 
+// RateLimiter tracks request counts per token for rate limiting.
+type RateLimiter struct {
+	mu      sync.Mutex
+	buckets map[string]*tokenBucket
+}
+
+type tokenBucket struct {
+	count    int
+	resetAt  time.Time
+}
+
+const rateLimitWindow = time.Minute
+const rateLimitMax = 60 // max requests per window for destructive ops
+
+func NewRateLimiter() *RateLimiter {
+	return &RateLimiter{buckets: make(map[string]*tokenBucket)}
+}
+
+// Allow checks whether a request from the given token is allowed.
+func (rl *RateLimiter) Allow(token string) bool {
+	if token == "" {
+		return true // no token = not yet authenticated, allow
+	}
+	now := time.Now()
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	b, ok := rl.buckets[token]
+	if !ok || now.After(b.resetAt) {
+		rl.buckets[token] = &tokenBucket{count: 1, resetAt: now.Add(rateLimitWindow)}
+		return true
+	}
+	if b.count >= rateLimitMax {
+		return false
+	}
+	b.count++
+	return true
+}
+
+// validateHMAC checks the X-Suwu-Signature and X-Suwu-Timestamp headers.
+// Returns true if the signature is valid.
+func validateHMAC(cfg *auth.Config, r *http.Request) bool {
+	sig := r.Header.Get("X-Suwu-Signature")
+	ts := r.Header.Get("X-Suwu-Timestamp")
+	if sig == "" || ts == "" {
+		return false
+	}
+	if cfg.SigningKey == nil {
+		return false
+	}
+	// Validate timestamp is within 60 seconds.
+	if !auth.ValidateTimestamp(ts, 60*time.Second) {
+		return false
+	}
+	return auth.ValidateSignature(cfg.SigningKey, r.Method, r.URL.Path, ts, sig)
+}
+
 // validateRequest is a helper that validates an API request and writes an
-// error response if unauthorized. Returns the validated token or "" if failed.
-func validateRequest(w http.ResponseWriter, r *http.Request, cfg *auth.Config) string {
+// error response if unauthorized. Accepts HMAC signatures, query tokens,
+// and Authorization headers. Returns the validated token or "" if failed.
+func (s *Server) validateRequest(w http.ResponseWriter, r *http.Request) string {
+	cfg := s.cfg
+	// 1. Try HMAC signature first (most secure — raw token never sent).
+	if validateHMAC(cfg, r) {
+		// HMAC valid — check rate limit.
+		if !s.validateRequestRateLimit(w, r, cfg) {
+			return ""
+		}
+		return cfg.Token
+	}
+
+	// 2. Fall back to token-based auth.
 	token := r.URL.Query().Get("token")
 	slog.Debug("validateRequest", "host", r.Host, "origin", r.Header.Get("Origin"),
 		"hasQueryToken", token != "", "hasAuthHeader", r.Header.Get("Authorization") != "",
@@ -302,7 +406,32 @@ func validateRequest(w http.ResponseWriter, r *http.Request, cfg *auth.Config) s
 		writePlain(w, d.Status, d.Reason)
 		return ""
 	}
+
+	// Check rate limit.
+	if !s.validateRequestRateLimit(w, r, cfg) {
+		return ""
+	}
+
 	return validated
+}
+
+// validateRequestRateLimit checks rate limits for destructive operations.
+func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request, cfg *auth.Config) bool {
+	// Only rate-limit destructive endpoints.
+	destructive := strings.HasPrefix(r.URL.Path, "/api/file/") ||
+		strings.HasPrefix(r.URL.Path, "/api/dropbox/") ||
+		strings.HasPrefix(r.URL.Path, "/api/forward/") ||
+		strings.HasPrefix(r.URL.Path, "/api/update/")
+	if !destructive {
+		return true
+	}
+	token := cfg.Token // use the canonical token for rate limit key
+	if !s.rateLimit.Allow(token) {
+		slog.Warn("rate limit exceeded", "path", r.URL.Path, "remote", r.RemoteAddr)
+		writePlain(w, http.StatusTooManyRequests, "Rate limit exceeded")
+		return false
+	}
+	return true
 }
 
 func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
@@ -316,6 +445,16 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	if !d.OK {
 		writePlain(w, d.Status, d.Reason)
 		return
+	}
+
+	// Rotate token if expired (with grace period for in-flight requests).
+	if !s.cfg.TokenValid() {
+		if _, err := s.cfg.RotateToken(); err != nil {
+			slog.Error("token rotation failed", "error", err)
+			writePlain(w, http.StatusInternalServerError, "Internal Server Error")
+			return
+		}
+		slog.Debug("token rotated", "expiry", s.cfg.TokenExpiry)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -347,7 +486,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -412,7 +551,7 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -432,7 +571,7 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -505,7 +644,7 @@ func (s *Server) handleFileRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -551,7 +690,7 @@ func (s *Server) handleFileDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -595,7 +734,7 @@ func (s *Server) handleFileChmod(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -640,7 +779,7 @@ func (s *Server) handleFileMkdir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -678,7 +817,7 @@ func (s *Server) handleFileChown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -721,7 +860,7 @@ func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -794,7 +933,7 @@ func (s *Server) handleSessionState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -821,7 +960,7 @@ func (s *Server) handleServerInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -839,7 +978,7 @@ func (s *Server) handleFileDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -890,7 +1029,7 @@ func (s *Server) handleDropboxList(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -920,7 +1059,7 @@ func (s *Server) handleDropboxUpload(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -969,7 +1108,7 @@ func (s *Server) handleDropboxDelete(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -1001,7 +1140,7 @@ func (s *Server) handleDropboxSpace(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -1028,7 +1167,7 @@ func (s *Server) handleDropboxCleanup(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 

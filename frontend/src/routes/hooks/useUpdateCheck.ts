@@ -36,8 +36,8 @@ export function useUpdateCheck() {
       if (Date.now() - lastCheck < CHECK_INTERVAL_MS) return
 
       try {
-        const token = await fetchToken()
-        const res = await fetch(`/api/update/check?token=${token}`)
+        const { signedFetch } = await fetchToken()
+        const res = await signedFetch(`/api/update/check`)
         if (!res.ok) return
 
         const info: UpdateCheckResponse = await res.json()

@@ -18,7 +18,7 @@ func (s *Server) handleForwardStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -44,7 +44,7 @@ func (s *Server) handleForwardStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -72,7 +72,7 @@ func (s *Server) handleForwardRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -99,7 +99,7 @@ func (s *Server) handleForwardStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 
@@ -127,7 +127,7 @@ func (s *Server) handleForwardServerPorts(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if validateRequest(w, r, s.cfg) == "" {
+	if s.validateRequest(w, r) == "" {
 		return
 	}
 

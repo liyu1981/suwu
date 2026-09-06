@@ -109,7 +109,7 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
       setDepError(null)
       setDisplayInUse(null)
       try {
-        const token = await fetchToken()
+        const { token } = await fetchToken()
         if (disposed) return
 
         const { w, h } = paneSize()

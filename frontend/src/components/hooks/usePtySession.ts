@@ -24,10 +24,10 @@ function sessionKey(): string {
   return key
 }
 
-async function pollSessionState(sk: string, token: string): Promise<{ cwd: string; foreground: string } | null> {
+async function pollSessionState(sk: string, signedFetch: typeof fetch): Promise<{ cwd: string; foreground: string } | null> {
   try {
-    const params = new URLSearchParams({ session: sk, token })
-    const res = await fetch(`/api/session-state?${params}`, { cache: 'no-store' })
+    const params = new URLSearchParams({ session: sk })
+    const res = await signedFetch(`/api/session-state?${params}`, { cache: 'no-store' })
     if (!res.ok) return null
     return await res.json()
   } catch {
@@ -62,6 +62,7 @@ export function usePtySession(
 
   const wsRef = useRef<WebSocket | null>(null)
   const tokenRef = useRef('')
+  const signedFetchRef = useRef<typeof fetch>(fetch)
   const paneIdRef = useRef(paneId)
   paneIdRef.current = paneId
 
@@ -79,17 +80,17 @@ export function usePtySession(
     const startPolling = () => {
       const key = sessionKey()
       pollTimer = window.setInterval(async () => {
-        const token = tokenRef.current
-        if (!token) return
-        const state = await pollSessionState(key, token)
+        const signedFetch = signedFetchRef.current
+        const state = await pollSessionState(key, signedFetch)
         if (state) {
           reportState({ cwd: state.cwd, foreground: state.foreground })
         }
       }, POLL_INTERVAL_MS)
     }
 
-    const open = (token: string) => {
+    const open = (token: string, signedFetch: typeof fetch) => {
       tokenRef.current = token
+      signedFetchRef.current = signedFetch
       setStatus('connecting')
       setMessage(i18n.t('pty.connecting'))
 
@@ -211,8 +212,8 @@ export function usePtySession(
       setStatus('connecting')
       setMessage(i18n.t('pty.authenticating'))
       try {
-        const token = await fetchToken()
-        if (!disposed) open(token)
+        const { token, signedFetch } = await fetchToken()
+        if (!disposed) open(token, signedFetch)
       } catch {
         if (disposed) return
         scheduleReconnect('Auth failed')

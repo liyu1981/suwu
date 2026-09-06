@@ -41,8 +41,8 @@ export default function AboutView() {
     setChecking(true)
     setCheckResult(null)
     try {
-      const token = await fetchToken()
-      const res = await fetch(`/api/update/check?token=${token}`)
+      const { signedFetch } = await fetchToken()
+      const res = await signedFetch(`/api/update/check`)
       if (!res.ok) {
         setCheckResult('Failed to check for updates')
         setChecking(false)

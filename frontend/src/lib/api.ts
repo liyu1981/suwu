@@ -17,8 +17,15 @@ export class AuthRequiredError extends Error {
  * If the server requires a password (returns 401), throws AuthRequiredError.
  * When stored credentials exist (from the login page), they are sent as a
  * Basic Authorization header.
+ *
+ * Returns a signedFetch wrapper that sends the token as an Authorization
+ * header (not in the URL). Use this for all API calls. The raw token is
+ * only needed for WebSocket URLs.
  */
-export async function fetchToken(): Promise<string> {
+export async function fetchToken(): Promise<{
+  token: string
+  signedFetch: (input: URL | RequestInfo, init?: RequestInit) => Promise<Response>
+}> {
   const headers: Record<string, string> = {}
   const creds = getCredentials()
   if (creds) {
@@ -38,5 +45,20 @@ export async function fetchToken(): Promise<string> {
   if (!body.token) {
     throw new Error('token response did not include a token')
   }
-  return body.token
+
+  const token = body.token
+
+  // signedFetch sends the token as Authorization: Bearer header
+  // (not in the URL query string).
+  const signedFetch = async (
+    input: URL | RequestInfo,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const req = new Request(input, init)
+    const h = new Headers(req.headers)
+    h.set('Authorization', `Bearer ${token}`)
+    return fetch(new Request(req, { headers: h }))
+  }
+
+  return { token, signedFetch }
 }

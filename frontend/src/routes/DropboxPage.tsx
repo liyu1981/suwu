@@ -64,8 +64,8 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
     let objectUrl: string | null = null
     ;(async () => {
       try {
-        const token = await fetchToken()
-        const res = await fetch(`/api/file?path=${encodeURIComponent(entry.path)}&token=${token}`)
+        const { signedFetch } = await fetchToken()
+        const res = await signedFetch(`/api/file?path=${encodeURIComponent(entry.path)}`)
         if (!res.ok || cancelled) return
         const blob = await res.blob()
         objectUrl = URL.createObjectURL(blob)
@@ -87,8 +87,8 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
     let cancelled = false
     ;(async () => {
       try {
-        const token = await fetchToken()
-        const res = await fetch(`/api/file?path=${encodeURIComponent(entry.path)}&token=${token}`)
+        const { signedFetch } = await fetchToken()
+        const res = await signedFetch(`/api/file?path=${encodeURIComponent(entry.path)}`)
         if (!res.ok) return
         const text = await res.text()
         if (!cancelled) setTextPreview(text.slice(0, 500))
@@ -222,8 +222,8 @@ export default function DropboxPage() {
 
   const loadFiles = useCallback(async () => {
     try {
-      const token = await fetchToken()
-      const res = await fetch(`/api/dropbox/list?token=${token}`)
+      const { signedFetch } = await fetchToken()
+      const res = await signedFetch(`/api/dropbox/list`)
       if (res.ok) {
         const data: DropboxListResponse = await res.json()
         setEntries(data.entries)
@@ -238,8 +238,8 @@ export default function DropboxPage() {
 
   const loadSpace = useCallback(async () => {
     try {
-      const token = await fetchToken()
-      const res = await fetch(`/api/dropbox/space?token=${token}`)
+      const { signedFetch } = await fetchToken()
+      const res = await signedFetch(`/api/dropbox/space`)
       if (res.ok) {
         setSpaceInfo(await res.json())
       }
@@ -254,10 +254,10 @@ export default function DropboxPage() {
   }, [loadFiles, loadSpace])
 
   const uploadFile = useCallback(async (file: File) => {
-    const token = await fetchToken()
+    const { signedFetch } = await fetchToken()
     const form = new FormData()
     form.append('file', file)
-    await fetch(`/api/dropbox/upload?token=${token}`, { method: 'POST', body: form })
+    await signedFetch(`/api/dropbox/upload`, { method: 'POST', body: form })
   }, [])
 
   const uploadText = useCallback(async (text: string) => {
@@ -338,8 +338,8 @@ export default function DropboxPage() {
   }, [handleFiles, uploadText, loadFiles, loadSpace])
 
   const handleDelete = useCallback(async (name: string) => {
-    const token = await fetchToken()
-    await fetch(`/api/dropbox/delete?token=${token}&name=${encodeURIComponent(name)}`, {
+    const { signedFetch } = await fetchToken()
+    await signedFetch(`/api/dropbox/delete?name=${encodeURIComponent(name)}`, {
       method: 'DELETE',
     })
     if (expandedFile === name) setExpandedFile(null)
@@ -356,8 +356,8 @@ export default function DropboxPage() {
   const handleCleanup = useCallback(async () => {
     const targetBytes = parseInt(cleanupTarget, 10)
     if (isNaN(targetBytes) || targetBytes < 0) return
-    const token = await fetchToken()
-    await fetch(`/api/dropbox/cleanup?token=${token}&target=${targetBytes}`, {
+    const { signedFetch } = await fetchToken()
+    await signedFetch(`/api/dropbox/cleanup?target=${targetBytes}`, {
       method: 'POST',
     })
     setCleanupTarget('')

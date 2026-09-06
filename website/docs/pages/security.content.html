@@ -1,0 +1,104 @@
+<div class="doc-video"><video src="/assets/secure-access.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of password authentication, per-run tokens, and HTTPS setup"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2>Access Levels</h2>
+        <p>Suwu automatically detects where you're connecting from and applies the right level of access:</p>
+        <ul>
+          <li><strong>Localhost</strong> — no authentication required. Open <code>http://127.0.0.1:8080</code> and go.</li>
+          <li><strong>LAN</strong> — accessible from your local network. Password auth recommended.</li>
+          <li><strong>Internet</strong> — behind a reverse proxy. HTTPS and strong auth required.</li>
+        </ul>
+
+        <h2>Password Authentication</h2>
+        <p>Set a password during onboarding or anytime after:</p>
+
+<pre><code># Set a password interactively
+suwu auth password
+
+# Or set it via environment variable
+SUWU_PASSWORD=your-secret suwu serve</code></pre>
+
+        <p>When a password is set, the web UI prompts for it on first access. Sessions are authenticated via a secure cookie.</p>
+
+        <h2>Per-Run Tokens</h2>
+        <p>For temporary access, Suwu generates a per-run token displayed in the terminal when the server starts. Share this token with someone who needs one-time access — it's valid only for the current server run.</p>
+
+<pre><code>$ suwu serve
+  ┌──────────────────────────────────────┐
+  │  Suwu is running                     │
+  │  http://127.0.0.1:8080               │
+  │  Token: abc123xyz                    │
+  └──────────────────────────────────────┘</code></pre>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Note</div>
+          <p>Per-run tokens are displayed once at startup. If you miss it, restart the server to generate a new one.</p>
+        </div>
+
+        <h2>HTTPS with One Command</h2>
+        <p>Suwu can generate a self-signed certificate and enable HTTPS in one step:</p>
+
+<pre><code># Generate certs and configure HTTPS
+suwu gencerts
+
+# The cert paths are written to ~/.config/suwu/.env
+# Restart the server to pick them up
+suwu serve</code></pre>
+
+        <p>For production use, provide your own certificates:</p>
+
+<pre><code>TLS_CERT_FILE=/path/to/cert.pem \
+TLS_KEY_FILE=/path/to/key.pem \
+suwu serve</code></pre>
+
+        <h2>Reverse Proxy Setup</h2>
+        <p>For internet access, put Suwu behind a reverse proxy (nginx, Caddy, etc.). The key headers to forward:</p>
+
+<pre><code># nginx example
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}</code></pre>
+
+        <h2>Environment Variables</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>SUWU_PASSWORD</code></td>
+              <td>Set password for web access</td>
+            </tr>
+            <tr>
+              <td><code>HOST</code></td>
+              <td>Bind address (<code>127.0.0.1</code> default, <code>0.0.0.0</code> for all interfaces)</td>
+            </tr>
+            <tr>
+              <td><code>PORT</code></td>
+              <td>HTTP port (default: <code>8080</code>)</td>
+            </tr>
+            <tr>
+              <td><code>TLS_CERT_FILE</code></td>
+              <td>Path to TLS certificate</td>
+            </tr>
+            <tr>
+              <td><code>TLS_KEY_FILE</code></td>
+              <td>Path to TLS private key</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Browser-visible hostnames (localhost, LAN IP, machine hostname) are always accepted without extra configuration. You only need to set up certificates and reverse proxies for public internet access.</p>
+        </div>

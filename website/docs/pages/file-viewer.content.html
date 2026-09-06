@@ -1,0 +1,78 @@
+<h2>Opening Files</h2>
+        <p>Open a file in the viewer from the File Browser (click any file) or from a terminal:</p>
+
+<pre><code># Open a file in the viewer tile
+suwu open /path/to/file.txt
+
+# Open and watch for changes
+suwu open --watch /var/log/syslog</code></pre>
+
+        <h2>Supported Formats</h2>
+        <ul>
+          <li><strong>Source code</strong> — syntax highlighting for 100+ languages (Go, Python, JavaScript, Rust, etc.).</li>
+          <li><strong>Plain text</strong> — log files, config files, markdown.</li>
+          <li><strong>PDF</strong> — rendered in-browser with page navigation.</li>
+          <li><strong>Images</strong> — PNG, JPG, GIF, SVG, WebP displayed inline.</li>
+          <li><strong>Binary files</strong> — hex view with ASCII sidebar.</li>
+        </ul>
+
+        <h2>Auto-Refresh</h2>
+        <p>When opened with <code>--watch</code>, the viewer polls for changes and updates the display automatically. This is ideal for:</p>
+        <ul>
+          <li>Monitoring log files during a build.</li>
+          <li>Watching config files that change on reload.</li>
+          <li>Tracking output from background processes.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Open a log file in watch mode in one tile while running your build in another — you'll see new lines appear in real time.</p>
+        </div>
+
+        <h2>Navigation</h2>
+        <ul>
+          <li><strong>Scroll</strong> with the mouse wheel or keyboard.</li>
+          <li><strong>Search</strong> with <kbd>Ctrl</kbd>+<kbd>F</kbd> — matches are highlighted in the gutter.</li>
+          <li><strong>Jump to line</strong> with <kbd>Ctrl</kbd>+<kbd>G</kbd>.</li>
+          <li><strong>Copy</strong> selected text with <kbd>Ctrl</kbd>+<kbd>C</kbd>.</li>
+        </ul>
+
+        <h2>PDF Viewer</h2>
+        <p>PDF files render with full pagination. Use the toolbar to navigate pages, zoom in/out, and download the original file.</p>
+
+        <h2>Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Search</td>
+              <td><kbd>Ctrl</kbd>+<kbd>F</kbd></td>
+            </tr>
+            <tr>
+              <td>Jump to line</td>
+              <td><kbd>Ctrl</kbd>+<kbd>G</kbd></td>
+            </tr>
+            <tr>
+              <td>Refresh file</td>
+              <td><kbd>Ctrl</kbd>+<kbd>R</kbd></td>
+            </tr>
+            <tr>
+              <td>Toggle wrap</td>
+              <td><kbd>Alt</kbd>+<kbd>Z</kbd></td>
+            </tr>
+            <tr>
+              <td>Zoom in</td>
+              <td><kbd>Ctrl</kbd>+<kbd>+</kbd></td>
+            </tr>
+            <tr>
+              <td>Zoom out</td>
+              <td><kbd>Ctrl</kbd>+<kbd>-</kbd></td>
+            </tr>
+          </tbody>
+        </table>

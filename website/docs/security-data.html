@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Security &amp; Data — Suwu Docs</title>
+  <meta name="description" content="Where Suwu stores data, security considerations, and intranet usage guidance." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html" aria-current="page">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Security &amp; Data</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Security &amp; Data</h1>
+        <p class="doc-lead">Where Suwu stores your data, what it has access to, and important security considerations.</p>
+      </div>
+<div class="prose">
+<div class="callout callout-warning">
+          <div class="callout-title">Important — Read This</div>
+          <p>Suwu is designed for use on <strong>intranets and trusted private networks</strong>. It gives anyone with access a full shell on the host machine. Do not expose Suwu directly to the public internet unless you know exactly what you are doing and have appropriate zero-trust controls in place.</p>
+        </div>
+
+        <h2 id="where-data-is-stored">Where Data Is Stored</h2>
+        <p>Suwu keeps all its data under your home directory. Nothing is sent to external servers (except binary updates from GitHub).</p>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Path</th>
+              <th>Contents</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>~/.local/bin/suwu</code></td>
+              <td>The Suwu binary</td>
+            </tr>
+            <tr>
+              <td><code>~/.config/suwu/.env</code></td>
+              <td>Environment configuration (host, port, TLS paths, password hash)</td>
+            </tr>
+            <tr>
+              <td><code>~/.config/suwu/theme.json</code></td>
+              <td>Custom theme (optional)</td>
+            </tr>
+            <tr>
+              <td><code>~/.config/suwu/sessions/</code></td>
+              <td>Persisted terminal sessions, tile layouts, scrollback buffers</td>
+            </tr>
+            <tr>
+              <td><code>~/.config/suwu/certs/</code></td>
+              <td>Self-signed TLS certificates (if generated)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="what-suwu-has-access-to">What Suwu Has Access To</h2>
+        <p>When you run <code>suwu serve</code>, the process runs as your user. This means:</p>
+        <ul>
+          <li><strong>Full shell access</strong> — every terminal tile is a real PTY with your user's permissions.</li>
+          <li><strong>File system access</strong> — the file browser, file viewer, and <code>suwu open</code> can read and write any file your user can access.</li>
+          <li><strong>Network access</strong> — port forwarding can bind to any port your user is allowed to use.</li>
+          <li><strong>Environment variables</strong> — the shell inherits your environment, including any secrets in your shell profile.</li>
+        </ul>
+
+        <p>There is no sandboxing. Suwu is a convenience layer on top of your existing shell, not a security boundary.</p>
+
+        <h2 id="authentication">Authentication</h2>
+        <ul>
+          <li><strong>Password auth</strong> — optional, set with <code>suwu auth password</code>. Stored as a hash in <code>~/.config/suwu/.env</code>.</li>
+          <li><strong>Per-run tokens</strong> — displayed at server startup, valid for the current run only.</li>
+          <li><strong>No auth on localhost</strong> — by default, localhost access requires no password.</li>
+        </ul>
+
+        <p>See <a href="features/security.html">Security &amp; Access</a> for full authentication and TLS setup details.</p>
+
+        <h2 id="network-exposure">Network Exposure</h2>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Do Not Expose to the Public Internet</div>
+          <p>Suwu is not designed to withstand attacks from the open internet. It assumes a trusted network where all users are authorized. If you need remote access over the internet, use one of these approaches:</p>
+        </div>
+
+        <h3 id="recommended-zero-trust-tunnel">Recommended: Zero-Trust Tunnel</h3>
+        <p>Put Suwu behind a zero-trust access proxy such as:</p>
+        <ul>
+          <li><strong>Tailscale</strong> — install Tailscale on the host, access Suwu via its Tailscale IP.</li>
+          <li><strong>Cloudflare Tunnel</strong> — expose through Cloudflare's zero-trust network.</li>
+          <li><strong>WireGuard</strong> — connect via a VPN, then access Suwu on the internal IP.</li>
+        </ul>
+
+        <h3 id="alternative-reverse-proxy-with-auth">Alternative: Reverse Proxy with Auth</h3>
+        <p>If you must use a public-facing reverse proxy (nginx, Caddy, etc.), add authentication at the proxy level:</p>
+        <ul>
+          <li>HTTP Basic Auth or client certificate verification.</li>
+          <li>IP allowlisting.</li>
+          <li>Rate limiting.</li>
+        </ul>
+        <p>Never expose Suwu on a public port without some form of authentication in front of it.</p>
+
+        <h2 id="session-data">Session Data</h2>
+        <p>Terminal sessions are persisted under <code>~/.config/suwu/sessions/</code>. This includes:</p>
+        <ul>
+          <li>Shell process state and environment.</li>
+          <li>Visible scrollback buffer (the text that was displayed).</li>
+          <li>Tile layout and working directories.</li>
+        </ul>
+
+        <p>This data is stored in plain text on disk. If your machine is shared, other users with read access to your home directory could inspect session data.</p>
+
+        <h2 id="tls-certificates">TLS Certificates</h2>
+        <p>If you generate self-signed certificates with <code>suwu gencerts</code>, they are stored in <code>~/.config/suwu/certs/</code>. The private key is in plain text. For production use, provide your own certificates and restrict file permissions:</p>
+
+<pre><code>chmod 600 ~/.config/suwu/certs/key.pem</code></pre>
+
+        <h2 id="updates">Updates</h2>
+        <p><code>suwu update</code> downloads binaries from GitHub releases. The download is verified via checksum. No telemetry or usage data is sent.</p>
+
+        <h2 id="summary">Summary</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Concern</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Data leaves your machine</td>
+              <td>No (except binary updates from GitHub)</td>
+            </tr>
+            <tr>
+              <td>Telemetry</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td>Sandboxing</td>
+              <td>None — full user permissions</td>
+            </tr>
+            <tr>
+              <td>Authentication</td>
+              <td>Optional (password, per-run token)</td>
+            </tr>
+            <tr>
+              <td>Session persistence</td>
+              <td>Plain text on disk under <code>~/.config/suwu/</code></td>
+            </tr>
+            <tr>
+              <td>Designed for</td>
+              <td>Intranet / trusted private network</td>
+            </tr>
+          </tbody>
+        </table>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/upgrading.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Upgrading</span>
+        </a>
+        <a href="/docs/features/tiling-wm.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Tiling Window Manager</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#where-data-is-stored">Where Data Is Stored</a></li>
+<li><a href="#what-suwu-has-access-to">What Suwu Has Access To</a></li>
+<li><a href="#authentication">Authentication</a></li>
+<li><a href="#network-exposure">Network Exposure</a></li>
+          <li class="doc-toc-sub"><a href="#recommended-zero-trust-tunnel">Recommended: Zero-Trust Tunnel</a></li>
+          <li class="doc-toc-sub"><a href="#alternative-reverse-proxy-with-auth">Alternative: Reverse Proxy with Auth</a></li>
+<li><a href="#session-data">Session Data</a></li>
+<li><a href="#tls-certificates">TLS Certificates</a></li>
+<li><a href="#updates">Updates</a></li>
+<li><a href="#summary">Summary</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

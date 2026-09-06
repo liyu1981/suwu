@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suwu CLI — Suwu Docs</title>
+  <meta name="description" content="suwu send, suwu forward, suwu open — bridge scripts and the web UI." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html" aria-current="page">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Suwu CLI</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Suwu CLI</h1>
+        <p class="doc-lead"><code>suwu send</code> posts notifications from any script. <code>suwu forward</code> opens a port-forwarding tile. <code>suwu open</code> resolves links and actions on the remote machine. Bridge your terminal and the web UI.</p>
+      </div>
+<div class="prose">
+<div class="doc-video"><video src="/assets/suwu-cli.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of suwu send, suwu forward, and suwu open commands posting to the web interface"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2 id="suwu-send"><code>suwu send</code></h2>
+        <p>Post a notification to the Suwu web UI from any terminal or script.</p>
+
+<pre><code># Simple notification
+suwu send "Build completed successfully"
+
+# Pipe stdin as the notification body
+echo "Tests passed" | suwu send
+
+# With a title
+suwu send --title "Deploy" "v2.1.0 deployed to production"
+
+# Pipe a file
+cat changelog.txt | suwu send --title "Changelog"</code></pre>
+
+        <p>Notifications appear as a tile in the web UI with the title and body text. They persist until dismissed.</p>
+
+        <h3 id="use-cases">Use Cases</h3>
+        <ul>
+          <li><strong>Build notifications</strong> — append <code>suwu send "Build done"</code> to your build script.</li>
+          <li><strong>CI/CD alerts</strong> — pipe pipeline output to <code>suwu send</code>.</li>
+          <li><strong>Monitoring</strong> — send alerts when a health check fails.</li>
+          <li><strong>Long tasks</strong> — <code>make && suwu send "Make complete"</code>.</li>
+        </ul>
+
+        <h2 id="suwu-forward"><code>suwu forward</code></h2>
+        <p>Open a port-forwarding tile from the command line.</p>
+
+<pre><code># Forward port 3000
+suwu forward 3000
+
+# Forward to a different remote port
+suwu forward 8080:3000
+
+# UDP forwarding
+suwu forward --udp 5353</code></pre>
+
+        <p>See <a href="port-forwarding.html">Port Forwarding</a> for full details.</p>
+
+        <h2 id="suwu-open"><code>suwu open</code></h2>
+        <p>Open files, directories, or URLs in the Suwu web UI.</p>
+
+<pre><code># Open a directory in the file browser
+suwu open .
+
+# Open a file in the viewer
+suwu open README.md
+
+# Open and watch for changes
+suwu open --watch server.log
+
+# Open a git graph
+suwu open --git-graph .
+
+# Open a diff
+suwu open --diff old.go new.go</code></pre>
+
+        <h3 id="options">Options</h3>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Flag</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>--watch</code></td>
+              <td>Auto-refresh when file changes</td>
+            </tr>
+            <tr>
+              <td><code>--git-graph</code></td>
+              <td>Open as git graph</td>
+            </tr>
+            <tr>
+              <td><code>--diff</code></td>
+              <td>Open as side-by-side diff</td>
+            </tr>
+            <tr>
+              <td><code>--tile TYPE</code></td>
+              <td>Force a specific tile type</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="suwu-update"><code>suwu update</code></h2>
+        <p>Update the Suwu binary to the latest release:</p>
+
+<pre><code>suwu update</code></pre>
+
+        <p>This downloads the latest release binary and replaces the current one. See <a href="../upgrading.html">Upgrading</a> for details.</p>
+
+        <h2 id="suwu-auth"><code>suwu auth</code></h2>
+        <p>Manage authentication:</p>
+
+<pre><code># Set a password
+suwu auth password
+
+# Clear the password
+suwu auth clear</code></pre>
+
+        <p>See <a href="security.html">Security &amp; Access</a> for full details.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Add <code>suwu send</code> to your <code>.bashrc</code> or <code>.zshrc</code> as a shorthand: <code>alias done='suwu send "Done!"'</code>. Then just run <code>done</code> when a task finishes.</p>
+        </div>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/diff-viewer.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Diff Viewer</span>
+        </a>
+        <a href="/docs/features/appearance.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Appearance &amp; i18n</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#suwu-send">suwu send</a></li>
+          <li class="doc-toc-sub"><a href="#use-cases">Use Cases</a></li>
+<li><a href="#suwu-forward">suwu forward</a></li>
+<li><a href="#suwu-open">suwu open</a></li>
+          <li class="doc-toc-sub"><a href="#options">Options</a></li>
+<li><a href="#suwu-update">suwu update</a></li>
+<li><a href="#suwu-auth">suwu auth</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

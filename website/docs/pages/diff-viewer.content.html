@@ -1,0 +1,82 @@
+<h2>Opening Diffs</h2>
+        <p>There are several ways to open a diff:</p>
+        <ul>
+          <li><strong>From Git Graph</strong> — click any commit to see its diff.</li>
+          <li><strong>From terminal</strong> — run <code>suwu open --diff file1 file2</code>.</li>
+          <li><strong>Context menu</strong> — right-click a tile and select "Diff".</li>
+        </ul>
+
+<pre><code># Compare two files
+suwu open --diff old.go new.go
+
+# Diff against git HEAD
+suwu open --diff --git HEAD~1 file.go</code></pre>
+
+        <h2>View Modes</h2>
+        <ul>
+          <li><strong>Side-by-side</strong> — original on the left, changes on the right. Lines are aligned for easy comparison.</li>
+          <li><strong>Inline</strong> — unified diff format with additions and deletions highlighted in context.</li>
+        </ul>
+        <p>Toggle between modes with the toolbar buttons or keyboard shortcut.</p>
+
+        <h2>Reading Diffs</h2>
+        <ul>
+          <li><strong>Green lines</strong> — additions.</li>
+          <li><strong>Red lines</strong> — deletions.</li>
+          <li><strong>Gray lines</strong> — unchanged context.</li>
+          <li><strong>Line numbers</strong> — shown in the gutter for both sides.</li>
+          <li><strong>Diff stats</strong> — summary of files changed, insertions, and deletions.</li>
+        </ul>
+
+        <h2>Navigation</h2>
+        <ul>
+          <li><strong>Jump between changes</strong> — use the up/down arrows in the gutter to navigate to the next/previous change.</li>
+          <li><strong>Expand context</strong> — click "Show more" between hunks to reveal additional unchanged lines.</li>
+          <li><strong>Search</strong> — find text in either pane with <kbd>Ctrl</kbd>+<kbd>F</kbd>.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>For large diffs, use the minimap on the right edge to see the overall shape of changes and jump to specific regions.</p>
+        </div>
+
+        <h2>Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Toggle side-by-side / inline</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></td>
+            </tr>
+            <tr>
+              <td>Next change</td>
+              <td><kbd>Alt</kbd>+<kbd>↓</kbd></td>
+            </tr>
+            <tr>
+              <td>Previous change</td>
+              <td><kbd>Alt</kbd>+<kbd>↑</kbd></td>
+            </tr>
+            <tr>
+              <td>Search</td>
+              <td><kbd>Ctrl</kbd>+<kbd>F</kbd></td>
+            </tr>
+            <tr>
+              <td>Copy selection</td>
+              <td><kbd>Ctrl</kbd>+<kbd>C</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Supported Diff Formats</h2>
+        <ul>
+          <li><strong>Unified diff</strong> — standard <code>git diff</code> output.</li>
+          <li><strong>Side-by-side</strong> — generated from unified diffs.</li>
+          <li><strong>JSON / YAML</strong> — structural diffs for config files.</li>
+          <li><strong>Binary</strong> — hex comparison for non-text files.</li>
+        </ul>

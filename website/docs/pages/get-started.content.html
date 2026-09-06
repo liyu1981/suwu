@@ -1,0 +1,96 @@
+<h2>Install</h2>
+        <p>One command downloads the latest release binary to <code>~/.local/bin/suwu</code> and launches onboarding:</p>
+
+<pre><code>curl -fsSL https://raw.githubusercontent.com/liyu1981/suwu/refs/heads/master/install.sh | sh</code></pre>
+
+        <p>That's it. The installer handles everything — binary download, PATH setup, and first-run configuration.</p>
+
+        <div class="callout">
+          <div class="callout-title">Requirements</div>
+          <p>Suwu runs on Linux (amd64, arm64). You need a POSIX shell for the installer. No other dependencies are required — Node.js, Go, and build tools are only needed if you want to build from source.</p>
+        </div>
+
+        <h2>First Run</h2>
+        <p>After installation, <code>suwu</code> launches automatically. On the first run, the onboarding wizard walks you through setup:</p>
+
+        <h3>1. Shell Detection</h3>
+        <p>Suwu detects your default login shell (<code>bash</code>, <code>zsh</code>, <code>fish</code>, etc.) and verifies it works. If you want to use a different shell, set the <code>SHELL</code> environment variable before starting.</p>
+
+        <h3>2. Dev Tools Check</h3>
+        <p>The wizard checks for common development tools (Go, Node.js, Git, etc.) and reports what's installed. Missing tools are optional — Suwu works without them.</p>
+
+        <h3>3. Password Setup</h3>
+        <p>Set a password for web access. This is recommended if you plan to access Suwu from anywhere other than localhost. You can skip this and set one later with:</p>
+
+<pre><code>suwu auth password</code></pre>
+
+        <h3>4. HTTPS (Optional)</h3>
+        <p>Generate self-signed certificates for HTTPS. This is useful for LAN access or testing. For production, use your own certificates or a reverse proxy.</p>
+
+<pre><code>suwu gencerts</code></pre>
+
+        <h3>5. Your First Terminal</h3>
+        <p>Onboarding finishes by opening a terminal tile. You should see a shell prompt — Suwu is running.</p>
+
+        <h2>Access the Web UI</h2>
+        <p>Open your browser and go to:</p>
+
+<pre><code>http://127.0.0.1:8080</code></pre>
+
+        <p>You'll see the Suwu interface with your terminal tile. If you set a password, you'll be prompted to enter it.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Bookmark this URL. If you changed the port, use that instead (check the server output for the actual URL).</p>
+        </div>
+
+        <h2>From Another Device</h2>
+        <p>To access Suwu from your phone, tablet, or another computer on the same network:</p>
+        <ol>
+          <li>Find your machine's LAN IP (e.g., <code>192.168.1.42</code>).</li>
+          <li>Make sure Suwu is binding to all interfaces: <code>HOST=0.0.0.0 suwu serve</code>.</li>
+          <li>Open <code>http://192.168.1.42:8080</code> on the other device.</li>
+        </ol>
+
+        <p>For internet access behind a reverse proxy, see <a href="features/security.html">Security &amp; Access</a>.</p>
+
+        <h2>Running Onboarding Again</h2>
+        <p>To re-run the onboarding process at any time — for example after system updates or when adding new tools:</p>
+
+<pre><code>suwu onboard</code></pre>
+
+        <p>Each step shows a ✓ or ✗ status. You can skip any step and configure it later.</p>
+
+        <h2>What's Next</h2>
+        <ul>
+          <li><a href="features/tiling-wm.html">Tiling Window Manager</a> — learn to split, move, and arrange tiles.</li>
+          <li><a href="features/terminals.html">Terminals</a> — keyboard shortcuts, session persistence, agent integration.</li>
+          <li><a href="features/suwu-cli.html">Suwu CLI</a> — <code>suwu send</code>, <code>suwu forward</code>, <code>suwu open</code>.</li>
+          <li><a href="features/file-browser.html">File Browser</a> — navigate and manage files in a tile.</li>
+        </ul>
+
+        <h2>Keeping Suwu Updated</h2>
+        <p>When a new version is released, update with:</p>
+
+<pre><code>suwu update</code></pre>
+
+        <p>This downloads the latest binary and restarts the server. See <a href="upgrading.html">Upgrading</a> for details.</p>
+
+        <h2>Build from Source</h2>
+        <p>If you want to build Suwu yourself instead of using the installer:</p>
+
+<pre><code># Clone the repo
+git clone https://github.com/liyu1981/suwu.git
+cd suwu
+
+# Install frontend dependencies and build
+pnpm install && pnpm --dir frontend install
+pnpm build:web
+
+# Build the Go binary
+pnpm build
+
+# Run
+./suwu serve</code></pre>
+
+        <p>You'll need Go 1.25+, Node.js, and pnpm. See the <a href="https://github.com/liyu1981/suwu#requirements">README</a> for full details.</p>

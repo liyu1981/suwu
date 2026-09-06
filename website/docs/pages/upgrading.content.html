@@ -1,0 +1,94 @@
+<div class="doc-video"><video src="/assets/onboard-update.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the suwu update command"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2>Update Commands</h2>
+
+<pre><code># Check for updates (without installing)
+suwu update --check
+
+# Install the latest version
+suwu update
+
+# Force update (even if already on latest)
+suwu update --force</code></pre>
+
+        <h2>What the Updater Does</h2>
+        <ul>
+          <li><strong>Downloads</strong> the latest release binary from GitHub.</li>
+          <li><strong>Verifies</strong> the checksum to ensure integrity.</li>
+          <li><strong>Replaces</strong> the current binary in-place at <code>~/.local/bin/suwu</code>.</li>
+          <li><strong>Restarts</strong> the server if it's running.</li>
+        </ul>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Note</div>
+          <p>The update replaces the binary at <code>~/.local/bin/suwu</code>. Make sure this path is in your <code>$PATH</code>.</p>
+        </div>
+
+        <h2>Version Check</h2>
+        <p>See which version you're running:</p>
+
+<pre><code>suwu version</code></pre>
+
+        <p>The version is also displayed in the web UI footer and in the server startup banner.</p>
+
+        <h2>Staying Current Automatically</h2>
+        <p>Add <code>suwu update</code> to a cron job or alias to stay current automatically:</p>
+
+<pre><code># Check every Monday at 9am
+0 9 * * 1 suwu update --check
+
+# Or as a shell alias
+alias sup='suwu update'</code></pre>
+
+        <h2>Configuration</h2>
+        <p>Suwu stores its configuration in <code>~/.config/suwu/</code>:</p>
+        <ul>
+          <li><code>.env</code> — environment variables (host, port, TLS paths).</li>
+          <li><code>theme.json</code> — custom theme (optional).</li>
+          <li><code>sessions/</code> — persisted session data.</li>
+        </ul>
+
+        <p>You can edit these files directly, or use the CLI and web UI settings panel. See <a href="security-data.html">Security &amp; Data</a> for details on what is stored and where.</p>
+
+        <h2>CLI Reference</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>suwu</code></td>
+              <td>Start the server (runs onboarding if first time)</td>
+            </tr>
+            <tr>
+              <td><code>suwu serve</code></td>
+              <td>Start the server (skip onboarding)</td>
+            </tr>
+            <tr>
+              <td><code>suwu onboard</code></td>
+              <td>Run the onboarding process</td>
+            </tr>
+            <tr>
+              <td><code>suwu update</code></td>
+              <td>Update to the latest release</td>
+            </tr>
+            <tr>
+              <td><code>suwu version</code></td>
+              <td>Show the current version</td>
+            </tr>
+            <tr>
+              <td><code>suwu gencerts</code></td>
+              <td>Generate self-signed TLS certificates</td>
+            </tr>
+            <tr>
+              <td><code>suwu auth password</code></td>
+              <td>Set or change the web access password</td>
+            </tr>
+          </tbody>
+        </table>

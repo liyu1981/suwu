@@ -1,0 +1,73 @@
+<h2>Quick Start</h2>
+        <p>Forward a port from a terminal using the <code>suwu forward</code> command:</p>
+
+<pre><code># Forward local port 3000 to remote port 3000
+suwu forward 3000
+
+# Forward to a different remote port
+suwu forward 8080:3000
+
+# UDP forwarding
+suwu forward --udp 5353</code></pre>
+
+        <p>This opens a new tile showing the forwarding status with connection count and traffic stats.</p>
+
+        <h2>How It Works</h2>
+        <p>When you run <code>suwu forward</code>, the server opens a listener on the specified port and proxies traffic to the target. The tile shows:</p>
+        <ul>
+          <li><strong>Port</strong> — the port being forwarded.</li>
+          <li><strong>Protocol</strong> — TCP or UDP.</li>
+          <li><strong>Connections</strong> — active connection count.</li>
+          <li><strong>Traffic</strong> — bytes transferred in/out.</li>
+          <li><strong>Status</strong> — active, paused, or error.</li>
+        </ul>
+
+        <h2>Managing Forwards</h2>
+        <p>From the port forward tile, you can:</p>
+        <ul>
+          <li><strong>Pause</strong> — temporarily stop accepting new connections.</li>
+          <li><strong>Close</strong> — stop forwarding and close the tile.</li>
+          <li><strong>View logs</strong> — see connection events and errors.</li>
+        </ul>
+
+        <h2>Use Cases</h2>
+        <ul>
+          <li><strong>Dev servers</strong> — forward a Node.js/Go dev server to access it from your local browser.</li>
+          <li><strong>Database access</strong> — connect to a remote PostgreSQL/MySQL from a local client.</li>
+          <li><strong>API testing</strong> — expose a local API running on the remote machine.</li>
+          <li><strong>SSH tunneling</strong> — as an alternative to <code>ssh -L</code> with better visibility.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Forward multiple ports simultaneously — each <code>suwu forward</code> call creates a separate tile. Monitor all your services at a glance.</p>
+        </div>
+
+        <h2>CLI Reference</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>suwu forward PORT</code></td>
+              <td>Forward PORT to the same port on remote</td>
+            </tr>
+            <tr>
+              <td><code>suwu forward LOCAL:REMOTE</code></td>
+              <td>Forward LOCAL port to REMOTE port</td>
+            </tr>
+            <tr>
+              <td><code>suwu forward --udp PORT</code></td>
+              <td>UDP forwarding instead of TCP</td>
+            </tr>
+            <tr>
+              <td><code>suwu forward --bind ADDR PORT</code></td>
+              <td>Bind to a specific address (default: all interfaces)</td>
+            </tr>
+          </tbody>
+        </table>

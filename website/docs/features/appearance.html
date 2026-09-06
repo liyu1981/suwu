@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Appearance &amp; i18n — Suwu Docs</title>
+  <meta name="description" content="Fonts, themes, glass alpha, and language settings." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html" aria-current="page">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Appearance &amp; i18n</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Appearance &amp; i18n</h1>
+        <p class="doc-lead">Pick your font family and size, theme the colors, dial in a glassy background alpha. The interface speaks English and Chinese out of the box.</p>
+      </div>
+<div class="prose">
+<div class="doc-video"><video src="/assets/appearance-i18n.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of font, theme, and language settings"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2 id="opening-settings">Opening Settings</h2>
+        <p>Click the gear icon in the header, or press <kbd>Ctrl</kbd>+<kbd>,</kbd> to open the settings panel.</p>
+
+        <h2 id="font-settings">Font Settings</h2>
+        <ul>
+          <li><strong>Font family</strong> — choose from system fonts or web fonts. Defaults to <code>Inconsolata</code> for terminals.</li>
+          <li><strong>Font size</strong> — adjust from 10px to 24px. The setting applies to all terminal tiles.</li>
+          <li><strong>Line height</strong> — fine-tune spacing between lines.</li>
+        </ul>
+
+<pre><code># Via environment variable
+SUWU_FONT_SIZE=14 suwu serve
+
+# Font family
+SUWU_FONT_FAMILY="Fira Code" suwu serve</code></pre>
+
+        <h2 id="theme">Theme</h2>
+        <p>Suwu includes several built-in themes:</p>
+        <ul>
+          <li><strong>Light</strong> — clean, bright theme (default).</li>
+          <li><strong>Dark</strong> — easy on the eyes for night coding.</li>
+          <li><strong>Solarized Light / Dark</strong> — the classic Solarized palette.</li>
+          <li><strong>Dracula</strong> — popular dark theme with vibrant colors.</li>
+          <li><strong>Custom</strong> — define your own color palette.</li>
+        </ul>
+
+        <h2 id="glass-alpha">Glass Alpha</h2>
+        <p>Control the transparency of the tile backgrounds:</p>
+        <ul>
+          <li><strong>0%</strong> — fully opaque solid background.</li>
+          <li><strong>50%</strong> — semi-transparent, shows the background canvas.</li>
+          <li><strong>100%</strong> — fully transparent (glass effect).</li>
+        </ul>
+        <p>Adjust with the slider in settings, or via environment variable:</p>
+
+<pre><code># 30% transparency
+SUWU_GLASS_ALPHA=0.3 suwu serve</code></pre>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>The glass alpha setting interacts with your desktop wallpaper. A subtle alpha (0.1–0.3) gives depth without sacrificing readability.</p>
+        </div>
+
+        <h2 id="language">Language</h2>
+        <p>Suwu supports English and Chinese (Simplified) out of the box. The interface detects your browser's language preference automatically.</p>
+        <p>To force a language:</p>
+
+<pre><code># Force English
+SUWU_LANG=en suwu serve
+
+# Force Chinese
+SUWU_LANG=zh suwu serve</code></pre>
+
+        <p>You can also switch languages from the settings panel — the change takes effect immediately.</p>
+
+        <h2 id="custom-themes">Custom Themes</h2>
+        <p>Create a custom theme by defining color tokens:</p>
+
+<pre><code># In ~/.config/suwu/theme.json
+{
+  "name": "My Theme",
+  "colors": {
+    "background": "#1a1b26",
+    "foreground": "#c0caf5",
+    "cursor": "#c0caf5",
+    "black": "#15161e",
+    "red": "#f7768e",
+    "green": "#9ece6a",
+    "yellow": "#e0af68",
+    "blue": "#7aa2f7",
+    "magenta": "#bb9af7",
+    "cyan": "#7dcfff",
+    "white": "#a9b1d6"
+  }
+}</code></pre>
+
+        <p>Place the file at <code>~/.config/suwu/theme.json</code> and it will appear in the theme selector.</p>
+
+        <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Open settings</td>
+              <td><kbd>Ctrl</kbd>+<kbd>,</kbd></td>
+            </tr>
+            <tr>
+              <td>Toggle fullscreen</td>
+              <td><kbd>F11</kbd></td>
+            </tr>
+            <tr>
+              <td>Zoom in</td>
+              <td><kbd>Ctrl</kbd>+<kbd>+</kbd></td>
+            </tr>
+            <tr>
+              <td>Zoom out</td>
+              <td><kbd>Ctrl</kbd>+<kbd>-</kbd></td>
+            </tr>
+            <tr>
+              <td>Reset zoom</td>
+              <td><kbd>Ctrl</kbd>+<kbd>0</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/suwu-cli.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Suwu CLI</span>
+        </a>
+        <a href="/docs/index.html" class="doc-nav-next">
+          <span class="doc-nav-label">Back to →</span>
+          <span class="doc-nav-title">Docs Index</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#opening-settings">Opening Settings</a></li>
+<li><a href="#font-settings">Font Settings</a></li>
+<li><a href="#theme">Theme</a></li>
+<li><a href="#glass-alpha">Glass Alpha</a></li>
+<li><a href="#language">Language</a></li>
+<li><a href="#custom-themes">Custom Themes</a></li>
+<li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

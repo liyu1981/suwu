@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Security &amp; Access — Suwu Docs</title>
+  <meta name="description" content="Password authentication, per-run tokens, and one-command HTTPS." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html" aria-current="page">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Security &amp; Access</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Security &amp; Access</h1>
+        <p class="doc-lead">Access works out of the box on localhost, your LAN, or over the internet behind a reverse proxy — with password authentication, per-run tokens, and one-command HTTPS.</p>
+      </div>
+<div class="prose">
+<div class="doc-video"><video src="/assets/secure-access.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of password authentication, per-run tokens, and HTTPS setup"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2 id="access-levels">Access Levels</h2>
+        <p>Suwu automatically detects where you're connecting from and applies the right level of access:</p>
+        <ul>
+          <li><strong>Localhost</strong> — no authentication required. Open <code>http://127.0.0.1:8080</code> and go.</li>
+          <li><strong>LAN</strong> — accessible from your local network. Password auth recommended.</li>
+          <li><strong>Internet</strong> — behind a reverse proxy. HTTPS and strong auth required.</li>
+        </ul>
+
+        <h2 id="password-authentication">Password Authentication</h2>
+        <p>Set a password during onboarding or anytime after:</p>
+
+<pre><code># Set a password interactively
+suwu auth password
+
+# Or set it via environment variable
+SUWU_PASSWORD=your-secret suwu serve</code></pre>
+
+        <p>When a password is set, the web UI prompts for it on first access. Sessions are authenticated via a secure cookie.</p>
+
+        <h2 id="per-run-tokens">Per-Run Tokens</h2>
+        <p>For temporary access, Suwu generates a per-run token displayed in the terminal when the server starts. Share this token with someone who needs one-time access — it's valid only for the current server run.</p>
+
+<pre><code>$ suwu serve
+  ┌──────────────────────────────────────┐
+  │  Suwu is running                     │
+  │  http://127.0.0.1:8080               │
+  │  Token: abc123xyz                    │
+  └──────────────────────────────────────┘</code></pre>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Note</div>
+          <p>Per-run tokens are displayed once at startup. If you miss it, restart the server to generate a new one.</p>
+        </div>
+
+        <h2 id="https-with-one-command">HTTPS with One Command</h2>
+        <p>Suwu can generate a self-signed certificate and enable HTTPS in one step:</p>
+
+<pre><code># Generate certs and configure HTTPS
+suwu gencerts
+
+# The cert paths are written to ~/.config/suwu/.env
+# Restart the server to pick them up
+suwu serve</code></pre>
+
+        <p>For production use, provide your own certificates:</p>
+
+<pre><code>TLS_CERT_FILE=/path/to/cert.pem \
+TLS_KEY_FILE=/path/to/key.pem \
+suwu serve</code></pre>
+
+        <h2 id="reverse-proxy-setup">Reverse Proxy Setup</h2>
+        <p>For internet access, put Suwu behind a reverse proxy (nginx, Caddy, etc.). The key headers to forward:</p>
+
+<pre><code># nginx example
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}</code></pre>
+
+        <h2 id="environment-variables">Environment Variables</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>SUWU_PASSWORD</code></td>
+              <td>Set password for web access</td>
+            </tr>
+            <tr>
+              <td><code>HOST</code></td>
+              <td>Bind address (<code>127.0.0.1</code> default, <code>0.0.0.0</code> for all interfaces)</td>
+            </tr>
+            <tr>
+              <td><code>PORT</code></td>
+              <td>HTTP port (default: <code>8080</code>)</td>
+            </tr>
+            <tr>
+              <td><code>TLS_CERT_FILE</code></td>
+              <td>Path to TLS certificate</td>
+            </tr>
+            <tr>
+              <td><code>TLS_KEY_FILE</code></td>
+              <td>Path to TLS private key</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Browser-visible hostnames (localhost, LAN IP, machine hostname) are always accepted without extra configuration. You only need to set up certificates and reverse proxies for public internet access.</p>
+        </div>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/terminals.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Terminals</span>
+        </a>
+        <a href="/docs/features/file-browser.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">File Browser</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#access-levels">Access Levels</a></li>
+<li><a href="#password-authentication">Password Authentication</a></li>
+<li><a href="#per-run-tokens">Per-Run Tokens</a></li>
+<li><a href="#https-with-one-command">HTTPS with One Command</a></li>
+<li><a href="#reverse-proxy-setup">Reverse Proxy Setup</a></li>
+<li><a href="#environment-variables">Environment Variables</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

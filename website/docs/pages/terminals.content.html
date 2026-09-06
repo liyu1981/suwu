@@ -1,0 +1,80 @@
+<div class="doc-video"><video src="/assets/agent-terminals.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of a full-featured terminal running an agent orchestrator"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2>What You Get</h2>
+        <p>Every terminal tile in Suwu is a real PTY-backed shell running on the server. It's not a simulation — it's your actual <code>bash</code>, <code>zsh</code>, or <code>fish</code>, with:</p>
+        <ul>
+          <li><strong>Full scrollback</strong> — scroll up through previous output with the mouse wheel or <kbd>Shift</kbd>+<kbd>Page Up</kbd>.</li>
+          <li><strong>Text selection</strong> — click and drag to select, or double-click to select a word, triple-click for a line.</li>
+          <li><strong>Copy/paste</strong> — <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> to copy, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> to paste. Also works with your system clipboard.</li>
+          <li><strong>Unicode &amp; emoji</strong> — full Unicode support including wide characters and emoji.</li>
+          <li><strong>True color</strong> — 24-bit color for modern terminal tools.</li>
+        </ul>
+
+        <h2>Session Persistence</h2>
+        <p>Terminal sessions persist across page refreshes and disconnections. When you reconnect, Suwu restores:</p>
+        <ul>
+          <li>The shell process (it kept running while you were away).</li>
+          <li>The visible scrollback buffer.</li>
+          <li>The working directory and environment.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Long-running processes (builds, tests, <code>ssh</code> sessions) continue even when your browser is closed. Reconnect and pick up where you left off.</p>
+        </div>
+
+        <h2>Notifications</h2>
+        <p>When a terminal produces output while it's not focused, Suwu shows a visual indicator on the tile. This is useful for:</p>
+        <ul>
+          <li>Long builds that finish while you're working in another tile.</li>
+          <li><code>suwu send</code> notifications from scripts.</li>
+          <li>Background jobs completing.</li>
+        </ul>
+
+        <h2>Agent Integration</h2>
+        <p>Suwu terminals are designed to work with agent orchestrators like <code>opencode</code>, <code>pi</code>, and <code>herdr</code>. Each terminal is a real PTY that agents can read from and write to, with proper signal handling and output streaming.</p>
+
+        <h2>Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Copy selection</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd></td>
+            </tr>
+            <tr>
+              <td>Paste from clipboard</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td>
+            </tr>
+            <tr>
+              <td>Scroll up</td>
+              <td><kbd>Shift</kbd>+<kbd>Page Up</kbd></td>
+            </tr>
+            <tr>
+              <td>Scroll down</td>
+              <td><kbd>Shift</kbd>+<kbd>Page Down</kbd></td>
+            </tr>
+            <tr>
+              <td>Search in scrollback</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td>
+            </tr>
+            <tr>
+              <td>Reset terminal</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Shell Selection</h2>
+        <p>Suwu uses your default login shell. To change it, set the <code>SHELL</code> environment variable before starting the server, or configure it during onboarding.</p>
+
+<pre><code># Use zsh instead of bash
+SHELL=/bin/zsh suwu serve</code></pre>

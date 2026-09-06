@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Upgrading — Suwu Docs</title>
+  <meta name="description" content="Update Suwu to the latest version and manage configuration." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html" aria-current="page">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Upgrading</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Upgrading</h1>
+        <p class="doc-lead">Keep Suwu current with <code>suwu update</code>. The updater handles download, verification, and restart.</p>
+      </div>
+<div class="prose">
+<div class="doc-video"><video src="/assets/onboard-update.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the suwu update command"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2 id="update-commands">Update Commands</h2>
+
+<pre><code># Check for updates (without installing)
+suwu update --check
+
+# Install the latest version
+suwu update
+
+# Force update (even if already on latest)
+suwu update --force</code></pre>
+
+        <h2 id="what-the-updater-does">What the Updater Does</h2>
+        <ul>
+          <li><strong>Downloads</strong> the latest release binary from GitHub.</li>
+          <li><strong>Verifies</strong> the checksum to ensure integrity.</li>
+          <li><strong>Replaces</strong> the current binary in-place at <code>~/.local/bin/suwu</code>.</li>
+          <li><strong>Restarts</strong> the server if it's running.</li>
+        </ul>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Note</div>
+          <p>The update replaces the binary at <code>~/.local/bin/suwu</code>. Make sure this path is in your <code>$PATH</code>.</p>
+        </div>
+
+        <h2 id="version-check">Version Check</h2>
+        <p>See which version you're running:</p>
+
+<pre><code>suwu version</code></pre>
+
+        <p>The version is also displayed in the web UI footer and in the server startup banner.</p>
+
+        <h2 id="staying-current-automatically">Staying Current Automatically</h2>
+        <p>Add <code>suwu update</code> to a cron job or alias to stay current automatically:</p>
+
+<pre><code># Check every Monday at 9am
+0 9 * * 1 suwu update --check
+
+# Or as a shell alias
+alias sup='suwu update'</code></pre>
+
+        <h2 id="configuration">Configuration</h2>
+        <p>Suwu stores its configuration in <code>~/.config/suwu/</code>:</p>
+        <ul>
+          <li><code>.env</code> — environment variables (host, port, TLS paths).</li>
+          <li><code>theme.json</code> — custom theme (optional).</li>
+          <li><code>sessions/</code> — persisted session data.</li>
+        </ul>
+
+        <p>You can edit these files directly, or use the CLI and web UI settings panel. See <a href="security-data.html">Security &amp; Data</a> for details on what is stored and where.</p>
+
+        <h2 id="cli-reference">CLI Reference</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>suwu</code></td>
+              <td>Start the server (runs onboarding if first time)</td>
+            </tr>
+            <tr>
+              <td><code>suwu serve</code></td>
+              <td>Start the server (skip onboarding)</td>
+            </tr>
+            <tr>
+              <td><code>suwu onboard</code></td>
+              <td>Run the onboarding process</td>
+            </tr>
+            <tr>
+              <td><code>suwu update</code></td>
+              <td>Update to the latest release</td>
+            </tr>
+            <tr>
+              <td><code>suwu version</code></td>
+              <td>Show the current version</td>
+            </tr>
+            <tr>
+              <td><code>suwu gencerts</code></td>
+              <td>Generate self-signed TLS certificates</td>
+            </tr>
+            <tr>
+              <td><code>suwu auth password</code></td>
+              <td>Set or change the web access password</td>
+            </tr>
+          </tbody>
+        </table>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/get-started.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Get Started</span>
+        </a>
+        <a href="/docs/security-data.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Security &amp; Data</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#update-commands">Update Commands</a></li>
+<li><a href="#what-the-updater-does">What the Updater Does</a></li>
+<li><a href="#version-check">Version Check</a></li>
+<li><a href="#staying-current-automatically">Staying Current Automatically</a></li>
+<li><a href="#configuration">Configuration</a></li>
+<li><a href="#cli-reference">CLI Reference</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

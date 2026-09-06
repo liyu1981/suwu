@@ -18,6 +18,11 @@ When creating a new release version:
 
 **Never delete and recreate a release with `gh release create`** — this removes CI-built binaries. If the release notes need updating, use `gh release edit vX.Y.Z --notes '...'` instead.
 
+### Commit Permission
+
+- **Never commit unprompted.** After staging changes, always ask the user for permission before running `git commit`.
+- After every commit you make, immediately return to a state where you require explicit user permission before the next commit. Do not batch or chain commits without asking each time.
+
 ### Co-Authored-By
 
 Do NOT add `Co-Authored-By` trailers to commit messages unless the user explicitly requests it. If you want to add one, confirm with the user first.

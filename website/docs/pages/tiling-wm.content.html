@@ -1,0 +1,93 @@
+<div class="doc-video"><video src="/assets/tiling-wm.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the tiling window manager"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2>Quick Start</h2>
+        <p>Suwu opens with a single terminal tile. Use keyboard shortcuts or the mouse to split, rearrange, and manage your workspace. All layouts are persisted — close the browser, restart the server, your tiles stay.</p>
+
+        <h2>Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Split horizontally</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td>
+            </tr>
+            <tr>
+              <td>Split vertically</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td>
+            </tr>
+            <tr>
+              <td>Focus left</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></td>
+            </tr>
+            <tr>
+              <td>Focus right</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td>
+            </tr>
+            <tr>
+              <td>Focus up</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd></td>
+            </tr>
+            <tr>
+              <td>Focus down</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd></td>
+            </tr>
+            <tr>
+              <td>Swap with neighbor</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd></td>
+            </tr>
+            <tr>
+              <td>Move tile</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd></td>
+            </tr>
+            <tr>
+              <td>Close tile</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd></td>
+            </tr>
+            <tr>
+              <td>Toggle fullscreen</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Mouse Controls</h2>
+        <ul>
+          <li><strong>Click</strong> a tile to focus it.</li>
+          <li><strong>Click and drag</strong> a tile's title bar to move it.</li>
+          <li><strong>Right-click</strong> a tile to open the context menu (split, close, change type).</li>
+          <li><strong>Drag the border</strong> between tiles to resize.</li>
+        </ul>
+
+        <h2>Layout Persistence</h2>
+        <p>Your tile layout is saved server-side. This means:</p>
+        <ul>
+          <li>Refresh the page — tiles restore automatically.</li>
+          <li>Disconnect and reconnect — same layout.</li>
+          <li>Restart the <code>suwu</code> server — tiles and their shell sessions resume.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Each tile remembers its working directory and environment. You can set up a complex multi-pane workspace once and reuse it indefinitely.</p>
+        </div>
+
+        <h2>Tile Types</h2>
+        <p>Every tile can host different content:</p>
+        <ul>
+          <li><strong>Terminal</strong> — a full shell session (default).</li>
+          <li><strong>File Browser</strong> — navigate and download files.</li>
+          <li><strong>File Viewer</strong> — view files with syntax highlighting.</li>
+          <li><strong>Port Forward</strong> — TCP/UDP forwarding status.</li>
+          <li><strong>Dropbox</strong> — file upload/download.</li>
+          <li><strong>Git Graph</strong> — visual branch history.</li>
+          <li><strong>Diff</strong> — side-by-side diffs.</li>
+        </ul>
+        <p>Right-click any tile and select "Change type" to switch.</p>

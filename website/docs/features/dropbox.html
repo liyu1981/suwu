@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dropbox — Suwu Docs</title>
+  <meta name="description" content="Upload and download files between your local machine and the remote server." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html" aria-current="page">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Dropbox</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Dropbox</h1>
+        <p class="doc-lead">Upload and download files between your local machine and the remote server — drag and drop, or use the browser UI.</p>
+      </div>
+<div class="prose">
+<h2 id="opening-dropbox">Opening Dropbox</h2>
+        <p>Open a Dropbox tile from the context menu on any tile, or create a new tile and switch its type to "Dropbox".</p>
+
+        <h2 id="uploading-files">Uploading Files</h2>
+        <ul>
+          <li><strong>Drag and drop</strong> files from your desktop directly into the Dropbox tile.</li>
+          <li><strong>Click "Upload"</strong> to open a file picker dialog.</li>
+          <li><strong>Multiple files</strong> — select multiple files in the picker, or drop a folder.</li>
+        </ul>
+        <p>Files are uploaded to the current directory shown in the Dropbox tile. Navigate to a different directory before uploading to change the destination.</p>
+
+        <h2 id="downloading-files">Downloading Files</h2>
+        <ul>
+          <li><strong>Click any file</strong> in the listing to download it.</li>
+          <li><strong>Right-click</strong> for options: download, view, or copy path.</li>
+        </ul>
+
+        <h2 id="upload-progress">Upload Progress</h2>
+        <p>The Dropbox tile shows real-time upload progress for each file:</p>
+        <ul>
+          <li><strong>File name</strong> and size.</li>
+          <li><strong>Progress bar</strong> with percentage.</li>
+          <li><strong>Speed</strong> — current transfer rate.</li>
+          <li><strong>Status</strong> — uploading, complete, or error.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Large files are chunked automatically. Upload a 1GB file and it'll resume if the connection drops mid-transfer.</p>
+        </div>
+
+        <h2 id="directory-upload">Directory Upload</h2>
+        <p>Drag a folder from your file manager into the Dropbox tile. The entire directory tree is uploaded, preserving the structure.</p>
+
+        <h2 id="cli-alternative">CLI Alternative</h2>
+        <p>For scripted uploads, use <code>suwu send</code> with stdin:</p>
+
+<pre><code># Upload a file via stdin
+cat local-file.txt | suwu send --file remote-file.txt
+
+# Upload from a script
+tar czf - ./data | suwu send --file backup.tar.gz</code></pre>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/port-forwarding.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Port Forwarding</span>
+        </a>
+        <a href="/docs/features/git-graph.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Git Graph</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#opening-dropbox">Opening Dropbox</a></li>
+<li><a href="#uploading-files">Uploading Files</a></li>
+<li><a href="#downloading-files">Downloading Files</a></li>
+<li><a href="#upload-progress">Upload Progress</a></li>
+<li><a href="#directory-upload">Directory Upload</a></li>
+<li><a href="#cli-alternative">CLI Alternative</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

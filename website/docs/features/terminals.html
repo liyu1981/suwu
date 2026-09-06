@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Terminals — Suwu Docs</title>
+  <meta name="description" content="Full-featured shells with selection, copy/paste, scrollback, and notifications." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html" aria-current="page">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Terminals</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Terminals</h1>
+        <p class="doc-lead">Real shells with selection, copy/paste, scrollback, and notifications — comfortable for you, and a solid target for agent orchestrators.</p>
+      </div>
+<div class="prose">
+<div class="doc-video"><video src="/assets/agent-terminals.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of a full-featured terminal running an agent orchestrator"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2 id="what-you-get">What You Get</h2>
+        <p>Every terminal tile in Suwu is a real PTY-backed shell running on the server. It's not a simulation — it's your actual <code>bash</code>, <code>zsh</code>, or <code>fish</code>, with:</p>
+        <ul>
+          <li><strong>Full scrollback</strong> — scroll up through previous output with the mouse wheel or <kbd>Shift</kbd>+<kbd>Page Up</kbd>.</li>
+          <li><strong>Text selection</strong> — click and drag to select, or double-click to select a word, triple-click for a line.</li>
+          <li><strong>Copy/paste</strong> — <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> to copy, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> to paste. Also works with your system clipboard.</li>
+          <li><strong>Unicode &amp; emoji</strong> — full Unicode support including wide characters and emoji.</li>
+          <li><strong>True color</strong> — 24-bit color for modern terminal tools.</li>
+        </ul>
+
+        <h2 id="session-persistence">Session Persistence</h2>
+        <p>Terminal sessions persist across page refreshes and disconnections. When you reconnect, Suwu restores:</p>
+        <ul>
+          <li>The shell process (it kept running while you were away).</li>
+          <li>The visible scrollback buffer.</li>
+          <li>The working directory and environment.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Long-running processes (builds, tests, <code>ssh</code> sessions) continue even when your browser is closed. Reconnect and pick up where you left off.</p>
+        </div>
+
+        <h2 id="notifications">Notifications</h2>
+        <p>When a terminal produces output while it's not focused, Suwu shows a visual indicator on the tile. This is useful for:</p>
+        <ul>
+          <li>Long builds that finish while you're working in another tile.</li>
+          <li><code>suwu send</code> notifications from scripts.</li>
+          <li>Background jobs completing.</li>
+        </ul>
+
+        <h2 id="agent-integration">Agent Integration</h2>
+        <p>Suwu terminals are designed to work with agent orchestrators like <code>opencode</code>, <code>pi</code>, and <code>herdr</code>. Each terminal is a real PTY that agents can read from and write to, with proper signal handling and output streaming.</p>
+
+        <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Copy selection</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd></td>
+            </tr>
+            <tr>
+              <td>Paste from clipboard</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td>
+            </tr>
+            <tr>
+              <td>Scroll up</td>
+              <td><kbd>Shift</kbd>+<kbd>Page Up</kbd></td>
+            </tr>
+            <tr>
+              <td>Scroll down</td>
+              <td><kbd>Shift</kbd>+<kbd>Page Down</kbd></td>
+            </tr>
+            <tr>
+              <td>Search in scrollback</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td>
+            </tr>
+            <tr>
+              <td>Reset terminal</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="shell-selection">Shell Selection</h2>
+        <p>Suwu uses your default login shell. To change it, set the <code>SHELL</code> environment variable before starting the server, or configure it during onboarding.</p>
+
+<pre><code># Use zsh instead of bash
+SHELL=/bin/zsh suwu serve</code></pre>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/tiling-wm.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Tiling Window Manager</span>
+        </a>
+        <a href="/docs/features/security.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Security &amp; Access</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#what-you-get">What You Get</a></li>
+<li><a href="#session-persistence">Session Persistence</a></li>
+<li><a href="#notifications">Notifications</a></li>
+<li><a href="#agent-integration">Agent Integration</a></li>
+<li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
+<li><a href="#shell-selection">Shell Selection</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

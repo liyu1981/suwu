@@ -1,0 +1,137 @@
+<div class="callout callout-warning">
+          <div class="callout-title">Important — Read This</div>
+          <p>Suwu is designed for use on <strong>intranets and trusted private networks</strong>. It gives anyone with access a full shell on the host machine. Do not expose Suwu directly to the public internet unless you know exactly what you are doing and have appropriate zero-trust controls in place.</p>
+        </div>
+
+        <h2>Where Data Is Stored</h2>
+        <p>Suwu keeps all its data under your home directory. Nothing is sent to external servers (except binary updates from GitHub).</p>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Path</th>
+              <th>Contents</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>~/.local/bin/suwu</code></td>
+              <td>The Suwu binary</td>
+            </tr>
+            <tr>
+              <td><code>~/.config/suwu/.env</code></td>
+              <td>Environment configuration (host, port, TLS paths, password hash)</td>
+            </tr>
+            <tr>
+              <td><code>~/.config/suwu/theme.json</code></td>
+              <td>Custom theme (optional)</td>
+            </tr>
+            <tr>
+              <td><code>~/.config/suwu/sessions/</code></td>
+              <td>Persisted terminal sessions, tile layouts, scrollback buffers</td>
+            </tr>
+            <tr>
+              <td><code>~/.config/suwu/certs/</code></td>
+              <td>Self-signed TLS certificates (if generated)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>What Suwu Has Access To</h2>
+        <p>When you run <code>suwu serve</code>, the process runs as your user. This means:</p>
+        <ul>
+          <li><strong>Full shell access</strong> — every terminal tile is a real PTY with your user's permissions.</li>
+          <li><strong>File system access</strong> — the file browser, file viewer, and <code>suwu open</code> can read and write any file your user can access.</li>
+          <li><strong>Network access</strong> — port forwarding can bind to any port your user is allowed to use.</li>
+          <li><strong>Environment variables</strong> — the shell inherits your environment, including any secrets in your shell profile.</li>
+        </ul>
+
+        <p>There is no sandboxing. Suwu is a convenience layer on top of your existing shell, not a security boundary.</p>
+
+        <h2>Authentication</h2>
+        <ul>
+          <li><strong>Password auth</strong> — optional, set with <code>suwu auth password</code>. Stored as a hash in <code>~/.config/suwu/.env</code>.</li>
+          <li><strong>Per-run tokens</strong> — displayed at server startup, valid for the current run only.</li>
+          <li><strong>No auth on localhost</strong> — by default, localhost access requires no password.</li>
+        </ul>
+
+        <p>See <a href="features/security.html">Security &amp; Access</a> for full authentication and TLS setup details.</p>
+
+        <h2>Network Exposure</h2>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Do Not Expose to the Public Internet</div>
+          <p>Suwu is not designed to withstand attacks from the open internet. It assumes a trusted network where all users are authorized. If you need remote access over the internet, use one of these approaches:</p>
+        </div>
+
+        <h3>Recommended: Zero-Trust Tunnel</h3>
+        <p>Put Suwu behind a zero-trust access proxy such as:</p>
+        <ul>
+          <li><strong>Tailscale</strong> — install Tailscale on the host, access Suwu via its Tailscale IP.</li>
+          <li><strong>Cloudflare Tunnel</strong> — expose through Cloudflare's zero-trust network.</li>
+          <li><strong>WireGuard</strong> — connect via a VPN, then access Suwu on the internal IP.</li>
+        </ul>
+
+        <h3>Alternative: Reverse Proxy with Auth</h3>
+        <p>If you must use a public-facing reverse proxy (nginx, Caddy, etc.), add authentication at the proxy level:</p>
+        <ul>
+          <li>HTTP Basic Auth or client certificate verification.</li>
+          <li>IP allowlisting.</li>
+          <li>Rate limiting.</li>
+        </ul>
+        <p>Never expose Suwu on a public port without some form of authentication in front of it.</p>
+
+        <h2>Session Data</h2>
+        <p>Terminal sessions are persisted under <code>~/.config/suwu/sessions/</code>. This includes:</p>
+        <ul>
+          <li>Shell process state and environment.</li>
+          <li>Visible scrollback buffer (the text that was displayed).</li>
+          <li>Tile layout and working directories.</li>
+        </ul>
+
+        <p>This data is stored in plain text on disk. If your machine is shared, other users with read access to your home directory could inspect session data.</p>
+
+        <h2>TLS Certificates</h2>
+        <p>If you generate self-signed certificates with <code>suwu gencerts</code>, they are stored in <code>~/.config/suwu/certs/</code>. The private key is in plain text. For production use, provide your own certificates and restrict file permissions:</p>
+
+<pre><code>chmod 600 ~/.config/suwu/certs/key.pem</code></pre>
+
+        <h2>Updates</h2>
+        <p><code>suwu update</code> downloads binaries from GitHub releases. The download is verified via checksum. No telemetry or usage data is sent.</p>
+
+        <h2>Summary</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Concern</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Data leaves your machine</td>
+              <td>No (except binary updates from GitHub)</td>
+            </tr>
+            <tr>
+              <td>Telemetry</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td>Sandboxing</td>
+              <td>None — full user permissions</td>
+            </tr>
+            <tr>
+              <td>Authentication</td>
+              <td>Optional (password, per-run token)</td>
+            </tr>
+            <tr>
+              <td>Session persistence</td>
+              <td>Plain text on disk under <code>~/.config/suwu/</code></td>
+            </tr>
+            <tr>
+              <td>Designed for</td>
+              <td>Intranet / trusted private network</td>
+            </tr>
+          </tbody>
+        </table>

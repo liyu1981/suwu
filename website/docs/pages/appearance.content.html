@@ -1,0 +1,114 @@
+<div class="doc-video"><video src="/assets/appearance-i18n.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of font, theme, and language settings"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2>Opening Settings</h2>
+        <p>Click the gear icon in the header, or press <kbd>Ctrl</kbd>+<kbd>,</kbd> to open the settings panel.</p>
+
+        <h2>Font Settings</h2>
+        <ul>
+          <li><strong>Font family</strong> — choose from system fonts or web fonts. Defaults to <code>Inconsolata</code> for terminals.</li>
+          <li><strong>Font size</strong> — adjust from 10px to 24px. The setting applies to all terminal tiles.</li>
+          <li><strong>Line height</strong> — fine-tune spacing between lines.</li>
+        </ul>
+
+<pre><code># Via environment variable
+SUWU_FONT_SIZE=14 suwu serve
+
+# Font family
+SUWU_FONT_FAMILY="Fira Code" suwu serve</code></pre>
+
+        <h2>Theme</h2>
+        <p>Suwu includes several built-in themes:</p>
+        <ul>
+          <li><strong>Light</strong> — clean, bright theme (default).</li>
+          <li><strong>Dark</strong> — easy on the eyes for night coding.</li>
+          <li><strong>Solarized Light / Dark</strong> — the classic Solarized palette.</li>
+          <li><strong>Dracula</strong> — popular dark theme with vibrant colors.</li>
+          <li><strong>Custom</strong> — define your own color palette.</li>
+        </ul>
+
+        <h2>Glass Alpha</h2>
+        <p>Control the transparency of the tile backgrounds:</p>
+        <ul>
+          <li><strong>0%</strong> — fully opaque solid background.</li>
+          <li><strong>50%</strong> — semi-transparent, shows the background canvas.</li>
+          <li><strong>100%</strong> — fully transparent (glass effect).</li>
+        </ul>
+        <p>Adjust with the slider in settings, or via environment variable:</p>
+
+<pre><code># 30% transparency
+SUWU_GLASS_ALPHA=0.3 suwu serve</code></pre>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>The glass alpha setting interacts with your desktop wallpaper. A subtle alpha (0.1–0.3) gives depth without sacrificing readability.</p>
+        </div>
+
+        <h2>Language</h2>
+        <p>Suwu supports English and Chinese (Simplified) out of the box. The interface detects your browser's language preference automatically.</p>
+        <p>To force a language:</p>
+
+<pre><code># Force English
+SUWU_LANG=en suwu serve
+
+# Force Chinese
+SUWU_LANG=zh suwu serve</code></pre>
+
+        <p>You can also switch languages from the settings panel — the change takes effect immediately.</p>
+
+        <h2>Custom Themes</h2>
+        <p>Create a custom theme by defining color tokens:</p>
+
+<pre><code># In ~/.config/suwu/theme.json
+{
+  "name": "My Theme",
+  "colors": {
+    "background": "#1a1b26",
+    "foreground": "#c0caf5",
+    "cursor": "#c0caf5",
+    "black": "#15161e",
+    "red": "#f7768e",
+    "green": "#9ece6a",
+    "yellow": "#e0af68",
+    "blue": "#7aa2f7",
+    "magenta": "#bb9af7",
+    "cyan": "#7dcfff",
+    "white": "#a9b1d6"
+  }
+}</code></pre>
+
+        <p>Place the file at <code>~/.config/suwu/theme.json</code> and it will appear in the theme selector.</p>
+
+        <h2>Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Open settings</td>
+              <td><kbd>Ctrl</kbd>+<kbd>,</kbd></td>
+            </tr>
+            <tr>
+              <td>Toggle fullscreen</td>
+              <td><kbd>F11</kbd></td>
+            </tr>
+            <tr>
+              <td>Zoom in</td>
+              <td><kbd>Ctrl</kbd>+<kbd>+</kbd></td>
+            </tr>
+            <tr>
+              <td>Zoom out</td>
+              <td><kbd>Ctrl</kbd>+<kbd>-</kbd></td>
+            </tr>
+            <tr>
+              <td>Reset zoom</td>
+              <td><kbd>Ctrl</kbd>+<kbd>0</kbd></td>
+            </tr>
+          </tbody>
+        </table>

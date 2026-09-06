@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>File Browser — Suwu Docs</title>
+  <meta name="description" content="Navigate directories, download files, and open the file viewer." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html" aria-current="page">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">File Browser</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>File Browser</h1>
+        <p class="doc-lead">Navigate directories, download files, and open the file viewer — the small tools you'd otherwise reach for a second terminal or a GUI client, right in the grid next to your shells.</p>
+      </div>
+<div class="prose">
+<div class="doc-video"><video src="/assets/everyday-apps.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the file browser, file viewer, and port forwarder tiles"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2 id="opening-the-file-browser">Opening the File Browser</h2>
+        <p>You can open the file browser in a few ways:</p>
+        <ul>
+          <li><strong>Context menu</strong> — right-click any tile and select "File Browser".</li>
+          <li><strong>suwu open</strong> — from a terminal, run <code>suwu open .</code> to open the current directory.</li>
+          <li><strong>Keyboard</strong> — use the tiling WM shortcuts to create a new tile, then switch its type.</li>
+        </ul>
+
+        <h2 id="navigation">Navigation</h2>
+        <ul>
+          <li><strong>Click</strong> a directory to enter it.</li>
+          <li><strong>Click</strong> the breadcrumb trail at the top to jump to any parent directory.</li>
+          <li><strong>Click</strong> <code>..</code> to go up one level.</li>
+          <li><strong>Sort</strong> by name, size, or modification time using the column headers.</li>
+        </ul>
+
+        <h2 id="file-actions">File Actions</h2>
+        <ul>
+          <li><strong>Download</strong> — click the download icon next to any file to save it locally.</li>
+          <li><strong>View</strong> — click a file to open it in the File Viewer tile.</li>
+          <li><strong>Open in terminal</strong> — right-click and select "Open in terminal" to launch a shell in that directory.</li>
+        </ul>
+
+        <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Navigate up</td>
+              <td><kbd>Backspace</kbd></td>
+            </tr>
+            <tr>
+              <td>Open selected</td>
+              <td><kbd>Enter</kbd></td>
+            </tr>
+            <tr>
+              <td>Go to root</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Home</kbd></td>
+            </tr>
+            <tr>
+              <td>Refresh listing</td>
+              <td><kbd>Ctrl</kbd>+<kbd>R</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="hidden-files">Hidden Files</h2>
+        <p>Toggle hidden files (dotfiles) with the eye icon in the toolbar, or press <kbd>Ctrl</kbd>+<kbd>H</kbd>.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Open a file browser tile next to your terminal tile for quick reference while coding — navigate on the left, edit on the right.</p>
+        </div>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/security.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Security &amp; Access</span>
+        </a>
+        <a href="/docs/features/file-viewer.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">File Viewer</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#opening-the-file-browser">Opening the File Browser</a></li>
+<li><a href="#navigation">Navigation</a></li>
+<li><a href="#file-actions">File Actions</a></li>
+<li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
+<li><a href="#hidden-files">Hidden Files</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

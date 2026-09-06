@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Diff Viewer — Suwu Docs</title>
+  <meta name="description" content="Side-by-side and inline diffs with syntax highlighting." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html" aria-current="page">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Diff Viewer</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Diff Viewer</h1>
+        <p class="doc-lead">Side-by-side and inline diffs with syntax highlighting — review changes without leaving the browser.</p>
+      </div>
+<div class="prose">
+<h2 id="opening-diffs">Opening Diffs</h2>
+        <p>There are several ways to open a diff:</p>
+        <ul>
+          <li><strong>From Git Graph</strong> — click any commit to see its diff.</li>
+          <li><strong>From terminal</strong> — run <code>suwu open --diff file1 file2</code>.</li>
+          <li><strong>Context menu</strong> — right-click a tile and select "Diff".</li>
+        </ul>
+
+<pre><code># Compare two files
+suwu open --diff old.go new.go
+
+# Diff against git HEAD
+suwu open --diff --git HEAD~1 file.go</code></pre>
+
+        <h2 id="view-modes">View Modes</h2>
+        <ul>
+          <li><strong>Side-by-side</strong> — original on the left, changes on the right. Lines are aligned for easy comparison.</li>
+          <li><strong>Inline</strong> — unified diff format with additions and deletions highlighted in context.</li>
+        </ul>
+        <p>Toggle between modes with the toolbar buttons or keyboard shortcut.</p>
+
+        <h2 id="reading-diffs">Reading Diffs</h2>
+        <ul>
+          <li><strong>Green lines</strong> — additions.</li>
+          <li><strong>Red lines</strong> — deletions.</li>
+          <li><strong>Gray lines</strong> — unchanged context.</li>
+          <li><strong>Line numbers</strong> — shown in the gutter for both sides.</li>
+          <li><strong>Diff stats</strong> — summary of files changed, insertions, and deletions.</li>
+        </ul>
+
+        <h2 id="navigation">Navigation</h2>
+        <ul>
+          <li><strong>Jump between changes</strong> — use the up/down arrows in the gutter to navigate to the next/previous change.</li>
+          <li><strong>Expand context</strong> — click "Show more" between hunks to reveal additional unchanged lines.</li>
+          <li><strong>Search</strong> — find text in either pane with <kbd>Ctrl</kbd>+<kbd>F</kbd>.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>For large diffs, use the minimap on the right edge to see the overall shape of changes and jump to specific regions.</p>
+        </div>
+
+        <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Toggle side-by-side / inline</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></td>
+            </tr>
+            <tr>
+              <td>Next change</td>
+              <td><kbd>Alt</kbd>+<kbd>↓</kbd></td>
+            </tr>
+            <tr>
+              <td>Previous change</td>
+              <td><kbd>Alt</kbd>+<kbd>↑</kbd></td>
+            </tr>
+            <tr>
+              <td>Search</td>
+              <td><kbd>Ctrl</kbd>+<kbd>F</kbd></td>
+            </tr>
+            <tr>
+              <td>Copy selection</td>
+              <td><kbd>Ctrl</kbd>+<kbd>C</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="supported-diff-formats">Supported Diff Formats</h2>
+        <ul>
+          <li><strong>Unified diff</strong> — standard <code>git diff</code> output.</li>
+          <li><strong>Side-by-side</strong> — generated from unified diffs.</li>
+          <li><strong>JSON / YAML</strong> — structural diffs for config files.</li>
+          <li><strong>Binary</strong> — hex comparison for non-text files.</li>
+        </ul>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/git-graph.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Git Graph</span>
+        </a>
+        <a href="/docs/features/suwu-cli.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Suwu CLI</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#opening-diffs">Opening Diffs</a></li>
+<li><a href="#view-modes">View Modes</a></li>
+<li><a href="#reading-diffs">Reading Diffs</a></li>
+<li><a href="#navigation">Navigation</a></li>
+<li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
+<li><a href="#supported-diff-formats">Supported Diff Formats</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

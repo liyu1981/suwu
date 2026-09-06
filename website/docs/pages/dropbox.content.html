@@ -1,0 +1,42 @@
+<h2>Opening Dropbox</h2>
+        <p>Open a Dropbox tile from the context menu on any tile, or create a new tile and switch its type to "Dropbox".</p>
+
+        <h2>Uploading Files</h2>
+        <ul>
+          <li><strong>Drag and drop</strong> files from your desktop directly into the Dropbox tile.</li>
+          <li><strong>Click "Upload"</strong> to open a file picker dialog.</li>
+          <li><strong>Multiple files</strong> — select multiple files in the picker, or drop a folder.</li>
+        </ul>
+        <p>Files are uploaded to the current directory shown in the Dropbox tile. Navigate to a different directory before uploading to change the destination.</p>
+
+        <h2>Downloading Files</h2>
+        <ul>
+          <li><strong>Click any file</strong> in the listing to download it.</li>
+          <li><strong>Right-click</strong> for options: download, view, or copy path.</li>
+        </ul>
+
+        <h2>Upload Progress</h2>
+        <p>The Dropbox tile shows real-time upload progress for each file:</p>
+        <ul>
+          <li><strong>File name</strong> and size.</li>
+          <li><strong>Progress bar</strong> with percentage.</li>
+          <li><strong>Speed</strong> — current transfer rate.</li>
+          <li><strong>Status</strong> — uploading, complete, or error.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Large files are chunked automatically. Upload a 1GB file and it'll resume if the connection drops mid-transfer.</p>
+        </div>
+
+        <h2>Directory Upload</h2>
+        <p>Drag a folder from your file manager into the Dropbox tile. The entire directory tree is uploaded, preserving the structure.</p>
+
+        <h2>CLI Alternative</h2>
+        <p>For scripted uploads, use <code>suwu send</code> with stdin:</p>
+
+<pre><code># Upload a file via stdin
+cat local-file.txt | suwu send --file remote-file.txt
+
+# Upload from a script
+tar czf - ./data | suwu send --file backup.tar.gz</code></pre>

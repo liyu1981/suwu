@@ -1,0 +1,73 @@
+<h2>Opening Git Graph</h2>
+        <p>Open a Git Graph tile from the context menu, or run from a terminal:</p>
+
+<pre><code># Open git graph for the current repo
+suwu open --git-graph .
+
+# Open for a specific directory
+suwu open --git-graph /path/to/repo</code></pre>
+
+        <h2>What You See</h2>
+        <p>The graph shows your repository's commit history as a visual timeline:</p>
+        <ul>
+          <li><strong>Branches</strong> — each branch is a colored lane.</li>
+          <li><strong>Commits</strong> — dots on the graph with hash, message, author, and date.</li>
+          <li><strong>Merges</strong> — lines connecting branches where merges occurred.</li>
+          <li><strong>Tags</strong> — displayed next to tagged commits.</li>
+          <li><strong>HEAD</strong> — highlighted to show your current position.</li>
+        </ul>
+
+        <h2>Interaction</h2>
+        <ul>
+          <li><strong>Click a commit</strong> to see its full diff in a side panel.</li>
+          <li><strong>Click a branch label</strong> to highlight that branch's history.</li>
+          <li><strong>Scroll</strong> to load more history (lazy-loaded for large repos).</li>
+          <li><strong>Search</strong> by commit message, author, or hash.</li>
+        </ul>
+
+        <h2>Commit Details</h2>
+        <p>Clicking a commit opens a detail view showing:</p>
+        <ul>
+          <li><strong>Full hash</strong> and abbreviated hash.</li>
+          <li><strong>Author</strong> and date.</li>
+          <li><strong>Commit message</strong> — full text.</li>
+          <li><strong>Parent commits</strong> — clickable links.</li>
+          <li><strong>Diff</strong> — file-level changes with syntax highlighting.</li>
+        </ul>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Open Git Graph in a wide tile to see more branches at once. The graph adapts to the tile width.</p>
+        </div>
+
+        <h2>Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Search commits</td>
+              <td><kbd>Ctrl</kbd>+<kbd>F</kbd></td>
+            </tr>
+            <tr>
+              <td>Refresh graph</td>
+              <td><kbd>Ctrl</kbd>+<kbd>R</kbd></td>
+            </tr>
+            <tr>
+              <td>Load more history</td>
+              <td>Scroll to bottom</td>
+            </tr>
+            <tr>
+              <td>Close detail panel</td>
+              <td><kbd>Esc</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Large Repositories</h2>
+        <p>For repositories with thousands of commits, Git Graph loads history in batches. Scroll to the bottom to load the next batch. The initial view shows the most recent 100 commits.</p>

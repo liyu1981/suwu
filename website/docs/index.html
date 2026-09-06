@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs — Suwu</title>
+  <meta name="description" content="Feature documentation for Suwu — the web-based remote shell with a tiling workspace." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+    <div class="container">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><span aria-current="page">Docs</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Feature Docs</h1>
+        <p class="doc-lead">Everything you need to get the most out of Suwu — from keyboard shortcuts to CLI commands.</p>
+      </div>
+Core</h2>
+
+      <div class="feature-grid">
+        <a class="feature-card" href="features/tiling-wm.html">
+          <span class="feature-card-icon" aria-hidden="true">⊞</span>
+          <h3>Tiling Window Manager</h3>
+          <p>Split, focus, move, and swap tiles with keyboard or mouse. Your layout survives refreshes and disconnects.</p>
+        </a>
+        <a class="feature-card" href="features/terminals.html">
+          <span class="feature-card-icon" aria-hidden="true">▸_</span>
+          <h3>Terminals</h3>
+          <p>Full-featured shells with selection, scrollback, and notifications — built for humans and agent orchestrators.</p>
+        </a>
+        <a class="feature-card" href="features/security.html">
+          <span class="feature-card-icon" aria-hidden="true">🔒</span>
+          <h3>Security &amp; Access</h3>
+          <p>Password auth, per-run tokens, and one-command HTTPS — reachable, but only by you.</p>
+        </a>
+      </div>
+
+      <h2 class="doc-section-heading">Apps</h2>
+
+      <div class="feature-grid">
+        <a class="feature-card" href="features/file-browser.html">
+          <span class="feature-card-icon" aria-hidden="true">📁</span>
+          <h3>File Browser</h3>
+          <p>Navigate directories, download files, and open the file viewer — right in a tile.</p>
+        </a>
+        <a class="feature-card" href="features/file-viewer.html">
+          <span class="feature-card-icon" aria-hidden="true">📄</span>
+          <h3>File Viewer</h3>
+          <p>View files with syntax highlighting, auto-refresh, and PDF rendering.</p>
+        </a>
+        <a class="feature-card" href="features/port-forwarding.html">
+          <span class="feature-card-icon" aria-hidden="true">⇄</span>
+          <h3>Port Forwarding</h3>
+          <p>TCP and UDP port forwarding from the browser — no extra tooling needed.</p>
+        </a>
+        <a class="feature-card" href="features/dropbox.html">
+          <span class="feature-card-icon" aria-hidden="true">⬆</span>
+          <h3>Dropbox</h3>
+          <p>Upload and download files between your local machine and the remote server.</p>
+        </a>
+      </div>
+
+      <h2 class="doc-section-heading">Developer Tools</h2>
+
+      <div class="feature-grid">
+        <a class="feature-card" href="features/git-graph.html">
+          <span class="feature-card-icon" aria-hidden="true">◎</span>
+          <h3>Git Graph</h3>
+          <p>Visualize branch history, commits, and merges in an interactive graph.</p>
+        </a>
+        <a class="feature-card" href="features/diff-viewer.html">
+          <span class="feature-card-icon" aria-hidden="true">⟺</span>
+          <h3>Diff Viewer</h3>
+          <p>Side-by-side and inline diffs with syntax highlighting.</p>
+        </a>
+      </div>
+
+      <h2 class="doc-section-heading">CLI &amp; Configuration</h2>
+
+      <div class="feature-grid">
+        <a class="feature-card" href="features/suwu-cli.html">
+          <span class="feature-card-icon" aria-hidden="true">$</span>
+          <h3>Suwu CLI</h3>
+          <p><code>suwu send</code>, <code>suwu forward</code>, <code>suwu open</code> — bridge scripts and the web UI.</p>
+        </a>
+        <a class="feature-card" href="features/appearance.html">
+          <span class="feature-card-icon" aria-hidden="true">◐</span>
+          <h3>Appearance &amp; i18n</h3>
+          <p>Fonts, themes, glass alpha, and language settings.</p>
+        </a>
+      </div>
+
+    </div><!-- .container -->
+    </div><!-- .doc-main -->
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+</body>
+</html>

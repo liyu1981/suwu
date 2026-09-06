@@ -1,0 +1,112 @@
+<div class="doc-video"><video src="/assets/suwu-cli.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of suwu send, suwu forward, and suwu open commands posting to the web interface"></video></div>
+      </div>
+
+      <div class="prose">
+        <h2><code>suwu send</code></h2>
+        <p>Post a notification to the Suwu web UI from any terminal or script.</p>
+
+<pre><code># Simple notification
+suwu send "Build completed successfully"
+
+# Pipe stdin as the notification body
+echo "Tests passed" | suwu send
+
+# With a title
+suwu send --title "Deploy" "v2.1.0 deployed to production"
+
+# Pipe a file
+cat changelog.txt | suwu send --title "Changelog"</code></pre>
+
+        <p>Notifications appear as a tile in the web UI with the title and body text. They persist until dismissed.</p>
+
+        <h3>Use Cases</h3>
+        <ul>
+          <li><strong>Build notifications</strong> — append <code>suwu send "Build done"</code> to your build script.</li>
+          <li><strong>CI/CD alerts</strong> — pipe pipeline output to <code>suwu send</code>.</li>
+          <li><strong>Monitoring</strong> — send alerts when a health check fails.</li>
+          <li><strong>Long tasks</strong> — <code>make && suwu send "Make complete"</code>.</li>
+        </ul>
+
+        <h2><code>suwu forward</code></h2>
+        <p>Open a port-forwarding tile from the command line.</p>
+
+<pre><code># Forward port 3000
+suwu forward 3000
+
+# Forward to a different remote port
+suwu forward 8080:3000
+
+# UDP forwarding
+suwu forward --udp 5353</code></pre>
+
+        <p>See <a href="port-forwarding.html">Port Forwarding</a> for full details.</p>
+
+        <h2><code>suwu open</code></h2>
+        <p>Open files, directories, or URLs in the Suwu web UI.</p>
+
+<pre><code># Open a directory in the file browser
+suwu open .
+
+# Open a file in the viewer
+suwu open README.md
+
+# Open and watch for changes
+suwu open --watch server.log
+
+# Open a git graph
+suwu open --git-graph .
+
+# Open a diff
+suwu open --diff old.go new.go</code></pre>
+
+        <h3>Options</h3>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Flag</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>--watch</code></td>
+              <td>Auto-refresh when file changes</td>
+            </tr>
+            <tr>
+              <td><code>--git-graph</code></td>
+              <td>Open as git graph</td>
+            </tr>
+            <tr>
+              <td><code>--diff</code></td>
+              <td>Open as side-by-side diff</td>
+            </tr>
+            <tr>
+              <td><code>--tile TYPE</code></td>
+              <td>Force a specific tile type</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2><code>suwu update</code></h2>
+        <p>Update the Suwu binary to the latest release:</p>
+
+<pre><code>suwu update</code></pre>
+
+        <p>This downloads the latest release binary and replaces the current one. See <a href="../upgrading.html">Upgrading</a> for details.</p>
+
+        <h2><code>suwu auth</code></h2>
+        <p>Manage authentication:</p>
+
+<pre><code># Set a password
+suwu auth password
+
+# Clear the password
+suwu auth clear</code></pre>
+
+        <p>See <a href="security.html">Security &amp; Access</a> for full details.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Add <code>suwu send</code> to your <code>.bashrc</code> or <code>.zshrc</code> as a shorthand: <code>alias done='suwu send "Done!"'</code>. Then just run <code>done</code> when a task finishes.</p>
+        </div>

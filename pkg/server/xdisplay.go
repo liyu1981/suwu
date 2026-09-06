@@ -7,22 +7,22 @@ import (
 	"strings"
 
 	"suwu/pkg/auth"
-	"suwu/pkg/graphic"
+	"suwu/pkg/xdisplay"
 
 	"github.com/coder/websocket"
 )
 
-// handleGraphicWS handles GET /ws/graphic — streams a remote X11 display
-// (usually a headless Xvfb framebuffer) to the browser and injects the
-// browser's mouse/keyboard events back into the display.
-func (s *Server) handleGraphicWS(w http.ResponseWriter, r *http.Request) {
+// handleXDisplayWS handles GET /ws/xdisplay — streams a remote X11 display
+// (usually a headless Xorg with dummy driver) to the browser and injects
+// the browser's mouse/keyboard events back into the display.
+func (s *Server) handleXDisplayWS(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writePlain(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	q := r.URL.Query()
-	params := graphic.StreamParams{
+	params := xdisplay.StreamParams{
 		Display:     q.Get("display"),
 		WindowTitle: q.Get("title"),
 	}
@@ -36,9 +36,9 @@ func (s *Server) handleGraphicWS(w http.ResponseWriter, r *http.Request) {
 	// only mode that works correctly with a compositor like picom.
 	// Single-window mode (desktop=1) captures the window directly and misses
 	// override-redirect overlays like Chromium's burger menu.
-	params.Mode = graphic.CaptureFullDesktop
+	params.Mode = xdisplay.CaptureFullDesktop
 	if q.Get("desktop") == "0" {
-		params.Mode = graphic.CaptureFullDesktop
+		params.Mode = xdisplay.CaptureFullDesktop
 	}
 	if fps, err := strconv.Atoi(q.Get("fps")); err == nil && fps > 0 {
 		params.FPS = fps
@@ -74,5 +74,5 @@ func (s *Server) handleGraphicWS(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close(websocket.StatusInternalError, "")
 
 	slog.Debug("graphic stream", "display", params.Display, "title", params.WindowTitle, "fps", params.FPS)
-	graphic.HandleStream(r.Context(), conn, params)
+	xdisplay.HandleStream(r.Context(), conn, params)
 }

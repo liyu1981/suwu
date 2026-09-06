@@ -2,7 +2,7 @@
 // server) to the browser: frames are captured via the X11 protocol, encoded
 // as JPEG, and pushed over WebSocket; mouse/keyboard events flow back and
 // are injected with xdotool.
-package graphic
+package xdisplay
 
 import (
 	"bytes"

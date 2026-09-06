@@ -1,8 +1,9 @@
-package graphic
+package xdisplay
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -21,6 +22,78 @@ type StreamParams struct {
 	// framebuffer size when a fresh Xvfb has to be started (0 = default).
 	Width  int
 	Height int
+}
+
+// activeDisplays tracks which displays are currently in use.
+// Key is the display string (e.g. ":99"), value is the connection ID.
+var activeDisplays = map[string]string{}
+var activeDisplaysMu sync.Mutex
+
+// displayReapers tracks cleanup timers for disconnected displays.
+// When a display disconnects, a 10-minute timer starts to kill the Xorg.
+// If someone reconnects before the timer fires, it's cancelled.
+var displayReapers = map[string]*time.Timer{}
+const reaperTimeout = 10 * time.Minute
+
+// DisplayInUseError is returned when a display is already connected.
+type DisplayInUseError struct {
+	Type      string `json:"type"`
+	Display   string `json:"display"`
+	Connected string `json:"connected"` // connection ID
+}
+
+func (e *DisplayInUseError) Error() string {
+	return fmt.Sprintf("display %s is already in use", e.Display)
+}
+
+// TryAcquireDisplay attempts to register a display as in-use.
+// Returns nil if successful, or *DisplayInUseError if already taken.
+// Cancels any pending reaper timer for the display.
+func TryAcquireDisplay(display, connectionID string) error {
+	activeDisplaysMu.Lock()
+	defer activeDisplaysMu.Unlock()
+
+	// Cancel any pending reaper — someone is reconnecting.
+	if timer, ok := displayReapers[display]; ok {
+		timer.Stop()
+		delete(displayReapers, display)
+		slog.Debug("graphic: reaper cancelled", "display", display)
+	}
+
+	if existing, ok := activeDisplays[display]; ok {
+		return &DisplayInUseError{Type: "display_in_use", Display: display, Connected: existing}
+	}
+	activeDisplays[display] = connectionID
+	return nil
+}
+
+// ReleaseDisplay removes a display from the active map.
+// If no more connections remain, starts a reaper timer to kill the Xorg.
+func ReleaseDisplay(display, connectionID string) {
+	activeDisplaysMu.Lock()
+	defer activeDisplaysMu.Unlock()
+	// Only release if we own it (prevents stale releases).
+	if activeDisplays[display] == connectionID {
+		delete(activeDisplays, display)
+		startReaper(display)
+	}
+}
+
+// startReaper starts a timer to kill the Xorg after reaperTimeout.
+// Must be called with activeDisplaysMu held.
+func startReaper(display string) {
+	// Cancel existing reaper if any.
+	if timer, ok := displayReapers[display]; ok {
+		timer.Stop()
+	}
+	displayReapers[display] = time.AfterFunc(reaperTimeout, func() {
+		slog.Info("graphic: reaper killing idle display", "display", display)
+		KillDisplay(display)
+		activeDisplaysMu.Lock()
+		delete(displayReapers, display)
+		activeDisplaysMu.Unlock()
+	})
+	slog.Debug("graphic: reaper started", "display", display, "timeout", reaperTimeout)
 }
 
 // HandleStream runs one graphic session over an accepted WebSocket:
@@ -42,9 +115,23 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 	if depErr := CheckDependencies(); depErr != nil {
 		slog.Warn("graphic: missing dependencies", "error", depErr)
 		data, _ := json.Marshal(depErr)
-		_ = conn.Close(websocket.StatusInternalError, string(data))
+		_ = conn.Write(ctx, websocket.MessageText, data)
+		_ = conn.Close(websocket.StatusPolicyViolation, "missing dependencies")
 		return
 	}
+
+	// Generate a unique connection ID for this session.
+	connectionID := fmt.Sprintf("%p", conn)
+
+	// Try to acquire the display — reject if already in use.
+	if err := TryAcquireDisplay(params.Display, connectionID); err != nil {
+		slog.Warn("graphic: display in use", "display", params.Display, "error", err)
+		data, _ := json.Marshal(err)
+		_ = conn.Write(ctx, websocket.MessageText, data)
+		_ = conn.Close(websocket.StatusPolicyViolation, "display in use")
+		return
+	}
+	defer ReleaseDisplay(params.Display, connectionID)
 
 	if err := EnsureDisplay(params.Display, params.Width, params.Height); err != nil {
 		slog.Warn("graphic: display not available", "display", params.Display, "error", err)

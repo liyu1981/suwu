@@ -13,8 +13,10 @@ registerTilePlugin({
   ],
   render: (paneId, context?: TileRenderContext) => {
     const p = new URLSearchParams({ pane: paneId })
+    // Always set display param with default of 99.
+    p.set('display', context?.params?.display || '99')
     for (const [k, v] of Object.entries(context?.params ?? {})) {
-      if (v) p.set(k, v)
+      if (v && k !== 'display') p.set(k, v)
     }
     return (
       <iframe

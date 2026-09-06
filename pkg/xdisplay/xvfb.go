@@ -1,4 +1,4 @@
-package graphic
+package xdisplay
 
 import (
 	"fmt"
@@ -9,12 +9,17 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
 
 // displayRe matches local virtual display numbers (":99", ":1", ...).
 var displayRe = regexp.MustCompile(`^:(\d+)$`)
+
+// displayCmds tracks running Xorg/picom processes per display.
+var displayCmds = map[string]*exec.Cmd{}
+var displayCmdsMu sync.Mutex
 
 // DepComponent describes one system dependency.
 type DepComponent struct {
@@ -25,6 +30,7 @@ type DepComponent struct {
 
 // DepError is returned when required system dependencies are missing.
 type DepError struct {
+	Type       string             `json:"type"`
 	Components []DepComponent     `json:"components"`
 	Install    map[string]string  `json:"install"` // distro -> install command
 }
@@ -91,6 +97,7 @@ func CheckDependencies() *DepError {
 	install := buildInstallCommands(components)
 
 	return &DepError{
+		Type:       "missing_deps",
 		Components: components,
 		Install:    install,
 	}
@@ -141,9 +148,7 @@ func buildInstallCommands(components []DepComponent) map[string]string {
 	return result
 }
 
-// xorgCmd/picomCmd track running processes so StopDisplay can kill them
-// when the server shuts down (avoids orphaned processes).
-var xorgCmd, picomCmd *exec.Cmd
+
 
 // Xorg+dummy virtual buffer ceiling (matches the generated xorg.conf's
 // Virtual option — any pane size up to 4K fits without a server restart).
@@ -189,7 +194,9 @@ func EnsureDisplay(display string, width, height int) error {
 		slog.Error("graphic: startXorg failed", "error", err)
 		return err
 	}
-	xorgCmd = cmd
+	displayCmdsMu.Lock()
+	displayCmds[display] = cmd
+	displayCmdsMu.Unlock()
 
 	if waitReady(display, 5*time.Second) {
 		slog.Debug("graphic: Xorg ready", "display", display)
@@ -355,7 +362,12 @@ func startPicom(display string) {
 		slog.Warn("graphic: failed to start picom", "error", err)
 		return
 	}
-	picomCmd = cmd
+	displayCmdsMu.Lock()
+	displayCmds["picom:"+display] = cmd
+	displayCmdsMu.Unlock()
+	displayCmdsMu.Lock()
+	displayCmds["picom:"+display] = cmd
+	displayCmdsMu.Unlock()
 	go func() { _ = cmd.Wait() }()
 	slog.Debug("graphic: picom started", "display", display)
 }
@@ -363,25 +375,51 @@ func startPicom(display string) {
 // StopDisplay kills the Xorg and picom processes started by
 // EnsureDisplay, cleaning up socket and lock files. Called by the server
 // on shutdown so these processes don't outlive their owner.
+// KillDisplay kills the Xorg and picom processes for a specific display.
+// Called by the reaper when a display has been idle for too long.
+func KillDisplay(display string) {
+	displayCmdsMu.Lock()
+	orgCmd := displayCmds[display]
+	comCmd := displayCmds["picom:"+display]
+	delete(displayCmds, display)
+	delete(displayCmds, "picom:"+display)
+	displayCmdsMu.Unlock()
+
+	// Kill picom first (depends on Xorg).
+	if comCmd != nil && comCmd.Process != nil {
+		slog.Debug("graphic: reaper killing picom", "display", display, "pid", comCmd.Process.Pid)
+		_ = comCmd.Process.Kill()
+		_ = comCmd.Wait()
+	}
+	if orgCmd != nil && orgCmd.Process != nil {
+		slog.Debug("graphic: reaper killing Xorg", "display", display, "pid", orgCmd.Process.Pid)
+		_ = orgCmd.Process.Kill()
+		_ = orgCmd.Wait()
+	}
+	// Clean up socket/lock files.
+	m := displayRe.FindStringSubmatch(display)
+	if m != nil {
+		num := m[1]
+		_ = os.Remove(fmt.Sprintf("/tmp/.X%s-lock", num))
+		_ = os.Remove(fmt.Sprintf("/tmp/.X11-unix/X%s", num))
+	}
+}
+
+// StopDisplay kills all Xorg and picom processes started by EnsureDisplay.
 func StopDisplay() {
-	if picomCmd != nil && picomCmd.Process != nil {
-		slog.Debug("graphic: stopping picom", "pid", picomCmd.Process.Pid)
-		_ = picomCmd.Process.Kill()
-		_ = picomCmd.Wait()
-		picomCmd = nil
+	displayCmdsMu.Lock()
+	cmds := make(map[string]*exec.Cmd)
+	for k, v := range displayCmds {
+		cmds[k] = v
 	}
-	if xorgCmd != nil && xorgCmd.Process != nil {
-		slog.Debug("graphic: stopping Xorg", "pid", xorgCmd.Process.Pid)
-		_ = xorgCmd.Process.Kill()
-		_ = xorgCmd.Wait()
-		xorgCmd = nil
-	}
-	// Also remove stale socket/lock files (may be from a previous server
-	// instance that didn't have StopDisplay).
-	for _, num := range []string{"99"} {
-		lock := fmt.Sprintf("/tmp/.X%s-lock", num)
-		sock := fmt.Sprintf("/tmp/.X11-unix/X%s", num)
-		_ = os.Remove(lock)
-		_ = os.Remove(sock)
+	displayCmds = map[string]*exec.Cmd{}
+	displayCmdsMu.Unlock()
+
+	for key, cmd := range cmds {
+		if cmd != nil && cmd.Process != nil {
+			slog.Debug("graphic: stopping", "key", key, "pid", cmd.Process.Pid)
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
 	}
 }

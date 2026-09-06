@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai'
 import { fetchToken } from '../lib/api'
 import { xdisplayFpsAtom } from '../store/zoom'
 
-interface GraphicAppProps {
+interface XDisplayProps {
   /** X11 display number to stream, e.g. "99" for :99. */
   display?: string
   /** When set, capture only the window matching this WM_CLASS/name. */
@@ -28,6 +28,12 @@ type DepError = {
   install: Record<string, string>
 }
 
+type DisplayInUseError = {
+  type: 'display_in_use'
+  display: string
+  connected: string
+}
+
 const DEFAULT_W = 1280
 const DEFAULT_H = 720
 
@@ -38,11 +44,11 @@ const distroLabels: Record<string, string> = {
 }
 
 /**
- * GUIAppPane — streams a remote X11 display onto a canvas and injects
+ * XDisplayPane — streams a remote X11 display onto a canvas and injects
  * mouse/keyboard input back into it. Shows a header with the display
  * number and connection status.
  */
-export default function GUIAppPane({ display = '99', title, desktop, fps: fpsProp }: GraphicAppProps) {
+export default function XDisplayPane({ display = '99', title, desktop, fps: fpsProp }: XDisplayProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasWrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -50,6 +56,8 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
   const [status, setStatus] = useState<ConnState>('connecting')
   const [statusMsg, setStatusMsg] = useState('')
   const [depError, setDepError] = useState<DepError | null>(null)
+  const [displayInUse, setDisplayInUse] = useState<DisplayInUseError | null>(null)
+  const [switchDisplay, setSwitchDisplay] = useState('')
   const fpsSetting = useAtomValue(xdisplayFpsAtom)
   const fps = fpsProp ?? fpsSetting
 
@@ -86,8 +94,6 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
   // ── Connection (fresh token per attempt, capped retry) ───────
   useEffect(() => {
     let disposed = false
-    let retryTimer: number | undefined
-    let attempt = 0
 
     const paneSize = () => {
       const rect = canvasWrapRef.current?.getBoundingClientRect()
@@ -101,6 +107,7 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
       if (disposed) return
       setStatus('connecting')
       setDepError(null)
+      setDisplayInUse(null)
       try {
         const token = await fetchToken()
         if (disposed) return
@@ -112,35 +119,42 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
         if (desktop) params.set('desktop', desktop)
         if (fps && fps !== 30) params.set('fps', String(fps))
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/graphic?${params}`)
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/xdisplay?${params}`)
         ws.binaryType = 'blob'
         wsRef.current = ws
 
         ws.onopen = () => {
-          attempt = 0
           setStatus('connected')
         }
         ws.onmessage = (ev) => {
-          if (ev.data instanceof Blob) void drawFrame(ev.data)
+          // Check if this is a structured error message (text, not blob).
+          if (typeof ev.data === 'string') {
+            try {
+              const data = JSON.parse(ev.data)
+              if (data.type === 'missing_deps') {
+                setDepError(data as DepError)
+                setStatusMsg('')
+                ws.close()
+                return
+              }
+              if (data.type === 'display_in_use') {
+                setDisplayInUse(data as DisplayInUseError)
+                setStatusMsg('')
+                ws.close()
+                return
+              }
+            } catch {
+              // Not JSON — ignore.
+            }
+            return
+          }
+          // Binary data = JPEG frame.
+          void drawFrame(ev.data)
         }
         ws.onclose = (ev) => {
           if (disposed) return
           setStatus('disconnected')
-          // Try to parse structured dependency error from server.
-          try {
-            const data = JSON.parse(ev.reason)
-            if (data.type === 'missing_deps') {
-              setDepError(data as DepError)
-              setStatusMsg('')
-              return
-            }
-          } catch {
-            // Not JSON — use raw reason.
-          }
           setStatusMsg(ev.reason || 'Connection closed')
-          // Cap retries at ~5s; the server sends a reason on failure.
-          attempt = Math.min(attempt + 1, 5)
-          retryTimer = window.setTimeout(connect, attempt * 1000)
         }
         ws.onerror = () => {
           if (disposed) return
@@ -150,27 +164,30 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
         if (disposed) return
         setStatus('disconnected')
         setStatusMsg('Auth failed')
-        attempt = Math.min(attempt + 1, 5)
-        retryTimer = window.setTimeout(connect, attempt * 1000)
       }
     }
 
     void connect()
     return () => {
       disposed = true
-      if (retryTimer) window.clearTimeout(retryTimer)
       wsRef.current?.close()
       wsRef.current = null
     }
   }, [display, title, desktop, fps, drawFrame])
 
   const handleRetry = useCallback(() => {
-    setDepError(null)
-    setStatusMsg('')
-    // Trigger reconnection by closing existing ws.
-    wsRef.current?.close()
-    wsRef.current = null
+    // Refresh the iframe to retry once.
+    window.location.reload()
   }, [])
+
+  const handleSwitchDisplay = useCallback(() => {
+    if (switchDisplay.trim()) {
+      // Redirect to same page with new display parameter.
+      const url = new URL(window.location.href)
+      url.searchParams.set('display', switchDisplay.trim())
+      window.location.href = url.toString()
+    }
+  }, [switchDisplay])
 
   // ── Pane resize → ask the server to resize the X display ─────
   useEffect(() => {
@@ -264,7 +281,7 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
   }, [getCoords, send])
 
   return (
-    <div ref={wrapRef} className="flex h-full w-full flex-col overflow-hidden bg-black">
+    <div ref={wrapRef} className="relative flex h-full w-full flex-col overflow-hidden bg-black">
       {/* Header bar */}
       <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.08] bg-white/[0.05] px-3 py-1.5">
         {/* Status indicator */}
@@ -280,7 +297,8 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
         <span className="text-[10px] text-white/40">
           {status === 'connected' ? 'Connected' :
            status === 'connecting' ? 'Connecting…' :
-           depError ? 'Missing dependencies' : statusMsg || 'Disconnected'}
+           depError ? 'Missing dependencies' :
+           displayInUse ? 'Display in use' : statusMsg || 'Disconnected'}
         </span>
       </div>
 
@@ -356,6 +374,63 @@ export default function GUIAppPane({ display = '99', title, desktop, fps: fpsPro
             >
               🔄 Retry
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Display in use overlay */}
+      {displayInUse && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="mx-4 max-w-sm rounded-xl border border-white/10 bg-gray-900 p-5 shadow-2xl">
+            <div className="mb-4 flex items-center gap-2">
+              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+              </svg>
+              <h3 className="text-sm font-semibold text-white">Display In Use</h3>
+            </div>
+
+            <p className="mb-4 text-xs text-white/60">
+              Display <span className="font-mono text-white/90">{displayInUse.display}</span> is already connected by another tile.
+            </p>
+
+            <div className="mb-4">
+              <label className="mb-1.5 block text-[11px] font-medium text-white/50">Switch to display number:</label>
+              <div className="flex gap-2">
+                <div className="flex flex-1 items-center rounded-lg border border-white/10 bg-black/30 px-2">
+                  <span className="text-xs text-white/40">:</span>
+                  <input
+                    type="number"
+                    value={switchDisplay}
+                    onChange={(e) => setSwitchDisplay(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSwitchDisplay()}
+                    placeholder="99"
+                    min={0}
+                    max={99}
+                    className="w-full bg-transparent px-1 py-2 text-xs text-white outline-none placeholder:text-white/30"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="flex-1 rounded-lg bg-white/5 px-4 py-2 text-xs font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white/80"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSwitchDisplay}
+                disabled={!switchDisplay.trim()}
+                className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20 disabled:opacity-30"
+              >
+                Switch
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-package graphic
+package xdisplay
 
 import (
 	"fmt"

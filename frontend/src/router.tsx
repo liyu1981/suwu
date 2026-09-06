@@ -8,7 +8,7 @@ import ForwardPage from './routes/ForwardPage'
 import DropboxPage from './routes/DropboxPage'
 import GitGraphPage from './routes/GitGraphPage'
 import DiffPage from './routes/DiffPage'
-import GUIAppPage from './routes/GraphicPage'
+import XDisplayPage from './routes/XDisplayPage'
 
 const rootRoute = createRootRoute()
 
@@ -75,7 +75,7 @@ const diffRoute = createRoute({
 const xdisplayRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/xdisplay',
-  component: GUIAppPage,
+  component: XDisplayPage,
 })
 
 const routeTree = rootRoute.addChildren([

@@ -195,6 +195,9 @@ Flags:
 Environment variables:
   PORT                 HTTP port (default 8181, or 8000 in dev mode)
   HOST                 Bind address (default 127.0.0.1)
+  EXTRA_HOSTS          Comma-separated extra hostnames/IPs to allow
+                       Supports wildcards: * (all), *.example.com, example.*
+  NO_TLS=true          Skip TLS — for reverse-proxy deployments (Cloudflare, nginx)
   SUWU_DEV=true        Enable dev defaults (port 8000, air rebuild)
   SUWU_LOG_LEVEL       Log level: debug, info, warn, error (default: error)
   TLS_CERT_FILE        TLS certificate file path
@@ -205,6 +208,7 @@ Examples:
   suwu serve
   PORT=3000 suwu serve
   HOST=0.0.0.0 suwu serve
+  HOST=0.0.0.0 EXTRA_HOSTS=* NO_TLS=true suwu serve
   suwu serve --env-file /path/to/.env
 `)
 	case "send":
@@ -491,16 +495,23 @@ func run() error {
 		Handler: srv.Handler(),
 	}
 
-	// HTTPS uses TLS_CERT_FILE/TLS_KEY_FILE when set, falling back to the
-	// default pair 'suwu gencerts' writes into ~/.config/suwu/. A secure
-	// context is required for browser clipboard access, so pasting into the
-	// terminal only works over https (or from localhost).
-	certFile, keyFile, tlsSource, err := resolveTLS()
-	if err != nil {
-		sessions.Close()
-		return err
+	// TLS mode: NO_TLS=true skips certificate lookup entirely (for reverse-proxy
+	// deployments where TLS is terminated externally, e.g. Cloudflare).
+	// Otherwise HTTPS uses TLS_CERT_FILE/TLS_KEY_FILE when set, falling back
+	// to the default pair 'suwu gencerts' writes into ~/.config/suwu/.
+	var certFile, keyFile, tlsSource string
+	useTLS := false
+	if os.Getenv("NO_TLS") == "true" {
+		tlsSource = "offloaded"
+	} else {
+		var err error
+		certFile, keyFile, tlsSource, err = resolveTLS()
+		if err != nil {
+			sessions.Close()
+			return err
+		}
+		useTLS = certFile != "" && keyFile != ""
 	}
-	useTLS := certFile != "" && keyFile != ""
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -628,11 +639,14 @@ func printBanner(dev bool, cfg *auth.Config, port int, useTLS bool, tlsSource st
 	fmt.Printf("  🚀 Suwu server%s\n", devLabel(dev))
 	fmt.Println(strings.Repeat("═", 60))
 	fmt.Printf("\n  📺 Open: %s://%s:%d\n", scheme, formatURLHost(cfg.DisplayHost), port)
-	if useTLS {
+	switch {
+	case useTLS:
 		fmt.Printf("  🔒 TLS enabled (certs from %s): browser clipboard APIs (terminal paste) available\n", tlsSource)
-	} else {
+	case tlsSource == "offloaded":
+		fmt.Println("  🔒 TLS offloaded to reverse proxy: place behind Cloudflare, nginx, etc.")
+	default:
 		fmt.Println("  ⚠️  Plain HTTP: browser clipboard APIs unavailable outside localhost (no paste into the terminal)")
-		fmt.Println("     hint: run 'suwu gencerts' to enable https")
+		fmt.Println("     hint: run 'suwu gencerts' to enable https, or set NO_TLS=true for reverse-proxy mode")
 	}
 	fmt.Println("  📡 WebSocket PTY: same endpoint /ws")
 	fmt.Println("  🔐 WebSocket auth: per-run same-origin token")

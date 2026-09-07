@@ -55,6 +55,7 @@ else
 fi
 
 # TLS scheme mirrors the server's resolveTLS.
+NO_TLS="${NO_TLS:-$(env_value NO_TLS)}"
 TLS_CERT_FILE="${TLS_CERT_FILE:-$(env_value TLS_CERT_FILE)}"
 TLS_KEY_FILE="${TLS_KEY_FILE:-$(env_value TLS_KEY_FILE)}"
 if [[ -z "$TLS_CERT_FILE" && -z "$TLS_KEY_FILE" ]] \
@@ -62,8 +63,12 @@ if [[ -z "$TLS_CERT_FILE" && -z "$TLS_KEY_FILE" ]] \
   TLS_CERT_FILE="$GLOBAL_CFG/tls-cert.pem"
   TLS_KEY_FILE="$GLOBAL_CFG/tls-key.pem"
 fi
-SCHEME=https
-[[ -z "$TLS_CERT_FILE" || -z "$TLS_KEY_FILE" ]] && SCHEME=http
+if [[ "$NO_TLS" == "true" ]]; then
+  SCHEME=http
+else
+  SCHEME=https
+  [[ -z "$TLS_CERT_FILE" || -z "$TLS_KEY_FILE" ]] && SCHEME=http
+fi
 
 # Wildcard binds are reachable via loopback; display a clickable URL but
 # note the actual bind address. When HOST=auto, resolve to a real
@@ -134,6 +139,12 @@ start() {
     return 0
   fi
   rotate
+  # Export resolved env so the child process inherits them.
+  export HOST="$RESOLVED_HOST"
+  export PORT="$RESOLVED_PORT"
+  [[ -n "$NO_TLS" ]] && export NO_TLS
+  [[ -n "$TLS_CERT_FILE" ]] && export TLS_CERT_FILE
+  [[ -n "$TLS_KEY_FILE" ]] && export TLS_KEY_FILE
   # setsid: new process group so stop() can signal the server cleanly.
   nohup setsid "$BIN" serve >>"$LOG" 2>&1 &
   echo $! >"$PID"

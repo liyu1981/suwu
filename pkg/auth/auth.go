@@ -169,6 +169,16 @@ func isDNSLabel(value string) bool {
 }
 
 func addAllowedHost(allowed []string, host string) ([]string, error) {
+	// Allow wildcard patterns (e.g. "*", "*.example.com", "example.*")
+	if strings.Contains(host, "*") {
+		host = strings.TrimSpace(strings.ToLower(host))
+		for _, h := range allowed {
+			if h == host {
+				return allowed, nil
+			}
+		}
+		return append(allowed, host), nil
+	}
 	normalized := normalizeHostname(host)
 	if normalized == "" {
 		return nil, errors.New("allowed host must be a hostname or IP address: " + host)
@@ -343,11 +353,40 @@ func safeTokenEquals(expected, actual string) bool {
 
 func contains(list []string, v string) bool {
 	for _, s := range list {
-		if s == v {
+		if hostMatches(s, v) {
 			return true
 		}
 	}
 	return false
+}
+
+// hostMatches reports whether a pattern matches a hostname.
+// Exact match is tried first, then glob-style patterns:
+//   - "*" matches any hostname
+//   - "*.example.com" matches any subdomain of example.com
+//   - "example.*" matches example with any TLD
+//   - Segment-level wildcards (e.g. "*.com") are supported
+func hostMatches(pattern, host string) bool {
+	if pattern == host {
+		return true
+	}
+	if pattern == "*" {
+		return true
+	}
+	pParts := strings.Split(pattern, ".")
+	hParts := strings.Split(host, ".")
+	if len(pParts) != len(hParts) {
+		return false
+	}
+	for i, p := range pParts {
+		if p == "*" {
+			continue
+		}
+		if p != hParts[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // IsWildcardBindHost reports whether host is a wildcard bind address.
@@ -424,6 +463,19 @@ func CreateConfig(env func(string) string) (*Config, error) {
 		allowed, err = addAllowedHost(allowed, bindHost)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	// EXTRA_HOSTS is a comma-separated list of additional hostnames/IPs to
+	// allow. Useful when the server is accessed via a public IP or NAT
+	// address that is not a local interface (e.g. port-forwarded access).
+	if extra := get("EXTRA_HOSTS"); extra != "" {
+		for _, h := range strings.Split(extra, ",") {
+			h = strings.TrimSpace(h)
+			if h == "" {
+				continue
+			}
+			allowed, _ = addAllowedHost(allowed, h)
 		}
 	}
 

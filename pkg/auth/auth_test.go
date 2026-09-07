@@ -234,6 +234,120 @@ func TestCreateConfigDefaultNoPassword(t *testing.T) {
 	}
 }
 
+func TestCreateConfigExtraHosts(t *testing.T) {
+	t.Setenv("HOST", "auto")
+	t.Setenv("AUTH_PASS", "")
+	t.Setenv("EXTRA_HOSTS", "140.238.196.232, example.com")
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(cfg.AllowedHosts, "140.238.196.232") {
+		t.Errorf("140.238.196.232 missing from allowed hosts %v", cfg.AllowedHosts)
+	}
+	if !contains(cfg.AllowedHosts, "example.com") {
+		t.Errorf("example.com missing from allowed hosts %v", cfg.AllowedHosts)
+	}
+}
+
+func TestCreateConfigExtraHostsEmpty(t *testing.T) {
+	t.Setenv("HOST", "auto")
+	t.Setenv("AUTH_PASS", "")
+	t.Setenv("EXTRA_HOSTS", ",, ,")
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Empty entries should be ignored, no crash.
+	_ = cfg
+}
+
+func TestHostMatches(t *testing.T) {
+	cases := []struct {
+		pattern string
+		host    string
+		want    bool
+	}{
+		// Exact matches.
+		{"localhost", "localhost", true},
+		{"127.0.0.1", "127.0.0.1", true},
+		{"example.com", "example.com", true},
+		{"example.com", "other.com", false},
+		// Global wildcard.
+		{"*", "anything", true},
+		{"*", "140.238.196.232", true},
+		{"*", "example.com", true},
+		// Subdomain wildcard: *.example.com.
+		{"*.example.com", "foo.example.com", true},
+		{"*.example.com", "bar.example.com", true},
+		{"*.example.com", "a.b.example.com", false},
+		{"*.example.com", "example.com", false},
+		{"*.example.com", "evil.com", false},
+		// TLD wildcard: example.*.
+		{"example.*", "example.com", true},
+		{"example.*", "example.org", true},
+		{"example.*", "example.io", true},
+		{"example.*", "other.com", false},
+		{"example.*", "example", false},
+		// Mixed wildcards.
+		{"*.*", "foo.bar", true},
+		{"*.*", "a.b.c", false},
+	}
+	for _, c := range cases {
+		got := hostMatches(c.pattern, c.host)
+		if got != c.want {
+			t.Errorf("hostMatches(%q, %q) = %v, want %v", c.pattern, c.host, got, c.want)
+		}
+	}
+}
+
+func TestWildcardAllowedHosts(t *testing.T) {
+	// "*" in EXTRA_HOSTS should accept any host.
+	t.Setenv("HOST", "0.0.0.0")
+	t.Setenv("AUTH_PASS", "")
+	t.Setenv("EXTRA_HOSTS", "*")
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(cfg.AllowedHosts, "anything") {
+		t.Errorf("wildcard * should match any host, AllowedHosts=%v", cfg.AllowedHosts)
+	}
+	if !contains(cfg.AllowedHosts, "140.238.196.232") {
+		t.Errorf("wildcard * should match IP, AllowedHosts=%v", cfg.AllowedHosts)
+	}
+}
+
+func TestSubdomainWildcardAllowedHosts(t *testing.T) {
+	t.Setenv("HOST", "0.0.0.0")
+	t.Setenv("AUTH_PASS", "")
+	t.Setenv("EXTRA_HOSTS", "*.example.com")
+	cfg, err := CreateConfig(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(cfg.AllowedHosts, "foo.example.com") {
+		t.Errorf("*.example.com should match foo.example.com, AllowedHosts=%v", cfg.AllowedHosts)
+	}
+	if contains(cfg.AllowedHosts, "evil.com") {
+		t.Errorf("*.example.com should not match evil.com, AllowedHosts=%v", cfg.AllowedHosts)
+	}
+}
+
+func TestValidateTokenRequestWithWildcardHost(t *testing.T) {
+	cfg := &Config{Token: "tok", AllowedHosts: []string{"*"}}
+
+	// Any host should be accepted.
+	d := ValidateTokenRequest(cfg, "140.238.196.232:8181", "", "")
+	if !d.OK {
+		t.Errorf("wildcard host rejected: %+v", d)
+	}
+	d = ValidateTokenRequest(cfg, "evil.example.com", "", "")
+	if !d.OK {
+		t.Errorf("wildcard host rejected: %+v", d)
+	}
+}
+
 func TestGenerateSigningKey(t *testing.T) {
 	key1 := GenerateSigningKey("token1")
 	key2 := GenerateSigningKey("token1")

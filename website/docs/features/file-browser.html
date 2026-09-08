@@ -32,8 +32,13 @@
   <main id="main" class="doc-page">
 <div class="doc-layout">
     <aside class="doc-sidebar">
-      <p class="doc-sidebar-title">Docs</p>
-      <nav aria-label="Docs sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
         <div class="doc-sidebar-group">
           <p class="doc-sidebar-title">Overview</p>
           <ul class="doc-sidebar-nav">
@@ -154,9 +159,9 @@
 
 </div>
       <nav class="doc-nav" aria-label="Prev / Next">
-        <a href="/docs/features/public-access.html">
+        <a href="/docs/features/security.html">
           <span class="doc-nav-label">← Previous</span>
-          <span class="doc-nav-title">Public Access</span>
+          <span class="doc-nav-title">Security &amp; Access</span>
         </a>
         <a href="/docs/features/file-viewer.html" class="doc-nav-next">
           <span class="doc-nav-label">Next →</span>
@@ -205,5 +210,17 @@
   </div>
 
   <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
 </body>
 </html>

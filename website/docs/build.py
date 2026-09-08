@@ -257,8 +257,13 @@ def build_sidebar(active):
     """Build sidebar HTML. All links are absolute paths."""
     lines = [
         '    <aside class="doc-sidebar">',
-        '      <p class="doc-sidebar-title">Docs</p>',
-        '      <nav aria-label="Docs sidebar">',
+        '      <div class="doc-sidebar-header">',
+        '        <p class="doc-sidebar-title">Docs</p>',
+        '        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">',
+        '          <span class="doc-sidebar-toggle-icon"></span>',
+        '        </button>',
+        '      </div>',
+        '      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">',
     ]
 
     for group_name, items in SIDEBAR_GROUPS:
@@ -330,6 +335,19 @@ LIGHTBOX_INDEX = '''  <!-- Lightbox -->
   </div>
 
   <script src="/js/shared.js"></script>'''
+
+SIDEBAR_TOGGLE_JS = '''<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>'''
 
 
 def build_page(page):
@@ -404,6 +422,7 @@ def build_page(page):
 
 {FOOTER}
 {LIGHTBOX}
+{SIDEBAR_TOGGLE_JS}
 </body>
 </html>
 """
@@ -415,7 +434,7 @@ def build_index():
     content = read_content("index.content.html")
 
     head = f"""{HEAD_OPEN}
-  <title>Docs — Suwu</title>
+  <title>Suwu Docs</title>
   <meta name="description" content="Feature documentation for Suwu — the web-based remote shell with a tiling workspace." />
 {CSS_LINKS}
 </head>"""
@@ -428,7 +447,7 @@ def build_index():
       </nav>"""
 
     header_section = """      <div class="doc-header">
-        <h1>Feature Docs</h1>
+        <h1>Suwu Docs</h1>
         <p class="doc-lead">Everything you need to get the most out of Suwu — from keyboard shortcuts to CLI commands.</p>
       </div>"""
 
@@ -453,6 +472,7 @@ def build_index():
 
 {FOOTER}
 {LIGHTBOX_INDEX}
+{SIDEBAR_TOGGLE_JS}
 </body>
 </html>
 """

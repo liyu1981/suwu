@@ -32,8 +32,13 @@
   <main id="main" class="doc-page">
 <div class="doc-layout">
     <aside class="doc-sidebar">
-      <p class="doc-sidebar-title">Docs</p>
-      <nav aria-label="Docs sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
         <div class="doc-sidebar-group">
           <p class="doc-sidebar-title">Overview</p>
           <ul class="doc-sidebar-nav">
@@ -48,7 +53,6 @@
             <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
             <li><a href="/docs/features/terminals.html">Terminals</a></li>
             <li><a href="/docs/features/security.html" aria-current="page">Security &amp; Access</a></li>
-            <li><a href="/docs/features/public-access.html">Public Access</a></li>
           </ul>
         </div>
         <div class="doc-sidebar-group">
@@ -200,9 +204,9 @@ location / {
           <span class="doc-nav-label">← Previous</span>
           <span class="doc-nav-title">Terminals</span>
         </a>
-        <a href="/docs/features/public-access.html" class="doc-nav-next">
+        <a href="/docs/features/file-browser.html" class="doc-nav-next">
           <span class="doc-nav-label">Next →</span>
-          <span class="doc-nav-title">Public Access</span>
+          <span class="doc-nav-title">File Browser</span>
         </a>
       </nav>
     </div><!-- .doc-main -->
@@ -248,5 +252,17 @@ location / {
   </div>
 
   <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
 </body>
 </html>

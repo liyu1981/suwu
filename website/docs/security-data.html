@@ -32,8 +32,13 @@
   <main id="main" class="doc-page">
 <div class="doc-layout">
     <aside class="doc-sidebar">
-      <p class="doc-sidebar-title">Docs</p>
-      <nav aria-label="Docs sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
         <div class="doc-sidebar-group">
           <p class="doc-sidebar-title">Overview</p>
           <ul class="doc-sidebar-nav">
@@ -48,7 +53,6 @@
             <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
             <li><a href="/docs/features/terminals.html">Terminals</a></li>
             <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
-            <li><a href="/docs/features/public-access.html">Public Access</a></li>
           </ul>
         </div>
         <div class="doc-sidebar-group">
@@ -285,5 +289,17 @@
   </div>
 
   <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
 </body>
 </html>

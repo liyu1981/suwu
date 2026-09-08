@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Docs — Suwu</title>
+  <title>Suwu Docs</title>
   <meta name="description" content="Feature documentation for Suwu — the web-based remote shell with a tiling workspace." />
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -32,8 +32,13 @@
   <main id="main" class="doc-page">
 <div class="doc-layout">
     <aside class="doc-sidebar">
-      <p class="doc-sidebar-title">Docs</p>
-      <nav aria-label="Docs sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
         <div class="doc-sidebar-group">
           <p class="doc-sidebar-title">Overview</p>
           <ul class="doc-sidebar-nav">
@@ -84,10 +89,30 @@
         </ol>
       </nav>
       <div class="doc-header">
-        <h1>Feature Docs</h1>
+        <h1>Suwu Docs</h1>
         <p class="doc-lead">Everything you need to get the most out of Suwu — from keyboard shortcuts to CLI commands.</p>
       </div>
-Core</h2>
+<h2 class="doc-section-heading">Overview</h2>
+
+      <div class="feature-grid">
+        <a class="feature-card" href="/docs/get-started.html">
+          <span class="feature-card-icon" aria-hidden="true">🚀</span>
+          <h3>Get Started</h3>
+          <p>Install Suwu and get your first terminal running in under a minute.</p>
+        </a>
+        <a class="feature-card" href="/docs/upgrading.html">
+          <span class="feature-card-icon" aria-hidden="true">⬆</span>
+          <h3>Upgrading</h3>
+          <p>Update Suwu to the latest version and manage configuration.</p>
+        </a>
+        <a class="feature-card" href="/docs/security-data.html">
+          <span class="feature-card-icon" aria-hidden="true">🔐</span>
+          <h3>Security &amp; Data</h3>
+          <p>Where Suwu stores data, security considerations, and intranet usage guidance.</p>
+        </a>
+      </div>
+
+      <h2 class="doc-section-heading">Core</h2>
 
       <div class="feature-grid">
         <a class="feature-card" href="features/tiling-wm.html">
@@ -193,5 +218,17 @@ Core</h2>
   </div>
 
   <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
 </body>
 </html>

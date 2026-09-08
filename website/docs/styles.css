@@ -704,6 +704,15 @@
 
 /* ---------- Responsive: collapse TOC, then sidebar ---------- */
 
+/* Desktop: show sidebar nav by default */
+.doc-sidebar-nav-wrap {
+  display: block;
+}
+
+.doc-sidebar-header {
+  display: none;
+}
+
 @media (max-width: 1080px) {
   .doc-layout {
     grid-template-columns: 240px minmax(0, 1fr);

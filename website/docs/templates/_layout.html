@@ -16,5 +16,17 @@
   </main>
 
 {{FOOTER}}
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
 </body>
 </html>

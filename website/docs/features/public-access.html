@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Public Access — Suwu Docs</title>
+  <meta name="description" content="Securely expose Suwu to the public internet with reverse proxies, wildcards, and zero-trust access." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <p class="doc-sidebar-title">Docs</p>
+      <nav aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+            <li><a href="/docs/features/public-access.html" aria-current="page">Public Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Public Access</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Public Access</h1>
+        <p class="doc-lead">Securely expose Suwu to the public internet using a reverse proxy, wildcard host validation, password authentication, and zero-trust identity providers.</p>
+      </div>
+
+      <div class="prose">
+        <h2 id="overview">Overview</h2>
+        <p>Suwu is designed for local and LAN use by default. To expose it publicly, you need four layers of defense:</p>
+        <ol>
+          <li><strong>Bind to localhost only</strong> — the server never directly faces the internet</li>
+          <li><strong>Wildcard host validation</strong> — reject requests for unexpected hostnames</li>
+          <li><strong>Password authentication</strong> — require credentials before granting access</li>
+          <li><strong>Zero-trust access</strong> — let Cloudflare (or your proxy) handle TLS and identity</li>
+        </ol>
+
+        <h2 id="step-1-configuration">Step 1 — Server Configuration</h2>
+        <p>Edit <code>~/.config/suwu/.env</code> on your server:</p>
+
+<pre><code># Bind to localhost only — the server never touches the public internet directly.
+HOST=127.0.0.1
+
+# Allow only your domain. Supports wildcards:
+#   *.mydomain.com  — matches any subdomain
+#   mydomain.*      — matches any TLD
+#   *               — matches everything (not recommended for public use)
+EXTRA_HOSTS=*.mydomain.com
+
+# Require a password for all API access.
+AUTH_PASS=&lt;sha256-hex-of-your-password&gt;
+
+# Skip local TLS — Cloudflare handles HTTPS termination.
+NO_TLS=true
+
+PORT=8181</code></pre>
+
+        <p>Generate the password hash:</p>
+
+<pre><code># Install shasum if needed, then:
+echo -n "your-secret-password" | shasum -a 256 | awk '{print $1}'</code></pre>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Security note</div>
+          <p><code>HOST=127.0.0.1</code> ensures Suwu only listens on the loopback interface. Even if someone bypasses your reverse proxy, they cannot reach the server directly — there is no port exposed to the outside.</p>
+        </div>
+
+        <h2 id="step-2-reverse-proxy">Step 2 — Reverse Proxy</h2>
+        <p>You have two options depending on your TLS setup:</p>
+
+        <h3 id="option-a-cloudflare">Option A — Cloudflare (recommended)</h3>
+        <p>When using Cloudflare, TLS is terminated at the edge. Set <code>NO_TLS=true</code> in your <code>.env</code> and let Cloudflare handle certificates.</p>
+
+        <h3 id="option-b-your-own-certs">Option B — Your own certificates</h3>
+        <p>If you prefer to manage TLS yourself (e.g., nginx with Let's Encrypt), omit <code>NO_TLS=true</code> and provide valid certificates issued to your public-facing domain:</p>
+
+<pre><code># In ~/.config/suwu/.env
+TLS_CERT_FILE=/etc/letsencrypt/live/mydomain.com/fullchain.pem
+TLS_KEY_FILE=/etc/letsencrypt/live/mydomain.com/privkey.pem</code></pre>
+
+        <p>Then configure your reverse proxy to forward to <code>https://127.0.0.1:8181</code>.</p>
+
+        <h2 id="step-3-cloudflare-zero-trust">Step 3 — Cloudflare Zero Trust Tunnel</h2>
+        <p>A Cloudflare Tunnel connects your server to Cloudflare's edge without opening any inbound ports. This is the most secure approach — your server's port 8181 is never exposed to the public internet.</p>
+
+        <h3 id="install-cloudflared">Install cloudflared</h3>
+
+<pre><code># Debian / Ubuntu
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt update && sudo apt install cloudflared
+
+# Or install the binary directly
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+chmod +x /usr/local/bin/cloudflared</code></pre>
+
+        <h3 id="authenticate-and-create-tunnel">Authenticate and create a tunnel</h3>
+
+<pre><code># Log in to your Cloudflare account (opens browser)
+cloudflared tunnel login
+
+# Create a named tunnel
+cloudflared tunnel create suwu
+
+# Note the tunnel ID from the output</code></pre>
+
+        <h3 id="configure-tunnel">Configure the tunnel</h3>
+        <p>Create <code>~/.cloudflared/config.yml</code>:</p>
+
+<pre><code>tunnel: &lt;tunnel-id&gt;
+credentials-file: /root/.cloudflared/&lt;tunnel-id&gt;.json
+
+ingress:
+  - hostname: terminal.mydomain.com
+    service: http://127.0.0.1:8181
+    originRequest:
+      noTLSVerify: true
+  - service: http_status:404</code></pre>
+
+        <div class="callout callout-info">
+          <div class="callout-title">Why noTLSVerify: true?</div>
+          <p>When <code>NO_TLS=true</code>, the Suwu server runs plain HTTP on localhost. The tunnel connects to <code>http://127.0.0.1:8181</code>, so there's no TLS to verify on the origin side. Cloudflare still enforces HTTPS for all visitors.</p>
+        </div>
+
+        <h3 id="route-dns-and-run">Route DNS and run</h3>
+
+<pre><code># Route your subdomain to the tunnel
+cloudflared tunnel route dns suwu terminal.mydomain.com
+
+# Run the tunnel (or use systemd service below)
+cloudflared tunnel run suwu</code></pre>
+
+        <h3 id="systemd-service">Run as a systemd service</h3>
+
+<pre><code># Install the service
+sudo cloudflared service install
+
+# Enable and start
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared</code></pre>
+
+        <h2 id="step-4-access-protection">Step 4 — Access Protection</h2>
+        <p>At this point, anyone who knows <code>terminal.mydomain.com</code> can reach your Suwu server — but they still need the password. For stronger access control, use Cloudflare's identity features.</p>
+
+        <h3 id="one-time-pin">Option A — One Time PIN (simplest)</h3>
+        <p>Cloudflare sends a PIN to the visitor's email address. No identity provider setup required.</p>
+        <ol>
+          <li>Go to <strong>Cloudflare Zero Trust Dashboard → Access → Applications</strong></li>
+          <li>Click <strong>Create an application</strong></li>
+          <li>Choose <strong>Self-hosted</strong></li>
+          <li>Set the application domain: <code>terminal.mydomain.com</code></li>
+          <li>Under <strong>Policy</strong>, create a policy with action <strong>Allow</strong></li>
+          <li>Add a <strong>One-time PIN</strong> criterion (email domain)</li>
+          <li>Save</li>
+        </ol>
+
+        <p>Now when someone visits <code>https://terminal.mydomain.com</code>, Cloudflare challenges them with a PIN sent to their email before they ever reach your server.</p>
+
+        <h3 id="identity-provider">Option B — Identity Provider (stronger)</h3>
+        <p>Connect a social or enterprise identity provider for SSO. This is ideal for personal or team use.</p>
+
+        <h4 id="google-login">Google Login example</h4>
+        <ol>
+          <li>Go to <strong>Cloudflare Zero Trust Dashboard → Settings → Authentication</strong></li>
+          <li>Click <strong>Add new</strong> under Login methods</li>
+          <li>Choose <strong>Google</strong></li>
+          <li>Follow the OAuth consent screen setup (requires a Google Cloud project with OAuth credentials)</li>
+          <li>Once connected, go to <strong>Access → Applications → Create an application</strong></li>
+          <li>Choose <strong>Self-hosted</strong>, set domain to <code>terminal.mydomain.com</code></li>
+          <li>Create a policy: <strong>Allow</strong> → Emails ending in <code>@yourcompany.com</code> (or any Gmail)</li>
+          <li>Save</li>
+        </ol>
+
+        <p>Visitors are now redirected to Google login before accessing your terminal.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Double protection</div>
+          <p>With both Cloudflare access policies <em>and</em> Suwu's <code>AUTH_PASS</code>, an attacker must bypass two independent authentication layers: Cloudflare's identity check <em>and</em> the Suwu password. This is defense in depth.</p>
+        </div>
+
+        <h2 id="full-example">Full Working Example</h2>
+        <p>Here's a complete <code>~/.config/suwu/.env</code> for a Cloudflare Zero Trust deployment:</p>
+
+<pre><code># ~/.config/suwu/.env
+HOST=127.0.0.1
+EXTRA_HOSTS=*.mydomain.com
+AUTH_PASS=a1b2c3d4e5f6...  # sha256 of your password
+NO_TLS=true
+PORT=8181</code></pre>
+
+        <p>And the corresponding Cloudflare tunnel config:</p>
+
+<pre><code># ~/.cloudflared/config.yml
+tunnel: abc123-def456
+credentials-file: /root/.cloudflared/abc123-def456.json
+
+ingress:
+  - hostname: terminal.mydomain.com
+    service: http://127.0.0.1:8181
+    originRequest:
+      noTLSVerify: true
+  - service: http_status:404</code></pre>
+
+        <p>Start both services:</p>
+
+<pre><code># Start the Suwu server (via systemd or directly)
+suwu daemon start
+
+# Start the tunnel (via systemd)
+sudo systemctl start cloudflared</code></pre>
+
+        <p>Visit <code>https://terminal.mydomain.com</code> — you'll see Cloudflare's access challenge, then the Suwu password prompt, and finally your terminal.</p>
+
+        <h2 id="troubleshooting">Troubleshooting</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Symptom</th>
+              <th>Likely cause</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>403 Forbidden on <code>/api/token</code></td>
+              <td><code>EXTRA_HOSTS</code> doesn't match the <code>Host</code> header your proxy sends. Check what Host the proxy forwards — it must match a pattern in <code>EXTRA_HOSTS</code>.</td>
+            </tr>
+            <tr>
+              <td>Certificate warning in browser</td>
+              <td><code>NO_TLS=true</code> is not set, but the local certs don't match your public domain. Set <code>NO_TLS=true</code> when Cloudflare handles TLS.</td>
+            </tr>
+            <tr>
+              <td>Tunnel connects but 502 Bad Gateway</td>
+              <td>Suwu server is not running, or the tunnel points to the wrong port. Verify with <code>curl http://127.0.0.1:8181/api/token</code> on the server.</td>
+            </tr>
+            <tr>
+              <td>Cloudflare access page not showing</td>
+              <td>Access policy not applied to the application. Check <strong>Zero Trust Dashboard → Access → Applications</strong>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/security.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Security &amp; Access</span>
+        </a>
+        <a href="/docs/features/file-browser.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">File Browser</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#overview">Overview</a></li>
+<li><a href="#step-1-configuration">Step 1 — Server Configuration</a></li>
+<li><a href="#step-2-reverse-proxy">Step 2 — Reverse Proxy</a></li>
+<li><a href="#step-3-cloudflare-zero-trust">Step 3 — Cloudflare Zero Trust Tunnel</a></li>
+<li><a href="#step-4-access-protection">Step 4 — Access Protection</a></li>
+<li><a href="#full-example">Full Working Example</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+  <script src="/js/shared.js"></script>
+</body>
+</html>

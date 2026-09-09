@@ -57,7 +57,11 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
   const [browseError, setBrowseError] = useState<string | null>(null)
   const [manualPath, setManualPath] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
   const abortRef = useRef<AbortController | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const headers: Record<string, string> = {}
@@ -112,12 +116,27 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
     setManualPath('/')
   }, [])
 
+  const navigateManual = useCallback(() => {
+    const p = manualPath.trim()
+    if (p === '') return
+    setCurrentPath(p)
+  }, [manualPath])
+
   const submitManual = useCallback(() => {
     const p = manualPath.trim()
     if (p === '') return
     setCurrentPath(p)
     onSelect(p)
   }, [manualPath, onSelect])
+
+  // Compute suggestions based on current input and dirs
+  const suggestions = manualPath.trim()
+    ? dirs.filter((d) => {
+        const inputPart = manualPath.split('/').pop() ?? ''
+        if (inputPart === '') return false
+        return d.name.toLowerCase().includes(inputPart.toLowerCase())
+      })
+    : []
 
   return (
     <div className="flex flex-col gap-2 overflow-y-auto scrollbar-thin" style={{ height: '100%' }}>
@@ -136,16 +155,84 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
         Pick a folder that contains a <code className="rounded bg-white/10 px-1">.git</code>
       </div>
 
-      {/* Path input */}
-      <div className="flex gap-2">
-        <input
-          value={manualPath}
-          onChange={(e) => setManualPath(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') submitManual() }}
-          placeholder="/path/to/repo"
-          spellCheck={false}
-          className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/80 outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-white/10"
-        />
+      {/* Path input with autocomplete */}
+      <div className="relative flex gap-2">
+        <div className="relative min-w-0 flex-1">
+          <input
+            ref={inputRef}
+            value={manualPath}
+            onChange={(e) => {
+              setManualPath(e.target.value)
+              setShowSuggestions(true)
+              setSelectedIndex(-1)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+                  // Select the highlighted suggestion
+                  const selected = suggestions[selectedIndex]
+                  const parentDir = manualPath.substring(0, manualPath.lastIndexOf('/') + 1)
+                  const newPath = parentDir + selected.name
+                  setManualPath(newPath)
+                  setCurrentPath(newPath)
+                  setShowSuggestions(false)
+                  setSelectedIndex(-1)
+                } else {
+                  navigateManual()
+                }
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault()
+                setSelectedIndex((i) => (i < suggestions.length - 1 ? i + 1 : 0))
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault()
+                setSelectedIndex((i) => (i > 0 ? i - 1 : suggestions.length - 1))
+              } else if (e.key === 'Escape') {
+                setShowSuggestions(false)
+                setSelectedIndex(-1)
+              }
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => {
+              // Delay to allow click on suggestion
+              setTimeout(() => setShowSuggestions(false), 150)
+            }}
+            placeholder="/path/to/repo"
+            spellCheck={false}
+            className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/80 outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-white/10"
+          />
+          {/* Autocomplete dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div
+              ref={suggestionsRef}
+              className="absolute top-full left-0 right-0 z-10 mt-1 max-h-40 overflow-y-auto rounded-md border border-white/10 bg-gray-900 shadow-lg scrollbar-thin"
+            >
+              {suggestions.map((d, i) => (
+                <button
+                  key={d.name}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    const parentDir = manualPath.substring(0, manualPath.lastIndexOf('/') + 1)
+                    const newPath = parentDir + d.name
+                    setManualPath(newPath)
+                    setCurrentPath(newPath)
+                    setShowSuggestions(false)
+                    setSelectedIndex(-1)
+                  }}
+                  onMouseEnter={() => setSelectedIndex(i)}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition ${
+                    i === selectedIndex ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400/80" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/>
+                  </svg>
+                  <span className="min-w-0 flex-1 truncate">{d.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={submitManual}

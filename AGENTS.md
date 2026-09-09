@@ -26,3 +26,7 @@ When creating a new release version:
 ### Co-Authored-By
 
 Do NOT add `Co-Authored-By` trailers to commit messages unless the user explicitly requests it. If you want to add one, confirm with the user first.
+
+### Environment Files
+
+- **Never modify `.env` files.** The `.env` file contains the user's personal development/test settings. Do not read, write, or modify `.env` under any circumstances.

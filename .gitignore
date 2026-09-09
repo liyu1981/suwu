@@ -17,6 +17,9 @@ pkg/assets/web/
 # Node
 node_modules/
 
+# Python
+__pycache__/
+
 # Editor / OS
 .DS_Store
 *.swp

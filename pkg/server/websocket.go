@@ -1,12 +1,10 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sync"
-	"time"
 
 	"suwu/pkg/auth"
 
@@ -66,30 +64,6 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	ctx := r.Context()
-
-	// Browser sleep can leave a TCP/WebSocket connection half-open. A failed
-	// ping closes the stale attachment so the session can enter its normal idle
-	// TTL instead of remaining permanently attached to a dead browser.
-	heartbeatDone := make(chan struct{})
-	defer close(heartbeatDone)
-	go func() {
-		ticker := time.NewTicker(20 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-heartbeatDone:
-				return
-			case <-ticker.C:
-				pingCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				err := conn.Ping(pingCtx)
-				cancel()
-				if err != nil {
-					_ = conn.Close(websocket.StatusGoingAway, "heartbeat failed")
-					return
-				}
-			}
-		}
-	}()
 
 	client, snapshot, created, err := s.sessions.Attach(key, cols, rows, cwd)
 	if err != nil {

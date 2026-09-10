@@ -52,7 +52,6 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
     let reconnectInterval: number | undefined
     let connectInFlight = false
     let inputReady = false
-    let hiddenBeforeResume = false
     let shellExited = false
     let initialCommandSent = false
     let lastSize = { cols: term.cols, rows: term.rows }
@@ -300,18 +299,6 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       if (inputReady && ws?.readyState === WebSocket.OPEN) sendResize(ws)
     })
 
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        hiddenBeforeResume = true
-        setInputEnabled(false)
-        return
-      }
-      if (hiddenBeforeResume) {
-        hiddenBeforeResume = false
-        forceReconnect('Browser resumed')
-      }
-    }
-
     const onOnline = () => {
       if (!inputReady) forceReconnect('Network restored')
     }
@@ -325,7 +312,6 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       if (!disposed && !currentWs && !connectInFlight) void connect()
     }
 
-    document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('online', onOnline)
     window.addEventListener('pagehide', onPageHide)
     window.addEventListener('pageshow', onPageShow)
@@ -339,7 +325,6 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       invalidateSocket()
       onData.dispose()
       onResize.dispose()
-      document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('online', onOnline)
       window.removeEventListener('pagehide', onPageHide)
       window.removeEventListener('pageshow', onPageShow)

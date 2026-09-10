@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "biome check src --reporter=summary",
+    "check:write": "biome check src --write"
   },
   "dependencies": {
     "@file-viewer/preset-standard": "^3.0.0",
@@ -31,6 +33,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.12",
     "@file-viewer/vite-plugin": "^3.0.0",
     "@tailwindcss/vite": "^4.3.0",
     "@types/node": "^22.12.0",

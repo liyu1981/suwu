@@ -1,26 +1,44 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sync"
+	"time"
 
 	"suwu/pkg/auth"
 
 	"github.com/coder/websocket"
 )
 
-// connMu guards the set of active websocket connections for shutdown.
 var (
 	connMu sync.Mutex
 	conns  = make(map[*websocket.Conn]struct{})
 )
 
+const (
+	defaultWSCols = 80
+	defaultWSRows = 24
+	maxWSCols     = 4096
+	maxWSRows     = 4096
+)
+
+func wsDimension(value, fallback, maximum int) uint16 {
+	if value <= 0 {
+		value = fallback
+	}
+	if value > maximum {
+		value = maximum
+	}
+	return uint16(value)
+}
+
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	cols := atoiDefault(q.Get("cols"), 80)
-	rows := atoiDefault(q.Get("rows"), 24)
+	cols := wsDimension(atoiDefault(q.Get("cols"), defaultWSCols), defaultWSCols, maxWSCols)
+	rows := wsDimension(atoiDefault(q.Get("rows"), defaultWSRows), defaultWSRows, maxWSRows)
 	key := q.Get("session")
 	cwd := q.Get("cwd")
 
@@ -32,8 +50,6 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Origin and host were already validated; skip the library's own origin
-	// check so our auth logic remains authoritative.
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
 	if err != nil {
 		return
@@ -51,50 +67,85 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	client, snapshot, created, err := s.sessions.Attach(key, uint16(cols), uint16(rows), cwd)
+	// Browser sleep can leave a TCP/WebSocket connection half-open. A failed
+	// ping closes the stale attachment so the session can enter its normal idle
+	// TTL instead of remaining permanently attached to a dead browser.
+	heartbeatDone := make(chan struct{})
+	defer close(heartbeatDone)
+	go func() {
+		ticker := time.NewTicker(20 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-heartbeatDone:
+				return
+			case <-ticker.C:
+				pingCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				err := conn.Ping(pingCtx)
+				cancel()
+				if err != nil {
+					_ = conn.Close(websocket.StatusGoingAway, "heartbeat failed")
+					return
+				}
+			}
+		}
+	}()
+
+	client, snapshot, created, err := s.sessions.Attach(key, cols, rows, cwd)
 	if err != nil {
 		_ = conn.Close(websocket.StatusInternalError, "failed to start shell")
 		return
 	}
 	defer client.Detach()
 
-	// Send attach info as JSON control message before the snapshot.
-	// The frontend uses this to decide whether to send restore commands.
+	// The browser must treat the xterm instance as disposable. It may not send
+	// input until the attach metadata, snapshot, and ready message have all
+	// been delivered and the client attachment has been activated below.
 	attachInfo, _ := json.Marshal(map[string]interface{}{
-		"type":    "attach",
-		"created": created,
+		"type":       "attach",
+		"created":    created,
+		"snapshot":   len(snapshot) > 0,
+		"attachment": client.AttachmentID(),
+		"cols":       cols,
+		"rows":       rows,
 	})
 	if werr := conn.Write(ctx, websocket.MessageText, attachInfo); werr != nil {
 		return
 	}
 
-	// Reattach: replay the emulator's current screen state before live
-	// frames so a refreshed page resumes where it left off. The attach
-	// registered us as a subscriber under the same lock the PTY fan-out
-	// holds, so nothing can slip between snapshot and live stream.
 	if len(snapshot) > 0 {
 		if werr := conn.Write(ctx, websocket.MessageBinary, snapshot); werr != nil {
 			return
 		}
 	}
 
-	// Session PTY -> WebSocket. The frames channel closes when the shell
-	// exits (exit notice is the final frame) or the client is dropped.
+	readyInfo, _ := json.Marshal(map[string]interface{}{
+		"type":       "ready",
+		"attachment": client.AttachmentID(),
+		"input":      false,
+	})
+	if werr := conn.Write(ctx, websocket.MessageText, readyInfo); werr != nil {
+		return
+	}
+	// The browser acknowledges the ready message after it has applied the
+	// snapshot. Until that acknowledgement, Client.Write and Client.Resize
+	// reject all input from this attachment.
+
+	// Session PTY -> WebSocket. The frame writer starts only after the full
+	// attach/snapshot/ready prefix, so live output cannot overtake the replay.
 	go func() {
 		for data := range client.Frames() {
-			// PTY output is arbitrary bytes (apps may split multi-byte UTF-8
-			// across read boundaries or emit invalid UTF-8), so it must be
-			// relayed as binary frames — text frames make browsers abort the
-			// connection with "Could not decode a text frame as UTF-8".
-			// xterm handles partial sequences itself.
+			// PTY output is arbitrary bytes, so it must remain binary all the way
+			// to the browser. The browser xterm accepts Uint8Array directly.
 			if werr := conn.Write(ctx, websocket.MessageBinary, data); werr != nil {
 				return
 			}
 		}
-		_ = conn.Close(websocket.StatusNormalClosure, "shell exited")
+		_ = conn.Close(websocket.StatusNormalClosure, "session detached")
 	}()
 
-	// WebSocket -> Session PTY.
+	// WebSocket -> Session PTY. Client.Write and Client.Resize enforce both
+	// attachment ownership and ready state, so stale sockets are harmless.
 	for {
 		mt, data, err := conn.Read(ctx)
 		if err != nil {
@@ -104,14 +155,20 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if len(data) > 0 && data[0] == '{' {
-			var m struct {
+			var msg struct {
 				Type string `json:"type"`
 				Cols int    `json:"cols"`
 				Rows int    `json:"rows"`
 			}
-			if json.Unmarshal(data, &m) == nil && m.Type == "resize" {
-				client.Resize(uint16(m.Cols), uint16(m.Rows))
-				continue
+			if json.Unmarshal(data, &msg) == nil {
+				if msg.Type == "resize" {
+					client.Resize(wsDimension(msg.Cols, int(cols), maxWSCols), wsDimension(msg.Rows, int(rows), maxWSRows))
+					continue
+				}
+				if msg.Type == "ready" {
+					client.Activate()
+					continue
+				}
 			}
 		}
 		client.Write(data)
@@ -119,7 +176,8 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 }
 
 // CloseAll closes every active websocket connection, which detaches the
-// associated session clients (sessions themselves live in the Manager).
+// associated session clients. Sessions themselves live in the Manager until
+// their normal idle TTL expires.
 func CloseAll() {
 	connMu.Lock()
 	defer connMu.Unlock()

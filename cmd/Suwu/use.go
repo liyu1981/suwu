@@ -32,13 +32,13 @@ func useCmd(args []string) error {
 
 	remaining := fs.Args()
 	if len(remaining) == 0 {
-		return fmt.Errorf("usage: suwu use [--sock <path>] <command> [args...]")
+		return fmt.Errorf("usage: suwu use [--sock <path>] <command> [args]")
 	}
 
 	// Get list of available displays.
 	displays := queryDisplays(*sockPath)
 	if len(displays) == 0 {
-		return fmt.Errorf("no X displays found. Start an XDisplay tile first.")
+		return fmt.Errorf("no X displays found; start an XDisplay tile first")
 	}
 
 	// Show TUI selection.

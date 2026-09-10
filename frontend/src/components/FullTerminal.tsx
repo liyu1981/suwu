@@ -8,11 +8,10 @@ import { useTerminal } from './hooks/useTerminal'
 import { usePtySession } from './hooks/usePtySession'
 import { useTermCopy } from './hooks/useTermCopy'
 import { useBell } from './hooks/useBell'
-import { CommonTileContainer, useReportTileState } from './CommonTileContainer'
+import { CommonTileContainer } from './CommonTileContainer'
 import { CloseIcon, CopyIcon } from './icons'
 import { Toast } from './Toast'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
-import type { TermSessionState } from '../wm/sessionState'
 
 const STATUS_DOT = {
   connecting: 'bg-amber-400 animate-pulse',
@@ -90,25 +89,12 @@ export default function FullTerminal() {
     })
   }, [showToast, t])
 
-  // Read pane ID from URL for session state loading.
+  // The pane ID is the server-owned terminal session ID. The browser xterm
+  // is disposable and never restores cwd, foreground process, or screen state
+  // from localStorage.
   const paneId = useMemo(() => new URLSearchParams(window.location.search).get('pane') ?? undefined, [])
 
-  // Read saved session state directly from localStorage (bypasses context
-  // timing issue where hooks run before provider renders).
-  const savedState = useMemo<TermSessionState | null>(() => {
-    if (!paneId) return null
-    try {
-      const raw = localStorage.getItem('tiling-session-state')
-      if (!raw) return null
-      const all = JSON.parse(raw)
-      return all[paneId]?.state ?? null
-    } catch {
-      return null
-    }
-  }, [paneId])
-
-  const reportState = useReportTileState()
-  usePtySession(term, savedState, reportState, paneId)
+  usePtySession(term, paneId)
   useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')), onCacheUpdate)
   useBell(term, containerRef)
 

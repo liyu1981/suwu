@@ -25,8 +25,6 @@ import { ThemeSelect } from '../ui/theme-select'
 
 const stepBtn =
   'h-7 w-7 place-items-center rounded text-slate-300 transition glass-btn disabled:cursor-not-allowed disabled:opacity-40'
-const actionBtn =
-  'rounded px-3 py-1.5 text-xs font-semibold glass-btn bg-white/10 text-popover-foreground hover:text-white'
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
 const sectionLabel = 'text-xs font-medium text-muted-foreground'
 const sectionHint = 'mt-2 text-[10px] leading-relaxed text-muted-foreground'
@@ -152,16 +150,15 @@ const DIFF_FONT_ITEMS = DIFF_FONT_FAMILIES.map((f) => ({ label: f.label, value: 
  * font-size Reset / Save-as-default footer actions, other tabs expose their
  * own settings (background color, zoom level) with no footer.
  */
-export default function AppSettingsView(props: { onClose: () => void }) {
-  const { onClose } = props
+export default function AppSettingsView() {
   const { t } = useTranslation()
   const [tab, setTab] = useState('term')
 
   // Term
   const [fontSize, setFontSize] = useAtom(fontSizeAtom)
-  const [defaultSize, setDefaultSize] = useAtom(fontDefaultAtom)
+  const [defaultSize] = useAtom(fontDefaultAtom)
   const [lineHeight, setLineHeight] = useAtom(lineHeightAtom)
-  const [lineHeightDefault, setLineHeightDefault] = useAtom(lineHeightDefaultAtom)
+  const [lineHeightDefault] = useAtom(lineHeightDefaultAtom)
   const [fontFamily, setFontFamily] = useAtom(fontFamilyAtom)
   const [termTheme, setTermTheme] = useAtom(termThemeAtom)
 

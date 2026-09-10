@@ -1,14 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import type { Terminal } from '@xterm/xterm'
 import i18n from 'i18next'
 import { connectionMessageAtom, connectionStatusAtom } from '../../store/connection'
 import { fetchToken } from '../../lib/api'
-import type { TermSessionState } from '../../wm/sessionState'
 
 const RECONNECT_DELAY_MS = 2000
 const COUNTDOWN_TICK_MS = 1000
-const POLL_INTERVAL_MS = 2000
 
 function sessionKey(): string {
   const pane = new URLSearchParams(window.location.search).get('pane')
@@ -24,243 +22,327 @@ function sessionKey(): string {
   return key
 }
 
-async function pollSessionState(sk: string, signedFetch: typeof fetch): Promise<{ cwd: string; foreground: string } | null> {
-  try {
-    const params = new URLSearchParams({ session: sk })
-    const res = await signedFetch(`/api/session-state?${params}`, { cache: 'no-store' })
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
-  }
+type AttachMessage = {
+  type?: string
+  created?: boolean
+  snapshot?: boolean
+  attachment?: number
 }
 
 /**
- * Bridges an xterm.js Terminal to the Go server's WebSocket PTY endpoint.
- * Input/output forwarding, resize, automatic reconnection, and keyed session
- * reattach: the server keeps the shell and a libghostty-vt model of its
- * screen alive across disconnects, so reconnecting (after refresh or a
- * dropped socket) replays the current screen state before live output
- * resumes. Connection state (including the reconnect countdown) lives in
- * Jotai atoms and is rendered by the pane's status bar — the terminal
- * content itself stays untouched, since the server replays the screen on
- * reconnect. Mouse reporting sequences arrive via onData as well (xterm
- * encodes them natively).
+ * Connects a disposable browser xterm to a server-owned PTY session.
  *
- * Every attempt (initial connect or reconnect) fetches a fresh token via
- * /api/token first: the server mints a new token on each start, so reusing a
- * cached one after a dev restart would be rejected with HTTP 401.
+ * The session key identifies the server PTY, not this WebSocket. Every
+ * reconnect creates a new attachment, resets the browser terminal, replays
+ * the server VT snapshot, and waits for an explicit ready message before
+ * forwarding input. No terminal cwd, foreground command, or screen state is
+ * stored in browser storage.
  */
-export function usePtySession(
-  term: Terminal | null,
-  savedState: TermSessionState | null,
-  reportState: (state: Record<string, unknown>) => void,
-  paneId?: string,
-) {
+export function usePtySession(term: Terminal | null, paneId?: string) {
   const [, setStatus] = useAtom(connectionStatusAtom)
   const setMessage = useSetAtom(connectionMessageAtom)
-
-  const wsRef = useRef<WebSocket | null>(null)
-  const tokenRef = useRef('')
-  const signedFetchRef = useRef<typeof fetch>(fetch)
-  const paneIdRef = useRef(paneId)
-  paneIdRef.current = paneId
 
   useEffect(() => {
     if (!term) return
 
-    let reconnectTimer: number | undefined
-    let pollTimer: number | undefined
     let disposed = false
+    let currentWs: WebSocket | null = null
+    let currentGeneration = 0
+    let reconnectTimer: number | undefined
+    let reconnectInterval: number | undefined
+    let connectInFlight = false
+    let inputReady = false
+    let hiddenBeforeResume = false
     let shellExited = false
-    let cachedRestoreState: TermSessionState | null = savedState
-    let attachCreated = false  // tracks whether this is a new session
-    let initCmdSent = false  // tracks whether initCmd has been sent
+    let initialCommandSent = false
+    let lastSize = { cols: term.cols, rows: term.rows }
 
-    const startPolling = () => {
-      const key = sessionKey()
-      pollTimer = window.setInterval(async () => {
-        const signedFetch = signedFetchRef.current
-        const state = await pollSessionState(key, signedFetch)
-        if (state) {
-          reportState({ cwd: state.cwd, foreground: state.foreground })
-        }
-      }, POLL_INTERVAL_MS)
+    const setInputEnabled = (enabled: boolean) => {
+      inputReady = enabled
+      // disableStdin prevents xterm from generating new keyboard/mouse data
+      // while the browser terminal is detached or being replayed. The onData
+      // guard below remains necessary because an event can already be queued.
+      term.options.disableStdin = !enabled
     }
 
-    const open = (token: string, signedFetch: typeof fetch) => {
-      tokenRef.current = token
-      signedFetchRef.current = signedFetch
+    const clearReconnectTimers = () => {
+      if (reconnectTimer !== undefined) {
+        window.clearTimeout(reconnectTimer)
+        reconnectTimer = undefined
+      }
+      if (reconnectInterval !== undefined) {
+        window.clearInterval(reconnectInterval)
+        reconnectInterval = undefined
+      }
+    }
+
+    const invalidateSocket = () => {
+      const ws = currentWs
+      currentWs = null
+      currentGeneration += 1
+      setInputEnabled(false)
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close(1000, 'reattaching')
+      } else if (ws && ws.readyState === WebSocket.CONNECTING) {
+        ws.close()
+      }
+    }
+
+    const scheduleReconnect = (reason: string) => {
+      if (disposed || reconnectTimer !== undefined || connectInFlight) return
+      setInputEnabled(false)
+      setStatus('disconnected')
+
+      const message = (seconds: number) => i18n.t('pty.reconnecting', { reason, seconds })
+      let remaining = Math.max(1, Math.round(RECONNECT_DELAY_MS / COUNTDOWN_TICK_MS))
+      setMessage(message(remaining))
+      reconnectTimer = window.setTimeout(() => {
+        if (reconnectInterval !== undefined) window.clearInterval(reconnectInterval)
+        reconnectInterval = undefined
+        reconnectTimer = undefined
+        void connect()
+      }, RECONNECT_DELAY_MS)
+      reconnectInterval = window.setInterval(() => {
+        remaining -= 1
+        if (remaining > 0) setMessage(message(remaining))
+      }, COUNTDOWN_TICK_MS)
+    }
+
+    const sendResize = (ws: WebSocket) => {
+      if (lastSize.cols <= 0 || lastSize.rows <= 0) return
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'resize', cols: lastSize.cols, rows: lastSize.rows }))
+      }
+    }
+
+    const open = (token: string) => {
+      if (disposed) return
+
+      // The browser xterm is a disposable projection. Reset its parser,
+      // modes, screen, and cursor before applying the server snapshot.
+      term.reset()
+      setInputEnabled(false)
       setStatus('connecting')
       setMessage(i18n.t('pty.connecting'))
+      shellExited = false
 
-      const restore = cachedRestoreState
+      const generation = ++currentGeneration
+      let attachReceived = false
+      let snapshotWritten = true
+      let serverReady = false
+      let readyAckSent = false
+      let created = false
+      let attachment = 0
+      const decoder = new TextDecoder()
+
+      const maybeReady = () => {
+        if (disposed || currentWs !== ws || generation !== currentGeneration) return
+        if (!attachReceived || !serverReady || !snapshotWritten) return
+        if (!readyAckSent && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ready', attachment }))
+          readyAckSent = true
+        }
+        setInputEnabled(true)
+        setStatus('connected')
+        setMessage(i18n.t('pty.connected'))
+        sendResize(ws)
+
+        if (created && !initialCommandSent) {
+          initialCommandSent = true
+          const initCmd = new URLSearchParams(window.location.search).get('cmd')
+          if (initCmd) {
+            window.setTimeout(() => {
+              if (currentWs === ws && inputReady && ws.readyState === WebSocket.OPEN) {
+                ws.send(initCmd + '\r')
+              }
+            }, 50)
+          }
+        }
+      }
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const params = new URLSearchParams({
-        cols: String(term.cols),
-        rows: String(term.rows),
+        cols: String(Math.max(1, term.cols)),
+        rows: String(Math.max(1, term.rows)),
         token,
         session: sessionKey(),
       })
-      if (restore?.cwd) {
-        params.set('cwd', restore.cwd)
-      }
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const cwd = new URLSearchParams(window.location.search).get('cwd')
+      if (cwd) params.set('cwd', cwd)
+
       const ws = new WebSocket(`${protocol}//${window.location.host}/ws?${params}`)
       ws.binaryType = 'arraybuffer'
-      wsRef.current = ws
+      currentWs = ws
 
       ws.onopen = () => {
-        setStatus('connected')
-        setMessage(i18n.t('pty.connected'))
-        // Wait for attach control message before sending restore commands
-        startPolling()
+        if (currentWs !== ws || generation !== currentGeneration) return
+        setStatus('connecting')
+        setMessage(i18n.t('pty.connecting'))
       }
 
       ws.onmessage = (event) => {
-        const data = event.data
-        if (typeof data === 'string') {
-          // Check for attach control message
+        if (currentWs !== ws || generation !== currentGeneration || disposed) return
+
+        if (typeof event.data === 'string') {
+          let control: AttachMessage | null = null
           try {
-            const msg = JSON.parse(data)
-            if (msg.type === 'attach') {
-              attachCreated = msg.created
-              // Send restore command only for new sessions
-              if (attachCreated && restore?.foreground) {
-                setTimeout(() => {
-                  ws.send(restore.foreground + '\r')
-                }, 500)
-              }
-              // Don't send initCmd yet - wait for first resize to ensure
-              // font size is applied before TUI app starts.
-              return
-            }
+            control = JSON.parse(event.data) as AttachMessage
           } catch {
-            // Not JSON, treat as terminal output
+            // Server terminal output is binary. Keep this fallback for future
+            // control-less servers and unusual text frames.
           }
-          term.write(data)
+
+          if (control?.type === 'attach') {
+            attachReceived = true
+            created = control.created === true
+            if (created) initialCommandSent = false
+            attachment = control.attachment ?? 0
+            snapshotWritten = control.snapshot !== true
+            return
+          }
+          if (control?.type === 'ready') {
+            serverReady = true
+            maybeReady()
+            return
+          }
+
+          term.write(event.data)
           return
         }
-        const text = new TextDecoder().decode(new Uint8Array(data))
-        term.write(text)
-        if (text.includes('Shell exited')) {
-          shellExited = true
+
+        const bytes = event.data instanceof ArrayBuffer
+          ? new Uint8Array(event.data)
+          : event.data instanceof Blob
+            ? null
+            : event.data
+
+        if (bytes === null) {
+          void event.data.arrayBuffer().then((buffer: ArrayBuffer) => {
+            if (currentWs !== ws || generation !== currentGeneration || disposed) return
+            const data = new Uint8Array(buffer)
+            snapshotWritten = false
+            term.write(data, () => {
+              snapshotWritten = true
+              maybeReady()
+            })
+          })
+          return
+        }
+
+        const text = decoder.decode(bytes, { stream: true })
+        if (text.includes('Shell exited')) shellExited = true
+
+        if (!snapshotWritten) {
+          term.write(bytes, () => {
+            snapshotWritten = true
+            maybeReady()
+          })
+        } else {
+          term.write(bytes)
         }
       }
 
       ws.onclose = () => {
-        if (disposed) return
-        if (pollTimer) {
-          window.clearInterval(pollTimer)
-          pollTimer = undefined
-        }
+        if (currentWs !== ws || generation !== currentGeneration || disposed) return
+        currentWs = null
+        setInputEnabled(false)
         if (shellExited) {
           const pane = window.frameElement?.getAttribute('data-pane')
-          if (pane) {
-            window.parent?.postMessage({ type: 'wm-close-pane', pane }, '*')
-          }
+          if (pane) window.parent?.postMessage({ type: 'wm-close-pane', pane }, '*')
           return
         }
         scheduleReconnect('Connection closed')
       }
 
       ws.onerror = () => {
-        if (disposed) return
+        if (currentWs !== ws || generation !== currentGeneration || disposed) return
+        setInputEnabled(false)
         setStatus('disconnected')
         setMessage(i18n.t('pty.error'))
       }
     }
 
-    const scheduleReconnect = (reason: string) => {
-      // Cache the current session state from localStorage before reconnecting.
-      try {
-        const paneId = new URLSearchParams(window.location.search).get('pane')
-        if (paneId) {
-          const raw = localStorage.getItem('tiling-session-state')
-          if (raw) {
-            const store = JSON.parse(raw)
-            // Find the latest timestamp's entry for this pane.
-            const keys = Object.keys(store).sort()
-            if (keys.length > 0) {
-              const latest = store[keys[keys.length - 1]]
-              if (latest?.[paneId]?.state) {
-              cachedRestoreState = latest[paneId].state as TermSessionState
-            }
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      setStatus('disconnected')
-      const msg = (s: number) => i18n.t('pty.reconnecting', { reason, seconds: s })
-      let remaining = Math.max(1, Math.round(RECONNECT_DELAY_MS / COUNTDOWN_TICK_MS))
-      setMessage(msg(remaining))
-      reconnectTimer = window.setInterval(() => {
-        remaining -= 1
-        if (remaining <= 0) {
-          window.clearInterval(reconnectTimer)
-          void connect()
-        } else {
-          setMessage(msg(remaining))
-        }
-      }, COUNTDOWN_TICK_MS)
-    }
-
     const connect = async () => {
-      if (disposed) return
+      if (disposed || connectInFlight || currentWs || reconnectTimer !== undefined) return
+      connectInFlight = true
+      setInputEnabled(false)
       setStatus('connecting')
       setMessage(i18n.t('pty.authenticating'))
       try {
-        const { token, signedFetch } = await fetchToken()
-        if (!disposed) open(token, signedFetch)
+        const { token } = await fetchToken()
+        if (!disposed) open(token)
       } catch {
-        if (disposed) return
-        scheduleReconnect('Auth failed')
+        // Clear the guard before scheduling; scheduleReconnect intentionally
+        // refuses to create a second attempt while one is in flight.
+        connectInFlight = false
+        if (!disposed) scheduleReconnect('Auth failed')
+      } finally {
+        connectInFlight = false
       }
     }
 
+    const forceReconnect = (reason: string) => {
+      if (disposed) return
+      clearReconnectTimers()
+      invalidateSocket()
+      scheduleReconnect(reason)
+    }
+
     const onData = term.onData((data) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(data)
+      const ws = currentWs
+      if (!inputReady || !ws || ws.readyState !== WebSocket.OPEN) return
+      ws.send(data)
     })
 
     const onResize = term.onResize(({ cols, rows }) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'resize', cols, rows }))
-      }
-      // Send initCmd after first resize to ensure font size is applied
-      if (attachCreated && !initCmdSent) {
-        initCmdSent = true
-        const initCmd = new URLSearchParams(window.location.search).get('cmd')
-        if (initCmd) {
-          setTimeout(() => wsRef.current?.send(initCmd + '\r'), 50)
-        }
-      }
+      lastSize = { cols, rows }
+      const ws = currentWs
+      if (inputReady && ws?.readyState === WebSocket.OPEN) sendResize(ws)
     })
 
-    // Fallback: send initCmd after timeout if no resize happens
-    // (e.g., font size was already correct)
-    const initCmdTimeout = setTimeout(() => {
-      if (attachCreated && !initCmdSent) {
-        initCmdSent = true
-        const initCmd = new URLSearchParams(window.location.search).get('cmd')
-        if (initCmd && wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(initCmd + '\r')
-        }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenBeforeResume = true
+        setInputEnabled(false)
+        return
       }
-    }, 1000)
+      if (hiddenBeforeResume) {
+        hiddenBeforeResume = false
+        forceReconnect('Browser resumed')
+      }
+    }
 
+    const onOnline = () => {
+      if (!inputReady) forceReconnect('Network restored')
+    }
+
+    const onPageHide = () => {
+      setInputEnabled(false)
+      invalidateSocket()
+    }
+
+    const onPageShow = () => {
+      if (!disposed && !currentWs && !connectInFlight) void connect()
+    }
+
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('pageshow', onPageShow)
+
+    setInputEnabled(false)
     void connect()
 
     return () => {
       disposed = true
-      if (reconnectTimer) window.clearInterval(reconnectTimer)
-      if (pollTimer) window.clearInterval(pollTimer)
-      clearTimeout(initCmdTimeout)
-      wsRef.current?.close()
-      wsRef.current = null
+      clearReconnectTimers()
+      invalidateSocket()
       onData.dispose()
       onResize.dispose()
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
     }
-  }, [term, setStatus, setMessage, savedState, reportState])
+  }, [term, paneId, setStatus, setMessage])
 }

@@ -76,7 +76,7 @@ func (f *Forward) handleTCPConn(ctx context.Context, clientConn net.Conn) {
 		f.ActiveConns.Add(-1)
 	}()
 
-	targetAddr := fmt.Sprintf("%s:%d", f.InternalHost, f.InternalPort)
+	targetAddr := net.JoinHostPort(f.InternalHost, fmt.Sprintf("%d", f.InternalPort))
 	targetConn, err := net.Dial("tcp", targetAddr)
 	if err != nil {
 		slog.Error("forward tcp dial", "id", f.ID, "target", targetAddr, "err", err)

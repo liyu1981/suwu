@@ -79,7 +79,6 @@ export interface GraphLayout {
 }
 
 const NULL_VERTEX_ID = -1;
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 /* Branch Class */
 class Branch {
@@ -111,7 +110,6 @@ class Branch {
    * Generate SVG paths for this branch
    */
   public generatePaths(config: GraphConfig, expandAt: number): { path: string; isCommitted: boolean }[] {
-    const colour = config.colors[this.colour % config.colors.length];
     const lines: PlacedLine[] = [];
     const d = config.grid.y * (config.style === 'angular' ? 0.38 : 0.8);
 
@@ -280,10 +278,8 @@ export class Graph {
   private availableColours: number[] = [];
 
   private commits: GitCommit[] = [];
-  private commitHead: string | null = null;
   private commitLookup: { [hash: string]: number } = {};
   private onlyFollowFirstParent: boolean = false;
-  private expandedCommitIndex: number = -1;
 
   constructor(config: GraphConfig, muteConfig: MuteConfig) {
     this.config = config;
@@ -300,7 +296,6 @@ export class Graph {
     onlyFollowFirstParent: boolean
   ) {
     this.commits = commits;
-    this.commitHead = commitHead;
     this.commitLookup = commitLookup;
     this.onlyFollowFirstParent = onlyFollowFirstParent;
     this.vertices = [];
@@ -356,7 +351,6 @@ export class Graph {
    * Generate graph layout data
    */
   public generateLayout(expandedCommitIndex: number = -1): GraphLayout {
-    this.expandedCommitIndex = expandedCommitIndex;
 
     // Generate edges
     const edges: GraphEdge[] = [];

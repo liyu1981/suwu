@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { executeAction } from '../lib/actionResolver'
+import { executeAction, type Store } from '../lib/actionResolver'
 import { fetchToken } from '../lib/api'
 import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
 import { upgradingAtom } from '../store/update'
@@ -23,8 +23,7 @@ function relativeTime(ts: number, t: (key: string, opts?: Record<string, unknown
 
 function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) => void }) {
   const { t } = useTranslation()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const store = useStore() as any
+  const store: Store = useStore()
   const setOpen = useSetAtom(panelOpenAtom)
   const setUpgrading = useSetAtom(upgradingAtom)
   const setNotifications = useSetAtom(notificationsAtom)

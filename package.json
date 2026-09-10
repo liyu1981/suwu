@@ -10,6 +10,7 @@
     "dev": "air -c .air.toml",
     "dev:web": "pnpm --dir frontend dev",
     "typecheck": "pnpm --dir frontend typecheck",
+    "check:web": "pnpm --dir frontend check",
     "test": "go test ./...",
     "vet": "go vet ./..."
   }

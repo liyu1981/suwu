@@ -1098,7 +1098,7 @@ export default function TilingWM() {
             if (space) {
               const existing = getPaneData<{ fontSize?: number }>(space, pickerPaneId)
               if (!existing?.fontSize) {
-                store.set(spacesAtom, spaces.map((s: any, i: number) => i === idx ? setPaneData(s, pickerPaneId, 'fontSize', fontPreset) : s))
+                store.set(spacesAtom, spaces.map((s, i) => i === idx ? setPaneData(s, pickerPaneId, 'fontSize', fontPreset) : s))
               }
             }
           }}

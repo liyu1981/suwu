@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,9 +29,9 @@ type DepComponent struct {
 
 // DepError is returned when required system dependencies are missing.
 type DepError struct {
-	Type       string             `json:"type"`
-	Components []DepComponent     `json:"components"`
-	Install    map[string]string  `json:"install"` // distro -> install command
+	Type       string            `json:"type"`
+	Components []DepComponent    `json:"components"`
+	Install    map[string]string `json:"install"` // distro -> install command
 }
 
 func (e *DepError) Error() string {
@@ -61,13 +60,6 @@ var distroPackages = map[string][]string{
 	"debian": {"xserver-xorg-core", "xserver-xorg-video-dummy", "xdotool", "picom"},
 	"redhat": {"xorg-x11-server-Xorg", "xorg-x11-dummy-driver", "xdotool", "picom"},
 	"arch":   {"xorg-server", "xf86-video-dummy", "xdotool", "picom"},
-}
-
-// distroInstallCmd maps distro families to one-liner install commands.
-var distroInstallCmd = map[string]string{
-	"debian": "sudo apt install xserver-xorg-core xserver-xorg-video-dummy xdotool picom",
-	"redhat": "sudo dnf install xorg-x11-server-Xorg xorg-x11-dummy-driver xdotool picom",
-	"arch":   "sudo pacman -S xorg-server xf86-video-dummy xdotool picom",
 }
 
 // CheckDependencies verifies that all required system binaries are
@@ -103,31 +95,6 @@ func CheckDependencies() *DepError {
 	}
 }
 
-// detectDistro reads /etc/os-release to determine the distro family.
-func detectDistro() string {
-	data, err := os.ReadFile("/etc/os-release")
-	if err != nil {
-		if runtime.GOOS == "linux" {
-			return "debian" // fallback
-		}
-		return ""
-	}
-	content := strings.ToLower(string(data))
-	switch {
-	case strings.Contains(content, "id=ubuntu") || strings.Contains(content, "id=debian") ||
-		strings.Contains(content, "id=linuxmint") || strings.Contains(content, "id=pop"):
-		return "debian"
-	case strings.Contains(content, "id=fedora") || strings.Contains(content, "id=centos") ||
-		strings.Contains(content, "id=rhel") || strings.Contains(content, "id=rocky") ||
-		strings.Contains(content, "id=almalinux"):
-		return "redhat"
-	case strings.Contains(content, "id=arch") || strings.Contains(content, "id=endeavouros"):
-		return "arch"
-	default:
-		return "debian" // fallback
-	}
-}
-
 // buildInstallCommands builds per-distro install commands containing
 // only the missing packages.
 func buildInstallCommands(components []DepComponent) map[string]string {
@@ -147,8 +114,6 @@ func buildInstallCommands(components []DepComponent) map[string]string {
 	result["arch"] = "sudo pacman -S " + strings.Join(allMissing["arch"], " ")
 	return result
 }
-
-
 
 // Xorg+dummy virtual buffer ceiling (matches the generated xorg.conf's
 // Virtual option — any pane size up to 4K fits without a server restart).
@@ -206,7 +171,7 @@ func EnsureDisplay(display string, width, height int) error {
 
 	_ = cmd.Process.Kill()
 	slog.Error("graphic: Xorg did not start in time", "display", display)
-	return fmt.Errorf("Xorg on display %s did not start; check that xserver-xorg-video-dummy is installed", display)
+	return fmt.Errorf("xorg on display %s did not start; check that xserver-xorg-video-dummy is installed", display)
 }
 
 // waitReady polls until an X server accepts connections on display.
@@ -318,7 +283,7 @@ func startXorg(display string, width, height int) (*exec.Cmd, error) {
 		return nil, fmt.Errorf("display %s is not reachable and cannot be started automatically", display)
 	}
 	if _, err := exec.LookPath("Xorg"); err != nil {
-		return nil, fmt.Errorf("Xorg not installed (apt-get install xserver-xorg-core xserver-xorg-video-dummy)")
+		return nil, fmt.Errorf("xorg not installed (apt-get install xserver-xorg-core xserver-xorg-video-dummy)")
 	}
 
 	num, _ := strconv.Atoi(m[1])

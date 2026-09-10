@@ -169,10 +169,20 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-                  // Select the highlighted suggestion
+                  // Select the highlighted suggestion, but avoid duplicating the
+                  // last path segment (e.g. typing /a/b and selecting 'b' from
+                  // the listing should navigate to /a/b, not /a/b/b).
                   const selected = suggestions[selectedIndex]
-                  const parentDir = manualPath.substring(0, manualPath.lastIndexOf('/') + 1)
-                  const newPath = parentDir + selected.name
+                  const trimmed = manualPath.replace(/\/+$/, '')
+                  const lastSeg = trimmed.split('/').pop() ?? ''
+                  let newPath: string
+                  if (lastSeg === selected.name) {
+                    // Already at this path — just navigate to it
+                    newPath = trimmed || '/'
+                  } else {
+                    const parentDir = manualPath.substring(0, manualPath.lastIndexOf('/') + 1)
+                    newPath = parentDir + selected.name
+                  }
                   setManualPath(newPath)
                   setCurrentPath(newPath)
                   setShowSuggestions(false)

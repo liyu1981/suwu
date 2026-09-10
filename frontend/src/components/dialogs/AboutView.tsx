@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
 import { Trans, useTranslation } from 'react-i18next'
 import { fetchToken } from '../../lib/api'
+import type { Store } from '../../lib/actionResolver'
 import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../../store/notifications'
 
 const row = 'flex items-baseline justify-between gap-4 py-1.5'
@@ -30,8 +31,7 @@ export default function AboutView() {
   const { t } = useTranslation()
   const [checking, setChecking] = useState(false)
   const [checkResult, setCheckResult] = useState<string | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const store = useStore() as any
+  const store: Store = useStore()
   const setNotifications = useSetAtom(notificationsAtom)
   const setUnread = useSetAtom(unreadCountAtom)
   const panelOpen = useAtomValue(panelOpenAtom)

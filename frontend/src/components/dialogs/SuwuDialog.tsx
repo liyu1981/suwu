@@ -104,7 +104,7 @@ export default function SuwuDialog() {
           </div>
         ) : (
           <div className="mt-3 min-h-0 flex-1 overflow-hidden">
-            <AppSettingsView onClose={close} />
+            <AppSettingsView />
           </div>
         )}
       </DialogContent>

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -106,6 +107,38 @@ func TestWebSocketBadToken(t *testing.T) {
 	}
 }
 
+func readServerReady(t *testing.T, conn *websocket.Conn, ctx context.Context, marker string) (uint64, bool) {
+	t.Helper()
+	seenMarker := false
+	for {
+		mt, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("read attach sequence: %v", err)
+		}
+		if marker != "" && strings.Contains(string(data), marker) {
+			seenMarker = true
+		}
+		if mt == websocket.MessageText {
+			var msg struct {
+				Type       string `json:"type"`
+				Attachment uint64 `json:"attachment"`
+			}
+			if json.Unmarshal(data, &msg) == nil && msg.Type == "ready" {
+				return msg.Attachment, seenMarker
+			}
+		}
+	}
+}
+
+func waitForReady(t *testing.T, conn *websocket.Conn, ctx context.Context, marker string) bool {
+	attachment, seenMarker := readServerReady(t, conn, ctx, marker)
+	ack, _ := json.Marshal(map[string]interface{}{"type": "ready", "attachment": attachment})
+	if err := conn.Write(ctx, websocket.MessageText, ack); err != nil {
+		t.Fatalf("ack ready: %v", err)
+	}
+	return seenMarker
+}
+
 func TestWebSocketSession(t *testing.T) {
 	ts, cfg := testServer(t)
 	origin := "http://" + hostOf(ts)
@@ -120,6 +153,7 @@ func TestWebSocketSession(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	waitForReady(t, conn, ctx, "")
 
 	// Send a command; expect its output back on the PTY.
 	if err := conn.Write(ctx, websocket.MessageText, []byte("echo hello-ghostty\r")); err != nil {
@@ -139,6 +173,34 @@ func TestWebSocketSession(t *testing.T) {
 	t.Fatal("did not receive command output in time")
 }
 
+func TestWebSocketDropsInputBeforeReady(t *testing.T) {
+	ts, cfg := testServer(t)
+	origin := "http://" + hostOf(ts)
+	q := url.Values{}
+	q.Set("cols", "80")
+	q.Set("rows", "24")
+	q.Set("token", cfg.Token)
+	conn := dialWS(t, ts, origin, q)
+	defer conn.CloseNow()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := conn.Write(ctx, websocket.MessageText, []byte("echo EARLY-INPUT-MUST-DROP\r")); err != nil {
+		t.Fatal(err)
+	}
+	waitForReady(t, conn, ctx, "")
+	if data, err := readWithTimeout(t, conn, ctx); err == nil && strings.Contains(string(data), "EARLY-INPUT-MUST-DROP") {
+		t.Fatalf("input sent before ready reached the shell: %q", data)
+	}
+
+	if err := conn.Write(ctx, websocket.MessageText, []byte("echo READY-INPUT-OK\r")); err != nil {
+		t.Fatal(err)
+	}
+	if !waitForFrame(t, conn, ctx, "READY-INPUT-OK", 8*time.Second) {
+		t.Fatal("ready input was not delivered")
+	}
+}
+
 func TestWebSocketBinaryFrames(t *testing.T) {
 	ts, cfg := testServer(t)
 	origin := "http://" + hostOf(ts)
@@ -154,14 +216,8 @@ func TestWebSocketBinaryFrames(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// First message is the JSON attach control message; skip it.
-	mt0, data0, err := conn.Read(ctx)
-	if err != nil {
-		t.Fatalf("read attach message: %v", err)
-	}
-	if mt0 != websocket.MessageText || !strings.Contains(string(data0), "\"type\":\"attach\"") {
-		t.Fatalf("expected attach control message, got type=%v payload=%q", mt0, data0)
-	}
+	// Consume the ordered attach/ready prefix before sending input.
+	waitForReady(t, conn, ctx, "")
 
 	// Emit raw non-UTF-8 bytes plus a marker; the session must survive and
 	// the marker must come back on a binary frame. Every server->client
@@ -197,7 +253,11 @@ func TestWebSocketMultipleSessions(t *testing.T) {
 		q.Set("cols", "80")
 		q.Set("rows", "24")
 		q.Set("token", cfg.Token)
-		return dialWS(t, ts, origin, q)
+		conn := dialWS(t, ts, origin, q)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		waitForReady(t, conn, ctx, "")
+		return conn
 	}
 
 	a := mk("a")
@@ -253,6 +313,7 @@ func TestWebSocketSessionRestore(t *testing.T) {
 	conn := connect(key)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	waitForReady(t, conn, ctx, "")
 
 	// Run a command whose marker should end up on the restored screen.
 	if err := conn.Write(ctx, websocket.MessageText, []byte("echo RESTORE-MARK-12345\r")); err != nil {
@@ -267,7 +328,7 @@ func TestWebSocketSessionRestore(t *testing.T) {
 	// (including the marker) without any further input.
 	reattached := connect(key)
 	defer reattached.CloseNow()
-	if !waitForFrame(t, reattached, ctx, "RESTORE-MARK-12345", 8*time.Second) {
+	if !waitForReady(t, reattached, ctx, "RESTORE-MARK-12345") {
 		t.Fatal("reattached session did not replay restored screen with marker")
 	}
 
@@ -290,7 +351,11 @@ func TestWebSocketSessionKeyIsolation(t *testing.T) {
 		q.Set("rows", "24")
 		q.Set("token", cfg.Token)
 		q.Set("session", key)
-		return dialWS(t, ts, origin, q)
+		conn := dialWS(t, ts, origin, q)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		waitForReady(t, conn, ctx, "")
+		return conn
 	}
 
 	a := connect("isolation-a")

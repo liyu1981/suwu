@@ -29,18 +29,17 @@ import (
 // - No inline scripts, no eval, no remote scripts
 // - WebSocket connections allowed to same origin
 // - Frame ancestors blocked (no framing by other pages)
-const csp =
-	"default-src 'self'; " +
-		"script-src 'self'; " +
-		"style-src 'self' 'unsafe-inline'; " +
-		"connect-src 'self' ws: wss:; " +
-		"img-src 'self' data: blob:; " +
-		"font-src 'self'; " +
-		"object-src 'none'; " +
-		"frame-ancestors 'self'; " +
-		"base-uri 'self'; " +
-		"form-action 'self'; " +
-		"frame-src 'self'"
+const csp = "default-src 'self'; " +
+	"script-src 'self'; " +
+	"style-src 'self' 'unsafe-inline'; " +
+	"connect-src 'self' ws: wss:; " +
+	"img-src 'self' data: blob:; " +
+	"font-src 'self'; " +
+	"object-src 'none'; " +
+	"frame-ancestors 'self'; " +
+	"base-uri 'self'; " +
+	"form-action 'self'; " +
+	"frame-src 'self'"
 
 var mimeTypes = map[string]string{
 	".html": "text/html",
@@ -214,11 +213,6 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path == "/api/session-state" {
-		s.handleSessionState(w, r)
-		return
-	}
-
 	if r.URL.Path == "/api/forward/start" {
 		s.handleForwardStart(w, r)
 		return
@@ -331,8 +325,8 @@ type RateLimiter struct {
 }
 
 type tokenBucket struct {
-	count    int
-	resetAt  time.Time
+	count   int
+	resetAt time.Time
 }
 
 const rateLimitWindow = time.Minute
@@ -920,34 +914,6 @@ func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"path": dstPath,
 		"size": written,
-	})
-}
-
-// handleSessionState returns the current CWD and foreground command for a
-// terminal session. Polled by the frontend for session persistence.
-// GET /api/session-state?session=<key>&token=<token>
-func (s *Server) handleSessionState(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
-		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
-		return
-	}
-
-	if s.validateRequest(w, r) == "" {
-		return
-	}
-
-	key := r.URL.Query().Get("session")
-	if key == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "session parameter required"})
-		return
-	}
-
-	cwd, foreground := s.sessions.GetState(key)
-	slog.Debug("session-state", "key", key, "cwd", cwd, "foreground", foreground)
-	writeJSON(w, http.StatusOK, map[string]string{
-		"cwd":        cwd,
-		"foreground": foreground,
 	})
 }
 

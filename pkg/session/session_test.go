@@ -42,6 +42,7 @@ func TestAttachReattachRestoresScreen(t *testing.T) {
 	if len(snapshot) != 0 {
 		t.Fatalf("fresh session should have no snapshot, got %d bytes", len(snapshot))
 	}
+	client.Activate()
 
 	client.Write([]byte("echo VTRESTORE-MARK-99\r"))
 	if !readUntil(t, client.Frames(), "VTRESTORE-MARK-99", 8*time.Second) {
@@ -75,6 +76,7 @@ func TestSessionKeyIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	a.Activate()
 	defer a.Detach()
 	b, _, _, err := mgr.Attach("iso-b", 80, 24, "")
 	if err != nil {
@@ -96,30 +98,38 @@ func TestSessionKeyIsolation(t *testing.T) {
 	}
 }
 
-func TestFanOutToMultipleClients(t *testing.T) {
+func TestNewAttachmentRevokesPreviousWriter(t *testing.T) {
 	mgr, err := NewManager()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer mgr.Close()
 
-	c1, _, _, err := mgr.Attach("fanout", 80, 24, "")
+	c1, _, _, err := mgr.Attach("single-writer", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c1.Detach()
-	c2, _, _, err := mgr.Attach("fanout", 80, 24, "")
+	c1.Activate()
+	c2, _, _, err := mgr.Attach("single-writer", 80, 24, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer c2.Detach()
+	c2.Activate()
 
-	c1.Write([]byte("echo FANOUT-MARK-55\r"))
-	if !readUntil(t, c1.Frames(), "FANOUT-MARK-55", 8*time.Second) {
-		t.Fatal("client 1 missed output")
+	c1.Write([]byte("echo STALE-WRITER-MUST-NOT-RUN\r"))
+	select {
+	case _, ok := <-c1.Frames():
+		if ok {
+			t.Fatal("revoked client frame channel remained open")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("revoked client frame channel did not close")
 	}
-	if !readUntil(t, c2.Frames(), "FANOUT-MARK-55", 8*time.Second) {
-		t.Fatal("client 2 missed output")
+
+	c2.Write([]byte("echo CURRENT-WRITER-OK\r"))
+	if !readUntil(t, c2.Frames(), "CURRENT-WRITER-OK", 8*time.Second) {
+		t.Fatal("current client did not receive output")
 	}
 }
 
@@ -163,6 +173,7 @@ func TestResizeAdoptedOnReattach(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	client.Activate()
 	client.Write([]byte("echo RESIZE-MARK-11\r"))
 	if !readUntil(t, client.Frames(), "RESIZE-MARK-11", 8*time.Second) {
 		t.Fatal("marker output not received")

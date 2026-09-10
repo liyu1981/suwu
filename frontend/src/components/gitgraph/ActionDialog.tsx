@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, Fragment } from 'react'
 
 export type DialogInputType = 'text' | 'checkbox' | 'select' | 'radio'
 
@@ -22,6 +22,16 @@ interface ActionDialogProps {
 
 const inputCls =
   'w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20'
+
+/** Render the dialog's limited <b> markup without injecting HTML. */
+function renderMessage(message: string) {
+  return message.split(/(<b>[\s\S]*?<\/b>)/g).map((part, index) => {
+    const bold = part.match(/^<b>([\s\S]*?)<\/b>$/)
+    return bold
+      ? <strong key={index}>{bold[1]}</strong>
+      : <Fragment key={index}>{part}</Fragment>
+  })
+}
 
 /**
  * Glass-styled confirmation/action dialog matching the file browser's
@@ -66,10 +76,9 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
         <h3 className="mb-1 text-sm font-semibold tracking-tight text-white/90">{title}</h3>
 
         {/* Message */}
-        <p
-          className="mb-4 text-xs leading-relaxed text-white/55"
-          dangerouslySetInnerHTML={{ __html: message }}
-        />
+        <p className="mb-4 text-xs leading-relaxed text-white/55">
+          {renderMessage(message)}
+        </p>
 
         {/* Inputs */}
         {inputs.length > 0 && (

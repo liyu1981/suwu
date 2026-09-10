@@ -192,11 +192,11 @@ func setupAuth(envPath string) error {
 		huh.NewInput().
 			Title("Set a connection password (optional)").
 			Description("Leave empty to skip password protection.").
-			Password(true).
+			EchoMode(huh.EchoModePassword).
 			Value(&password),
 		huh.NewInput().
 			Title("Confirm password").
-			Password(true).
+			EchoMode(huh.EchoModePassword).
 			Value(&confirm),
 	)).WithTheme(huh.ThemeCatppuccin())
 	if err := form.Run(); err != nil {

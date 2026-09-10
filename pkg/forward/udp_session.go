@@ -42,7 +42,7 @@ func (sm *udpSessionManager) getOrCreate(clientAddr net.Addr) (*udpSession, erro
 		return s, nil
 	}
 
-	targetAddr := fmt.Sprintf("%s:%d", sm.targetHost, sm.targetPort)
+	targetAddr := net.JoinHostPort(sm.targetHost, fmt.Sprintf("%d", sm.targetPort))
 	conn, err := net.Dial("udp", targetAddr)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (sm *udpSessionManager) forward(pc net.PacketConn, clientAddr net.Addr, dat
 	}
 
 	buf := make([]byte, 65535)
-	session.targetConn.(net.Conn).SetReadDeadline(time.Now().Add(5 * time.Second))
+	session.targetConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	n, err := session.targetConn.Read(buf)
 	if err != nil {
 		return

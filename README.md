@@ -8,6 +8,10 @@
 
 <p align="center"><strong>Make the remote shell enjoyable in agentic AI time.</strong></p>
 
+<p align="center">
+  <video src="https://raw.githubusercontent.com/liyu1981/suwu/refs/heads/master/website/assets/tiling-wm.mp4" width="720" autoplay loop muted playsinline role="img" aria-label="Demo of the tiling window manager"></video>
+</p>
+
 Your real shell, in a browser tab. Suwu gives agents and humans alike a
 tiling terminal that keeps running when you don't — refresh, disconnect,
 come back tomorrow, pick up where you left off.
@@ -58,7 +62,7 @@ This downloads the latest release binary to `~/.local/bin/suwu` and runs
 
 ## Requirements
 
-- Go 1.25+
+- Go 1.27.1+
 - Node.js + [pnpm](https://pnpm.io) (frontend build)
 - [air](https://github.com/air-verse/air) (optional, for hot-reload dev)
 

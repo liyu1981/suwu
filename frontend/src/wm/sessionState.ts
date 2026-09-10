@@ -1,9 +1,4 @@
-/** Per-plugin session state shapes persisted across reloads. */
-
-export interface TermSessionState {
-  cwd?: string
-  foreground?: string
-}
+/** Per-plugin UI state shapes persisted across reloads. */
 
 export interface FileBrowserSessionState {
   currentPath: string

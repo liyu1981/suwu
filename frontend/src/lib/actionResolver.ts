@@ -1,4 +1,5 @@
 import { layoutAtom, focusedIdAtom, spacesAtom, activeSpaceAtom } from '../wm/atoms'
+import { createStore } from 'jotai/vanilla'
 import {
   splitAndFocus, setLeafType, setLeafInitialPath, computeTiling, setPaneData,
   type LayoutNode,
@@ -7,8 +8,7 @@ import { fontDefaultAtom } from '../store/fonts'
 import type { NotificationData } from '../store/notifications'
 import type { AutoResolveSettings } from '../store/settings'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Store = { get: (atom: any) => any; set: (atom: any, value: any) => void }
+export type Store = ReturnType<typeof createStore>
 
 /**
  * Determine the best split direction and side based on the focused tile's
@@ -74,7 +74,7 @@ function setTypeAndFocus(store: Store, leafId: string, tileType: string): void {
     const space = spaces[idx]
     if (space) {
       const preset = store.get(fontDefaultAtom)
-      store.set(spacesAtom, spaces.map((s: any, i: number) => i === idx ? setPaneData(s, leafId, 'fontSize', preset) : s))
+      store.set(spacesAtom, spaces.map((s, i) => i === idx ? setPaneData(s, leafId, 'fontSize', preset) : s))
     }
   }
 }

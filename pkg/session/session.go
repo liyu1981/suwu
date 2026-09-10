@@ -26,7 +26,8 @@ import (
 const (
 	// DefaultTTL is how long a session with no attached client stays alive
 	// before its shell is killed. Reattaching within the window restores it.
-	DefaultTTL = 10 * time.Minute
+	// Can be overridden with the SESSION_TTL environment variable.
+	DefaultTTL = 24 * time.Hour
 
 	// subBuffer caps the attached client's output queue. A client that falls
 	// this far behind is dropped and left to reattach.

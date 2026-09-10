@@ -200,6 +200,7 @@ Environment variables:
                        Supports wildcards: * (all), *.example.com, example.*
   HTTP_ENABLED=true    Enable a separate plain-HTTP listener
   HTTP_PORT            HTTP listener port (default 8080)
+  SESSION_TTL          Idle session timeout (default 24h, e.g. 30m, 12h)
   SUWU_DEV=true        Enable dev defaults (port 8000, air rebuild)
   SUWU_LOG_LEVEL       Log level: debug, info, warn, error (default: error)
   TLS_CERT_FILE        TLS certificate file path
@@ -471,6 +472,15 @@ func run() error {
 	sessions, err := session.NewManager()
 	if err != nil {
 		return err
+	}
+
+	// SESSION_TTL overrides the default idle session timeout (24h).
+	if ttlStr := os.Getenv("SESSION_TTL"); ttlStr != "" {
+		if d, err := time.ParseDuration(ttlStr); err == nil && d > 0 {
+			sessions.SetTTL(d)
+		} else {
+			slog.Warn("invalid SESSION_TTL, using default", "value", ttlStr, "error", err)
+		}
 	}
 
 	notifySock, err := notify.SocketPath()

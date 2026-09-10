@@ -215,6 +215,9 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
             maybeReady()
             return
           }
+          if (control?.type === 'pong') {
+            return
+          }
 
           term.write(event.data)
           return

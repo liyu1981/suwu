@@ -7,6 +7,7 @@ import { fetchToken } from '../../lib/api'
 
 const RECONNECT_DELAY_MS = 2000
 const COUNTDOWN_TICK_MS = 1000
+const KEEPALIVE_MS = 30_000
 
 function sessionKey(): string {
   const pane = new URLSearchParams(window.location.search).get('pane')
@@ -173,6 +174,16 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       ws.binaryType = 'arraybuffer'
       currentWs = ws
 
+      // Client-initiated keepalive: sends a ping every KEEPALIVE_MS so the
+      // server knows this browser tab is alive. Without this, background tabs
+      // with no user input would have an idle WebSocket that the server might
+      // eventually consider stale.
+      const keepalive = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }))
+        }
+      }, KEEPALIVE_MS)
+
       ws.onopen = () => {
         if (currentWs !== ws || generation !== currentGeneration) return
         setStatus('connecting')
@@ -242,6 +253,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       }
 
       ws.onclose = () => {
+        clearInterval(keepalive)
         if (currentWs !== ws || generation !== currentGeneration || disposed) return
         currentWs = null
         setInputEnabled(false)
@@ -254,6 +266,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       }
 
       ws.onerror = () => {
+        clearInterval(keepalive)
         if (currentWs !== ws || generation !== currentGeneration || disposed) return
         setInputEnabled(false)
         setStatus('disconnected')

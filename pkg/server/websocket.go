@@ -135,6 +135,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 				Rows int    `json:"rows"`
 			}
 			if json.Unmarshal(data, &msg) == nil {
+				if msg.Type == "ping" {
+					_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"pong"}`))
+					continue
+				}
 				if msg.Type == "resize" {
 					client.Resize(wsDimension(msg.Cols, int(cols), maxWSCols), wsDimension(msg.Rows, int(rows), maxWSRows))
 					continue

@@ -178,6 +178,7 @@ Configuration precedence:
   --env-file default (empty) → ./.env → ~/.config/suwu/.env → defaults
   SUWU_DEV=true              → ./.env only (global skipped)
 TLS: TLS_CERT_FILE/TLS_KEY_FILE, else the default pair in ~/.config/suwu/
+HTTP: set HTTP_ENABLED=true to enable a plain-HTTP listener (HTTP_PORT).
 `)
 }
 
@@ -193,22 +194,29 @@ Flags:
                        when explicitly set, the global env is skipped)
 
 Environment variables:
-  PORT                 HTTP port (default 8181, or 8000 in dev mode)
+  PORT                 HTTPS port (default 8181, or 8000 in dev mode)
   HOST                 Bind address (default 127.0.0.1)
   EXTRA_HOSTS          Comma-separated extra hostnames/IPs to allow
                        Supports wildcards: * (all), *.example.com, example.*
-  NO_TLS=true          Skip TLS — for reverse-proxy deployments (Cloudflare, nginx)
+  HTTP_ENABLED=true    Enable a separate plain-HTTP listener
+  HTTP_PORT            HTTP listener port (default 8080)
   SUWU_DEV=true        Enable dev defaults (port 8000, air rebuild)
   SUWU_LOG_LEVEL       Log level: debug, info, warn, error (default: error)
   TLS_CERT_FILE        TLS certificate file path
   TLS_KEY_FILE         TLS key file path
   SUWU_SOCK_PATH       Unix socket path (default ~/.suwu/suwu.sock)
 
+Server modes:
+  HTTPS only (default) Certs required (TLS_CERT_FILE/TLS_KEY_FILE or
+                       ~/.config/suwu/). Fails if no certs found.
+  HTTP only            HTTP_ENABLED=true + no certs → plain HTTP on HTTP_PORT.
+  Both                 HTTP_ENABLED=true + certs → HTTPS on PORT + HTTP on HTTP_PORT.
+
 Examples:
-  suwu serve
-  PORT=3000 suwu serve
-  HOST=0.0.0.0 suwu serve
-  HOST=0.0.0.0 EXTRA_HOSTS=* NO_TLS=true suwu serve
+  suwu serve                              # HTTPS on port 8181
+  PORT=3000 suwu serve                    # HTTPS on port 3000
+  HTTP_ENABLED=true suwu serve            # HTTPS + HTTP on 8080
+  HTTP_ENABLED=true HTTP_PORT=9090 suwu serve  # HTTPS + HTTP on 9090
   suwu serve --env-file /path/to/.env
 `)
 	case "send":
@@ -490,43 +498,64 @@ func run() error {
 
 	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager, dataDir)
 
-	httpServer := &http.Server{
-		Addr:    net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)),
-		Handler: srv.Handler(),
+	handler := srv.Handler()
+
+	// Resolve TLS certificates.
+	certFile, keyFile, tlsSource, tlsErr := resolveTLS()
+	useTLS := tlsErr == nil && certFile != "" && keyFile != ""
+
+	// Resolve HTTP server settings.
+	httpEnabled := os.Getenv("HTTP_ENABLED") == "true"
+	httpPort := parsePort(os.Getenv("HTTP_PORT"), 8080)
+
+	// Validate mode: HTTPS requires certs; HTTP-only requires HTTP_ENABLED;
+	// if neither certs nor HTTP_ENABLED, fail.
+	if !useTLS && !httpEnabled {
+		sessions.Close()
+		if tlsErr != nil {
+			return fmt.Errorf("no TLS certificates available: %w\nhint: run 'suwu gencerts' to create a certificate pair, or set HTTP_ENABLED=true for plain HTTP",
+				tlsErr)
+		}
+		return fmt.Errorf("no TLS certificates found and HTTP_ENABLED is not set\nhint: run 'suwu gencerts' to create a certificate pair, or set HTTP_ENABLED=true for plain HTTP")
 	}
 
-	// TLS mode: NO_TLS=true skips certificate lookup entirely (for reverse-proxy
-	// deployments where TLS is terminated externally, e.g. Cloudflare).
-	// Otherwise HTTPS uses TLS_CERT_FILE/TLS_KEY_FILE when set, falling back
-	// to the default pair 'suwu gencerts' writes into ~/.config/suwu/.
-	var certFile, keyFile, tlsSource string
-	useTLS := false
-	if os.Getenv("NO_TLS") == "true" {
-		tlsSource = "offloaded"
-	} else {
-		var err error
-		certFile, keyFile, tlsSource, err = resolveTLS()
-		if err != nil {
-			sessions.Close()
-			return err
-		}
-		useTLS = certFile != "" && keyFile != ""
+	// Build the list of servers to start.
+	var listeners []srvListener
+
+	if useTLS {
+		listeners = append(listeners, srvListener{
+			server: &http.Server{Addr: net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)), Handler: handler},
+			useTLS: true,
+			port:   port,
+			source: tlsSource,
+		})
+	}
+	if httpEnabled {
+		listeners = append(listeners, srvListener{
+			server: &http.Server{Addr: net.JoinHostPort(cfg.BindHost, strconv.Itoa(httpPort)), Handler: handler},
+			useTLS: false,
+			port:   httpPort,
+			source: "HTTP_ENABLED",
+		})
 	}
 
 	errCh := make(chan error, 1)
-	go func() {
-		var err error
-		if useTLS {
-			err = httpServer.ListenAndServeTLS(certFile, keyFile)
-		} else {
-			err = httpServer.ListenAndServe()
-		}
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
-	}()
+	for _, l := range listeners {
+		l := l
+		go func() {
+			var err error
+			if l.useTLS {
+				err = l.server.ListenAndServeTLS(certFile, keyFile)
+			} else {
+				err = l.server.ListenAndServe()
+			}
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- err
+			}
+		}()
+	}
 
-	printBanner(dev, cfg, port, useTLS, tlsSource)
+	printBanner(dev, cfg, listeners)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -534,8 +563,8 @@ func run() error {
 	select {
 	case err := <-errCh:
 		sessions.Close()
-		return fmt.Errorf("%w\nhint: another Suwu server may already be running on %s; stop it or set a different PORT",
-			err, httpServer.Addr)
+		return fmt.Errorf("%w\nhint: another server may already be running; check PORT and HTTP_PORT",
+			err)
 	case <-ctx.Done():
 	}
 
@@ -556,7 +585,9 @@ func run() error {
 	forwardManager.StopAll()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3_000_000_000)
 	defer cancel()
-	_ = httpServer.Shutdown(shutdownCtx)
+	for _, l := range listeners {
+		_ = l.server.Shutdown(shutdownCtx)
+	}
 	return nil
 }
 
@@ -591,14 +622,14 @@ func resolveTLS() (certFile, keyFile, source string, err error) {
 
 	configDir, err := certs.DefaultDir()
 	if err != nil {
-		return "", "", "", nil
+		return "", "", "", fmt.Errorf("cannot determine config directory: %w", err)
 	}
 	certPath, keyPath := certs.PairPaths(configDir)
 	if _, err := os.Stat(certPath); err != nil {
-		return "", "", "", nil
+		return "", "", "", fmt.Errorf("no certificates found in %s: %w\nhint: run 'suwu gencerts' to create a certificate pair", configDir, err)
 	}
 	if _, err := os.Stat(keyPath); err != nil {
-		return "", "", "", nil
+		return "", "", "", fmt.Errorf("no key found in %s: %w\nhint: run 'suwu gencerts' to create a certificate pair", configDir, err)
 	}
 	return certPath, keyPath, "~/.config/suwu", nil
 }
@@ -628,25 +659,31 @@ func formatURLHost(host string) string {
 	return host
 }
 
-func printBanner(dev bool, cfg *auth.Config, port int, useTLS bool, tlsSource string) {
+// srvListener describes one HTTP or HTTPS server instance.
+type srvListener struct {
+	server *http.Server
+	useTLS bool
+	port   int
+	source string
+}
+
+func printBanner(dev bool, cfg *auth.Config, listeners []srvListener) {
 	home, _ := pty.Home()
-	scheme := "http"
-	if useTLS {
-		scheme = "https"
-	}
 
 	fmt.Println("\n" + strings.Repeat("═", 60))
 	fmt.Printf("  🚀 Suwu server%s\n", devLabel(dev))
 	fmt.Println(strings.Repeat("═", 60))
-	fmt.Printf("\n  📺 Open: %s://%s:%d\n", scheme, formatURLHost(cfg.DisplayHost), port)
-	switch {
-	case useTLS:
-		fmt.Printf("  🔒 TLS enabled (certs from %s): browser clipboard APIs (terminal paste) available\n", tlsSource)
-	case tlsSource == "offloaded":
-		fmt.Println("  🔒 TLS offloaded to reverse proxy: place behind Cloudflare, nginx, etc.")
-	default:
-		fmt.Println("  ⚠️  Plain HTTP: browser clipboard APIs unavailable outside localhost (no paste into the terminal)")
-		fmt.Println("     hint: run 'suwu gencerts' to enable https, or set NO_TLS=true for reverse-proxy mode")
+	for _, l := range listeners {
+		scheme := "http"
+		if l.useTLS {
+		scheme = "https"
+		}
+		fmt.Printf("\n  📺 Open: %s://%s:%d\n", scheme, formatURLHost(cfg.DisplayHost), l.port)
+		if l.useTLS {
+			fmt.Printf("  🔒 TLS enabled (certs from %s): browser clipboard APIs available\n", l.source)
+		} else {
+			fmt.Println("  📡 Plain HTTP: browser clipboard APIs unavailable outside localhost")
+		}
 	}
 	fmt.Println("  📡 WebSocket PTY: same endpoint /ws")
 	fmt.Println("  🔐 WebSocket auth: per-run same-origin token")

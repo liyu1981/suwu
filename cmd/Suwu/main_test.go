@@ -87,13 +87,9 @@ func TestResolveTLSDefaultPair(t *testing.T) {
 	t.Setenv("TLS_CERT_FILE", "")
 	t.Setenv("TLS_KEY_FILE", "")
 
-	// No pair yet -> no TLS.
-	cert, key, source, err := resolveTLS()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cert != "" || key != "" || source != "" {
-		t.Errorf("without certs resolveTLS = %q, %q, %q; want empty", cert, key, source)
+	// No pair yet -> error.
+	if _, _, _, err := resolveTLS(); err == nil {
+		t.Fatal("expected error when no certs found")
 	}
 
 	// Create the default pair -> picked up.
@@ -110,7 +106,7 @@ func TestResolveTLSDefaultPair(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cert, key, source, err = resolveTLS()
+	cert, key, source, err := resolveTLS()
 	if err != nil {
 		t.Fatal(err)
 	}

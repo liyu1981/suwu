@@ -136,7 +136,14 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			}
 			if json.Unmarshal(data, &msg) == nil {
 				if msg.Type == "ping" {
-					_ = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"pong"}`))
+					// Piggyback session state on pong response.
+					resp := map[string]any{"type": "pong"}
+					if state, ok := s.sessions.State(key); ok {
+						resp["state"] = state
+					}
+					if jsonData, err := json.Marshal(resp); err == nil {
+						_ = conn.Write(ctx, websocket.MessageText, jsonData)
+					}
 					continue
 				}
 				if msg.Type == "resize" {

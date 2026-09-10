@@ -9,6 +9,13 @@ const RECONNECT_DELAY_MS = 2000
 const COUNTDOWN_TICK_MS = 1000
 const KEEPALIVE_MS = 30_000
 
+/** Session state tracked by the backend and mirrored in localStorage. */
+interface SessionState {
+  cwd?: string
+  foreground?: string
+  updatedAt?: number
+}
+
 function sessionKey(): string {
   const pane = new URLSearchParams(window.location.search).get('pane')
   if (pane) return pane
@@ -21,6 +28,42 @@ function sessionKey(): string {
     sessionStorage.setItem('suwu-session-key', key)
   }
   return key
+}
+
+/** localStorage key for persisted session state. */
+function stateKey(): string {
+  return `suwu-session-state:${sessionKey()}`
+}
+
+/** Load the last-known session state from localStorage. */
+function loadStoredState(): SessionState | null {
+  try {
+    const raw = localStorage.getItem(stateKey())
+    if (!raw) return null
+    return JSON.parse(raw) as SessionState
+  } catch {
+    return null
+  }
+}
+
+/** Persist session state to localStorage. */
+function saveState(state: SessionState): void {
+  try {
+    localStorage.setItem(stateKey(), JSON.stringify(state))
+  } catch {
+    // storage full or unavailable — non-fatal
+  }
+}
+
+/** Compare two session states and decide whether restore is needed. */
+function needsRestore(stored: SessionState, current: SessionState): boolean {
+  // CWD mismatch → restore
+  if (stored.cwd && current.cwd && stored.cwd !== current.cwd) return true
+  // Foreground app mismatch (compare base command, not args) → restore
+  const storedApp = stored.foreground?.split(' ')[0]
+  const currentApp = current.foreground?.split(' ')[0]
+  if (storedApp && currentApp && storedApp !== currentApp) return true
+  return false
 }
 
 type AttachMessage = {
@@ -36,8 +79,13 @@ type AttachMessage = {
  * The session key identifies the server PTY, not this WebSocket. Every
  * reconnect creates a new attachment, resets the browser terminal, replays
  * the server VT snapshot, and waits for an explicit ready message before
- * forwarding input. No terminal cwd, foreground command, or screen state is
- * stored in browser storage.
+ * forwarding input. The browser terminal is disposable; the PTY and VT
+ * state owned by the server are authoritative.
+ *
+ * Session state (cwd, foreground app) is periodically synced from the server
+ * via pong responses and persisted in localStorage. On reattach, if the
+ * stored state differs from the server state, restore commands are sent
+ * to bring the shell back to the expected state.
  */
 export function usePtySession(term: Terminal | null, paneId?: string) {
   const [, setStatus] = useAtom(connectionStatusAtom)
@@ -56,6 +104,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
     let shellExited = false
     let initialCommandSent = false
     let lastSize = { cols: term.cols, rows: term.rows }
+    let lastServerState: SessionState | null = null
 
     const setInputEnabled = (enabled: boolean) => {
       inputReady = enabled
@@ -115,6 +164,33 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       }
     }
 
+    /**
+     * Attempt to restore the shell to the previously stored state.
+     * Sends cd + foreground app commands with a delay between each.
+     */
+    const attemptRestore = (ws: WebSocket, stored: SessionState, server: SessionState) => {
+      if (disposed || ws.readyState !== WebSocket.OPEN) return
+      const commands: string[] = []
+      // Restore CWD if different
+      if (stored.cwd && server.cwd && stored.cwd !== server.cwd) {
+        commands.push(`cd ${JSON.stringify(stored.cwd)}`)
+      }
+      // Restore foreground app if different
+      const storedApp = stored.foreground?.split(' ')[0]
+      const currentApp = server.foreground?.split(' ')[0]
+      if (storedApp && currentApp && storedApp !== currentApp && stored.foreground) {
+        commands.push(stored.foreground)
+      }
+      if (commands.length === 0) return
+      // Send commands sequentially with delay
+      commands.forEach((cmd, i) => {
+        setTimeout(() => {
+          if (disposed || ws.readyState !== WebSocket.OPEN) return
+          ws.send(cmd + '\r')
+        }, i * 100)
+      })
+    }
+
     const open = (token: string) => {
       if (disposed) return
 
@@ -147,6 +223,14 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
         setMessage(i18n.t('pty.connected'))
         sendResize(ws)
 
+        // On reattach (not created), check if state restoration is needed.
+        if (!created && lastServerState) {
+          const stored = loadStoredState()
+          if (stored && needsRestore(stored, lastServerState)) {
+            attemptRestore(ws, stored, lastServerState)
+          }
+        }
+
         if (created && !initialCommandSent) {
           initialCommandSent = true
           const initCmd = new URLSearchParams(window.location.search).get('cmd')
@@ -175,9 +259,8 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       currentWs = ws
 
       // Client-initiated keepalive: sends a ping every KEEPALIVE_MS so the
-      // server knows this browser tab is alive. Without this, background tabs
-      // with no user input would have an idle WebSocket that the server might
-      // eventually consider stale.
+      // server knows this browser tab is alive. The server piggybacks session
+      // state on the pong response, which we persist in localStorage.
       const keepalive = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }))
@@ -216,6 +299,12 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
             return
           }
           if (control?.type === 'pong') {
+            // Extract session state from pong response if present.
+            const pongData = control as unknown as { state?: SessionState }
+            if (pongData.state) {
+              lastServerState = pongData.state
+              saveState(pongData.state)
+            }
             return
           }
 

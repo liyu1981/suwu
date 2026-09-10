@@ -35,7 +35,18 @@ const (
 
 	vtScrollback = 1000
 	wasmTimeout  = 5 * time.Second
+
+	// statePollInterval controls how often we poll /proc for session state.
+	statePollInterval = 2 * time.Second
 )
+
+// SessionState tracks the observable state of a running PTY session.
+// Designed to be extensible — add new fields as needed.
+type SessionState struct {
+	CWD        string `json:"cwd"`
+	Foreground string `json:"foreground,omitempty"` // full cmdline of foreground process
+	UpdatedAt  int64  `json:"updatedAt"`            // unix millis
+}
 
 // Manager owns every live session. A single mutex guards the manager and the
 // session state. There is deliberately one writable attachment per session:
@@ -61,6 +72,17 @@ func (m *Manager) SetTTL(d time.Duration) {
 	m.mu.Lock()
 	m.ttl = d
 	m.mu.Unlock()
+}
+
+// State returns the current state of the session with the given key.
+func (m *Manager) State(key string) (SessionState, bool) {
+	m.mu.Lock()
+	s, ok := m.sessions[key]
+	m.mu.Unlock()
+	if !ok {
+		return SessionState{}, false
+	}
+	return s.State(), true
 }
 
 func (m *Manager) Close() {
@@ -231,9 +253,10 @@ func (m *Manager) start(key string, cols, rows uint16, cwd string) (*session, er
 		return nil, fmt.Errorf("session: create emulator: %w", err)
 	}
 
-	s := &session{key: key, pty: ps, vt: vt, cols: cols, rows: rows}
+	s := &session{key: key, pty: ps, vt: vt, cols: cols, rows: rows, done: make(chan struct{})}
 	m.sessions[key] = s
 	go m.readLoop(s)
+	go m.statePoller(s)
 	return s, nil
 }
 
@@ -276,6 +299,34 @@ func (m *Manager) broadcast(s *session, data []byte) {
 	}
 }
 
+func (m *Manager) statePoller(s *session) {
+	ticker := time.NewTicker(statePollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			m.pollState(s)
+		case <-s.done:
+			return
+		}
+	}
+}
+
+func (m *Manager) pollState(s *session) {
+	pid := s.pty.Pid()
+	if pid <= 0 {
+		return
+	}
+	cwd, fg := pty.GetSessionState(pid)
+	s.stateMu.Lock()
+	s.state = SessionState{
+		CWD:        cwd,
+		Foreground: fg,
+		UpdatedAt:  time.Now().UnixMilli(),
+	}
+	s.stateMu.Unlock()
+}
+
 func (m *Manager) finish(s *session, code int) {
 	slog.Debug("session finish", "key", s.key, "exit_code", code)
 	m.mu.Lock()
@@ -285,6 +336,7 @@ func (m *Manager) finish(s *session, code int) {
 	}
 	s.exited = true
 	s.closed = true
+	close(s.done) // stop state poller
 	if s.timer != nil {
 		s.timer.Stop()
 		s.timer = nil
@@ -313,6 +365,7 @@ func (m *Manager) expire(s *session) {
 		return
 	}
 	s.closed = true
+	close(s.done) // stop state poller
 	s.timer = nil
 	if cur, ok := m.sessions[s.key]; ok && cur == s {
 		delete(m.sessions, s.key)
@@ -370,6 +423,11 @@ type session struct {
 	timer      *time.Timer
 	exited     bool
 	closed     bool
+
+	// State tracking — polled periodically from /proc.
+	state   SessionState
+	stateMu sync.RWMutex
+	done    chan struct{} // closed on session exit to stop state poller
 }
 
 func (s *session) releaseVT() {
@@ -378,6 +436,13 @@ func (s *session) releaseVT() {
 		defer cancel()
 		_ = s.vt.Close(ctx)
 	})
+}
+
+// State returns a snapshot of the current session state.
+func (s *session) State() SessionState {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	return s.state
 }
 
 func randomKey() string {

@@ -105,6 +105,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
     let initialCommandSent = false
     let lastSize = { cols: term.cols, rows: term.rows }
     let lastServerState: SessionState | null = null
+    let inputDebugCount = 0
 
     const setInputEnabled = (enabled: boolean) => {
       inputReady = enabled
@@ -213,12 +214,24 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
 
       const maybeReady = () => {
         if (disposed || currentWs !== ws || generation !== currentGeneration) return
-        if (!attachReceived || !serverReady || !snapshotWritten) return
+        if (!attachReceived || !serverReady || !snapshotWritten) {
+          console.debug('[term ready] waiting', {
+            attachReceived,
+            serverReady,
+            snapshotWritten,
+            wsState: ws.readyState,
+            generation,
+            currentGeneration,
+          })
+          return
+        }
         if (!readyAckSent && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ready', attachment }))
           readyAckSent = true
+          console.debug('[term ready] client acknowledgement sent', { attachment, generation })
         }
         setInputEnabled(true)
+        console.debug('[term ready] input enabled', { attachment, generation })
         setStatus('connected')
         setMessage(i18n.t('pty.connected'))
         sendResize(ws)
@@ -291,10 +304,18 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
             if (created) initialCommandSent = false
             attachment = control.attachment ?? 0
             snapshotWritten = control.snapshot !== true
+            console.debug('[term ready] attach received', {
+              attachment,
+              created,
+              hasSnapshot: control.snapshot === true,
+              generation,
+            })
+            maybeReady()
             return
           }
           if (control?.type === 'ready') {
             serverReady = true
+            console.debug('[term ready] server ready received', { attachment, generation })
             maybeReady()
             return
           }
@@ -319,12 +340,22 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
             : event.data
 
         if (bytes === null) {
+          console.debug('[term ready] binary Blob frame received', { size: event.data.size, attachment, generation })
           void event.data.arrayBuffer().then((buffer: ArrayBuffer) => {
             if (currentWs !== ws || generation !== currentGeneration || disposed) return
             const data = new Uint8Array(buffer)
+            const preview = new TextDecoder().decode(data.slice(0, 512)).trimStart()
+            if (preview.startsWith('{')) {
+              console.debug('[term ready] JSON-looking Blob frame treated as terminal data', {
+                preview: preview.slice(0, 200),
+                attachment,
+                generation,
+              })
+            }
             snapshotWritten = false
             term.write(data, () => {
               snapshotWritten = true
+              console.debug('[term ready] snapshot applied', { attachment, generation })
               maybeReady()
             })
           })
@@ -332,11 +363,20 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
         }
 
         const text = decoder.decode(bytes, { stream: true })
+        const preview = text.trimStart()
+        if (preview.startsWith('{')) {
+          console.debug('[term ready] JSON-looking binary frame treated as terminal data', {
+            preview: preview.slice(0, 200),
+            attachment,
+            generation,
+          })
+        }
         if (text.includes('Shell exited')) shellExited = true
 
         if (!snapshotWritten) {
           term.write(bytes, () => {
             snapshotWritten = true
+            console.debug('[term ready] snapshot applied', { attachment, generation })
             maybeReady()
           })
         } else {
@@ -394,7 +434,21 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
 
     const onData = term.onData((data) => {
       const ws = currentWs
-      if (!inputReady || !ws || ws.readyState !== WebSocket.OPEN) return
+      if (!inputReady || !ws || ws.readyState !== WebSocket.OPEN) {
+        if (inputDebugCount < 10) {
+          inputDebugCount++
+          console.debug('[term input] dropped', {
+            inputReady,
+            wsState: ws?.readyState,
+            generation: currentGeneration,
+          })
+        }
+        return
+      }
+      if (inputDebugCount < 10) {
+        inputDebugCount++
+        console.debug('[term input] sending', { length: data.length, wsState: ws.readyState, generation: currentGeneration })
+      }
       ws.send(data)
     })
 

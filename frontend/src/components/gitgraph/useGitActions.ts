@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { getCredentials } from '../../lib/auth'
+import { authFetch } from '../../lib/api'
 
 export type GitAction =
   | 'create-branch' | 'checkout-branch' | 'delete-branch' | 'rename-branch'
@@ -29,13 +29,9 @@ export function useGitActions(repoPath: string): UseGitActionsReturn {
     setLoading(true)
     setError(null)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const creds = getCredentials()
-      if (creds) headers['Authorization'] = creds
-
-      const res = await fetch('/api/git/action', {
+      const res = await authFetch('/api/git/action', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
         body: JSON.stringify({ path: repoPath, action, params }),
       })

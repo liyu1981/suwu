@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GitCommit, GraphConfig, MuteConfig, GraphLayout } from './graph';
 import { createGraphLayout } from './graph';
+import { authFetch } from '../../lib/api';
 
 interface UseGitGraphOptions {
   repoPath?: string | null;
@@ -107,7 +108,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
       });
       if (allBranches && !base) params.set('all', 'true');
 
-      const response = await fetch(`/api/git/commits?${params}`);
+      const response = await authFetch(`/api/git/commits?${params}`);
 
       let data: { commits?: GitCommit[] | null; head?: string | null; error?: string } | null = null;
       try {
@@ -149,7 +150,7 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
       if (base) params.set('base', base);
       if (allBranches && !base) params.set('all', 'true');
 
-      const response = await fetch(`/api/git/commits?${params}`);
+      const response = await authFetch(`/api/git/commits?${params}`);
 
       let data: { commits?: GitCommit[] | null; head?: string | null; error?: string } | null = null;
       try {

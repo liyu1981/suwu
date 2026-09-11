@@ -5,7 +5,7 @@ import { RefreshIcon } from './icons'
 import { forwardZoomAtom } from '../store/zoom'
 import { isLocalHost } from '../lib/format'
 
-import { getCredentials } from '../lib/auth'
+import { authFetch } from '../lib/api'
 import { useAutoRefreshDropdown, AutoRefreshDropdown, AutoRefreshTrigger } from './AutoRefreshDropdown'
 
 interface ForwardStatus {
@@ -39,11 +39,7 @@ const btnPrimary =
   'shrink-0 rounded-lg bg-cyan-500/25 px-3.5 py-1.5 font-medium text-cyan-300 transition-all duration-150 hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed'
 
 async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
-  const headers: Record<string, string> = {}
-  const creds = getCredentials()
-  if (creds) headers['Authorization'] = creds
-  if (init?.headers) Object.assign(headers, init.headers)
-  const res = await fetch(path, { ...init, headers })
+  const res = await authFetch(path, init)
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(body || `HTTP ${res.status}`)

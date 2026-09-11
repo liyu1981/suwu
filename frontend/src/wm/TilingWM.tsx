@@ -31,7 +31,7 @@ import {
 } from './layout'
 import { applyWmAction, wmAction } from './shortcuts'
 import { openViewer, openFileBrowser } from '../lib/actionResolver'
-import { getCredentials } from '../lib/auth'
+import { authFetch } from '../lib/api'
 import { TileTools } from './TileTools'
 import { usePaneGhosts } from './hooks/usePaneGhosts'
 import { getTilePlugin, getAllTilePlugins } from './tilePlugins'
@@ -107,10 +107,7 @@ function TileTypePicker({
 
   useEffect(() => {
     const controller = new AbortController()
-    const headers: Record<string, string> = {}
-    const creds = getCredentials()
-    if (creds) headers['Authorization'] = creds
-    fetch('/api/home', { cache: 'no-store', headers, signal: controller.signal })
+    authFetch('/api/home', { cache: 'no-store', signal: controller.signal })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.path) setHomeDir(data.path) })
       .catch(() => {})
@@ -257,10 +254,7 @@ export default function TilingWM() {
     } catch {
       // ignore
     }
-    const headers: Record<string, string> = {}
-    const creds = getCredentials()
-    if (creds) headers['Authorization'] = creds
-    fetch('/api/server-info', { cache: 'no-store', headers })
+    authFetch('/api/server-info', { cache: 'no-store' })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.startedAt) {
@@ -346,10 +340,7 @@ export default function TilingWM() {
     const t = setTimeout(async () => {
       try {
         // Re-query server startedAt to detect restarts.
-        const headers: Record<string, string> = {}
-        const creds = getCredentials()
-        if (creds) headers['Authorization'] = creds
-        const res = await fetch('/api/server-info', { cache: 'no-store', headers })
+        const res = await authFetch('/api/server-info', { cache: 'no-store' })
         let currentStartedAt = serverStartedAt
         if (res.ok) {
           const info = await res.json()

@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getCredentials } from '../../lib/auth'
+import { authFetch } from '../../lib/api'
 
 interface DirEntry {
   name: string
@@ -19,12 +19,8 @@ interface RepoPickerProps {
 }
 
 function fetchDirs(dirPath: string, signal?: AbortSignal): Promise<DirEntry[]> {
-  const headers: Record<string, string> = {}
-  const creds = getCredentials()
-  if (creds) headers['Authorization'] = creds
-  return fetch(`/api/files?path=${encodeURIComponent(dirPath)}`, {
+  return authFetch(`/api/files?path=${encodeURIComponent(dirPath)}`, {
     cache: 'no-store',
-    headers,
     signal,
   })
     .then(async (res) => {
@@ -64,10 +60,7 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const headers: Record<string, string> = {}
-    const creds = getCredentials()
-    if (creds) headers['Authorization'] = creds
-    fetch('/api/home', { cache: 'no-store', headers })
+    authFetch('/api/home', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.path) {

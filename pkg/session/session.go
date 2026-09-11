@@ -131,9 +131,11 @@ func (c *Client) Activate() {
 	m := c.m
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if !c.s.closed && c.s.client == c {
+	accepted := !c.s.closed && c.s.client == c
+	if accepted {
 		c.ready = true
 	}
+	slog.Debug("session client ready", "key", c.s.key, "attachment", c.id, "accepted", accepted, "active", c.active, "ready", c.ready, "closed", c.s.closed)
 }
 
 // Write forwards input only from the current, ready attachment. The manager
@@ -144,8 +146,10 @@ func (c *Client) Write(data []byte) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if c.s.closed || c.s.client != c || !c.active || !c.ready {
+		slog.Debug("session input rejected", "key", c.s.key, "attachment", c.id, "closed", c.s.closed, "current", c.s.client == c, "active", c.active, "ready", c.ready, "bytes", len(data))
 		return
 	}
+	slog.Debug("session input accepted", "key", c.s.key, "attachment", c.id, "bytes", len(data))
 	// A TUI that exits without restoring mouse modes can leave the browser
 	// emitting mouse reports after the shell regains the foreground. Keep
 	// ordinary keyboard input intact, but discard recognized mouse reports at

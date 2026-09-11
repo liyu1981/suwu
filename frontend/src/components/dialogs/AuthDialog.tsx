@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
-import { clearCredentials, setCredentials } from '../../lib/auth'
+import { authenticate } from '../../lib/api'
 
 /**
  * Password prompt dialog shown when the server requires authentication.
@@ -19,23 +19,11 @@ export function AuthDialog({ open, onAuthenticated }: { open: boolean; onAuthent
     setError(false)
     setLoading(true)
 
-    clearCredentials()
-    setCredentials('suwu', password)
-
     try {
-      const res = await fetch('/api/token', {
-        cache: 'no-store',
-        headers: { Authorization: `Basic ${btoa(`suwu:${password}`)}` },
-      })
-      if (res.ok) {
-        setPassword('')
-        onAuthenticated()
-      } else {
-        clearCredentials()
-        setError(true)
-      }
+      await authenticate('suwu', password)
+      setPassword('')
+      onAuthenticated()
     } catch {
-      clearCredentials()
       setError(true)
     } finally {
       setLoading(false)

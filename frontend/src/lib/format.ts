@@ -1,6 +1,6 @@
 /** Shared formatting utilities used across plugin pages. */
 
-import { getCredentials } from './auth'
+import { authFetch } from './api'
 
 export function formatSize(bytes: number): string {
   if (bytes === 0) return ''
@@ -42,12 +42,9 @@ export function isLocalHost(host: string): boolean {
   return h === '' || h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0'
 }
 
-/** Generic JSON fetcher with auth header support. */
+/** Generic JSON fetcher with in-memory Bearer auth. */
 export async function fetchJson<T>(url: string): Promise<T> {
-  const headers: Record<string, string> = {}
-  const creds = getCredentials()
-  if (creds) headers['Authorization'] = creds
-  const res = await fetch(url, { cache: 'no-store', headers })
+  const res = await authFetch(url, { cache: 'no-store' })
   let data: (T & { error?: string }) | null = null
   try { data = await res.json(); } catch { data = null; }
   if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)

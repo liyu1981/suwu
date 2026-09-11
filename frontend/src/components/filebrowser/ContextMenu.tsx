@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getCredentials } from '../../lib/auth'
+import { authFetch } from '../../lib/api'
 
 interface FileEntry {
   name: string
@@ -83,15 +83,9 @@ export function ContextMenu({
   const fullPath = entry ? `${currentPath}/${entry.name}`.replace(/\/+/g, '/') : currentPath
 
   const apiCall = useCallback(async (url: string, body: unknown) => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-    const creds = getCredentials()
-    if (creds) headers['Authorization'] = creds
-
-    const res = await fetch(url, {
+    const res = await authFetch(url, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
     const data = await res.json()
@@ -144,13 +138,8 @@ export function ContextMenu({
     if (!entry) return
     setLoading(true)
     try {
-      const headers: Record<string, string> = {}
-      const creds = getCredentials()
-      if (creds) headers['Authorization'] = creds
-
-      const res = await fetch(`/api/file?path=${encodeURIComponent(fullPath)}&download=true`, {
+      const res = await authFetch(`/api/file?path=${encodeURIComponent(fullPath)}&download=true`, {
         cache: 'no-store',
-        headers,
       })
       if (!res.ok) {
         const body = await res.json().catch(() => null)

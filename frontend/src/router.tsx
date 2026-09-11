@@ -1,5 +1,5 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
-import AppShell from './routes/AppShell'
+import AuthGate from './routes/AuthGate'
 import DemoPage from './routes/DemoPage'
 import TermPage from './routes/TermPage'
 import FileViewerPage from './routes/FileViewerPage'
@@ -16,7 +16,7 @@ const rootRoute = createRootRoute()
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
-  component: AppShell,
+  component: AuthGate,
 })
 
 const indexRoute = createRoute({

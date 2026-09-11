@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FileViewer } from '@file-viewer/react'
 import standardPreset from '@file-viewer/preset-standard'
-import { getCredentials } from '../lib/auth'
+import { authFetch } from '../lib/api'
 import { CommonTileContainer } from '../components/CommonTileContainer'
 import { RefreshIcon } from '../components/icons'
 import { setPageTransparent } from '../lib/constants'
@@ -45,14 +45,9 @@ export default function FileViewerPage() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    const headers: Record<string, string> = {}
-    const creds = getCredentials()
-    if (creds) headers['Authorization'] = creds
-
     try {
-      const res = await fetch(`/api/file?path=${encodeURIComponent(path)}`, {
+      const res = await authFetch(`/api/file?path=${encodeURIComponent(path)}`, {
         cache: 'no-store',
-        headers,
         signal: controller.signal,
       })
       if (!res.ok) {

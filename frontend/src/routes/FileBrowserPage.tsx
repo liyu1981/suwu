@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getCredentials } from '../lib/auth'
+import { authFetch } from '../lib/api'
 import { fileBrowserZoomAtom } from '../store/zoom'
 import { CommonTileContainer, useTileSessionState, useReportTileState } from '../components/CommonTileContainer'
 import { ContextMenu } from '../components/filebrowser/ContextMenu'
@@ -30,12 +30,8 @@ import { TOOLBAR_BTN, setPageTransparent } from '../lib/constants'
 // ── API helper ──
 
 async function fetchFiles(dirPath: string, signal?: AbortSignal): Promise<FileListResponse> {
-  const headers: Record<string, string> = {}
-  const creds = getCredentials()
-  if (creds) headers['Authorization'] = creds
-  const res = await fetch(`/api/files?path=${encodeURIComponent(dirPath)}`, {
+  const res = await authFetch(`/api/files?path=${encodeURIComponent(dirPath)}`, {
     cache: 'no-store',
-    headers,
     signal,
   })
   if (!res.ok) {

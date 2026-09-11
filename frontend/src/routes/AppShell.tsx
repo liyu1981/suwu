@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Outlet, useLocation } from '@tanstack/react-router'
 import { useAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { AmbientBackground } from '../components/AmbientBackground'
-import { AuthDialog } from '../components/dialogs/AuthDialog'
 import SuwuDialog from '../components/dialogs/SuwuDialog'
 import { NotificationBell } from '../components/NotificationBell'
 import { NotificationPanel } from '../components/NotificationPanel'
 import { useNotifications } from './hooks/useNotifications'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
-import { AuthRequiredError, fetchToken } from '../lib/api'
 import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, FOCUS_SPACE_NAME } from '../wm/atoms'
 import {
   addSpace,
@@ -75,23 +73,6 @@ export default function AppShell() {
 
   useNotifications()
   useUpdateCheck()
-
-  // Auth: check if server requires a password.
-  const [authRequired, setAuthRequired] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    fetchToken().catch((e) => {
-      if (!cancelled && e instanceof AuthRequiredError) {
-        setAuthRequired(true)
-      }
-    })
-    return () => { cancelled = true }
-  }, [])
-
-  const handleAuthenticated = useCallback(() => {
-    setAuthRequired(false)
-  }, [])
 
   // The burger opens the unified Suwu dialog at its root menu screen.
   const openMenu = useCallback(() => {
@@ -299,7 +280,6 @@ export default function AppShell() {
       </div>
       <SuwuDialog />
       <NotificationPanel />
-      <AuthDialog open={authRequired} onAuthenticated={handleAuthenticated} />
     </div>
   )
 }

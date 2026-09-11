@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getCredentials } from '../../lib/auth'
+import { authFetch } from '../../lib/api'
 
 interface UploadDialogProps {
   currentPath: string
@@ -40,13 +40,8 @@ export function UploadDialog({ currentPath, onClose, onUploadComplete, onError, 
       formData.append('file', file)
 
       try {
-        const headers: Record<string, string> = {}
-        const creds = getCredentials()
-        if (creds) headers['Authorization'] = creds
-
-        await fetch('/api/file/upload', {
+        await authFetch('/api/file/upload', {
           method: 'POST',
-          headers,
           body: formData,
         }).then(async (res) => {
           if (!res.ok) {

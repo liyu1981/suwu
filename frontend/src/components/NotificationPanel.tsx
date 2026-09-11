@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtom, useSetAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { executeAction, type Store } from '../lib/actionResolver'
-import { fetchToken } from '../lib/api'
+import { authFetch } from '../lib/api'
 import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
 import { upgradingAtom } from '../store/update'
 import { BellIcon, CheckIcon, CloseIcon, CopyIcon } from './icons'
@@ -47,8 +47,7 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
     setUpgradingLocal(true)
     setUpgrading(true)
     try {
-      const token = await fetchToken()
-      const res = await fetch(`/api/update/upgrade?token=${token}`, { method: 'POST' })
+      const res = await authFetch('/api/update/upgrade', { method: 'POST' })
       if (res.ok) {
         // Remove the update notification.
         setNotifications((prev) => prev.filter((x) => x.id !== n.id))

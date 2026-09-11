@@ -11,9 +11,9 @@ import pkg from '../package.json'
 const appVersion = (pkg as { version?: string }).version ?? '0.0.0'
 
 // Port of the Go demo server that `pnpm dev:web` proxies /api and /ws to.
-// Set DEMO_PORT (or PORT) to match the running Go server; the Go dev default
-// is 8000.
-const demoPort = process.env.DEMO_PORT || process.env.PORT || '8000'
+// Set DEMO_PORT (or HTTP_PORT) to match the running Go server; the dev
+// wrapper defaults to HTTP on port 8000.
+const demoPort = process.env.DEMO_PORT || process.env.HTTP_PORT || '8000'
 const demoTarget = `http://127.0.0.1:${demoPort}`
 
 // Build output is written directly into pkg/assets/web, the directory embedded

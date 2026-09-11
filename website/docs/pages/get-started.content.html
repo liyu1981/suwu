@@ -20,12 +20,12 @@
         <p>The wizard checks for common development tools (Go, Node.js, Git, etc.) and reports what's installed. Missing tools are optional — Suwu works without them.</p>
 
         <h3>3. Password Setup</h3>
-        <p>Set a password for web access. This is recommended if you plan to access Suwu from anywhere other than localhost. You can skip this and set one later with:</p>
+        <p>Onboarding requires a web access password. Choose one interactively or let Suwu generate a secure one; the final summary prints it highlighted for you to save:</p>
 
-<pre><code>suwu auth password</code></pre>
+<pre><code>suwu onboard</code></pre>
 
-        <h3>4. HTTPS (Optional)</h3>
-        <p>Generate self-signed certificates for HTTPS. This is useful for LAN access or testing. For production, use your own certificates or a reverse proxy.</p>
+        <h3>4. HTTPS</h3>
+        <p>HTTPS is the default server mode. Onboarding generates self-signed certificates automatically; use <code>SERVER_MODE=http</code> only when plain HTTP is intentionally required.</p>
 
 <pre><code>suwu gencerts</code></pre>
 
@@ -35,9 +35,9 @@
         <h2>Access the Web UI</h2>
         <p>Open your browser and go to:</p>
 
-<pre><code>http://127.0.0.1:8080</code></pre>
+<pre><code>https://127.0.0.1:8181</code></pre>
 
-        <p>You'll see the Suwu interface with your terminal tile. If you set a password, you'll be prompted to enter it.</p>
+        <p>You'll see the Suwu interface with your terminal tile. Enter the password configured during onboarding when prompted.</p>
 
         <div class="callout callout-success">
           <div class="callout-title">Tip</div>

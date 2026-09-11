@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
@@ -24,23 +26,31 @@ const envExample = `# Suwu user-global configuration.
 #SUWU_DEV=false
 
 # Bind address (default 127.0.0.1). Use 0.0.0.0 to expose on all interfaces.
-# Use "auto" to auto-detect machine addresses (no password required).
+# Use "auto" to auto-detect machine addresses.
 HOST=127.0.0.1
 
-# HTTP port (default 8181).
-PORT=8181
+# Server mode: https, http, or https+http (default https).
+SERVER_MODE=https
+
+# HTTPS and HTTP listener ports.
+HTTPS_PORT=8181
+HTTP_PORT=8180
+
+# Extra hostnames/IPs accepted in Host and Origin headers.
+# Example: EXTRA_HOSTS=terminal.example.com,*.lan.example
+#EXTRA_HOSTS=
 
 # Data directory for logs and PID (default ~/.suwu).
 #SUWU_VAR=
 
-# Password hash (sha256 hex). Required when HOST is set to a specific address
-# (not 127.0.0.1 or auto). Generate with: suwu onboard
+# Password hash (sha256 hex). Required for web access and configured by
+# 'suwu onboard' (the plaintext password is shown once at the end).
 #AUTH_PASS=
 
-# TLS (opt-in). Set both to enable https:// — browsers only expose clipboard
-# APIs (terminal paste) on secure contexts, so non-localhost HTTP access
-# cannot paste into the terminal. Easiest: run 'suwu gencerts', which writes
-# a cert pair into ~/.config/suwu/ and records the paths in this file.
+# TLS certificates for the default HTTPS mode. Onboarding generates a pair
+# automatically; run 'suwu gencerts' to regenerate or set both paths explicitly.
+# Browsers expose clipboard APIs on secure contexts, so HTTPS is recommended
+# for non-localhost access.
 #TLS_CERT_FILE=
 #TLS_KEY_FILE=
 `
@@ -130,13 +140,11 @@ func onboard() error {
 		}
 	}
 
-	// 3. Bind host + password setup (always in interactive mode)
-	if isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd()) {
-		if err := setupAuth(envPath); err != nil {
-			return fmt.Errorf("auth setup: %w", err)
-		}
-	} else {
-		fmt.Println("  ⏭️  skipping auth setup (non-interactive)")
+	// 3. Bind host + required password setup. Non-interactive onboarding
+	// generates a password so AUTH_PASS is never left unset.
+	password, err := setupAuth(envPath)
+	if err != nil {
+		return fmt.Errorf("auth setup: %w", err)
 	}
 
 	// 4. Generate self-signed TLS certs (interactive mode only)
@@ -171,15 +179,34 @@ func onboard() error {
 	}
 
 	fmt.Println()
+	fmt.Println("  🔐 Your Suwu connection password (save it securely):")
+	fmt.Printf("     \033[1;97;44m %s \033[0m\n", password)
+	fmt.Println()
 	fmt.Println("  ▶️  suwu serve              run the server in the foreground")
 	fmt.Println("  ▶️  suwu daemon start       run as a background daemon")
 	return nil
 }
 
-func setupAuth(envPath string) error {
+func setupAuth(envPath string) (string, error) {
+	interactive := isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd())
+	if !interactive {
+		password, err := generatePassword()
+		if err != nil {
+			return "", err
+		}
+		if err := upsertEnv(envPath, map[string]string{
+			"AUTH_PASS": hashPassword(password),
+		}); err != nil {
+			return "", fmt.Errorf("write generated auth config: %w", err)
+		}
+		fmt.Println("  ✅ non-interactive mode: generated a connection password")
+		return password, nil
+	}
+
 	var hostChoice string
 	var password string
 	var confirm string
+	var passwordMode string
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("Bind host — who should be able to connect?").
@@ -189,22 +216,43 @@ func setupAuth(envPath string) error {
 				huh.NewOption("custom  (specific address)", "custom"),
 			).
 			Value(&hostChoice),
-		huh.NewInput().
-			Title("Set a connection password (optional)").
-			Description("Leave empty to skip password protection.").
-			EchoMode(huh.EchoModePassword).
-			Value(&password),
-		huh.NewInput().
-			Title("Confirm password").
-			EchoMode(huh.EchoModePassword).
-			Value(&confirm),
+		huh.NewSelect[string]().
+			Title("How should the connection password be created?").
+			Options(
+				huh.NewOption("I will choose a password", "custom"),
+				huh.NewOption("Generate a secure password for me", "generated"),
+			).
+			Value(&passwordMode),
 	)).WithTheme(huh.ThemeCatppuccin())
 	if err := form.Run(); err != nil {
-		return fmt.Errorf("host prompt: %w", err)
+		return "", fmt.Errorf("host prompt: %w", err)
+	}
+
+	if passwordMode == "generated" {
+		var err error
+		password, err = generatePassword()
+		if err != nil {
+			return "", fmt.Errorf("generate password: %w", err)
+		}
+		confirm = password
+	} else {
+		passwordForm := huh.NewForm(huh.NewGroup(
+			huh.NewInput().
+				Title("Set a connection password").
+				Description("Use at least 12 characters.").
+				EchoMode(huh.EchoModePassword).
+				Value(&password),
+			huh.NewInput().
+				Title("Confirm password").
+				EchoMode(huh.EchoModePassword).
+				Value(&confirm),
+		)).WithTheme(huh.ThemeCatppuccin())
+		if err := passwordForm.Run(); err != nil {
+			return "", fmt.Errorf("password prompt: %w", err)
+		}
 	}
 
 	var hostValue string
-
 	switch hostChoice {
 	case "local":
 		hostValue = "127.0.0.1"
@@ -219,33 +267,30 @@ func setupAuth(envPath string) error {
 				Value(&customHost),
 		)).WithTheme(huh.ThemeCatppuccin())
 		if err := inputForm.Run(); err != nil {
-			return fmt.Errorf("host input: %w", err)
+			return "", fmt.Errorf("host input: %w", err)
 		}
 		customHost = strings.TrimSpace(customHost)
 		if customHost == "" {
-			return fmt.Errorf("bind address cannot be empty")
+			return "", fmt.Errorf("bind address cannot be empty")
 		}
 		hostValue = customHost
 	}
 
-	updates := map[string]string{"HOST": hostValue}
-
 	password = strings.TrimSpace(password)
-	if password != "" {
-		if confirm != password {
-			return fmt.Errorf("passwords do not match")
-		}
-		hash := sha256.Sum256([]byte(password))
-		hashHex := fmt.Sprintf("%x", hash)
-		updates["AUTH_PASS"] = hashHex
-		fmt.Printf("  ✅ password set (sha256: %s…)\n", hashHex[:16])
-	} else {
-		fmt.Println("  🔓 No password set")
+	if password == "" {
+		return "", fmt.Errorf("password cannot be empty")
+	}
+	if confirm != password {
+		return "", fmt.Errorf("passwords do not match")
 	}
 
-	if err := upsertEnv(envPath, updates); err != nil {
-		return fmt.Errorf("write auth config: %w", err)
+	if err := upsertEnv(envPath, map[string]string{
+		"HOST":      hostValue,
+		"AUTH_PASS": hashPassword(password),
+	}); err != nil {
+		return "", fmt.Errorf("write auth config: %w", err)
 	}
+	fmt.Println("  ✅ connection password configured")
 
 	if hostValue == "127.0.0.1" {
 		fmt.Println("  🔓 Binding to localhost only")
@@ -255,7 +300,20 @@ func setupAuth(envPath string) error {
 		fmt.Printf("  🔐 Binding to %s\n", hostValue)
 	}
 
-	return nil
+	return password, nil
+}
+
+func hashPassword(password string) string {
+	hash := sha256.Sum256([]byte(password))
+	return fmt.Sprintf("%x", hash)
+}
+
+func generatePassword() (string, error) {
+	buf := make([]byte, 18)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
 // generateCerts creates a self-signed TLS certificate pair signed by suwu's

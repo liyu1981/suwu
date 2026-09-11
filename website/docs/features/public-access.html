@@ -114,10 +114,9 @@ EXTRA_HOSTS=*.mydomain.com
 # Require a password for all API access.
 AUTH_PASS=&lt;sha256-hex-of-your-password&gt;
 
-# Skip local TLS — Cloudflare handles HTTPS termination.
-NO_TLS=true
-
-PORT=8181</code></pre>
+# Cloudflare handles public HTTPS termination; use plain HTTP locally.
+SERVER_MODE=http
+HTTP_PORT=8180</code></pre>
 
         <p>Generate the password hash:</p>
 
@@ -133,10 +132,10 @@ echo -n "your-secret-password" | shasum -a 256 | awk '{print $1}'</code></pre>
         <p>You have two options depending on your TLS setup:</p>
 
         <h3 id="option-a-cloudflare">Option A — Cloudflare (recommended)</h3>
-        <p>When using Cloudflare, TLS is terminated at the edge. Set <code>NO_TLS=true</code> in your <code>.env</code> and let Cloudflare handle certificates.</p>
+        <p>When using Cloudflare, TLS is terminated at the edge. Set <code>SERVER_MODE=http</code> in your <code>.env</code> and let Cloudflare handle certificates.</p>
 
         <h3 id="option-b-your-own-certs">Option B — Your own certificates</h3>
-        <p>If you prefer to manage TLS yourself (e.g., nginx with Let's Encrypt), omit <code>NO_TLS=true</code> and provide valid certificates issued to your public-facing domain:</p>
+        <p>If you prefer to manage TLS yourself (e.g., nginx with Let's Encrypt), use <code>SERVER_MODE=https</code> and provide valid certificates issued to your public-facing domain:</p>
 
 <pre><code># In ~/.config/suwu/.env
 TLS_CERT_FILE=/etc/letsencrypt/live/mydomain.com/fullchain.pem
@@ -183,7 +182,7 @@ ingress:
 
         <div class="callout callout-info">
           <div class="callout-title">Why noTLSVerify: true?</div>
-          <p>When <code>NO_TLS=true</code>, the Suwu server runs plain HTTP on localhost. The tunnel connects to <code>http://127.0.0.1:8181</code>, so there's no TLS to verify on the origin side. Cloudflare still enforces HTTPS for all visitors.</p>
+          <p>When <code>SERVER_MODE=http</code>, the Suwu server runs plain HTTP on localhost at <code>http://127.0.0.1:8180</code>, so there's no TLS to verify on the origin side. Cloudflare still enforces HTTPS for all visitors.</p>
         </div>
 
         <h3 id="route-dns-and-run">Route DNS and run</h3>
@@ -249,8 +248,8 @@ sudo systemctl start cloudflared</code></pre>
 HOST=127.0.0.1
 EXTRA_HOSTS=*.mydomain.com
 AUTH_PASS=a1b2c3d4e5f6...  # sha256 of your password
-NO_TLS=true
-PORT=8181</code></pre>
+SERVER_MODE=http
+HTTP_PORT=8180</code></pre>
 
         <p>And the corresponding Cloudflare tunnel config:</p>
 
@@ -291,7 +290,7 @@ sudo systemctl start cloudflared</code></pre>
             </tr>
             <tr>
               <td>Certificate warning in browser</td>
-              <td><code>NO_TLS=true</code> is not set, but the local certs don't match your public domain. Set <code>NO_TLS=true</code> when Cloudflare handles TLS.</td>
+              <td><code>SERVER_MODE=https</code> is enabled, but the local certs don't match your public domain. Use <code>SERVER_MODE=http</code> when Cloudflare handles TLS.</td>
             </tr>
             <tr>
               <td>Tunnel connects but 502 Bad Gateway</td>

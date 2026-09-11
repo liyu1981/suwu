@@ -11,11 +11,11 @@
 //	suwu onboard        # initial setup: data dir, bind host, password
 //	suwu daemon {start|stop|restart|status|logs}  # manage background server
 //
-//	PORT=3000 suwu serve   # custom port
-//	HOST=0.0.0.0 suwu serve   # bind all interfaces
+//	SERVER_MODE=http HTTP_PORT=3000 suwu serve   # plain HTTP on a custom port
+//	HOST=0.0.0.0 suwu serve                     # bind all interfaces
 //
-// SUWU_DEV=true in the .env file enables dev defaults (port 8000, air
-// rebuild message). Configuration is resolved in order of precedence:
+// SUWU_DEV=true in the .env file enables the dev banner and air rebuild
+// message. Configuration is resolved in order of precedence:
 // shell environment, then ./.env (project), then ~/.config/suwu/.env
 // (user-global, written by 'suwu gencerts'). TLS certificates come from
 // TLS_CERT_FILE/TLS_KEY_FILE when set, falling back to the default pair
@@ -48,13 +48,13 @@ import (
 	"suwu/pkg/envfile"
 	"suwu/pkg/forward"
 	"suwu/pkg/gencerts"
-	"suwu/pkg/xdisplay"
 	"suwu/pkg/logging"
 	"suwu/pkg/notify"
 	"suwu/pkg/pty"
 	"suwu/pkg/server"
 	"suwu/pkg/session"
 	"suwu/pkg/version"
+	"suwu/pkg/xdisplay"
 )
 
 func main() {
@@ -178,7 +178,7 @@ Configuration precedence:
   --env-file default (empty) → ./.env → ~/.config/suwu/.env → defaults
   SUWU_DEV=true              → ./.env only (global skipped)
 TLS: TLS_CERT_FILE/TLS_KEY_FILE, else the default pair in ~/.config/suwu/
-HTTP: set HTTP_ENABLED=true to enable a plain-HTTP listener (HTTP_PORT).
+HTTP: SERVER_MODE selects https, http, or https+http; HTTPS_PORT defaults to 8181 and HTTP_PORT to 8180.
 `)
 }
 
@@ -194,30 +194,32 @@ Flags:
                        when explicitly set, the global env is skipped)
 
 Environment variables:
-  PORT                 HTTPS port (default 8181, or 8000 in dev mode)
+  SERVER_MODE          https, http, or https+http (default https)
+  HTTPS_PORT           HTTPS listener port (default 8181)
+  HTTP_PORT            HTTP listener port (default 8180)
   HOST                 Bind address (default 127.0.0.1)
-  EXTRA_HOSTS          Comma-separated extra hostnames/IPs to allow
+  EXTRA_HOSTS          Comma-separated extra hostnames/IPs to allow, e.g.
+                       EXTRA_HOSTS=example.com,*.example.net
                        Supports wildcards: * (all), *.example.com, example.*
-  HTTP_ENABLED=true    Enable a separate plain-HTTP listener
-  HTTP_PORT            HTTP listener port (default 8080)
+  AUTH_PASS            SHA-256 hash of the required web access password;
+                       configured by 'suwu onboard'
   SESSION_TTL          Idle session timeout (default 24h, e.g. 30m, 12h)
-  SUWU_DEV=true        Enable dev defaults (port 8000, air rebuild)
+  SUWU_DEV=true        Enable the dev banner and air rebuild message
   SUWU_LOG_LEVEL       Log level: debug, info, warn, error (default: error)
   TLS_CERT_FILE        TLS certificate file path
   TLS_KEY_FILE         TLS key file path
   SUWU_SOCK_PATH       Unix socket path (default ~/.suwu/suwu.sock)
 
 Server modes:
-  HTTPS only (default) Certs required (TLS_CERT_FILE/TLS_KEY_FILE or
-                       ~/.config/suwu/). Fails if no certs found.
-  HTTP only            HTTP_ENABLED=true + no certs → plain HTTP on HTTP_PORT.
-  Both                 HTTP_ENABLED=true + certs → HTTPS on PORT + HTTP on HTTP_PORT.
+  https (default)      HTTPS only; certs are required.
+  http                 HTTP only; certificates are not needed.
+  https+http           HTTPS and HTTP at the same time; certs are required.
 
 Examples:
-  suwu serve                              # HTTPS on port 8181
-  PORT=3000 suwu serve                    # HTTPS on port 3000
-  HTTP_ENABLED=true suwu serve            # HTTPS + HTTP on 8080
-  HTTP_ENABLED=true HTTP_PORT=9090 suwu serve  # HTTPS + HTTP on 9090
+  suwu serve                                      # HTTPS on :8181
+  SERVER_MODE=http suwu serve                    # HTTP on :8180
+  SERVER_MODE=http HTTP_PORT=9090 suwu serve     # HTTP on :9090
+  SERVER_MODE=https+http suwu serve              # HTTPS :8181 + HTTP :8180
   suwu serve --env-file /path/to/.env
 `)
 	case "send":
@@ -305,7 +307,7 @@ Examples:
 Interactive initial setup wizard. Configures:
   - Data directory
   - Bind host
-  - Password (optional)
+  - Required connection password (set manually or generate one)
   - Local dev environment tools (optional)
 `)
 	case "daemon":
@@ -347,8 +349,8 @@ Examples:
   suwu upgrade --check
   suwu upgrade --force
 `)
-case "use":
-	fmt.Print(`Usage: suwu use [--sock <path>] <command> [args...]
+	case "use":
+		fmt.Print(`Usage: suwu use [--sock <path>] <command> [args...]
 
 Run a command with DISPLAY set to an available X display.
 Shows a TUI to select which display to use.
@@ -375,7 +377,9 @@ func serveMain() {
 	logging.Debug("pre-env state",
 		slog.String("env-file-flag", *envFile),
 		slog.String("SUWU_DEV", os.Getenv("SUWU_DEV")),
-		slog.String("PORT", os.Getenv("PORT")),
+		slog.String("SERVER_MODE", os.Getenv("SERVER_MODE")),
+		slog.String("HTTPS_PORT", os.Getenv("HTTPS_PORT")),
+		slog.String("HTTP_PORT", os.Getenv("HTTP_PORT")),
 		slog.String("HOST", os.Getenv("HOST")),
 		slog.String("SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL")),
 	)
@@ -403,7 +407,9 @@ func serveMain() {
 	}
 	logging.Debug("after project env",
 		slog.String("SUWU_DEV", os.Getenv("SUWU_DEV")),
-		slog.String("PORT", os.Getenv("PORT")),
+		slog.String("SERVER_MODE", os.Getenv("SERVER_MODE")),
+		slog.String("HTTPS_PORT", os.Getenv("HTTPS_PORT")),
+		slog.String("HTTP_PORT", os.Getenv("HTTP_PORT")),
 		slog.String("HOST", os.Getenv("HOST")),
 		slog.String("SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL")),
 	)
@@ -421,7 +427,9 @@ func serveMain() {
 			}
 			logging.Debug("after global env",
 				slog.String("SUWU_DEV", os.Getenv("SUWU_DEV")),
-				slog.String("PORT", os.Getenv("PORT")),
+				slog.String("SERVER_MODE", os.Getenv("SERVER_MODE")),
+				slog.String("HTTPS_PORT", os.Getenv("HTTPS_PORT")),
+				slog.String("HTTP_PORT", os.Getenv("HTTP_PORT")),
 				slog.String("HOST", os.Getenv("HOST")),
 				slog.String("SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL")),
 			)
@@ -438,7 +446,9 @@ func serveMain() {
 
 	slog.Info("env loaded",
 		"SUWU_DEV", os.Getenv("SUWU_DEV"),
-		"PORT", os.Getenv("PORT"),
+		"SERVER_MODE", os.Getenv("SERVER_MODE"),
+		"HTTPS_PORT", os.Getenv("HTTPS_PORT"),
+		"HTTP_PORT", os.Getenv("HTTP_PORT"),
 		"HOST", os.Getenv("HOST"),
 		"SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL"),
 	)
@@ -448,10 +458,26 @@ func serveMain() {
 	}
 }
 
-
 func run() error {
 	dev := os.Getenv("SUWU_DEV") == "true"
-	port := parsePort(os.Getenv("PORT"), defaultPort(dev))
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("SERVER_MODE")))
+	if mode == "" {
+		mode = "https"
+	}
+	if mode != "https" && mode != "http" && mode != "https+http" {
+		return fmt.Errorf("invalid SERVER_MODE %q: must be https, http, or https+http", mode)
+	}
+
+	var httpsPort, httpPort int
+	if mode == "https" || mode == "https+http" {
+		httpsPort = parsePort(os.Getenv("HTTPS_PORT"), 8181, "HTTPS_PORT")
+	}
+	if mode == "http" || mode == "https+http" {
+		httpPort = parsePort(os.Getenv("HTTP_PORT"), 8180, "HTTP_PORT")
+	}
+	if mode == "https+http" && httpsPort == httpPort {
+		return fmt.Errorf("HTTPS_PORT and HTTP_PORT must be different when SERVER_MODE=https+http")
+	}
 
 	cfg, err := auth.CreateConfig(nil)
 	if err != nil {
@@ -510,42 +536,34 @@ func run() error {
 
 	handler := srv.Handler()
 
-	// Resolve TLS certificates.
-	certFile, keyFile, tlsSource, tlsErr := resolveTLS()
-	useTLS := tlsErr == nil && certFile != "" && keyFile != ""
-
-	// Resolve HTTP server settings.
-	httpEnabled := os.Getenv("HTTP_ENABLED") == "true"
-	httpPort := parsePort(os.Getenv("HTTP_PORT"), 8080)
-
-	// Validate mode: HTTPS requires certs; HTTP-only requires HTTP_ENABLED;
-	// if neither certs nor HTTP_ENABLED, fail.
-	if !useTLS && !httpEnabled {
-		sessions.Close()
-		if tlsErr != nil {
-			return fmt.Errorf("no TLS certificates available: %w\nhint: run 'suwu gencerts' to create a certificate pair, or set HTTP_ENABLED=true for plain HTTP",
-				tlsErr)
+	// Resolve TLS certificates only for modes that serve HTTPS. HTTP-only mode
+	// deliberately does not require certificates to exist.
+	var certFile, keyFile, tlsSource string
+	if mode == "https" || mode == "https+http" {
+		certFile, keyFile, tlsSource, err = resolveTLS()
+		if err != nil {
+			sessions.Close()
+			return fmt.Errorf("SERVER_MODE=%s requires TLS certificates: %w\nhint: run 'suwu gencerts' to create a certificate pair, or use SERVER_MODE=http for plain HTTP", mode, err)
 		}
-		return fmt.Errorf("no TLS certificates found and HTTP_ENABLED is not set\nhint: run 'suwu gencerts' to create a certificate pair, or set HTTP_ENABLED=true for plain HTTP")
 	}
 
 	// Build the list of servers to start.
 	var listeners []srvListener
 
-	if useTLS {
+	if mode == "https" || mode == "https+http" {
 		listeners = append(listeners, srvListener{
-			server: &http.Server{Addr: net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)), Handler: handler},
+			server: &http.Server{Addr: net.JoinHostPort(cfg.BindHost, strconv.Itoa(httpsPort)), Handler: handler},
 			useTLS: true,
-			port:   port,
+			port:   httpsPort,
 			source: tlsSource,
 		})
 	}
-	if httpEnabled {
+	if mode == "http" || mode == "https+http" {
 		listeners = append(listeners, srvListener{
 			server: &http.Server{Addr: net.JoinHostPort(cfg.BindHost, strconv.Itoa(httpPort)), Handler: handler},
 			useTLS: false,
 			port:   httpPort,
-			source: "HTTP_ENABLED",
+			source: "SERVER_MODE",
 		})
 	}
 
@@ -573,7 +591,7 @@ func run() error {
 	select {
 	case err := <-errCh:
 		sessions.Close()
-		return fmt.Errorf("%w\nhint: another server may already be running; check PORT and HTTP_PORT",
+		return fmt.Errorf("%w\nhint: another server may already be running; check HTTPS_PORT and HTTP_PORT",
 			err)
 	case <-ctx.Done():
 	}
@@ -644,22 +662,15 @@ func resolveTLS() (certFile, keyFile, source string, err error) {
 	return certPath, keyPath, "~/.config/suwu", nil
 }
 
-func parsePort(value string, def int) int {
+func parsePort(value string, def int, name string) int {
 	if value == "" {
 		return def
 	}
 	n, err := strconv.Atoi(value)
 	if err != nil || n < 1 || n > 65535 {
-		log.Fatalf("PORT must be an integer from 1 to 65535: %v", value)
+		log.Fatalf("%s must be an integer from 1 to 65535: %v", name, value)
 	}
 	return n
-}
-
-func defaultPort(dev bool) int {
-	if dev {
-		return 8000
-	}
-	return 8181
 }
 
 func formatURLHost(host string) string {
@@ -686,7 +697,7 @@ func printBanner(dev bool, cfg *auth.Config, listeners []srvListener) {
 	for _, l := range listeners {
 		scheme := "http"
 		if l.useTLS {
-		scheme = "https"
+			scheme = "https"
 		}
 		fmt.Printf("\n  📺 Open: %s://%s:%d\n", scheme, formatURLHost(cfg.DisplayHost), l.port)
 		if l.useTLS {
@@ -764,8 +775,8 @@ func sendMsg(args []string) error {
 
 // openAction is the JSON payload sent by `suwu open`.
 type openAction struct {
-	Action  string       `json:"action"`
-	Payload openPayload  `json:"payload"`
+	Action  string      `json:"action"`
+	Payload openPayload `json:"payload"`
 }
 
 type openPayload struct {

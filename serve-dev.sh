@@ -3,17 +3,11 @@
 #
 # Usage: ./serve-dev.sh {start|stop|restart|status|logs|build|web}
 #
-# The displayed URL mirrors what the server binary actually binds, resolving
-# host/port exactly like cmd/Suwu does:
-#   1. shell environment HOST/PORT (always win — the binary loads .env only
-#      for variables not already set)
-#   2. ./.env (first occurrence of a key wins, like envfile.Load)
-#   3. ~/.config/suwu/.env (user-global, fills keys the project .env unset)
-#   4. dev defaults: 127.0.0.1:8000 (air runs the server with --dev)
-# TLS scheme mirrors resolveTLS: TLS_CERT_FILE/TLS_KEY_FILE from the env
-# chain, else the default pair `suwu gencerts` writes into ~/.config/suwu/.
-# RESOLVED_HOST/RESOLVED_PORT and DEMO_HOST/DEMO_PORT are exported for child
-# processes (e.g. vite.config.ts proxies to DEMO_PORT).
+# The displayed URL mirrors what the server binary actually binds. The dev
+# wrapper defaults to plain HTTP on :8000; production defaults remain
+# SERVER_MODE=https, HTTPS_PORT=8181, and HTTP_PORT=8180.
+# RESOLVED_HOST and DEMO_HOST/DEMO_PORT are exported for child processes
+# (e.g. vite.config.ts proxies to DEMO_PORT).
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -60,17 +54,15 @@ else
   RESOLVED_HOST="${RESOLVED_HOST:-127.0.0.1}"
 fi
 
-# Effective port: shell env beats .env, then the dev default (8000, since
-# air starts the server with --dev).
-if [[ -n "${PORT:-}" ]]; then
-  RESOLVED_PORT="$PORT"
-else
-  RESOLVED_PORT="$(env_file_value PORT)"
-  RESOLVED_PORT="${RESOLVED_PORT:-8000}"
-fi
+# Effective mode and ports: shell env beats .env. Dev defaults to HTTP on
+# :8000 so it works without certificates.
+SERVER_MODE="${SERVER_MODE:-$(env_file_value SERVER_MODE)}"
+SERVER_MODE="${SERVER_MODE:-http}"
+HTTPS_PORT="${HTTPS_PORT:-$(env_file_value HTTPS_PORT)}"
+HTTPS_PORT="${HTTPS_PORT:-8001}"
+HTTP_PORT="${HTTP_PORT:-$(env_file_value HTTP_PORT)}"
+HTTP_PORT="${HTTP_PORT:-8000}"
 
-# Scheme mirrors the server's resolveTLS: env chain first, then the default
-# pair `suwu gencerts` writes into the global config dir.
 TLS_CERT_FILE="${TLS_CERT_FILE:-$(env_file_value TLS_CERT_FILE)}"
 TLS_KEY_FILE="${TLS_KEY_FILE:-$(env_file_value TLS_KEY_FILE)}"
 if [[ -z "$TLS_CERT_FILE" && -z "$TLS_KEY_FILE" ]] \
@@ -78,8 +70,6 @@ if [[ -z "$TLS_CERT_FILE" && -z "$TLS_KEY_FILE" ]] \
   TLS_CERT_FILE="$GLOBAL_CFG/tls-cert.pem"
   TLS_KEY_FILE="$GLOBAL_CFG/tls-key.pem"
 fi
-SCHEME=https
-[[ -z "$TLS_CERT_FILE" || -z "$TLS_KEY_FILE" ]] && SCHEME=http
 
 # Wildcard binds are reachable via loopback; display a clickable URL but
 # note the actual bind address.
@@ -91,6 +81,14 @@ case "$RESOLVED_HOST" in
     DISPLAY_HOST="127.0.0.1"
     ;;
 esac
+case "$SERVER_MODE" in
+  https)      RESOLVED_PORT="$HTTPS_PORT"; SCHEME=https ;;
+  http)       RESOLVED_PORT="$HTTP_PORT"; SCHEME=http ;;
+  https+http) RESOLVED_PORT="$HTTP_PORT"; SCHEME=http ;;
+  *)          echo "error: invalid SERVER_MODE=$SERVER_MODE (use https, http, or https+http)" >&2; exit 1 ;;
+esac
+
+export SERVER_MODE HTTPS_PORT HTTP_PORT TLS_CERT_FILE TLS_KEY_FILE
 export DEMO_HOST="$RESOLVED_HOST" DEMO_PORT="$RESOLVED_PORT"
 
 url() { printf '%s://%s:%s%s' "$SCHEME" "$DISPLAY_HOST" "$RESOLVED_PORT" "$BIND_NOTE"; }

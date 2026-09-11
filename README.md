@@ -70,7 +70,7 @@ This downloads the latest release binary to `~/.local/bin/suwu` and runs
 
 ```sh
 pnpm install && pnpm --dir frontend install
-pnpm start            # build web assets + server, then run on :8080
+pnpm start            # build web assets + server, then run on HTTPS :8181
 ```
 
 Or build and run manually:
@@ -78,7 +78,7 @@ Or build and run manually:
 ```sh
 pnpm build:web        # vite build -> pkg/assets/web (embedded via go:embed)
 pnpm build            # go build -o suwu ./cmd/Suwu
-./suwu serve          # production: http://127.0.0.1:8080
+./suwu serve          # production: https://127.0.0.1:8181
 ```
 
 The web assets are always embedded in the binary — a single `suwu` binary is
@@ -91,12 +91,16 @@ precedence over `.env`.
 
 | Variable                | Default            | Description                                                        |
 | ----------------------- | ------------------ | ------------------------------------------------------------------ |
-| `SUWU_DEV`              | `false`            | Dev mode: air hot-reload defaults (port 8000, dev banner in `serve`). |
+| `SUWU_DEV`              | `false`            | Dev banner and hot-reload mode.                                    |
+| `SERVER_MODE`           | `https`            | `https`, `http`, or `https+http`.                                  |
+| `HTTPS_PORT`            | `8181`             | HTTPS listener port.                                                |
+| `HTTP_PORT`             | `8180`             | HTTP listener port.                                                  |
 | `HOST`                  | `127.0.0.1`        | Bind address. `0.0.0.0` exposes on all interfaces.                 |
-| `PORT`                  | `8080`             | HTTP/WebSocket port.                                               |
+| `EXTRA_HOSTS`           | —                  | Comma-separated additional allowed hosts, e.g. `example.com,*.lan.example`. |
+| `AUTH_PASS`             | —                  | SHA-256 hash of the required web password; set by `suwu onboard`.   |
 | `DEMO_PORT`             | `8000`             | Port the Vite dev server proxies `/api` and `/ws` to.               |
-| `TLS_CERT_FILE`         | —                  | TLS certificate (enables `https://`). `suwu gencerts` writes both paths into `~/.config/suwu/.env`. |
-| `TLS_KEY_FILE`          | —                  | TLS private key. Must be set together with `TLS_CERT_FILE`.        |
+| `TLS_CERT_FILE`         | —                  | TLS certificate for HTTPS modes. `suwu gencerts` writes both paths into `~/.config/suwu/.env`. |
+| `TLS_KEY_FILE`          | —                  | TLS private key; must be set together with `TLS_CERT_FILE`.         |
 
 Browser-visible hostnames need no configuration: loopback names plus the
 machine's own hostname and interface addresses are always accepted, so the

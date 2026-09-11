@@ -5,21 +5,19 @@
         <h2>Access Levels</h2>
         <p>Suwu automatically detects where you're connecting from and applies the right level of access:</p>
         <ul>
-          <li><strong>Localhost</strong> — no authentication required. Open <code>http://127.0.0.1:8080</code> and go.</li>
-          <li><strong>LAN</strong> — accessible from your local network. Password auth recommended.</li>
+          <li><strong>Localhost</strong> — open <code>https://127.0.0.1:8181</code> after onboarding.</li>
+          <li><strong>LAN</strong> — accessible from your local network with the required onboarding password.</li>
           <li><strong>Internet</strong> — behind a reverse proxy. HTTPS and strong auth required.</li>
         </ul>
 
         <h2>Password Authentication</h2>
-        <p>Set a password during onboarding or anytime after:</p>
+        <p>Onboarding requires a password. You can choose one or have Suwu generate a secure password for you:</p>
 
-<pre><code># Set a password interactively
-suwu auth password
+<pre><code>suwu onboard
+# The password is highlighted in the final summary.
+# AUTH_PASS stores only its SHA-256 hash.</code></pre>
 
-# Or set it via environment variable
-SUWU_PASSWORD=your-secret suwu serve</code></pre>
-
-        <p>When a password is set, the web UI prompts for it on first access. Sessions are authenticated via a secure cookie.</p>
+        <p>The web UI prompts for the onboarding password on first access. Sessions are authenticated via a secure cookie.</p>
 
         <h2>Per-Run Tokens</h2>
         <p>For temporary access, Suwu generates a per-run token displayed in the terminal when the server starts. Share this token with someone who needs one-time access — it's valid only for the current server run.</p>
@@ -27,7 +25,7 @@ SUWU_PASSWORD=your-secret suwu serve</code></pre>
 <pre><code>$ suwu serve
   ┌──────────────────────────────────────┐
   │  Suwu is running                     │
-  │  http://127.0.0.1:8080               │
+  │  https://127.0.0.1:8181              │
   │  Token: abc123xyz                    │
   └──────────────────────────────────────┘</code></pre>
 
@@ -57,7 +55,7 @@ suwu serve</code></pre>
 
 <pre><code># nginx example
 location / {
-    proxy_pass http://127.0.0.1:8080;
+    proxy_pass http://127.0.0.1:8180;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -76,16 +74,24 @@ location / {
           </thead>
           <tbody>
             <tr>
-              <td><code>SUWU_PASSWORD</code></td>
-              <td>Set password for web access</td>
+              <td><code>SERVER_MODE</code></td>
+              <td><code>https</code>, <code>http</code>, or <code>https+http</code> (default: <code>https</code>)</td>
+            </tr>
+            <tr>
+              <td><code>HTTPS_PORT</code> / <code>HTTP_PORT</code></td>
+              <td>Listener ports (defaults: <code>8181</code> / <code>8180</code>)</td>
             </tr>
             <tr>
               <td><code>HOST</code></td>
               <td>Bind address (<code>127.0.0.1</code> default, <code>0.0.0.0</code> for all interfaces)</td>
             </tr>
             <tr>
-              <td><code>PORT</code></td>
-              <td>HTTP port (default: <code>8080</code>)</td>
+              <td><code>EXTRA_HOSTS</code></td>
+              <td>Additional allowed hosts, e.g. <code>example.com,*.lan.example</code></td>
+            </tr>
+            <tr>
+              <td><code>AUTH_PASS</code></td>
+              <td>SHA-256 hash of the required web password; set by <code>suwu onboard</code></td>
             </tr>
             <tr>
               <td><code>TLS_CERT_FILE</code></td>

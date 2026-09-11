@@ -50,9 +50,9 @@
 
         <h2>Authentication</h2>
         <ul>
-          <li><strong>Password auth</strong> — optional, set with <code>suwu auth password</code>. Stored as a hash in <code>~/.config/suwu/.env</code>.</li>
+          <li><strong>Password auth</strong> — required by onboarding. Choose or generate it with <code>suwu onboard</code>; only its hash is stored in <code>~/.config/suwu/.env</code>.</li>
           <li><strong>Per-run tokens</strong> — displayed at server startup, valid for the current run only.</li>
-          <li><strong>No auth on localhost</strong> — by default, localhost access requires no password.</li>
+          <li><strong>Host validation</strong> — requests must use an allowed machine host or an <code>EXTRA_HOSTS</code> entry.</li>
         </ul>
 
         <p>See <a href="features/security.html">Security &amp; Access</a> for full authentication and TLS setup details.</p>

@@ -24,22 +24,22 @@ import (
 var devenvChecklistJSON string
 
 type checklistItem struct {
-	ID             string           `json:"id"`
-	Name           string           `json:"name"`
-	Description    string           `json:"description"`
-	CheckBinary    string           `json:"check_binary"`
-	CheckCmd       string           `json:"check_cmd,omitempty"`
-	Depends        string           `json:"depends,omitempty"`
-	InstallCmd     string           `json:"install_cmd,omitempty"`
-	PostInstallCmd string           `json:"post_install_cmd,omitempty"`
-	GitHubRelease  *githubRelease   `json:"github_release,omitempty"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Description    string         `json:"description"`
+	CheckBinary    string         `json:"check_binary"`
+	CheckCmd       string         `json:"check_cmd,omitempty"`
+	Depends        string         `json:"depends,omitempty"`
+	InstallCmd     string         `json:"install_cmd,omitempty"`
+	PostInstallCmd string         `json:"post_install_cmd,omitempty"`
+	GitHubRelease  *githubRelease `json:"github_release,omitempty"`
 }
 
 type githubRelease struct {
-	Repo           string `json:"repo"`
-	AssetPattern   string `json:"asset_pattern"`
-	ExtractBinary  string `json:"extract_binary"`
-	ArchOverride   string `json:"arch_override,omitempty"`
+	Repo          string `json:"repo"`
+	AssetPattern  string `json:"asset_pattern"`
+	ExtractBinary string `json:"extract_binary"`
+	ArchOverride  string `json:"arch_override,omitempty"`
 }
 
 func loadChecklist() ([]checklistItem, error) {
@@ -529,18 +529,30 @@ func runDevenvSetup() error {
 			// Print IP-based access URLs so the user knows how to reach
 			// the terminal from other devices on the network.
 			if ips := localMachineIPs(); len(ips) > 0 {
-				port := os.Getenv("PORT")
-				if port == "" {
-					port = "8181"
+				mode := os.Getenv("SERVER_MODE")
+				if mode == "" {
+					mode = "https"
 				}
-				scheme := "https"
-				if os.Getenv("TLS_CERT_FILE") == "" && os.Getenv("TLS_KEY_FILE") == "" {
-					scheme = "http"
+				httpsPort := os.Getenv("HTTPS_PORT")
+				if httpsPort == "" {
+					httpsPort = "8181"
+				}
+				httpPort := os.Getenv("HTTP_PORT")
+				if httpPort == "" {
+					httpPort = "8180"
 				}
 				fmt.Println()
 				fmt.Println("  📡 Other devices on this network can reach the terminal at:")
 				for _, ip := range ips {
-					fmt.Printf("     %s://%s:%s\n", scheme, ip, port)
+					switch mode {
+					case "http":
+						fmt.Printf("     http://%s:%s\n", ip, httpPort)
+					case "https+http":
+						fmt.Printf("     https://%s:%s\n", ip, httpsPort)
+						fmt.Printf("     http://%s:%s\n", ip, httpPort)
+					default:
+						fmt.Printf("     https://%s:%s\n", ip, httpsPort)
+					}
 				}
 				fmt.Println("     (client devices must trust the CA once for https)")
 			}

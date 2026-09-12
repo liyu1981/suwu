@@ -24,15 +24,18 @@ import (
 var devenvChecklistJSON string
 
 type checklistItem struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Description    string         `json:"description"`
-	CheckBinary    string         `json:"check_binary"`
-	CheckCmd       string         `json:"check_cmd,omitempty"`
-	Depends        string         `json:"depends,omitempty"`
-	InstallCmd     string         `json:"install_cmd,omitempty"`
-	PostInstallCmd string         `json:"post_install_cmd,omitempty"`
-	GitHubRelease  *githubRelease `json:"github_release,omitempty"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	Category        string         `json:"category"`
+	DefaultSelected bool           `json:"default_selected"`
+	Hidden          bool           `json:"hidden,omitempty"`
+	Description     string         `json:"description"`
+	CheckBinary     string         `json:"check_binary"`
+	CheckCmd        string         `json:"check_cmd,omitempty"`
+	Depends         string         `json:"depends,omitempty"`
+	InstallCmd      string         `json:"install_cmd,omitempty"`
+	PostInstallCmd  string         `json:"post_install_cmd,omitempty"`
+	GitHubRelease   *githubRelease `json:"github_release,omitempty"`
 }
 
 type githubRelease struct {
@@ -333,231 +336,204 @@ func mustOpen(path string) *os.File {
 	return f
 }
 
-func runDevenvSetup() error {
-	var proceed bool
-	confirm := huh.NewConfirm().
-		Title("Would you like to prepare a local dev environment with recommended tools?").
-		Value(&proceed)
-	if err := huh.NewForm(huh.NewGroup(confirm)).WithTheme(huh.ThemeCatppuccin()).Run(); err != nil {
-		return fmt.Errorf("devenv prompt: %w", err)
+type devenvPlan struct {
+	Items     []checklistItem
+	Installed map[string]bool
+	Selected  map[string]bool
+}
+
+func detectDevenvTools(items []checklistItem) map[string]bool {
+	installed := make(map[string]bool, len(items))
+	for _, item := range items {
+		if item.CheckBinary != "" {
+			installed[item.ID] = binaryExists(item.CheckBinary)
+		} else if item.CheckCmd != "" {
+			cmd := exec.Command("bash", "-c", item.CheckCmd)
+			cmd.Env = envWithAsdfShims()
+			installed[item.ID] = cmd.Run() == nil
+		}
 	}
-	if !proceed {
+	return installed
+}
+
+func collectDevenvPlan() (devenvPlan, error) {
+	items, err := loadChecklist()
+	if err != nil {
+		return devenvPlan{}, err
+	}
+	plan := devenvPlan{Items: items, Installed: detectDevenvTools(items), Selected: map[string]bool{}}
+
+	fmt.Println()
+	fmt.Println("  ── recommended development tools ──")
+	for _, category := range []string{"essential", "advanced"} {
+		label := "Advanced"
+		if category == "essential" {
+			label = "Essential"
+		}
+		fmt.Printf("\n  %s tools\n", label)
+		for _, item := range items {
+			if item.Category != category || item.Hidden {
+				continue
+			}
+			if plan.Installed[item.ID] {
+				fmt.Printf("    ✅ %-12s already installed\n", item.Name)
+			} else {
+				fmt.Printf("    ❌ %-12s not found\n", item.Name)
+			}
+		}
+	}
+
+	var missingEssential []checklistItem
+	for _, item := range items {
+		if item.Category == "essential" && !item.Hidden && !plan.Installed[item.ID] {
+			missingEssential = append(missingEssential, item)
+		}
+	}
+	if len(missingEssential) > 0 {
+		install := true
+		form := huh.NewForm(huh.NewGroup(
+			huh.NewConfirm().
+				Title("Install missing essential development tools?").
+				Description("These tools support frontend development and recovery.").
+				Value(&install),
+		)).WithTheme(huh.ThemeCatppuccin())
+		if err := form.Run(); err != nil {
+			return devenvPlan{}, fmt.Errorf("essential tools prompt: %w", err)
+		}
+		if install {
+			for _, item := range missingEssential {
+				plan.Selected[item.ID] = true
+			}
+		}
+	}
+
+	var advancedOptions []huh.Option[string]
+	for _, item := range items {
+		if item.Category != "advanced" || item.Hidden || plan.Installed[item.ID] {
+			continue
+		}
+		advancedOptions = append(advancedOptions, huh.NewOption(
+			fmt.Sprintf("%s — %s", item.Name, item.Description), item.ID,
+		).Selected(item.DefaultSelected))
+	}
+	if len(advancedOptions) > 0 {
+		var selected []string
+		form := huh.NewForm(huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Title("Select advanced development tools to install").
+				Description("fzf, herdr, pi, and witr are selected by default.").
+				Options(advancedOptions...).
+				Value(&selected).
+				Filterable(true),
+		)).WithTheme(huh.ThemeCatppuccin())
+		if err := form.Run(); err != nil {
+			return devenvPlan{}, fmt.Errorf("advanced tools prompt: %w", err)
+		}
+		for _, id := range selected {
+			plan.Selected[id] = true
+		}
+	}
+
+	return plan, nil
+}
+
+func resolveDevenvInstallOrder(plan devenvPlan) ([]checklistItem, error) {
+	byID := make(map[string]checklistItem, len(plan.Items))
+	for _, item := range plan.Items {
+		byID[item.ID] = item
+	}
+
+	requested := make(map[string]bool, len(plan.Selected))
+	for id := range plan.Selected {
+		requested[id] = true
+	}
+	visiting := map[string]bool{}
+	visited := map[string]bool{}
+	ordered := make([]checklistItem, 0, len(requested))
+
+	var visit func(string) error
+	visit = func(id string) error {
+		if plan.Installed[id] || visited[id] {
+			return nil
+		}
+		if visiting[id] {
+			return fmt.Errorf("cyclic tool dependency involving %s", id)
+		}
+		item, ok := byID[id]
+		if !ok {
+			return fmt.Errorf("tool dependency %q is not in the checklist", id)
+		}
+		visiting[id] = true
+		for _, dep := range strings.Split(item.Depends, ",") {
+			dep = strings.TrimSpace(dep)
+			if dep != "" {
+				if err := visit(dep); err != nil {
+					return err
+				}
+			}
+		}
+		delete(visiting, id)
+		visited[id] = true
+		ordered = append(ordered, item)
 		return nil
 	}
 
-	fmt.Println()
-	fmt.Println("  ── checking tools ──")
-	fmt.Println()
+	for _, item := range plan.Items {
+		if requested[item.ID] {
+			if err := visit(item.ID); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return ordered, nil
+}
 
-	items, err := loadChecklist()
+func installDevenvPlan(plan devenvPlan) error {
+	order, err := resolveDevenvInstallOrder(plan)
 	if err != nil {
 		return err
 	}
-
-	// Detect which tools are already installed.
-	installed := map[string]bool{}
-	for _, item := range items {
-		if item.CheckBinary != "" {
-			if binaryExists(item.CheckBinary) {
-				installed[item.ID] = true
-			}
-		} else if item.CheckCmd != "" {
-			cmd := exec.Command("bash", "-c", item.CheckCmd)
-			cmd.Env = os.Environ()
-			if cmd.Run() == nil {
-				installed[item.ID] = true
-			}
-		}
+	if len(order) == 0 {
+		fmt.Println("  ✅ development tools are already ready")
+		return nil
 	}
 
-	// Print detection results.
-	for _, item := range items {
-		if installed[item.ID] {
-			fmt.Printf("  ✅ %-16s already installed\n", item.Name)
-		} else {
-			fmt.Printf("  ❌ %-16s not found\n", item.Name)
+	fmt.Printf("\n  Installing %d selected tool(s)...\n", len(order))
+	failed := 0
+	for index, item := range order {
+		fmt.Printf("\n  [%d/%d] Installing %s\n", index+1, len(order), item.Name)
+		var installErr error
+		if item.GitHubRelease != nil {
+			installErr = downloadGitHubBinary(item.GitHubRelease)
+		} else if item.InstallCmd != "" {
+			cmd := exec.Command("bash", "-c", item.InstallCmd)
+			cmd.Env = envWithAsdfShims()
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			installErr = cmd.Run()
 		}
+		if installErr != nil {
+			failed++
+			fmt.Printf("    ⚠️  failed to install %s: %v\n", item.Name, installErr)
+			continue
+		}
+		plan.Installed[item.ID] = true
+		if item.PostInstallCmd != "" {
+			fmt.Println("    → applying post-install setup")
+			cmd := exec.Command("bash", "-c", item.PostInstallCmd)
+			cmd.Env = envWithAsdfShims()
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				failed++
+				fmt.Printf("    ⚠️  post-install setup failed: %v\n", err)
+				continue
+			}
+		}
+		fmt.Printf("    ✅ %s ready\n", item.Name)
 	}
-	fmt.Println()
-
-	// Build list of items that need installation.
-	var toInstall []checklistItem
-	for _, item := range items {
-		if !installed[item.ID] {
-			toInstall = append(toInstall, item)
-		}
+	if failed > 0 {
+		return fmt.Errorf("%d development tool step(s) failed", failed)
 	}
-
-	if len(toInstall) == 0 {
-		fmt.Println("  All tools are already installed.")
-	} else {
-		// Build dependency map: for each item, which IDs does it depend on.
-		depMap := map[string][]string{}
-		for _, item := range toInstall {
-			if item.Depends != "" {
-				var deps []string
-				for _, dep := range strings.Split(item.Depends, ",") {
-					dep = strings.TrimSpace(dep)
-					if dep != "" && !installed[dep] {
-						deps = append(deps, dep)
-					}
-				}
-				if len(deps) > 0 {
-					depMap[item.ID] = deps
-				}
-			}
-		}
-
-		// Show multi-select for the user to choose which tools to install.
-		options := make([]huh.Option[string], 0, len(toInstall))
-		for _, item := range toInstall {
-			options = append(options, huh.NewOption(
-				fmt.Sprintf("%s — %s", item.Name, item.Description),
-				item.ID,
-			).Selected(true))
-		}
-
-		var selected []string
-		multiSelect := huh.NewMultiSelect[string]().
-			Title("Select tools to install").
-			Description("Already installed tools are shown above. Pick which missing tools to install.").
-			Options(options...).
-			Value(&selected).
-			Filterable(true)
-
-		if err := huh.NewForm(huh.NewGroup(multiSelect)).WithTheme(huh.ThemeCatppuccin()).Run(); err != nil {
-			return fmt.Errorf("selection prompt: %w", err)
-		}
-
-		// Auto-select missing dependencies.
-		selectedSet := map[string]bool{}
-		for _, id := range selected {
-			selectedSet[id] = true
-		}
-		// Iteratively resolve dependencies until stable.
-		changed := true
-		for changed {
-			changed = false
-			for _, item := range toInstall {
-				if !selectedSet[item.ID] {
-					continue
-				}
-				if deps, ok := depMap[item.ID]; ok {
-					for _, dep := range deps {
-						if !selectedSet[dep] {
-							// Find the dep item to get its name.
-							for _, d := range toInstall {
-								if d.ID == dep {
-									fmt.Printf("  ℹ️  auto-selecting %s (dependency of %s)\n", d.Name, item.Name)
-									break
-								}
-							}
-							selectedSet[dep] = true
-							changed = true
-						}
-					}
-				}
-			}
-		}
-
-		// Rebuild ordered list from toInstall preserving checklist order.
-		var installOrder []checklistItem
-		for _, item := range toInstall {
-			if selectedSet[item.ID] {
-				installOrder = append(installOrder, item)
-			}
-		}
-
-		if len(installOrder) == 0 {
-			fmt.Println("  No tools selected for installation.")
-		} else {
-			fmt.Printf("  Installing %d tool(s)...\n\n", len(installOrder))
-
-			for _, item := range installOrder {
-				fmt.Printf("  → Installing %s...\n", item.Name)
-
-				var installErr error
-				if item.GitHubRelease != nil {
-					installErr = downloadGitHubBinary(item.GitHubRelease)
-				} else if item.InstallCmd != "" {
-					cmd := exec.Command("bash", "-c", item.InstallCmd)
-					cmd.Env = envWithAsdfShims()
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					installErr = cmd.Run()
-				}
-
-				if installErr != nil {
-					fmt.Printf("    ⚠️  failed to install %s: %v\n", item.Name, installErr)
-				} else {
-					installed[item.ID] = true
-
-					// Run post-install hook if provided (e.g. asdf shims PATH setup)
-					if item.PostInstallCmd != "" {
-						fmt.Printf("    → running post-install setup...\n")
-						cmd := exec.Command("bash", "-c", item.PostInstallCmd)
-						cmd.Env = envWithAsdfShims()
-						cmd.Stdout = os.Stdout
-						cmd.Stderr = os.Stderr
-						if err := cmd.Run(); err != nil {
-							fmt.Printf("    ⚠️  post-install setup failed: %v\n", err)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	fmt.Println()
-	fmt.Println("  ✅ dev environment setup complete")
-
-	// Offer to start suwu daemon
-	var startDaemon bool
-	prompt := huh.NewConfirm().
-		Title("Start suwu daemon now?").
-		Description("Run 'suwu daemon start' to serve in the background.").
-		Value(&startDaemon)
-	if err := huh.NewForm(huh.NewGroup(prompt)).WithTheme(huh.ThemeCatppuccin()).Run(); err == nil && startDaemon {
-		fmt.Println()
-		cmd := exec.Command("suwu", "daemon", "start")
-		cmd.Env = os.Environ()
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("  ⚠️  failed to start daemon: %v\n", err)
-		} else {
-			// Print IP-based access URLs so the user knows how to reach
-			// the terminal from other devices on the network.
-			if ips := localMachineIPs(); len(ips) > 0 {
-				mode := os.Getenv("SERVER_MODE")
-				if mode == "" {
-					mode = "https"
-				}
-				httpsPort := os.Getenv("HTTPS_PORT")
-				if httpsPort == "" {
-					httpsPort = "8181"
-				}
-				httpPort := os.Getenv("HTTP_PORT")
-				if httpPort == "" {
-					httpPort = "8180"
-				}
-				fmt.Println()
-				fmt.Println("  📡 Other devices on this network can reach the terminal at:")
-				for _, ip := range ips {
-					switch mode {
-					case "http":
-						fmt.Printf("     http://%s:%s\n", ip, httpPort)
-					case "https+http":
-						fmt.Printf("     https://%s:%s\n", ip, httpsPort)
-						fmt.Printf("     http://%s:%s\n", ip, httpPort)
-					default:
-						fmt.Printf("     https://%s:%s\n", ip, httpsPort)
-					}
-				}
-				fmt.Println("     (client devices must trust the CA once for https)")
-			}
-		}
-	}
-
 	return nil
 }

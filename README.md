@@ -58,7 +58,9 @@ curl -fsSL https://raw.githubusercontent.com/liyu1981/suwu/refs/heads/master/ins
 ```
 
 This downloads the latest release binary to `~/.local/bin/suwu` and runs
-`suwu onboard`.
+an interactive `suwu onboard` wizard. Onboarding requires an attached
+terminal; it collects the complete setup plan, shows a review, and only then
+writes configuration or installs selected tools.
 
 ## Requirements
 

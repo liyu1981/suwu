@@ -2,13 +2,17 @@
   {
     "id": "git",
     "name": "git",
-    "description": "Version control system (required by asdf and other tools)",
+    "category": "essential",
+    "default_selected": true,
+    "description": "Version control system",
     "check_binary": "git",
     "install_cmd": "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y git; elif command -v dnf >/dev/null 2>&1; then dnf install -y git; elif command -v yum >/dev/null 2>&1; then yum install -y git; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm git; elif command -v apk >/dev/null 2>&1; then apk add git; else echo ' unsupported package manager — install git manually' && exit 1; fi"
   },
   {
     "id": "vim",
     "name": "vim",
+    "category": "essential",
+    "default_selected": true,
     "description": "Terminal text editor",
     "check_binary": "vim",
     "install_cmd": "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y vim; elif command -v dnf >/dev/null 2>&1; then dnf install -y vim-enhanced; elif command -v yum >/dev/null 2>&1; then yum install -y vim-enhanced; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm vim; elif command -v apk >/dev/null 2>&1; then apk add vim; else echo ' unsupported package manager — install vim manually' && exit 1; fi"
@@ -16,6 +20,9 @@
   {
     "id": "libatomic1",
     "name": "libatomic1",
+    "category": "essential",
+    "default_selected": true,
+    "hidden": true,
     "description": "Runtime library required by Node.js",
     "check_cmd": "ldconfig -p 2>/dev/null | grep -q libatomic",
     "install_cmd": "if ldconfig -p 2>/dev/null | grep -q libatomic; then exit 0; fi; if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y libatomic1; elif command -v dnf >/dev/null 2>&1; then dnf install -y libatomic; elif command -v yum >/dev/null 2>&1; then yum install -y libatomic; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm gcc-libs; elif command -v apk >/dev/null 2>&1; then apk add libatomic; else echo ' unsupported package manager — install libatomic1 manually' && exit 1; fi"
@@ -23,7 +30,9 @@
   {
     "id": "asdf",
     "name": "asdf",
-    "description": "Polyglot version manager for Node.js, Python, Go, etc.",
+    "category": "essential",
+    "default_selected": true,
+    "description": "Polyglot version manager for Node.js, Python, Go, and other tools",
     "check_binary": "asdf",
     "depends": "git",
     "post_install_cmd": "ASDF_SHIMS=\"${ASDF_DATA_DIR:-$HOME/.asdf}/shims\" && echo \"export PATH=\\\"$ASDF_SHIMS:\\$PATH\\\"\" >> ~/.bashrc && export PATH=\"$ASDF_SHIMS:$PATH\"",
@@ -36,14 +45,28 @@
   {
     "id": "asdf-nodejs",
     "name": "asdf nodejs",
+    "category": "essential",
+    "default_selected": true,
     "description": "Node.js LTS via asdf",
     "check_binary": "node",
     "depends": "asdf,libatomic1",
     "install_cmd": "asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git && NODE_VERSION=$(curl -s https://nodejs.org/dist/index.json | grep -o '\"version\":\"v[^\"]*\"' | head -1 | sed -E 's/.*\"version\":\"v([^\"]+)\".*/\\1/') && asdf install nodejs $NODE_VERSION && asdf set -u nodejs $NODE_VERSION && asdf reshim nodejs"
   },
   {
+    "id": "pnpm",
+    "name": "pnpm",
+    "category": "essential",
+    "default_selected": true,
+    "description": "Frontend package manager",
+    "check_binary": "pnpm",
+    "depends": "asdf-nodejs",
+    "install_cmd": "corepack enable && corepack prepare pnpm@latest --activate"
+  },
+  {
     "id": "fzf",
     "name": "fzf",
+    "category": "advanced",
+    "default_selected": true,
     "description": "Command-line fuzzy finder",
     "check_binary": "fzf",
     "github_release": {
@@ -55,6 +78,8 @@
   {
     "id": "fresh",
     "name": "fresh",
+    "category": "advanced",
+    "default_selected": false,
     "description": "Modern terminal text editor",
     "check_binary": "fresh",
     "install_cmd": "curl -sL https://raw.githubusercontent.com/sinelaw/fresh/refs/heads/master/scripts/install.sh | sh"
@@ -62,6 +87,8 @@
   {
     "id": "lazygit",
     "name": "lazygit",
+    "category": "advanced",
+    "default_selected": false,
     "description": "Terminal UI for git commands",
     "check_binary": "lazygit",
     "github_release": {
@@ -74,6 +101,8 @@
   {
     "id": "herdr",
     "name": "herdr",
+    "category": "advanced",
+    "default_selected": true,
     "description": "Runtime for AI coding agents",
     "check_binary": "herdr",
     "install_cmd": "curl -fsSL https://herdr.dev/install.sh | sh"
@@ -81,6 +110,8 @@
   {
     "id": "opencode",
     "name": "opencode",
+    "category": "advanced",
+    "default_selected": false,
     "description": "AI coding assistant for the terminal",
     "check_binary": "opencode",
     "install_cmd": "curl -fsSL https://opencode.ai/install | bash"
@@ -88,6 +119,8 @@
   {
     "id": "pi",
     "name": "pi",
+    "category": "advanced",
+    "default_selected": true,
     "description": "Minimal terminal AI coding agent",
     "check_binary": "pi",
     "depends": "asdf-nodejs",
@@ -96,7 +129,9 @@
   {
     "id": "witr",
     "name": "witr",
-    "description": "Convinient tool to answer question: Why is this running?", 
+    "category": "advanced",
+    "default_selected": true,
+    "description": "Tool to explain why a process is running",
     "check_binary": "witr",
     "install_cmd": "curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash"
   }

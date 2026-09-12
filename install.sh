@@ -78,5 +78,8 @@ case ":${PATH}:" in
 esac
 
 # ── onboard ──
-info "running suwu onboard..."
+if [ ! -r /dev/tty ]; then
+  die "interactive terminal required for onboarding — run '${INSTALL_DIR}/suwu onboard' from a terminal"
+fi
+info "running interactive suwu onboard wizard..."
 exec "${INSTALL_DIR}/suwu" onboard < /dev/tty

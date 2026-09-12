@@ -8,7 +8,7 @@
 //	suwu serve          # run the server (reads SUWU_DEV from .env)
 //	suwu gencerts       # interactive TLS certificate generation (local CA)
 //	suwu version        # print version and exit
-//	suwu onboard        # initial setup: data dir, bind host, password
+//	suwu onboard        # interactive setup wizard
 //	suwu daemon {start|stop|restart|status|logs}  # manage background server
 //
 //	SERVER_MODE=http HTTP_PORT=3000 suwu serve   # plain HTTP on a custom port
@@ -165,7 +165,7 @@ Usage:
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
-  suwu onboard             initial setup: data directory, bind host, password
+  suwu onboard             interactive setup wizard: server, security, tools
   suwu daemon {start|stop|restart|status|logs}
                            manage a background daemon (default data: ~/.suwu)
   suwu upgrade [--check] [--force]
@@ -304,11 +304,16 @@ Examples:
 	case "onboard":
 		fmt.Print(`Usage: suwu onboard
 
-Interactive initial setup wizard. Configures:
-  - Data directory
-  - Bind host
-  - Required connection password (set manually or generate one)
-  - Local dev environment tools (optional)
+Interactive setup wizard. Requires an attached terminal and collects the
+complete setup plan before making changes. Configures:
+  - Server profile, bind host, ports, and session timeout
+  - Required connection password
+  - TLS certificates for HTTPS modes
+  - Data directory and optional systemd service
+  - Essential and advanced development tools
+  - Optional shell integration
+
+No non-interactive onboarding mode is provided.
 `)
 	case "daemon":
 		fmt.Print(`Usage: suwu daemon <command>

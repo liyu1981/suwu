@@ -6,6 +6,7 @@ import { fontDefaultAtom } from '../store/fonts'
 import { clamp } from '../lib/utils'
 import {
   closeAt,
+  cleanStalePaneData,
   computeTiling,
   cycleSpace,
   createLeaf,
@@ -40,6 +41,7 @@ import { appMenuAtom, getVisibleApps, type AppMenuState } from '../store/appMenu
 import { getAppIconClasses, getAppIconLetter } from './appIcons'
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 import { SESSION_STATE_KEY, MAX_SERVER_SESSIONS, type TileSessionMap, type SessionStore } from './sessionState'
+import { PTY_STATE_KEY } from '../components/hooks/usePtySession'
 
 // Register built-in tile plugins (side-effect imports).
 import './plugins/term'
@@ -392,6 +394,61 @@ export default function TilingWM() {
       return changed ? next : prev
     })
   }, [spaces])
+
+  // Cleanup: remove paneData entries for tiles that no longer exist.
+  useEffect(() => {
+    if (!spaces.length) return
+    const next = spaces.map(cleanStalePaneData)
+    // Only update if something was actually removed.
+    if (next.some((s, i) => s !== spaces[i])) {
+      store.set(spacesAtom, next)
+    }
+  }, [spaces, store])
+
+  // Cleanup: remove stale PTY session states for tiles that no longer exist.
+  useEffect(() => {
+    if (!spaces.length) return
+    try {
+      const ids = new Set(spaces.flatMap((s) => leaves(s.layout)))
+      const raw = localStorage.getItem(PTY_STATE_KEY)
+      if (!raw) return
+      const all: Record<string, unknown> = JSON.parse(raw)
+      const keys = Object.keys(all)
+      const stale = keys.filter((k) => !ids.has(k))
+      if (stale.length === 0) return
+      for (const k of stale) delete all[k]
+      localStorage.setItem(PTY_STATE_KEY, JSON.stringify(all))
+    } catch {
+      // ignore
+    }
+  }, [spaces])
+
+  // One-time migration: merge old per-tile `suwu-session-state:*` keys into
+  // the single `suwu-session-states` JSON object, then remove the old keys.
+  useEffect(() => {
+    try {
+      const PREFIX = 'suwu-session-state:'
+      const toRemove: string[] = []
+      const merged: Record<string, unknown> = {}
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith(PREFIX)) {
+          const paneId = key.slice(PREFIX.length)
+          merged[paneId] = JSON.parse(localStorage.getItem(key) ?? '{}')
+          toRemove.push(key)
+        }
+      }
+      if (toRemove.length === 0) return
+      // Merge into existing single-object store.
+      const raw = localStorage.getItem(PTY_STATE_KEY)
+      const existing: Record<string, unknown> = raw ? JSON.parse(raw) : {}
+      Object.assign(existing, merged)
+      localStorage.setItem(PTY_STATE_KEY, JSON.stringify(existing))
+      for (const k of toRemove) localStorage.removeItem(k)
+    } catch {
+      // ignore
+    }
+  }, [])
 
   // Split the focused tile (or create the first one on an empty layout).
   const split = useCallback(

@@ -40,6 +40,38 @@ export function setPaneData(space: Space, paneId: string, key: string, value: un
   }
 }
 
+/** Remove a pane's entire data bag (e.g. when the tile is closed). */
+export function removePaneData(space: Space, paneId: string): Space {
+  const prev = space.paneData ?? {}
+  if (!(paneId in prev)) return space
+  const { [paneId]: _, ...rest } = prev
+  return {
+    ...space,
+    paneData: Object.keys(rest).length > 0 ? rest : undefined,
+  }
+}
+
+/** Remove paneData entries for pane ids that no longer exist in the layout. */
+export function cleanStalePaneData(space: Space): Space {
+  const paneData = space.paneData
+  if (!paneData) return space
+  const validIds = new Set(leaves(space.layout))
+  let changed = false
+  const next: Record<string, PaneData> = {}
+  for (const [id, data] of Object.entries(paneData)) {
+    if (validIds.has(id)) {
+      next[id] = data
+    } else {
+      changed = true
+    }
+  }
+  if (!changed) return space
+  return {
+    ...space,
+    paneData: Object.keys(next).length > 0 ? next : undefined,
+  }
+}
+
 /** Immutably set multiple keys in a pane's data bag at once. */
 export function setPaneDataMulti(space: Space, paneId: string, data: PaneData): Space {
   const prev = space.paneData ?? {}

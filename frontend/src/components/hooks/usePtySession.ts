@@ -30,26 +30,28 @@ function sessionKey(): string {
   return key
 }
 
-/** localStorage key for persisted session state. */
-function stateKey(): string {
-  return `suwu-session-state:${sessionKey()}`
-}
+/** localStorage key for the single JSON object holding all tile session states. */
+export const PTY_STATE_KEY = 'suwu-session-states'
 
-/** Load the last-known session state from localStorage. */
+/** Load the last-known session state for this tile from localStorage. */
 function loadStoredState(): SessionState | null {
   try {
-    const raw = localStorage.getItem(stateKey())
+    const raw = localStorage.getItem(PTY_STATE_KEY)
     if (!raw) return null
-    return JSON.parse(raw) as SessionState
+    const all = JSON.parse(raw) as Record<string, SessionState>
+    return all[sessionKey()] ?? null
   } catch {
     return null
   }
 }
 
-/** Persist session state to localStorage. */
+/** Persist session state for this tile to localStorage (single JSON object). */
 function saveState(state: SessionState): void {
   try {
-    localStorage.setItem(stateKey(), JSON.stringify(state))
+    const raw = localStorage.getItem(PTY_STATE_KEY)
+    const all: Record<string, SessionState> = raw ? JSON.parse(raw) : {}
+    all[sessionKey()] = state
+    localStorage.setItem(PTY_STATE_KEY, JSON.stringify(all))
   } catch {
     // storage full or unavailable — non-fatal
   }

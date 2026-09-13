@@ -32,7 +32,7 @@ import (
 const csp = "default-src 'self'; " +
 	"script-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; " +
-	"connect-src 'self' ws: wss:; " +
+	"connect-src 'self' ws: wss: blob:; " +
 	"img-src 'self' data: blob:; " +
 	"font-src 'self'; " +
 	"object-src 'none'; " +

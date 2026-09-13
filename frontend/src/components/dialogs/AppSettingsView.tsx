@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { Tabs as TabsPrimitive } from 'radix-ui'
-import { FONT_MAX, FONT_MIN, LINE_HEIGHT_DEFAULT, LINE_HEIGHT_MAX, LINE_HEIGHT_MIN, LINE_HEIGHT_STEP, clampFont, clampLineHeight, fontDefaultAtom, fontSizeAtom, lineHeightAtom, lineHeightDefaultAtom } from '../../store/fonts'
+import { FONT_DEFAULT, FONT_MAX, FONT_MIN, LINE_HEIGHT_DEFAULT, LINE_HEIGHT_MAX, LINE_HEIGHT_MIN, LINE_HEIGHT_STEP, clampFont, clampLineHeight, fontDefaultAtom, lineHeightDefaultAtom } from '../../store/fonts'
 import {
   DIFF_FONT_FAMILIES,
   FILE_BROWSER_BG_DEFAULT,
@@ -154,11 +154,10 @@ export default function AppSettingsView() {
   const { t } = useTranslation()
   const [tab, setTab] = useState('term')
 
-  // Term
-  const [fontSize, setFontSize] = useAtom(fontSizeAtom)
-  const [defaultSize] = useAtom(fontDefaultAtom)
-  const [lineHeight, setLineHeight] = useAtom(lineHeightAtom)
-  const [lineHeightDefault] = useAtom(lineHeightDefaultAtom)
+  // Term — settings panel controls the *default* values (for new tiles),
+  // not the per-tile active values.
+  const [defaultSize, setDefaultSize] = useAtom(fontDefaultAtom)
+  const [lineHeightDefault, setLineHeightDefault] = useAtom(lineHeightDefaultAtom)
   const [fontFamily, setFontFamily] = useAtom(fontFamilyAtom)
   const [termTheme, setTermTheme] = useAtom(termThemeAtom)
 
@@ -219,8 +218,8 @@ export default function AppSettingsView() {
   /** Reset everything to defaults. */
   const resetAll = useCallback(() => {
     setTermTheme(TERMINAL_THEME_DEFAULT)
-    setLineHeight(LINE_HEIGHT_DEFAULT)
-  }, [setTermTheme, setLineHeight])
+    setLineHeightDefault(LINE_HEIGHT_DEFAULT)
+  }, [setTermTheme, setLineHeightDefault])
 
   const activePresetId = useMemo(() => matchPresetId(termTheme), [termTheme])
 
@@ -265,14 +264,14 @@ export default function AppSettingsView() {
           <div className={section}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.fontSize')}</span>
-              <span className="font-mono text-xs text-popover-foreground">{fontSize}px</span>
+              <span className="font-mono text-xs text-popover-foreground">{defaultSize}px</span>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <button
                 type="button"
                 className={stepBtn}
-                disabled={fontSize <= FONT_MIN}
-                onClick={() => setFontSize(clampFont(fontSize - 1))}
+                disabled={defaultSize <= FONT_MIN}
+                onClick={() => setDefaultSize(clampFont(defaultSize - 1))}
                 aria-label="Decrease font size"
               >
                 <svg className="mx-auto h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -283,16 +282,16 @@ export default function AppSettingsView() {
                 type="range"
                 min={FONT_MIN}
                 max={FONT_MAX}
-                value={fontSize}
-                onChange={(e) => setFontSize(clampFont(Number(e.target.value)))}
+                value={defaultSize}
+                onChange={(e) => setDefaultSize(clampFont(Number(e.target.value)))}
                 aria-label="Terminal font size"
                 className="h-1 flex-1 cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
               />
               <button
                 type="button"
                 className={stepBtn}
-                disabled={fontSize >= FONT_MAX}
-                onClick={() => setFontSize(clampFont(fontSize + 1))}
+                disabled={defaultSize >= FONT_MAX}
+                onClick={() => setDefaultSize(clampFont(defaultSize + 1))}
                 aria-label="Increase font size"
               >
                 <svg className="mx-auto h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -324,14 +323,14 @@ export default function AppSettingsView() {
           <div className={`${section} mt-4`}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.lineHeight')}</span>
-              <span className="font-mono text-xs text-popover-foreground">{lineHeight.toFixed(1)}</span>
+              <span className="font-mono text-xs text-popover-foreground">{lineHeightDefault.toFixed(1)}</span>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <button
                 type="button"
                 className={stepBtn}
-                disabled={lineHeight <= LINE_HEIGHT_MIN}
-                onClick={() => setLineHeight(clampLineHeight(lineHeight - LINE_HEIGHT_STEP))}
+                disabled={lineHeightDefault <= LINE_HEIGHT_MIN}
+                onClick={() => setLineHeightDefault(clampLineHeight(lineHeightDefault - LINE_HEIGHT_STEP))}
                 aria-label="Decrease line height"
               >
                 <svg className="mx-auto h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -343,16 +342,16 @@ export default function AppSettingsView() {
                 min={LINE_HEIGHT_MIN * 10}
                 max={LINE_HEIGHT_MAX * 10}
                 step={LINE_HEIGHT_STEP * 10}
-                value={lineHeight * 10}
-                onChange={(e) => setLineHeight(clampLineHeight(Number(e.target.value) / 10))}
+                value={lineHeightDefault * 10}
+                onChange={(e) => setLineHeightDefault(clampLineHeight(Number(e.target.value) / 10))}
                 aria-label="Terminal line height"
                 className="h-1 flex-1 cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
               />
               <button
                 type="button"
                 className={stepBtn}
-                disabled={lineHeight >= LINE_HEIGHT_MAX}
-                onClick={() => setLineHeight(clampLineHeight(lineHeight + LINE_HEIGHT_STEP))}
+                disabled={lineHeightDefault >= LINE_HEIGHT_MAX}
+                onClick={() => setLineHeightDefault(clampLineHeight(lineHeightDefault + LINE_HEIGHT_STEP))}
                 aria-label="Increase line height"
               >
                 <svg className="mx-auto h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -573,14 +572,14 @@ export default function AppSettingsView() {
       </TabsPrimitive.Root>
       </div>
 
-      {/* Footer: Term tab only — restore default */}
+      {/* Footer: Term tab only — restore to factory defaults */}
       {tab === 'term' && (
         <div className="flex shrink-0 justify-end pt-2">
           <button
             type="button"
             onClick={() => {
-              setFontSize(defaultSize)
-              setLineHeight(lineHeightDefault)
+              setDefaultSize(FONT_DEFAULT)
+              setLineHeightDefault(LINE_HEIGHT_DEFAULT)
             }}
             className="rounded px-3 py-1.5 text-xs font-semibold glass-btn bg-white/10 text-popover-foreground text-muted-foreground hover:text-white"
           >

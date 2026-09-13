@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -92,8 +94,22 @@ func writeGitError(w http.ResponseWriter, status int, msg string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
+// isGitRepo checks if the given path contains a .git directory (strict check).
+func isGitRepo(path string) bool {
+	gitDir := filepath.Join(path, ".git")
+	info, err := os.Stat(gitDir)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
 // git runs a git command and returns combined stdout+stderr, or a friendly error.
 func git(repoPath string, args ...string) (string, error) {
+	// Strict check: only allow if the path itself contains .git
+	if !isGitRepo(repoPath) {
+		return "", fmt.Errorf("'%s' is not a git repository (no .git folder found)", repoPath)
+	}
 	full := append([]string{"-C", repoPath}, args...)
 	cmd := exec.Command("git", full...)
 	out, err := cmd.CombinedOutput()

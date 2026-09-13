@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from '@tanstack/react-router'
 import { useAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
@@ -73,6 +73,11 @@ export default function AppShell() {
 
   useNotifications()
   useUpdateCheck()
+
+  // Set page title (CSP blocks inline scripts in index.html).
+  useEffect(() => {
+    document.title = `Suwu@${window.location.hostname || window.location.host || 'localhost'}`
+  }, [])
 
   // The burger opens the unified Suwu dialog at its root menu screen.
   const openMenu = useCallback(() => {

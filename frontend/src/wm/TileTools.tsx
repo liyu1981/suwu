@@ -81,7 +81,7 @@ export function TileTools({
   return (
     <div className="group/corner absolute right-0 top-0 z-10 h-12 w-56">
       <div
-        className="pointer-events-none absolute right-1.5 top-1.5 flex gap-0.5 rounded-[6px] glass-control p-0.5 opacity-0 transition-opacity duration-150 group-hover/corner:pointer-events-auto group-hover/corner:opacity-100 motion-reduce:transition-none"
+        className="pointer-events-none absolute right-1.5 top-1.5 flex gap-0.5 rounded-[6px] menu-glass p-0.5 opacity-0 transition-opacity duration-150 group-hover/corner:pointer-events-auto group-hover/corner:opacity-100 motion-reduce:transition-none"
         role="toolbar"
         aria-label={`Tile tools ${paneId}`}
       >

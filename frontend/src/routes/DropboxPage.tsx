@@ -318,19 +318,23 @@ export default function DropboxPage() {
     const filesToUpload: File[] = []
     let textContent: string | null = null
 
+    // Helper to promisify getAsString
+    const getStringFromItem = (item: DataTransferItem): Promise<string> =>
+      new Promise((resolve) => item.getAsString(resolve))
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       if (item.kind === 'file') {
         const file = item.getAsFile()
         if (file) filesToUpload.push(file)
       } else if (item.kind === 'string' && item.type === 'text/plain') {
-        item.getAsString((text) => { textContent = text })
+        textContent = await getStringFromItem(item)
       }
     }
 
     if (filesToUpload.length > 0) {
       await handleFiles(filesToUpload)
-    } else if (textContent !== null) {
+    } else if (textContent !== null && textContent.trim() !== '') {
       await uploadText(textContent)
       await loadFiles()
       await loadSpace()

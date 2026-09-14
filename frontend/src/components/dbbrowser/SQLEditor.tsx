@@ -90,7 +90,6 @@ export default function SQLEditor({ value, onChange, onExecute, readOnly }: SQLE
         options={{
           readOnly,
           minimap: { enabled: false },
-          fontSize: 13,
           fontFamily: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace",
           fontLigatures: true,
           lineNumbers: 'on',

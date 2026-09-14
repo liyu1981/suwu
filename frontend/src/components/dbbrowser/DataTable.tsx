@@ -9,13 +9,15 @@ import {
 import { flexRender, type SortingState } from '@tanstack/react-table'
 import type { QueryResult } from '../../store/dbbrowser'
 
+const TRUNCATE_LENGTH = 50
+
 interface DataTableProps {
   result: QueryResult
 }
 
 export default function DataTable({ result }: DataTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
-  const [copiedCell, setCopiedCell] = useState<string | null>(null)
+  const [expandedCell, setExpandedCell] = useState<{ colName: string; value: string } | null>(null)
 
   const columns = useMemo<ColumnDef<unknown[], unknown>[]>(() => {
     if (!result.columns.length) return []
@@ -31,30 +33,29 @@ export default function DataTable({ result }: DataTableProps) {
       cell: ({ getValue }: { getValue: () => unknown }) => {
         const value = getValue()
         const isNull = value === null || value === undefined
-        const cellKey = `${col.name}-${JSON.stringify(value)}`
-        const isCopied = copiedCell === cellKey
+        const strValue = isNull ? 'NULL' : String(value)
+        const isLong = strValue.length > TRUNCATE_LENGTH
+        const displayValue = isLong ? strValue.slice(0, TRUNCATE_LENGTH) + '…' : strValue
 
         return (
           <button
             type="button"
             className={`w-full cursor-pointer truncate text-left transition-colors duration-100 ${
               isNull ? 'text-white/25 italic' : 'text-white/80'
-            } ${isCopied ? 'bg-green-500/20' : 'hover:bg-white/[0.06]'}`}
+            } ${isLong ? 'hover:text-white hover:underline' : 'hover:bg-white/[0.06]'}`}
             onClick={() => {
-              if (!isNull) {
-                navigator.clipboard.writeText(String(value))
-                setCopiedCell(cellKey)
-                setTimeout(() => setCopiedCell(null), 1000)
+              if (isLong) {
+                setExpandedCell({ colName: col.name, value: strValue })
               }
             }}
-            title={isNull ? 'NULL' : String(value)}
+            title={isLong ? 'Click to expand' : strValue}
           >
-            {isNull ? 'NULL' : String(value)}
+            {displayValue}
           </button>
         )
       },
     }))
-  }, [result.columns, copiedCell])
+  }, [result.columns])
 
   const data = useMemo(() => result.rows ?? [], [result.rows])
 
@@ -202,6 +203,27 @@ export default function DataTable({ result }: DataTableProps) {
           </tbody>
         </table>
       </div>
+
+      {/* Expanded cell panel */}
+      {expandedCell && (
+        <div className="shrink-0 border-t border-white/[0.10] bg-white/[0.04]">
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-1.5">
+            <span className="font-semibold text-white/60">
+              {expandedCell.colName}
+            </span>
+            <button
+              type="button"
+              onClick={() => setExpandedCell(null)}
+              className="rounded px-2 py-0.5 text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
+            >
+              Close
+            </button>
+          </div>
+          <div className="max-h-48 overflow-auto p-3 font-mono whitespace-pre-wrap break-all text-white/80">
+            {expandedCell.value}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

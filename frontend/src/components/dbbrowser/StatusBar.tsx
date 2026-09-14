@@ -4,9 +4,10 @@ import type { QueryExecution } from '../../store/dbbrowser'
 interface StatusBarProps {
   query: QueryExecution
   connected: boolean
+  onDisconnect: () => void
 }
 
-export default function StatusBar({ query, connected }: StatusBarProps) {
+export default function StatusBar({ query, connected, onDisconnect }: StatusBarProps) {
   const { t } = useTranslation()
 
   return (
@@ -56,9 +57,22 @@ export default function StatusBar({ query, connected }: StatusBarProps) {
       <div className="flex-1" />
 
       {/* Shortcut hint */}
-      <span className="text-white/25">
-        {t('dbbrowser.executeHint')}
-      </span>
+      {!connected && (
+        <span className="text-white/25">
+          {t('dbbrowser.executeHint')}
+        </span>
+      )}
+
+      {/* Disconnect button */}
+      {connected && (
+        <button
+          type="button"
+          onClick={onDisconnect}
+          className="rounded px-2 py-0.5 text-red-400/80 transition-all hover:bg-red-500/15 hover:text-red-400"
+        >
+          {t('dbbrowser.disconnect')}
+        </button>
+      )}
     </div>
   )
 }

@@ -51,14 +51,7 @@ export default function DBBrowserPanel() {
     <CommonTileContainer zoomAtom={dbbrowserZoomAtom} noPadding>
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2 glass-control">
-          <svg
-            className="h-3.5 w-3.5 text-indigo-400/70"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-          >
-            <path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9z" />
-          </svg>
+        <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2">
           <span className="font-semibold tracking-wide text-white/60">
             {t('dbbrowser.title')}
           </span>
@@ -71,15 +64,6 @@ export default function DBBrowserPanel() {
             </>
           )}
           <div className="flex-1" />
-          {connected && (
-            <button
-              type="button"
-              onClick={disconnect}
-              className="rounded-md bg-red-500/15 px-2 py-1 font-medium text-red-400/80 transition-all hover:bg-red-500/25 hover:text-red-400"
-            >
-              {t('dbbrowser.disconnect')}
-            </button>
-          )}
         </div>
 
         {/* Main content */}
@@ -150,7 +134,7 @@ export default function DBBrowserPanel() {
         )}
 
         {/* Status bar */}
-        <StatusBar query={query} connected={connected} />
+        <StatusBar query={query} connected={connected} onDisconnect={disconnect} />
       </div>
     </CommonTileContainer>
   )

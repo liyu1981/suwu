@@ -76,10 +76,42 @@ export const dbSelectedTableAtom = atom<string | null>(null)
 // Saved connections (persisted to localStorage)
 const SAVED_CONNECTIONS_KEY = 'suwu_db_saved_connections'
 
+// Keep only the most recent N connections per driver type.
+export const MAX_SAVED_PER_DRIVER = 5
+
+// A stable fingerprint used to deduplicate the same connection target.
+function connectionSignature(c: SavedConnection): string {
+  return [
+    c.driver,
+    c.host ?? '',
+    c.port ?? '',
+    c.database ?? '',
+    c.user ?? '',
+    c.sqlitePath ?? '',
+    c.sslMode ?? '',
+  ].join('|')
+}
+
+// Normalize a list: drop duplicate targets, keep newest first, cap per driver.
+function normalizeSavedConnections(connections: SavedConnection[]): SavedConnection[] {
+  const seen = new Set<string>()
+  const perDriver: Record<DriverType, number> = { sqlite: 0, mysql: 0, postgres: 0 }
+  const result: SavedConnection[] = []
+  for (const conn of connections) {
+    const sig = connectionSignature(conn)
+    if (seen.has(sig)) continue
+    seen.add(sig)
+    perDriver[conn.driver] = (perDriver[conn.driver] ?? 0) + 1
+    if (perDriver[conn.driver] > MAX_SAVED_PER_DRIVER) continue
+    result.push(conn)
+  }
+  return result
+}
+
 function loadSavedConnections(): SavedConnection[] {
   try {
     const raw = localStorage.getItem(SAVED_CONNECTIONS_KEY)
-    return raw ? JSON.parse(raw) : []
+    return raw ? normalizeSavedConnections(JSON.parse(raw)) : []
   } catch {
     return []
   }
@@ -96,14 +128,12 @@ export const saveDBConnectionAtom = atom(
   null,
   (get, set, connection: SavedConnection) => {
     const current = get(dbSavedConnectionsAtom)
-    const exists = current.findIndex((c) => c.id === connection.id)
-    let next: SavedConnection[]
-    if (exists >= 0) {
-      next = [...current]
-      next[exists] = connection
-    } else {
-      next = [...current, connection]
-    }
+    const sig = connectionSignature(connection)
+    // Drop any existing entry for the same target (and same id), newest first.
+    const rest = current.filter(
+      (c) => c.id !== connection.id && connectionSignature(c) !== sig,
+    )
+    const next = normalizeSavedConnections([connection, ...rest])
     set(dbSavedConnectionsAtom, next)
     saveSavedConnections(next)
   },

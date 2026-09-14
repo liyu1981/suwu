@@ -309,6 +309,7 @@
   "dbbrowser": {
     "title": "数据库浏览器",
     "connect": "连接",
+    "load": "载入",
     "disconnect": "断开连接",
     "testConnection": "测试连接",
     "connectionSuccess": "连接成功",
@@ -321,10 +322,13 @@
     "password": "密码",
     "sqlitePath": "数据库文件",
     "execute": "执行",
+    "sqlEditor": "SQL 编辑器",
+    "results": "结果",
     "executeHint": "Ctrl+Enter 执行",
     "tables": "表",
     "views": "视图",
     "schema": "结构",
+    "resizeSchema": "拖拽调整结构面板宽度",
     "columns": "列",
     "rows": "行",
     "executionTime": "毫秒",
@@ -340,7 +344,9 @@
     "truncateWarning": "结果已截断（最多 {{max}} 行）",
     "exportCsv": "导出 CSV",
     "copyCell": "复制",
-    "newConnection": "新建连接"
+    "newConnection": "新建连接",
+    "recentConnections": "最近连接",
+    "noRecentConnections": "暂无最近连接"
   },
   "lang": {
     "en": "English",

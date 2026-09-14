@@ -182,6 +182,7 @@ function TableItem({
         <button
           type="button"
           onClick={onExpand}
+          title={table.name}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
         >
           <span className="text-white/30">{isExpanded ? '▼' : '▶'}</span>

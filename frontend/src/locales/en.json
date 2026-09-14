@@ -310,6 +310,7 @@
   "dbbrowser": {
     "title": "Database Browser",
     "connect": "Connect",
+    "load": "Load",
     "disconnect": "Disconnect",
     "testConnection": "Test Connection",
     "connectionSuccess": "Connected successfully",
@@ -322,10 +323,13 @@
     "password": "Password",
     "sqlitePath": "Database File",
     "execute": "Execute",
+    "sqlEditor": "SQL Editor",
+    "results": "Results",
     "executeHint": "Ctrl+Enter to execute",
     "tables": "Tables",
     "views": "Views",
     "schema": "Schema",
+    "resizeSchema": "Drag to resize the schema panel",
     "columns": "Columns",
     "rows": "rows",
     "executionTime": "ms",
@@ -341,7 +345,9 @@
     "truncateWarning": "Results truncated ({{max}} row limit)",
     "exportCsv": "Export CSV",
     "copyCell": "Copy",
-    "newConnection": "New Connection"
+    "newConnection": "New Connection",
+    "recentConnections": "Recent Connections",
+    "noRecentConnections": "No recent connections"
   },
   "lang": {
     "en": "English",

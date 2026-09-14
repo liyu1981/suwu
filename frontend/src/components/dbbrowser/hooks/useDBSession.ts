@@ -71,6 +71,23 @@ export function useDBSession() {
         setConnection(newConnection)
         setSchema(body.tables || [])
 
+        // Remember this connection (keeps the last 5 per driver).
+        const label =
+          params.driver === 'sqlite'
+            ? params.sqlitePath || params.database
+            : `${params.host || 'localhost'}:${params.port || ''}/${params.database}`
+        saveConnection({
+          id: `conn_${Date.now()}`,
+          label,
+          driver: params.driver,
+          host: params.driver !== 'sqlite' ? params.host : undefined,
+          port: params.driver !== 'sqlite' ? params.port : undefined,
+          database: params.database,
+          user: params.driver !== 'sqlite' ? params.user : undefined,
+          sqlitePath: params.driver === 'sqlite' ? params.sqlitePath : undefined,
+          sslMode: params.driver !== 'sqlite' ? params.sslMode : undefined,
+        })
+
         return { success: true }
       } catch (e) {
         return {
@@ -79,7 +96,7 @@ export function useDBSession() {
         }
       }
     },
-    [setConnection, setSchema],
+    [setConnection, setSchema, saveConnection],
   )
 
   const disconnect = useCallback(async () => {

@@ -24,6 +24,7 @@ export const gitGraphZoomAtom = atomWithStorage<number>('suwu.gitgraph-zoom', ZO
 export const diffZoomAtom = atomWithStorage<number>('suwu.diff-zoom', ZOOM_DEFAULT)
 export const xdisplayZoomAtom = atomWithStorage<number>('suwu.xdisplay-zoom', ZOOM_DEFAULT)
 export const xdisplayFpsAtom = atomWithStorage<number>('suwu.xdisplay-fps', 30)
+export const dbbrowserZoomAtom = atomWithStorage<number>('suwu.dbbrowser-zoom', ZOOM_DEFAULT)
 
 export function clampZoom(n: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(n * 4) / 4))

@@ -21,7 +21,7 @@ interface ActionDialogProps {
 }
 
 const inputCls =
-  'w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20'
+  'w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20'
 
 /** Render the dialog's limited <b> markup without injecting HTML. */
 function renderMessage(message: string) {
@@ -73,10 +73,10 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
         onClick={(e) => e.stopPropagation()}
       >
         {/* Title */}
-        <h3 className="mb-1 text-sm font-semibold tracking-tight text-white/90">{title}</h3>
+        <h3 className="mb-1 font-semibold tracking-tight text-white/90">{title}</h3>
 
         {/* Message */}
-        <p className="mb-4 text-xs leading-relaxed text-white/55">
+        <p className="mb-4 leading-relaxed text-white/55">
           {renderMessage(message)}
         </p>
 
@@ -88,7 +88,7 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                 {input.type === 'text' && (
                   <div>
                     {input.name && (
-                      <label className="mb-1 block text-[11px] font-medium text-white/45">{input.name}</label>
+                      <label className="mb-1 block font-medium text-white/45">{input.name}</label>
                     )}
                     <input
                       type="text"
@@ -108,14 +108,14 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                       onChange={(e) => set(input.name, e.target.checked)}
                       className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 accent-green-500 transition"
                     />
-                    <span className="text-xs text-white/65 transition-colors group-hover:text-white/80">{input.name}</span>
+                    <span className="text-white/65 transition-colors group-hover:text-white/80">{input.name}</span>
                   </label>
                 )}
 
                 {input.type === 'select' && input.options && (
                   <div>
                     {input.name && (
-                      <label className="mb-1 block text-[11px] font-medium text-white/45">{input.name}</label>
+                      <label className="mb-1 block font-medium text-white/45">{input.name}</label>
                     )}
                     <select
                       value={String(values[input.name] ?? '')}
@@ -132,7 +132,7 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                 {input.type === 'radio' && input.options && (
                   <div className="space-y-2">
                     {input.name && (
-                      <label className="block text-[11px] font-medium text-white/45">{input.name}</label>
+                      <label className="block font-medium text-white/45">{input.name}</label>
                     )}
                     {input.options.map((opt) => (
                       <label key={opt.value} className="flex items-center gap-2.5 cursor-pointer group">
@@ -144,14 +144,14 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                           onChange={() => set(input.name, opt.value)}
                           className="h-3.5 w-3.5 border-white/20 bg-white/5 accent-green-500 transition"
                         />
-                        <span className="text-xs text-white/65 transition-colors group-hover:text-white/80">{opt.label}</span>
+                        <span className="text-white/65 transition-colors group-hover:text-white/80">{opt.label}</span>
                       </label>
                     ))}
                   </div>
                 )}
 
                 {input.info && (
-                  <p className="mt-1.5 text-[10px] leading-relaxed text-white/30">{input.info}</p>
+                  <p className="mt-1.5 leading-relaxed text-white/30">{input.info}</p>
                 )}
               </div>
             ))}
@@ -163,14 +163,14 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg bg-white/[0.06] px-3.5 py-1.5 text-xs text-white/50 transition-all duration-150 hover:bg-white/[0.10] hover:text-white/80 active:scale-[0.97]"
+            className="rounded-lg bg-white/[0.06] px-3.5 py-1.5 text-white/50 transition-all duration-150 hover:bg-white/[0.10] hover:text-white/80 active:scale-[0.97]"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={() => onAction(values)}
-            className="rounded-lg bg-green-500/20 px-3.5 py-1.5 text-xs font-medium text-green-300/90 transition-all duration-150 hover:bg-green-500/30 hover:text-green-200 active:scale-[0.97]"
+            className="rounded-lg bg-green-500/20 px-3.5 py-1.5 font-medium text-green-300/90 transition-all duration-150 hover:bg-green-500/30 hover:text-green-200 active:scale-[0.97]"
           >
             {actionLabel}
           </button>

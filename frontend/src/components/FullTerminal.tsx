@@ -149,7 +149,7 @@ export default function FullTerminal() {
         {/* Thin per-pane status bar: connection state lives here instead of
             floating over the terminal content. */}
         <footer
-          className={`flex h-5 shrink-0 items-center gap-1.5 border-t px-2 text-[10px] tracking-wide ${
+          className={`flex h-5 shrink-0 items-center gap-1.5 border-t px-2 text-white/50 tracking-wide ${
             selectionMode
               ? 'border-sky-400/30 bg-sky-900/50 text-sky-300'
               : 'border-white/10 bg-black/40 text-white/60'
@@ -167,7 +167,7 @@ export default function FullTerminal() {
             <button
               type="button"
               onClick={() => setShowCacheDialog(true)}
-              className="ml-auto shrink-0 rounded bg-sky-800/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-200 transition hover:bg-sky-700/60 hover:text-white"
+              className="ml-auto shrink-0 rounded bg-sky-800/60 px-1.5 py-0.5 font-medium text-sky-200 transition hover:bg-sky-700/60 hover:text-white"
               title={t('terminal.showCachePreview')}
             >
               {cachedLength > 0
@@ -197,14 +197,14 @@ export default function FullTerminal() {
       <Dialog open={showCacheDialog} onOpenChange={setShowCacheDialog}>
         <DialogContent>
           <DialogTitle>{t('terminal.cachePreview')}</DialogTitle>
-          <div className="mt-3 max-h-[50dvh] overflow-auto scrollbar-thin rounded bg-black/40 p-3 font-mono text-xs text-white/80 whitespace-pre-wrap break-all">
+          <div className="mt-3 max-h-[50dvh] overflow-auto scrollbar-thin rounded bg-black/40 p-3 font-mono text-white/80 whitespace-pre-wrap break-all">
             {cachedText || t('terminal.cacheEmpty')}
           </div>
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setShowCacheDialog(false)}
-              className="rounded px-3 py-1.5 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
+              className="rounded px-3 py-1.5 font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
             >
               {t('dialog.close')}
             </button>
@@ -212,7 +212,7 @@ export default function FullTerminal() {
               type="button"
               onClick={copyCacheAndExit}
               disabled={!cachedText}
-              className="rounded bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded bg-sky-600 px-3 py-1.5 font-medium text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {t('terminal.copyAndExit')}
             </button>

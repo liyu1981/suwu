@@ -27,8 +27,6 @@ const STATUS_COLORS = {
   error: 'bg-red-500',
 } as const
 
-
-
 const inputClass =
   'rounded-lg bg-white/[0.08] border border-white/[0.12] px-2.5 py-1.5 text-white/90 placeholder-white/35 outline-none transition-all duration-150 focus:bg-white/[0.14] focus:ring-1'
 
@@ -48,9 +46,7 @@ async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
 }
 
 const btnDanger =
-  'rounded-lg bg-red-500/15 px-2 py-1 text-[10px] font-medium text-red-400/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-400 active:scale-[0.97]'
-
-
+  'rounded-lg bg-red-500/15 px-2 py-1 font-medium text-red-400/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-400 active:scale-[0.97]'
 
 function formatUptime(startedAt: string): string {
   const start = new Date(startedAt).getTime()
@@ -234,7 +230,7 @@ export default function ForwardPanel() {
           </button>
           {/* Auto-refresh dropdown trigger */}
           <AutoRefreshTrigger btnRef={dropdown.btnRef} isActive={autoRefresh > 0} onClick={dropdown.toggle} />
-          <span className="ml-1.5 text-[11px] font-semibold tracking-wide text-white/60">{t('forward.title')}</span>
+          <span className="ml-1.5 font-semibold tracking-wide text-white/60">{t('forward.title')}</span>
           <div className="flex-1" />
         </div>
 
@@ -250,7 +246,7 @@ export default function ForwardPanel() {
             <button
               type="button"
               onClick={() => setProtocol('tcp')}
-              className={`px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-all duration-150 ${
+              className={`px-2.5 py-1 font-semibold tracking-wide transition-all duration-150 ${
                 protocol === 'tcp'
                   ? 'bg-cyan-500/20 text-cyan-300'
                   : 'text-white/45 hover:bg-white/[0.08] hover:text-white/65'
@@ -261,7 +257,7 @@ export default function ForwardPanel() {
             <button
               type="button"
               onClick={() => setProtocol('udp')}
-              className={`px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-all duration-150 ${
+              className={`px-2.5 py-1 font-semibold tracking-wide transition-all duration-150 ${
                 protocol === 'udp'
                   ? 'bg-violet-500/20 text-violet-300'
                   : 'text-white/45 hover:bg-white/[0.08] hover:text-white/65'
@@ -283,7 +279,7 @@ export default function ForwardPanel() {
             className={`${inputClass} ${extPortMsg ? inputInvalid : inputValid} w-20 tabular-nums`}
           />
 
-          <span className="text-[10px] text-white/35">→</span>
+          <span className="text-white/35">→</span>
 
           {/* Internal host */}
           <input
@@ -321,24 +317,24 @@ export default function ForwardPanel() {
         {/* Validation messages — subtle material strip */}
         {(extPortMsg || intPortMsg || showIntPortWarning || error) && (
           <div className="flex shrink-0 flex-wrap gap-3 border-x border-x-white/[0.10] border-b border-b-white/[0.08] bg-white/[0.05] px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            {extPortMsg && <span className="text-[10px] font-medium text-red-400">{t('forward.portOccupied')}</span>}
-            {intPortMsg && <span className="text-[10px] font-medium text-red-400">Int: {intPortMsg}</span>}
+            {extPortMsg && <span className="font-medium text-red-400">{t('forward.portOccupied')}</span>}
+            {intPortMsg && <span className="font-medium text-red-400">Int: {intPortMsg}</span>}
             {showIntPortWarning && (
-              <span className="text-[10px] font-medium text-amber-400">
+              <span className="font-medium text-amber-400">
                 ⚠ Port {intPort} is not open on {intHost || 'localhost'}
               </span>
             )}
-            {error && <span className="text-[10px] font-medium text-red-400">{error}</span>}
+            {error && <span className="font-medium text-red-400">{error}</span>}
           </div>
         )}
 
         {/* Active mappings list */}
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           {loading && (
-            <div className="flex items-center justify-center py-12 text-[11px] text-white/40">Loading...</div>
+            <div className="flex items-center justify-center py-12 text-white/40">Loading...</div>
           )}
           {!loading && forwards.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-[11px] text-white/40">
+            <div className="flex flex-col items-center justify-center py-12 text-white/40">
               <svg className="mb-2 h-6 w-6 text-white/25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
@@ -363,21 +359,21 @@ export default function ForwardPanel() {
 
               {/* Mapping info */}
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 text-[12px]">
+                <div className="flex items-center gap-1.5">
                   <span className="font-mono tabular-nums text-white/80">{f.externalPort}</span>
-                  <span className="text-[10px] text-white/40">→</span>
+                  <span className="text-white/40">→</span>
                   <span className="font-mono tabular-nums text-white/80">
                     {f.internalHost}:{f.internalPort}
                   </span>
                   <span
-                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-semibold tracking-wide ${
+                    className={`rounded-md px-1.5 py-0.5 font-semibold tracking-wide ${
                       f.protocol === 'tcp' ? 'bg-cyan-500/15 text-cyan-400' : 'bg-violet-500/15 text-violet-400'
                     }`}
                   >
                     {f.protocol.toUpperCase()}
                   </span>
                 </div>
-                <div className="mt-0.5 flex items-center gap-3 text-[10px] tabular-nums text-white/40">
+                <div className="mt-0.5 flex items-center gap-3 tabular-nums text-white/40">
                   <span>
                     {t('forward.activeConns')}: {f.activeConns}
                   </span>

@@ -3,6 +3,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"suwu/pkg/auth"
+	"suwu/pkg/db"
 	"suwu/pkg/dropbox"
 	"suwu/pkg/forward"
 	"suwu/pkg/notify"
@@ -60,6 +62,7 @@ type Server struct {
 	sessions  *session.Manager
 	notify    *notify.Listener
 	forwards  *forward.Manager
+	dbSessions *db.Manager
 	dataDir   string
 	startedAt time.Time
 	rateLimit *RateLimiter
@@ -68,21 +71,33 @@ type Server struct {
 // New creates a Server serving static assets from assetsFS (the web tree)
 // and managing keyed PTY sessions through mgr.
 func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener, fwds *forward.Manager, dataDir string) *Server {
+	dbMgr := db.NewManager()
 	return &Server{
-		cfg:       cfg,
-		assets:    assetsFS,
-		sessions:  sessions,
-		notify:    nl,
-		forwards:  fwds,
-		dataDir:   dataDir,
-		startedAt: time.Now(),
-		rateLimit: NewRateLimiter(),
+		cfg:        cfg,
+		assets:     assetsFS,
+		sessions:   sessions,
+		notify:     nl,
+		forwards:   fwds,
+		dbSessions: dbMgr,
+		dataDir:    dataDir,
+		startedAt:  time.Now(),
+		rateLimit:  NewRateLimiter(),
 	}
 }
 
 // StartedAt returns the server's start timestamp.
 func (s *Server) StartedAt() time.Time {
 	return s.startedAt
+}
+
+// StartDBCleanup starts the background cleanup loop for idle database sessions.
+func (s *Server) StartDBCleanup() {
+	s.dbSessions.StartCleanupLoop(context.Background())
+}
+
+// CloseDBCloses closes all active database sessions.
+func (s *Server) CloseDB() {
+	s.dbSessions.CloseAll()
 }
 
 func (s *Server) Handler() http.Handler {
@@ -235,6 +250,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/forward/server-ports" {
 		s.handleForwardServerPorts(w, r)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/api/db/") {
+		s.handleDBBrowser(w, r)
 		return
 	}
 

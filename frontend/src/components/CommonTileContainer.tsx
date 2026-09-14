@@ -104,7 +104,7 @@ export function CommonTileContainer({ paneId, zoomAtom, noPadding, children }: P
 
   return (
     <TileSessionContext.Provider value={savedState}>
-      <div className={`flex flex-col rounded-[6px] text-sm text-white/80 ${noPadding ? '' : 'p-2'}`} style={{ ...tileZoomStyle(zoom), backgroundColor: bgColor }}>
+      <div className={`flex flex-col rounded-[6px] text-white/80 ${noPadding ? '' : 'p-2'}`} style={{ ...tileZoomStyle(zoom), backgroundColor: bgColor }}>
         {children}
       </div>
     </TileSessionContext.Provider>

@@ -21,7 +21,8 @@ When creating a new release version:
 ### Commit Permission
 
 - **Never commit unprompted.** After staging changes, always ask the user for permission before running `git commit`.
-- After every commit you make, immediately return to a state where you require explicit user permission before the next commit. Do not batch or chain commits without asking each time.
+- **Exception:** When the user explicitly says "git commit changes", you are permitted to commit once without further confirmation. After that commit, return to requiring permission for subsequent commits.
+- Do not batch or chain commits without asking each time.
 
 ### Co-Authored-By
 
@@ -30,3 +31,11 @@ Do NOT add `Co-Authored-By` trailers to commit messages unless the user explicit
 ### Environment Files
 
 - **Never modify `.env` files.** The `.env` file contains the user's personal development/test settings. Do not read, write, or modify `.env` under any circumstances.
+
+### Tile Design — Font Sizes
+
+- Font must use **normal text size** as the base (the default body size, no `text-sm` or `text-xs` on containers).
+- Never use `text-sm`, `text-xs`, `text-[10px]`, `text-[11px]`, or any pixel sizes smaller than the base font on tile panels, sidebars, toolbars, or their children.
+- Use normal (base) text size for all body content. Do not shrink text for density.
+- For differentiation within a tile (labels, badges, hints), use **color/opacity only** — not smaller font sizes.
+- Icons and decorative elements may use arbitrary pixel sizes as needed.

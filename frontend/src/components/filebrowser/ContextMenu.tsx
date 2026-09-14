@@ -189,20 +189,20 @@ export function ContextMenu({
           top: y,
         }}
       >
-        <div className="mb-2 text-[11px] font-semibold tracking-wide text-white/60">{t('filebrowser.newFolderTitle')}</div>
+        <div className="mb-2 font-semibold tracking-wide text-white/60">{t('filebrowser.newFolderTitle')}</div>
         <input
           type="text"
           value={newFolderName}
           onChange={(e) => setNewFolderName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleNewFolder()}
-          className="mb-3 w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20"
+          className="mb-3 w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20"
           autoFocus
         />
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
+            className="rounded-lg px-3 py-1.5 text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
           >
             {t('filebrowser.cancel')}
           </button>
@@ -210,7 +210,7 @@ export function ContextMenu({
             type="button"
             onClick={handleNewFolder}
             disabled={loading || !newFolderName.trim()}
-            className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300/80 transition-all duration-150 hover:bg-sky-500/25 hover:text-sky-300 active:scale-[0.97] disabled:opacity-30"
+            className="rounded-lg bg-sky-500/15 px-3 py-1.5 font-medium text-sky-300/80 transition-all duration-150 hover:bg-sky-500/25 hover:text-sky-300 active:scale-[0.97] disabled:opacity-30"
           >
             {t('filebrowser.confirm')}
           </button>
@@ -230,20 +230,20 @@ export function ContextMenu({
           top: y,
         }}
       >
-        <div className="mb-2 text-[11px] font-semibold tracking-wide text-white/60">{t('filebrowser.renameTitle')}</div>
+        <div className="mb-2 font-semibold tracking-wide text-white/60">{t('filebrowser.renameTitle')}</div>
         <input
           type="text"
           value={renameValue}
           onChange={(e) => setRenameValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-          className="mb-3 w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20"
+          className="mb-3 w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20"
           autoFocus
         />
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
+            className="rounded-lg px-3 py-1.5 text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
           >
             {t('filebrowser.cancel')}
           </button>
@@ -251,7 +251,7 @@ export function ContextMenu({
             type="button"
             onClick={handleRename}
             disabled={loading || !renameValue.trim()}
-            className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300/80 transition-all duration-150 hover:bg-sky-500/25 hover:text-sky-300 active:scale-[0.97] disabled:opacity-30"
+            className="rounded-lg bg-sky-500/15 px-3 py-1.5 font-medium text-sky-300/80 transition-all duration-150 hover:bg-sky-500/25 hover:text-sky-300 active:scale-[0.97] disabled:opacity-30"
           >
             {t('filebrowser.confirm')}
           </button>
@@ -271,15 +271,15 @@ export function ContextMenu({
           top: y,
         }}
       >
-        <div className="mb-2 text-[11px] font-semibold tracking-wide text-white/60">{t('filebrowser.deleteTitle')}</div>
-        <div className="mb-3 text-[11px] leading-relaxed text-white/50">
+        <div className="mb-2 font-semibold tracking-wide text-white/60">{t('filebrowser.deleteTitle')}</div>
+        <div className="mb-3 leading-relaxed text-white/50">
           {t('filebrowser.deleteConfirm', { name: entry.name })}
         </div>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
+            className="rounded-lg px-3 py-1.5 text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]"
           >
             {t('filebrowser.cancel')}
           </button>
@@ -287,7 +287,7 @@ export function ContextMenu({
             type="button"
             onClick={handleDelete}
             disabled={loading}
-            className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-300/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-300 active:scale-[0.97] disabled:opacity-30"
+            className="rounded-lg bg-red-500/15 px-3 py-1.5 font-medium text-red-300/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-300 active:scale-[0.97] disabled:opacity-30"
           >
             {t('filebrowser.delete')}
           </button>
@@ -370,7 +370,7 @@ function MenuItem({
     <button
       type="button"
       onClick={onClick}
-      className={`group flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-[12px] tracking-[-0.01em] transition-all duration-100 active:scale-[0.98] ${
+      className={`group flex w-full items-center gap-2.5 px-3 py-[7px] text-left tracking-[-0.01em] transition-all duration-100 active:scale-[0.98] ${
         danger
           ? 'text-red-400/80 hover:bg-red-500/[0.12] hover:text-red-300'
           : 'text-white/70 hover:bg-white/[0.08] hover:text-white/90'

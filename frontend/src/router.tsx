@@ -9,6 +9,7 @@ import DropboxPage from './routes/DropboxPage'
 import GitGraphPage from './routes/GitGraphPage'
 import DiffPage from './routes/DiffPage'
 import XDisplayPage from './routes/XDisplayPage'
+import DBBrowserPage from './routes/DBBrowserPage'
 
 const rootRoute = createRootRoute()
 
@@ -78,6 +79,12 @@ const xdisplayRoute = createRoute({
   component: XDisplayPage,
 })
 
+const dbbrowserRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dbbrowser',
+  component: DBBrowserPage,
+})
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -88,6 +95,7 @@ const routeTree = rootRoute.addChildren([
   gitgraphRoute,
   diffRoute,
   xdisplayRoute,
+  dbbrowserRoute,
 ])
 
 export const router = createRouter({ routeTree })

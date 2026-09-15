@@ -32,10 +32,8 @@ Do NOT add `Co-Authored-By` trailers to commit messages unless the user explicit
 
 - **Never modify `.env` files.** The `.env` file contains the user's personal development/test settings. Do not read, write, or modify `.env` under any circumstances.
 
-### Tile Design — Font Sizes
+### Tile Design — Typography
 
-- Font must use **normal text size** as the base (the default body size, no `text-sm` or `text-xs` on containers).
-- Never use `text-sm`, `text-xs`, `text-[10px]`, `text-[11px]`, or any pixel sizes smaller than the base font on tile panels, sidebars, toolbars, or their children.
-- Use normal (base) text size for all body content. Do not shrink text for density.
-- For differentiation within a tile (labels, badges, hints), use **color/opacity only** — not smaller font sizes.
-- Icons and decorative elements may use arbitrary pixel sizes as needed.
+Follow the type scale and tile design rules in
+`.opencode/skills/suwu-tile-plugin-design/SKILL.md` (§11 *Material, typography &
+layout rules*). Do not invent font sizes outside that scale.

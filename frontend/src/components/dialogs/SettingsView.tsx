@@ -8,7 +8,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
 
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
 const sectionLabel = 'text-xs font-medium text-muted-foreground'
-const sectionHint = 'mt-2 text-[10px] leading-relaxed text-muted-foreground'
+const sectionHint = 'mt-2 text-[11px] leading-relaxed text-muted-foreground'
 
 const tabBtn =
   'rounded px-2.5 py-1.5 text-left text-xs text-muted-foreground outline-none transition-colors ' +

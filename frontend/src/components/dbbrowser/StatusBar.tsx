@@ -11,7 +11,7 @@ export default function StatusBar({ query, connected, onDisconnect }: StatusBarP
   const { t } = useTranslation()
 
   return (
-    <div className="flex shrink-0 items-center gap-3 border-t border-white/[0.06] px-3 py-1.5">
+    <div className="flex shrink-0 items-center gap-3 border-t border-white/[0.06] px-3 py-1.5 text-[10px]">
       {/* Connection status */}
       <div className="flex items-center gap-1.5">
         <div
@@ -68,7 +68,7 @@ export default function StatusBar({ query, connected, onDisconnect }: StatusBarP
         <button
           type="button"
           onClick={onDisconnect}
-          className="rounded px-2 py-0.5 text-red-400/80 transition-all hover:bg-red-500/15 hover:text-red-400"
+          className="rounded px-2 py-0.5 text-xs text-red-400/80 transition-all hover:bg-red-500/15 hover:text-red-400"
         >
           {t('dbbrowser.disconnect')}
         </button>

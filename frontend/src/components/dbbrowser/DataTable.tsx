@@ -115,7 +115,7 @@ export default function DataTable({ result }: DataTableProps) {
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-white/[0.10] bg-white/[0.02]">
       {/* Toolbar */}
       <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-1.5">
-        <span className="text-white/40">
+        <span className="text-[11px] text-white/40">
           {totalRows} row{totalRows !== 1 ? 's' : ''}
           {result.truncated && (
             <span className="ml-1 text-amber-400/80">(truncated)</span>
@@ -128,18 +128,18 @@ export default function DataTable({ result }: DataTableProps) {
               type="button"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className="rounded px-1.5 py-0.5 text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="rounded px-1.5 py-0.5 text-xs text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60 disabled:opacity-30 disabled:hover:bg-transparent"
             >
               ←
             </button>
-            <span className="tabular-nums text-white/40">
+            <span className="text-[11px] tabular-nums text-white/40">
               {table.getState().pagination.pageIndex + 1}/{table.getPageCount()}
             </span>
             <button
               type="button"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className="rounded px-1.5 py-0.5 text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="rounded px-1.5 py-0.5 text-xs text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60 disabled:opacity-30 disabled:hover:bg-transparent"
             >
               →
             </button>
@@ -148,7 +148,7 @@ export default function DataTable({ result }: DataTableProps) {
         <button
           type="button"
           onClick={handleExportCsv}
-          className="rounded px-1.5 py-0.5 text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
+          className="rounded px-1.5 py-0.5 text-xs text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
           title="Export CSV"
         >
           CSV
@@ -157,7 +157,7 @@ export default function DataTable({ result }: DataTableProps) {
 
       {/* Table */}
       <div className="min-h-0 flex-1 overflow-auto scrollbar-thin">
-        <table className="w-full border-collapse font-mono">
+        <table className="w-full border-collapse text-xs font-mono">
           <thead>
             {headerGroups.map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -166,7 +166,7 @@ export default function DataTable({ result }: DataTableProps) {
                   return (
                     <th
                       key={header.id}
-                      className="sticky top-0 z-10 border-b border-white/[0.10] bg-white/[0.06] px-3 py-1.5 text-left font-semibold text-white/60"
+                      className="sticky top-0 z-10 border-b border-white/[0.10] bg-white/[0.06] px-3 py-1.5 text-left text-xs font-semibold text-white/60"
                     >
                       {header.isPlaceholder ? null : (
                         <button
@@ -208,18 +208,18 @@ export default function DataTable({ result }: DataTableProps) {
       {expandedCell && (
         <div className="shrink-0 border-t border-white/[0.10] bg-white/[0.04]">
           <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-1.5">
-            <span className="font-semibold text-white/60">
+            <span className="text-xs font-semibold text-white/60">
               {expandedCell.colName}
             </span>
             <button
               type="button"
               onClick={() => setExpandedCell(null)}
-              className="rounded px-2 py-0.5 text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
+              className="rounded px-2 py-0.5 text-xs text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
             >
               Close
             </button>
           </div>
-          <div className="max-h-48 overflow-auto p-3 font-mono whitespace-pre-wrap break-all text-white/80">
+          <div className="max-h-48 overflow-auto p-3 text-sm font-mono whitespace-pre-wrap break-all text-white/80">
             {expandedCell.value}
           </div>
         </div>

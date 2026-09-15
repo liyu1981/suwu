@@ -68,7 +68,7 @@ export function UploadDialog({ currentPath, onClose, onUploadComplete, onError, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="w-[min(90vw,400px)] rounded-2xl border border-white/[0.08] p-5 shadow-2xl menu-glass backdrop-blur-2xl">
-        <div className="mb-4 text-[13px] font-semibold tracking-[-0.01em] text-white/80">{t('filebrowser.uploadTitle')}</div>
+        <div className="mb-4 text-base font-semibold tracking-[-0.01em] text-white/80">{t('filebrowser.uploadTitle')}</div>
 
         {!uploading ? (
           <>
@@ -81,7 +81,7 @@ export function UploadDialog({ currentPath, onClose, onUploadComplete, onError, 
                 <polyline points="17 8 12 3 7 8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              <span className="text-white/35 transition-colors group-hover:text-white/50">{t('filebrowser.clickToSelect')}</span>
+              <span className="text-[11px] text-white/35 transition-colors group-hover:text-white/50">{t('filebrowser.clickToSelect')}</span>
             </div>
             <input
               ref={fileInputRef}
@@ -94,23 +94,23 @@ export function UploadDialog({ currentPath, onClose, onUploadComplete, onError, 
             {selectedFiles.length > 0 && (
               <div className="mt-3 max-h-32 overflow-y-auto scrollbar-thin">
                 {selectedFiles.map((file) => (
-                  <div key={file.name} className="flex items-center justify-between py-1.5 text-white/60">
+                  <div key={file.name} className="flex items-center justify-between py-1.5 text-sm text-white/60">
                     <span className="truncate tracking-[-0.01em]">{file.name}</span>
-                    <span className="ml-2 shrink-0 tabular-nums text-white/30">{formatSize(file.size)}</span>
+                    <span className="ml-2 shrink-0 text-[11px] tabular-nums text-white/30">{formatSize(file.size)}</span>
                   </div>
                 ))}
               </div>
             )}
 
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]">
+              <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs text-white/40 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.97]">
                 {t('filebrowser.cancel')}
               </button>
               <button
                 type="button"
                 onClick={uploadFiles}
                 disabled={selectedFiles.length === 0}
-                className="rounded-lg bg-sky-500/15 px-3.5 py-1.5 font-medium text-sky-300/80 transition-all duration-150 hover:bg-sky-500/25 hover:text-sky-300 active:scale-[0.97] disabled:opacity-30"
+                className="rounded-lg bg-sky-500/15 px-3.5 py-1.5 text-xs font-medium text-sky-300/80 transition-all duration-150 hover:bg-sky-500/25 hover:text-sky-300 active:scale-[0.97] disabled:opacity-30"
               >
                 {t('filebrowser.upload')} ({selectedFiles.length})
               </button>
@@ -118,14 +118,14 @@ export function UploadDialog({ currentPath, onClose, onUploadComplete, onError, 
           </>
         ) : (
           <div className="py-4">
-            <div className="mb-3 text-white/50">{t('filebrowser.uploading')}: {currentFile}</div>
+            <div className="mb-3 text-[11px] text-white/50">{t('filebrowser.uploading')}: {currentFile}</div>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
               <div
                 className="h-full rounded-full bg-sky-400/60 transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="mt-1.5 text-right tabular-nums text-white/25">{progress}%</div>
+            <div className="mt-1.5 text-right text-[10px] tabular-nums text-white/25">{progress}%</div>
           </div>
         )}
       </div>

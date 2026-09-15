@@ -84,7 +84,7 @@ export default function SuwuDialog() {
             </button>
           )}
 
-          <span className="min-w-0 flex-1 truncate text-center text-sm font-semibold tracking-tight text-popover-foreground">
+          <span className="min-w-0 flex-1 truncate text-center text-base font-semibold tracking-tight text-popover-foreground">
             {TITLES[view]}
           </span>
 

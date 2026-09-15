@@ -179,11 +179,11 @@ export function TileTools({
                 >
                   <span className="text-xs font-semibold text-white/80">{t('wm.spaceLabel', { number: s.label })}{isCurrent ? ' (' + t('wm.currentSpace') + ')' : ''}</span>
                   {s.tileLabels.length > 0 ? (
-                    <span className="text-[10px] text-white/40">
+                    <span className="text-[11px] text-white/40">
                       {s.tileLabels.join(' · ')}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-white/30">{t('wm.emptySpace')}</span>
+                    <span className="text-[11px] text-white/30">{t('wm.emptySpace')}</span>
                   )}
                 </button>
                 )

@@ -30,7 +30,7 @@ export function NotificationBell() {
     >
       <BellIcon />
       {unread > 0 && (
-        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[8px] font-bold leading-none text-black">
+        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[10px] font-bold leading-none text-black">
           {unread > 99 ? '99+' : unread}
         </span>
       )}

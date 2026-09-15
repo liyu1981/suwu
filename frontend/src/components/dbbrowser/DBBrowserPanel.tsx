@@ -12,7 +12,7 @@ import SchemaSidebar from './SchemaSidebar'
 import StatusBar from './StatusBar'
 
 const btnPrimary =
-  'rounded-lg bg-cyan-500/25 px-3 py-1.5 font-medium text-cyan-300 transition-all hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30'
+  'rounded-lg bg-cyan-500/25 px-3 py-1.5 text-xs font-medium text-cyan-300 transition-all hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30'
 
 /** localStorage key + bounds (px) for the resizable schema sidebar. */
 const SCHEMA_WIDTH_KEY = 'suwu_db_schema_width'
@@ -112,13 +112,13 @@ export default function DBBrowserPanel() {
       <div className="flex h-full flex-col">
         {/* Header */}
         <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2">
-          <span className="font-semibold tracking-wide text-white/60">
+          <span className="text-base font-semibold tracking-wide text-white/60">
             {t('dbbrowser.title')}
           </span>
           {connection && (
             <>
-              <span className="text-white/30">•</span>
-              <span className="text-white/40">
+              <span className="text-[10px] text-white/30">•</span>
+              <span className="text-[11px] text-white/40">
                 {connection.driver.toUpperCase()} • {connection.database}
               </span>
             </>
@@ -164,7 +164,7 @@ export default function DBBrowserPanel() {
               {/* SQL Editor */}
               <div className="flex h-[35%] shrink-0 flex-col pb-1.5">
                 <div className="flex shrink-0 items-center gap-2 pb-1">
-                  <span className="font-semibold uppercase tracking-wider text-white/30">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-white/30">
                     {t('dbbrowser.sqlEditor')}
                   </span>
                   <div className="flex-1" />
@@ -189,7 +189,7 @@ export default function DBBrowserPanel() {
               {/* Results */}
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex shrink-0 items-center gap-2 pb-1">
-                  <span className="font-semibold uppercase tracking-wider text-white/30">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-white/30">
                     {t('dbbrowser.results')}
                   </span>
                 </div>
@@ -198,13 +198,13 @@ export default function DBBrowserPanel() {
                     <DataTable result={query.result} />
                   ) : query.error ? (
                     <div className="flex h-full items-center justify-center rounded-lg border border-red-500/20 bg-red-500/5 p-4">
-                      <div className="max-w-md text-center text-red-400/80">
+                      <div className="max-w-md text-center text-[11px] text-red-400/80">
                         {query.error}
                       </div>
                     </div>
                   ) : (
                     <div className="flex h-full items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02]">
-                      <div className="text-center text-white/25">
+                      <div className="text-center text-[11px] text-white/25">
                         {t('dbbrowser.noResults')}
                       </div>
                     </div>

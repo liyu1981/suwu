@@ -394,6 +394,21 @@ Rules:
 - **Migrate off-scale values when you touch them:** `text-[13px]` → Body (14px),
   `text-[12px]` → Label (12px), `text-[8px]` → Micro (10px).
 
+Element → category cheatsheet (use this when auditing a tile):
+
+| Element | Category |
+|---------|----------|
+| Dialog / panel / sidebar title | Heading (16) |
+| Primary list rows, file names, table cells, inputs, code/diff blocks | Body (14) |
+| Buttons, tabs, menu items, table headers, form & section labels, badges | Label (12) |
+| Hints, helper text, descriptions, error text, secondary meta | Caption (11) |
+| Timestamps, counts, kbd chips, status bars, tag/ref chips, decorative arrows | Micro (10) |
+| Toolbar letter marks (`A-`/`A+`) | Glyph (9) |
+
+**This scale is enforced.** `frontend/scripts/check-typography.mjs` fails the
+build (`pnpm check`, run in CI) on any font-size utility outside the table above.
+Run `pnpm --dir frontend check:typography` locally before committing.
+
 **Shell.** The plugin UI owns the full iframe: `h-screen w-screen`, inner
 `overflow-hidden`, and `rounded-[6px]` to match the pane radius. Long content
 scrolls in an inner `min-h-0 flex-1 overflow-auto` region, keeping the header

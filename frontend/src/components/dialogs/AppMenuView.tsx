@@ -113,7 +113,7 @@ function ParamRow({
           value={paramKey}
           onChange={(e) => onChangeKey(e.target.value)}
           placeholder="key"
-          className="w-20 shrink-0 rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-mono text-popover-foreground outline-none transition-colors focus:border-sky-400/50"
+          className="w-20 shrink-0 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs font-mono text-popover-foreground outline-none transition-colors focus:border-sky-400/50"
         />
         <input
           type="text"
@@ -132,7 +132,7 @@ function ParamRow({
         </button>
       </div>
       {doc?.description && (
-        <span className="pl-22 text-[10px] leading-tight text-muted-foreground/50">{doc.description}</span>
+        <span className="pl-22 text-[11px] leading-tight text-muted-foreground/50">{doc.description}</span>
       )}
     </div>
   )
@@ -215,7 +215,7 @@ function EditingForm({
     <div className="mx-10 my-1 space-y-2.5 rounded border border-white/5 bg-black/20 p-2.5">
       {/* Label */}
       <div className="flex items-center gap-2">
-        <span className="w-20 shrink-0 text-[11px] text-muted-foreground">{t('appMenu.label')}</span>
+        <span className="w-20 shrink-0 text-xs text-muted-foreground">{t('appMenu.label')}</span>
         <input
           type="text"
           value={cfg.label}
@@ -226,7 +226,7 @@ function EditingForm({
 
       {/* Description */}
       <div className="flex items-center gap-2">
-        <span className="w-20 shrink-0 text-[11px] text-muted-foreground">{t('appMenu.descField')}</span>
+        <span className="w-20 shrink-0 text-xs text-muted-foreground">{t('appMenu.descField')}</span>
         <input
           type="text"
           value={cfg.description ?? ''}
@@ -238,7 +238,7 @@ function EditingForm({
 
       {/* Plugin selector */}
       <div className="flex items-center gap-2">
-        <span className="w-20 shrink-0 text-[11px] text-muted-foreground">{t('appMenu.plugin')}</span>
+        <span className="w-20 shrink-0 text-xs text-muted-foreground">{t('appMenu.plugin')}</span>
         <Select value={cfg.pluginId} onValueChange={setPluginId}>
           <SelectTrigger className="flex-1">
             <span>{pluginOptions.find((p) => p.id === cfg.pluginId)?.label ?? cfg.pluginId}</span>
@@ -254,18 +254,18 @@ function EditingForm({
       {/* Parameters */}
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-[11px] text-muted-foreground">{t('appMenu.params')}</span>
+          <span className="text-xs text-muted-foreground">{t('appMenu.params')}</span>
           <button
             type="button"
             onClick={addParam}
-            className="text-[10px] text-sky-400/70 transition-colors hover:text-sky-400"
+            className="text-xs text-sky-400/70 transition-colors hover:text-sky-400"
           >
             + {t('appMenu.addParam')}
           </button>
         </div>
 
         {allKeys.length === 0 && (
-          <p className="text-[10px] text-muted-foreground/40">{t('appMenu.noParams')}</p>
+          <p className="text-[11px] text-muted-foreground/40">{t('appMenu.noParams')}</p>
         )}
 
         <div className="space-y-1.5">
@@ -294,7 +294,7 @@ function EditingForm({
         <button
           type="button"
           onClick={onDelete}
-          className="flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
+          className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
           <TrashIcon />
           {t('appMenu.remove')}
@@ -599,7 +599,7 @@ export default function AppMenuView() {
         <button
           type="button"
           onClick={toggleAll}
-          className="shrink-0 rounded px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-popover-foreground"
+          className="shrink-0 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-popover-foreground"
         >
           {allVisible ? t('appMenu.hideAll') : t('appMenu.showAll')}
         </button>
@@ -638,7 +638,7 @@ export default function AppMenuView() {
                     <button
                       type="button"
                       onClick={() => toggleExpand(item.id)}
-                      className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                      className="mt-1 flex items-center gap-1 text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                     >
                       <ChevronIcon open={expanded} />
                       {expanded ? t('appMenu.collapse') : t('appMenu.configure')}

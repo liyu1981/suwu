@@ -91,7 +91,7 @@ export default function SQLEditor({ value, onChange, onExecute, readOnly }: SQLE
           readOnly,
           minimap: { enabled: false },
           fontFamily: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace",
-          fontSize: 16,
+          fontSize: 14,
           fontLigatures: true,
           lineNumbers: 'on',
           glyphMargin: false,
@@ -119,7 +119,7 @@ export default function SQLEditor({ value, onChange, onExecute, readOnly }: SQLE
           },
         }}
         loading={
-          <div className="flex h-full items-center justify-center text-white/40">
+          <div className="flex h-full items-center justify-center text-[11px] text-white/40">
             Loading editor...
           </div>
         }

@@ -117,7 +117,7 @@ export default function AboutView() {
             type="button"
             onClick={handleCheckUpdate}
             disabled={checking}
-            className="text-[11px] text-muted-foreground transition hover:text-popover-foreground disabled:opacity-50"
+            className="text-xs text-muted-foreground transition hover:text-popover-foreground disabled:opacity-50"
           >
             {checking ? '...' : checkResult ?? t('notifications.checkForUpdates')}
           </button>

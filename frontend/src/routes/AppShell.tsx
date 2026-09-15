@@ -167,7 +167,7 @@ export default function AppShell() {
                     <div key={space.id} className="relative">
                       <button
                         type="button"
-                        className={`grid h-6 w-6 place-items-center rounded text-[11px] font-medium transition ${
+                        className={`grid h-6 w-6 place-items-center rounded text-xs font-medium transition ${
                           i === activeSpace
                             ? 'bg-white/15 text-white'
                             : 'text-white/40 hover:bg-white/10 hover:text-white/70'
@@ -255,7 +255,7 @@ export default function AppShell() {
                   })}
                   <button
                     type="button"
-                    className="grid h-6 w-6 place-items-center rounded text-[11px] text-white/30 transition hover:bg-white/10 hover:text-white/60"
+                    className="grid h-6 w-6 place-items-center rounded text-xs text-white/30 transition hover:bg-white/10 hover:text-white/60"
                     onClick={addNewSpace}
                     title={t('wm.addSpace')}
                   >

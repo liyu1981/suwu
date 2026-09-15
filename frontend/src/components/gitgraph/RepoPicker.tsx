@@ -132,7 +132,7 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
           <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
             <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
           </svg>
-          <span className="leading-snug">{error}</span>
+          <span className="text-[11px] leading-snug">{error}</span>
         </div>
       )}
 
@@ -192,7 +192,7 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
             }}
             placeholder="/path/to/repo"
             spellCheck={false}
-            className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-white/80 outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-white/10"
+            className="w-full rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white/80 outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-white/10"
           />
           {/* Autocomplete dropdown */}
           {showSuggestions && suggestions.length > 0 && (
@@ -214,7 +214,7 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
                     setSelectedIndex(-1)
                   }}
                   onMouseEnter={() => setSelectedIndex(i)}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition ${
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left transition ${
                     i === selectedIndex ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'
                   }`}
                 >
@@ -231,14 +231,14 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
           type="button"
           onClick={submitManual}
           disabled={manualPath.trim() === ''}
-          className="glass-btn shrink-0 rounded-md bg-green-500/20 px-3 py-1.5 font-medium text-green-300 transition hover:bg-green-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+          className="glass-btn shrink-0 rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-300 transition hover:bg-green-500/30 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Open
         </button>
       </div>
 
       {/* Dir list header */}
-      <div className="flex items-center rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 font-semibold uppercase tracking-widest text-white/35">
+      <div className="flex items-center rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-white/35">
         <span className="flex-1">Name</span>
       </div>
 
@@ -249,12 +249,12 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
           </div>
         ) : browseError ? (
-          <div className="p-4 text-red-300">
+          <div className="p-4 text-[11px] text-red-300">
             {browseError}
             <button type="button" onClick={goUp} className="ml-2 text-white/60 underline hover:text-white">Go up</button>
           </div>
         ) : dirs.length === 0 ? (
-          <div className="p-4 text-white/40">No subfolders here.</div>
+          <div className="p-4 text-[11px] text-white/40">No subfolders here.</div>
         ) : (
           <div className="divide-y divide-white/5">
             {dirs.map((d) => (
@@ -263,7 +263,7 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
                 type="button"
                 onDoubleClick={() => onSelect(joinPath(currentPath, d.name))}
                 onClick={() => open(d.name)}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-white/70 transition hover:bg-white/10 hover:text-white"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left text-white/70 transition hover:bg-white/10 hover:text-white"
               >
                 <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400/80" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/>

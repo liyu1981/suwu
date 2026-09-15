@@ -186,7 +186,7 @@ function TreeView({
       <button
         type="button"
         onClick={() => onNavigate('/')}
-        className={`flex w-full items-center gap-1.5 px-2 py-[5px] text-left text-[13px] tracking-[-0.01em] transition-all duration-150 active:scale-[0.99] ${
+        className={`flex w-full items-center gap-1.5 px-2 py-[5px] text-left text-sm tracking-[-0.01em] transition-all duration-150 active:scale-[0.99] ${
           currentPath === '/'
             ? 'bg-white/[0.08] text-white'
             : 'text-white/60 hover:bg-white/[0.04] hover:text-white/80'
@@ -257,7 +257,7 @@ function TreeNodeItem({
         ref={btnRef}
         type="button"
         onClick={() => onNavigate(node.path)}
-        className={`flex w-full items-center gap-1 py-[5px] text-left text-[13px] tracking-[-0.01em] transition-all duration-150 active:scale-[0.99] ${
+        className={`flex w-full items-center gap-1 py-[5px] text-left text-sm tracking-[-0.01em] transition-all duration-150 active:scale-[0.99] ${
           isActive
             ? 'bg-white/[0.08] text-white'
             : 'text-white/60 hover:bg-white/[0.04] hover:text-white/80'
@@ -505,7 +505,7 @@ export default function FileBrowserPage() {
           <button
             type="button"
             onClick={copyPath}
-            className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2.5 py-1 text-left text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.99]"
+            className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2.5 py-1 text-left text-xs text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.99]"
             title={t('filebrowser.copyPath')}
           >
             <span className="truncate font-mono tracking-tight">{currentPath}</span>
@@ -533,7 +533,7 @@ export default function FileBrowserPage() {
           {/* Right: file list */}
           <div className="flex min-w-0 flex-1 flex-col">
             {/* Column headers — glass material */}
-            <div className="flex shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3 text-[10px] font-semibold uppercase tracking-widest text-white/35">
+            <div className="flex shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3 text-xs font-semibold uppercase tracking-widest text-white/35">
               <button type="button" onClick={() => handleSort('name')} className="flex-1 py-2 text-left transition-colors duration-150 hover:text-white/60 active:scale-[0.99]">
                 {t('filebrowser.name')}<SortIndicator col="name" />
               </button>
@@ -555,17 +555,17 @@ export default function FileBrowserPage() {
               }}
             >
               {loading && (
-                <div className="flex items-center justify-center py-12 text-white/30">
+                <div className="flex items-center justify-center py-12 text-[11px] text-white/30">
                   {t('filebrowser.loading')}
                 </div>
               )}
               {error && (
-                <div className="flex items-center justify-center py-12 text-red-400/80">
+                <div className="flex items-center justify-center py-12 text-[11px] text-red-400/80">
                   {error}
                 </div>
               )}
               {!loading && !error && sorted.length === 0 && (
-                <div className="flex items-center justify-center py-12 text-white/30">
+                <div className="flex items-center justify-center py-12 text-[11px] text-white/30">
                   {t('filebrowser.emptyFolder')}
                 </div>
               )}
@@ -591,7 +591,7 @@ export default function FileBrowserPage() {
                       ) : (
                         <FileIcon className="text-white/25 group-hover:text-white/35" />
                       )}
-                      <span className="truncate text-[13px] tracking-[-0.01em]">{entry.name}</span>
+                      <span className="truncate text-sm tracking-[-0.01em]">{entry.name}</span>
                     </div>
                     <div className="w-24 shrink-0 text-right text-[11px] tabular-nums text-white/30">
                       {entry.isDir ? '' : formatSize(entry.size)}

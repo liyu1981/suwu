@@ -36,7 +36,7 @@ export function AuthDialog({ open, onAuthenticated }: { open: boolean; onAuthent
         aria-describedby={undefined}
         className="flex w-[min(92vw,18rem)] flex-col gap-0"
       >
-        <DialogTitle className="text-center text-sm font-semibold tracking-tight text-popover-foreground">
+        <DialogTitle className="text-center text-base font-semibold tracking-tight text-popover-foreground">
           {t('auth.enterPassword')}
         </DialogTitle>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">

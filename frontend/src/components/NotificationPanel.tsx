@@ -92,7 +92,7 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
             type="button"
             onClick={isUpgrade ? handleUpgrade : handleAction}
             disabled={upgradingLocal}
-            className={`rounded px-2 py-0.5 text-[10px] font-medium transition ${
+            className={`rounded px-2 py-0.5 text-xs font-medium transition ${
               isUpgrade
                 ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 hover:text-emerald-200 disabled:opacity-50'
                 : 'bg-sky-500/15 text-sky-300 hover:bg-sky-500/25 hover:text-sky-200'
@@ -105,7 +105,7 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
           <button
             type="button"
             onClick={() => onRead(n)}
-            className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/60 transition hover:bg-white/15 hover:text-white/80"
+            className="rounded bg-white/10 px-2 py-0.5 text-xs font-medium text-white/60 transition hover:bg-white/15 hover:text-white/80"
           >
             {t('notifications.read')}
           </button>

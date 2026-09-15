@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "check": "biome check src --reporter=summary",
+    "check": "biome check src --reporter=summary && node scripts/check-typography.mjs",
+    "check:typography": "node scripts/check-typography.mjs",
     "check:write": "biome check src --write"
   },
   "dependencies": {

@@ -56,7 +56,7 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
                 type="button"
                 disabled={item.disabled}
                 onClick={() => { item.onClick(); onClose() }}
-                className={`group flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-[12px] tracking-[-0.01em] transition-all duration-100 active:scale-[0.98] ${
+                className={`group flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-xs tracking-[-0.01em] transition-all duration-100 active:scale-[0.98] ${
                   item.danger
                     ? 'text-red-400/80 hover:bg-red-500/[0.12] hover:text-red-300'
                     : 'text-white/70 hover:bg-white/[0.08] hover:text-white/90'

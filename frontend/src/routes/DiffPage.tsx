@@ -249,7 +249,7 @@ export default function DiffPage() {
 
         {/* Row 1 — toolbar */}
         <div className="flex h-8 shrink-0 items-center gap-2 rounded-t-[6px] border-b border-white/10 px-3 py-1.5 glass-control">
-          <span className="text-[11px] font-semibold tracking-wide text-white/60">Diff</span>
+          <span className="text-base font-semibold tracking-wide text-white/60">Diff</span>
           <div className="ml-2 flex items-center gap-1.5 text-[10px] text-white/40">
             <span className="truncate max-w-[200px]">{fileName1}</span>
             <span className="text-white/20">↔</span>
@@ -271,11 +271,11 @@ export default function DiffPage() {
         ) : error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
             <svg className="h-8 w-8 text-red-400" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
-            <div className="max-w-sm text-center text-red-300">{error}</div>
+            <div className="max-w-sm text-center text-[11px] text-red-300">{error}</div>
           </div>
         ) : parsed.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
-            <div className="text-white/60">Files are identical — no differences.</div>
+            <div className="text-[11px] text-white/60">Files are identical — no differences.</div>
           </div>
         ) : (
           /* Side-by-side diff */
@@ -286,7 +286,7 @@ export default function DiffPage() {
                 <span className="text-[10px] font-medium text-white/50 truncate">{fileName1}</span>
                 <span className="ml-2 text-[10px] text-red-400/60">old</span>
               </div>
-              <div ref={leftRef} onScroll={onLeftScroll} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin" style={{ fontFamily: diffFontFamily, lineHeight: 1.6 }}>
+              <div ref={leftRef} onScroll={onLeftScroll} className="min-h-0 flex-1 overflow-y-auto text-xs scrollbar-thin" style={{ fontFamily: diffFontFamily, lineHeight: 1.6 }}>
                 {parsed.map((line, i) => {
                   let cls = 'text-white/50';
                   if (line.type === 'remove') cls = 'bg-rose-400/[0.06] text-rose-200/60';
@@ -318,7 +318,7 @@ export default function DiffPage() {
                 <span className="text-[10px] font-medium text-white/50 truncate">{fileName2}</span>
                 <span className="ml-2 text-[10px] text-green-400/60">new</span>
               </div>
-              <div ref={rightRef} onScroll={onRightScroll} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin" style={{ fontFamily: diffFontFamily, lineHeight: 1.6 }}>
+              <div ref={rightRef} onScroll={onRightScroll} className="min-h-0 flex-1 overflow-y-auto text-xs scrollbar-thin" style={{ fontFamily: diffFontFamily, lineHeight: 1.6 }}>
                 {parsed.map((line, i) => {
                   let cls = 'text-white/50';
                   if (line.type === 'add') cls = 'bg-emerald-400/[0.06] text-emerald-200/60';

@@ -79,7 +79,7 @@ export default function SchemaSidebar({
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-white/[0.10] bg-white/[0.02]">
       {/* Header */}
       <div className="flex shrink-0 items-center gap-1.5 border-b border-white/[0.06] px-2.5 py-1.5">
-        <span className="font-semibold tracking-wide text-white/60">
+        <span className="text-base font-semibold tracking-wide text-white/60">
           {t('dbbrowser.schema')}
         </span>
         <div className="flex-1" />
@@ -101,7 +101,7 @@ export default function SchemaSidebar({
       {/* Content */}
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
         {tables.length === 0 && (
-          <div className="px-3 py-6 text-center text-white/30">
+          <div className="px-3 py-6 text-center text-[11px] text-white/30">
             {t('dbbrowser.noTables')}
           </div>
         )}
@@ -109,7 +109,7 @@ export default function SchemaSidebar({
         {/* Tables */}
         {tables_.length > 0 && (
           <div className="py-1">
-            <div className="px-2.5 py-1 font-semibold uppercase tracking-wider text-white/30">
+            <div className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-white/30">
               {t('dbbrowser.tables')} ({tables_.length})
             </div>
             {tables_.map((table) => (
@@ -131,7 +131,7 @@ export default function SchemaSidebar({
         {/* Views */}
         {views.length > 0 && (
           <div className="py-1">
-            <div className="px-2.5 py-1 font-semibold uppercase tracking-wider text-white/30">
+            <div className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-white/30">
               {t('dbbrowser.views')} ({views.length})
             </div>
             {views.map((view) => (
@@ -183,7 +183,7 @@ function TableItem({
           type="button"
           onClick={onExpand}
           title={table.name}
-          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs"
         >
           <span className="text-white/30">{isExpanded ? '▼' : '▶'}</span>
           <svg className="h-3 w-3 shrink-0 text-amber-400/60" viewBox="0 0 16 16" fill="currentColor">
@@ -196,7 +196,7 @@ function TableItem({
           <button
             type="button"
             onClick={onSelectAll}
-            className="rounded px-1 py-0.5 text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
+            className="rounded px-1 py-0.5 text-xs text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
             title="SELECT *"
           >
             ⚡
@@ -204,7 +204,7 @@ function TableItem({
           <button
             type="button"
             onClick={onCount}
-            className="rounded px-1 py-0.5 text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
+            className="rounded px-1 py-0.5 text-xs text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/60"
             title="COUNT(*)"
           >
             #
@@ -216,13 +216,13 @@ function TableItem({
       {isExpanded && (
         <div className="ml-4 border-l border-white/[0.06] pl-2">
           {isLoadingColumns && (
-            <div className="px-2 py-1 text-white/30">Loading...</div>
+            <div className="px-2 py-1 text-[11px] text-white/30">Loading...</div>
           )}
           {columns?.map((col) => (
             <button
               key={col.name}
               type="button"
-              className="flex w-full items-center gap-1.5 px-2 py-0.5 text-left transition-colors hover:bg-white/[0.04]"
+              className="flex w-full items-center gap-1.5 px-2 py-0.5 text-left text-xs transition-colors hover:bg-white/[0.04]"
               onClick={() => onInsertColumn(col.name)}
               title={`Insert ${col.name}`}
             >
@@ -234,7 +234,7 @@ function TableItem({
             </button>
           ))}
           {!isLoadingColumns && columns?.length === 0 && (
-            <div className="px-2 py-1 text-white/30">No columns</div>
+            <div className="px-2 py-1 text-[11px] text-white/30">No columns</div>
           )}
         </div>
       )}

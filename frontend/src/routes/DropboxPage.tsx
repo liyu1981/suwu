@@ -136,7 +136,7 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="flex h-24 items-center justify-center text-white/30">
+          <div className="flex h-24 items-center justify-center text-[11px] text-white/30">
             {t('dropbox.loadingPreview')}
           </div>
         )}
@@ -158,12 +158,12 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
               preload="auto"
               muted
             />
-            <div className="flex h-24 items-center justify-center text-white/30">
+            <div className="flex h-24 items-center justify-center text-[11px] text-white/30">
               {t('dropbox.loadingPreview')}
             </div>
           </>
         ) : (
-          <div className="flex h-24 items-center justify-center text-white/30">
+          <div className="flex h-24 items-center justify-center text-[11px] text-white/30">
             {t('dropbox.loadingPreview')}
           </div>
         )}
@@ -184,7 +184,7 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
   // Other: show file type badge.
   return (
     <div className="mt-2 flex justify-center">
-      <div className="flex h-16 w-24 items-center justify-center rounded bg-white/5 font-medium text-white/30">
+      <div className="flex h-16 w-24 items-center justify-center rounded bg-white/5 text-xs font-medium text-white/30">
         {getFileExt(entry.name)}
       </div>
     </div>
@@ -398,13 +398,13 @@ export default function DropboxPage() {
           >
             <RefreshIcon className="h-3 w-3" />
           </button>
-          <span className="font-semibold">{t('dropbox.title')}</span>
+          <span className="text-base font-semibold">{t('dropbox.title')}</span>
         </div>
 
         {/* Content — left/right borders + inset shadow */}
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           {loading ? (
-            <div className="flex h-full items-center justify-center text-white/40">
+            <div className="flex h-full items-center justify-center text-[11px] text-white/40">
               {t('dropbox.loading')}
             </div>
           ) : (
@@ -416,10 +416,10 @@ export default function DropboxPage() {
                 }`}
               >
                 <FileIcon className="h-8 w-8 text-white/20" />
-                <p className="text-white/40">
+                <p className="text-[11px] text-white/40">
                   {dragOver ? t('dropbox.dropHintActive') : t('dropbox.dropHint')}
                 </p>
-                {uploading && <p className="text-violet-400">{t('dropbox.uploading')}</p>}
+                {uploading && <p className="text-[11px] text-violet-400">{t('dropbox.uploading')}</p>}
               </div>
 
               {/* Search input — below drop area */}
@@ -430,13 +430,13 @@ export default function DropboxPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t('dropbox.searchPlaceholder')}
-                  className="flex-1 bg-transparent text-white/80 outline-none placeholder:text-white/30"
+                  className="flex-1 bg-transparent text-sm text-white/80 outline-none placeholder:text-white/30"
                 />
               </div>
 
               {/* File list */}
               {filtered.length > 0 && (
-                <p className="mx-2 mt-4 mb-1 text-[10px] font-medium uppercase tracking-widest text-white/30">
+                <p className="mx-2 mt-4 mb-1 text-xs font-medium uppercase tracking-widest text-white/30">
                   {t('dropbox.currentFiles', { path: dropboxPath })}
                 </p>
               )}
@@ -457,7 +457,7 @@ export default function DropboxPage() {
                         tabIndex={0}
                       >
                         <FileIcon className="h-3.5 w-3.5 shrink-0 text-white/40" />
-                        <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
                         <span className="shrink-0 text-[10px] text-white/40">{formatSize(entry.size)}</span>
                         <span className="hidden shrink-0 text-[10px] text-white/30 sm:inline">{relativeTime(entry.modTime, t)}</span>
                         <button
@@ -507,13 +507,13 @@ export default function DropboxPage() {
               value={cleanupTarget}
               onChange={(e) => setCleanupTarget(e.target.value)}
               placeholder={t('dropbox.cleanupPlaceholder')}
-              className="w-16 bg-transparent text-[10px] text-white/60 outline-none placeholder:text-white/30"
+              className="w-16 bg-transparent text-xs text-white/60 outline-none placeholder:text-white/30"
             />
             <button
               type="button"
               onClick={handleCleanup}
               disabled={!cleanupTarget}
-              className="glass-btn rounded px-1.5 py-0.5 text-[10px] text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+              className="glass-btn rounded px-1.5 py-0.5 text-xs text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
             >
               {t('dropbox.cleanup')}
             </button>

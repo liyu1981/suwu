@@ -291,10 +291,10 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
           'bg-red-500'
         }`} />
         {/* Display info + status */}
-        <span className="font-semibold tracking-wide text-white/60">
+        <span className="text-base font-semibold tracking-wide text-white/60">
           DISPLAY :{display.replace(/^:/, '')}
         </span>
-        <span className="text-white/40">
+        <span className="text-[11px] text-white/40">
           {status === 'connected' ? 'Connected' :
            status === 'connecting' ? 'Connecting…' :
            depError ? 'Missing dependencies' :
@@ -330,7 +330,7 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
                 <path d="M12 8v4" />
                 <path d="M12 16h.01" />
               </svg>
-              <h3 className="font-semibold text-white">X Display Requirements Not Met</h3>
+              <h3 className="text-base font-semibold text-white">X Display Requirements Not Met</h3>
             </div>
 
             {/* Component status list */}
@@ -347,7 +347,7 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
                       <path d="M6 6l12 12" />
                     </svg>
                   )}
-                  <span className={`text-white/60 ${c.installed ? 'text-white/60' : 'text-white/90'}`}>
+                  <span className={`text-xs text-white/60 ${c.installed ? 'text-white/60' : 'text-white/90'}`}>
                     {c.name}
                     <span className="ml-1.5 text-white/40">{c.description}</span>
                   </span>
@@ -357,11 +357,11 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
 
             {/* Install commands */}
             <div className="mb-4 space-y-2">
-              <p className="font-medium text-white/50">Install missing packages:</p>
+              <p className="text-xs font-medium text-white/50">Install missing packages:</p>
               {Object.entries(depError.install).map(([distro, cmd]) => (
                 <div key={distro} className="rounded-md bg-black/40 px-3 py-2">
-                  <p className="mb-1 font-medium text-white/40 capitalize">{distroLabels[distro] ?? distro}</p>
-                  <code className="block font-mono text-green-400/90">{cmd}</code>
+                  <p className="mb-1 text-xs font-medium text-white/40 capitalize">{distroLabels[distro] ?? distro}</p>
+                  <code className="block text-xs font-mono text-green-400/90">{cmd}</code>
                 </div>
               ))}
             </div>
@@ -370,7 +370,7 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
             <button
               type="button"
               onClick={handleRetry}
-              className="w-full rounded-lg bg-white/10 px-4 py-2 font-semibold text-white transition-colors hover:bg-white/20"
+              className="w-full rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20"
             >
               🔄 Retry
             </button>
@@ -388,15 +388,15 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
                 <path d="M12 9v4" />
                 <path d="M12 17h.01" />
               </svg>
-              <h3 className="font-semibold text-white">Display In Use</h3>
+              <h3 className="text-base font-semibold text-white">Display In Use</h3>
             </div>
 
-            <p className="mb-4 text-white/60">
+            <p className="mb-4 text-sm text-white/60">
               Display <span className="font-mono text-white/90">{displayInUse.display}</span> is already connected by another tile.
             </p>
 
             <div className="mb-4">
-              <label className="mb-1.5 block font-medium text-white/50">Switch to display number:</label>
+              <label className="mb-1.5 block text-xs font-medium text-white/50">Switch to display number:</label>
               <div className="flex gap-2">
                 <div className="flex flex-1 items-center rounded-lg border border-white/10 bg-black/30 px-2">
                   <span className="text-white/40">:</span>
@@ -408,7 +408,7 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
                     placeholder="99"
                     min={0}
                     max={99}
-                    className="w-full bg-transparent px-1 py-2 text-white outline-none placeholder:text-white/30"
+                    className="w-full bg-transparent px-1 py-2 text-sm text-white outline-none placeholder:text-white/30"
                   />
                 </div>
               </div>
@@ -418,7 +418,7 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
               <button
                 type="button"
                 onClick={handleRetry}
-                className="flex-1 rounded-lg bg-white/5 px-4 py-2 font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white/80"
+                className="flex-1 rounded-lg bg-white/5 px-4 py-2 text-xs font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white/80"
               >
                 Cancel
               </button>
@@ -426,7 +426,7 @@ export default function XDisplayPane({ display = '99', title, desktop, fps: fpsP
                 type="button"
                 onClick={handleSwitchDisplay}
                 disabled={!switchDisplay.trim()}
-                className="flex-1 rounded-lg bg-white/10 px-4 py-2 font-semibold text-white transition-colors hover:bg-white/20 disabled:opacity-30"
+                className="flex-1 rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/20 disabled:opacity-30"
               >
                 Switch
               </button>

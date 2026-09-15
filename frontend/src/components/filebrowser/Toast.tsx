@@ -59,7 +59,7 @@ export function Toast({ message, type = 'info', duration = 3000, onClose }: Toas
           </svg>
         )}
       </span>
-      <span className="text-[12px] font-medium tracking-[-0.01em]">{message}</span>
+      <span className="text-xs font-medium tracking-[-0.01em]">{message}</span>
     </div>
   )
 }

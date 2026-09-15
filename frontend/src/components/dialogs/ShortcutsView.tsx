@@ -29,7 +29,7 @@ function Row(props: { label: string; keys: string[][] }) {
   )
 }
 
-const sectionTitle = 'mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'
+const sectionTitle = 'mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground'
 const sectionBox = 'mt-1 divide-y divide-white/5'
 
 interface ShortcutItem {

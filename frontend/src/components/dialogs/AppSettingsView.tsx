@@ -27,7 +27,7 @@ const stepBtn =
   'h-7 w-7 place-items-center rounded text-slate-300 transition glass-btn disabled:cursor-not-allowed disabled:opacity-40'
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
 const sectionLabel = 'text-xs font-medium text-muted-foreground'
-const sectionHint = 'mt-2 text-[10px] leading-relaxed text-muted-foreground'
+const sectionHint = 'mt-2 text-[11px] leading-relaxed text-muted-foreground'
 const groupHeader =
   'flex items-center justify-between select-none cursor-pointer rounded px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-popover-foreground'
 
@@ -369,7 +369,7 @@ export default function AppSettingsView() {
               <button
                 type="button"
                 onClick={resetAll}
-                className="text-[10px] text-muted-foreground underline-offset-2 hover:text-white hover:underline"
+                className="text-xs text-muted-foreground underline-offset-2 hover:text-white hover:underline"
               >
                 {t('settings.resetColors')}
               </button>
@@ -449,11 +449,11 @@ export default function AppSettingsView() {
             )}
             {openGroups.ansi && (
               <div className="mt-2 space-y-0">
-                <div className="mb-1 text-[10px] text-muted-foreground/60">{t('settings.ansiNormal')}</div>
+                <div className="mb-1 text-xs text-muted-foreground/60">{t('settings.ansiNormal')}</div>
                 {ANSI_NORMAL.map((k) => (
                   <ColorRow key={k} label={ANSI_LABELS[k]} value={termTheme[k]} onChange={setThemeColor(k)} />
                 ))}
-                <div className="mb-1 mt-3 text-[10px] text-muted-foreground/60">{t('settings.ansiBright')}</div>
+                <div className="mb-1 mt-3 text-xs text-muted-foreground/60">{t('settings.ansiBright')}</div>
                 {ANSI_BRIGHT.map((k) => (
                   <ColorRow key={k} label={ANSI_LABELS[k]} value={termTheme[k]} onChange={setThemeColor(k)} />
                 ))}
@@ -474,7 +474,7 @@ export default function AppSettingsView() {
               <button
                 type="button"
                 onClick={() => setFileBrowserBg(FILE_BROWSER_BG_DEFAULT)}
-                className="text-[10px] text-muted-foreground underline-offset-2 hover:text-white hover:underline"
+                className="text-xs text-muted-foreground underline-offset-2 hover:text-white hover:underline"
               >
                 {t('settings.reset')}
               </button>

@@ -127,7 +127,7 @@ export default function FileViewerPage() {
     return (
       <CommonTileContainer paneId={paneRef.current ?? undefined}>
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
-          <span className="text-red-400/70">{error}</span>
+          <span className="text-[11px] text-red-400/70">{error}</span>
         </div>
         {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
       </CommonTileContainer>
@@ -138,7 +138,7 @@ export default function FileViewerPage() {
     return (
       <CommonTileContainer paneId={paneRef.current ?? undefined}>
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
-          <span className="text-white/30">Loading...</span>
+          <span className="text-[11px] text-white/30">Loading...</span>
         </div>
         {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
       </CommonTileContainer>
@@ -160,7 +160,7 @@ export default function FileViewerPage() {
       </button>
       {/* Auto-refresh dropdown trigger */}
       <AutoRefreshTrigger btnRef={dropdownState.btnRef} isActive={autoRefresh > 0} onClick={dropdownState.toggle} />
-      <span className="truncate text-white/50" title={filePath}>{filePath}</span>
+      <span className="truncate text-xs text-white/50" title={filePath}>{filePath}</span>
     </div>
   ) : null
 
@@ -174,7 +174,7 @@ export default function FileViewerPage() {
               <circle cx="12" cy="12" r="10" />
               <path d="M15 9l-6 6M9 9l6 6" />
             </svg>
-            <p className="max-w-[80%] text-center text-white/40">{renderError}</p>
+            <p className="max-w-[80%] text-center text-[11px] text-white/40">{renderError}</p>
             <span className="text-[10px] text-white/25">{fileName}</span>
           </div>
         </div>

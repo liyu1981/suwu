@@ -322,7 +322,7 @@ export default function GitGraphPage() {
         <div className="flex h-8 shrink-0 items-center gap-1 rounded-t-[6px] border-b border-white/10 px-3 py-1.5 glass-control">
           <button type="button" onClick={refreshAll} className={`grid h-5 w-5 place-items-center rounded transition hover:bg-white/10 ${autoRefresh > 0 ? 'text-green-400' : 'text-white/50 hover:text-white/70'}`} title="Refresh"><RefreshIcon /></button>
           <AutoRefreshTrigger btnRef={dropdown.btnRef} isActive={autoRefresh > 0} onClick={dropdown.toggle} />
-          <span className="font-semibold tracking-wide text-white/60">Git Graph</span>
+          <span className="text-base font-semibold tracking-wide text-white/60">Git Graph</span>
         </div>
 
         {/* Auto-refresh dropdown */}
@@ -344,7 +344,7 @@ export default function GitGraphPage() {
                 type="button"
                 onClick={() => { setAllBranches((v) => !v); setExpandedIndex(null); }}
                 disabled={selectedWorktree !== null}
-                className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 transition-all duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30 ${
+                className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-all duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30 ${
                   allBranches && selectedWorktree === null
                     ? 'bg-sky-500/20 text-sky-300'
                     : 'bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/70'
@@ -359,7 +359,7 @@ export default function GitGraphPage() {
                 <button
                   type="button"
                   onClick={() => setShowWorktreeBrowser((v) => !v)}
-                  className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 transition-all duration-150 active:scale-[0.97] ${
+                  className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-all duration-150 active:scale-[0.97] ${
                     showWorktreeBrowser
                       ? 'bg-sky-500/20 text-sky-300'
                       : 'bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/70'
@@ -373,16 +373,16 @@ export default function GitGraphPage() {
                   <svg className={`h-2.5 w-2.5 shrink-0 opacity-50 transition-transform ${showWorktreeBrowser ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>
                 </button>
               )}
-              <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-1 text-white/50">{error ? '—' : `${commits.length} commits`}</span>
-              <button type="button" onClick={() => setPicking(true)} title="Change repository folder" className="shrink-0 rounded-md bg-white/[0.06] px-2.5 py-1 text-white/70 transition-all duration-150 hover:bg-white/[0.12] hover:text-white active:scale-[0.97]">Change repo</button>
+              <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-1 text-[10px] text-white/50">{error ? '—' : `${commits.length} commits`}</span>
+              <button type="button" onClick={() => setPicking(true)} title="Change repository folder" className="shrink-0 rounded-md bg-white/[0.06] px-2.5 py-1 text-xs text-white/70 transition-all duration-150 hover:bg-white/[0.12] hover:text-white active:scale-[0.97]">Change repo</button>
             </>
-          ) : <span className="px-1 text-white/50">No repository selected</span>}
+          ) : <span className="px-1 text-[11px] text-white/50">No repository selected</span>}
         </div>
 
         {/* Worktree browser */}
         {showWorktreeBrowser && worktrees.length > 1 && (
           <div className="flex flex-1 flex-col overflow-auto rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 scrollbar-thin">
-            <div className="flex shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 font-semibold uppercase tracking-widest text-white/35">
+            <div className="flex shrink-0 items-center border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white/35">
               <span className="flex-1 min-w-0">Worktree dir</span>
               <span className="w-32 shrink-0">Branch</span>
               <span className="w-24 shrink-0">Base</span>
@@ -398,7 +398,7 @@ export default function GitGraphPage() {
                   setShowWorktreeBrowser(false);
                   setExpandedIndex(null);
                 }}
-                className={`flex w-full items-center px-3 py-2 text-left transition-colors ${
+                className={`flex w-full items-center px-3 py-2 text-sm text-left transition-colors ${
                   (wt.isMain && selectedWorktree === null) || (!wt.isMain && selectedWorktree === wt.path)
                     ? 'bg-sky-500/10 text-white'
                     : 'text-white/70 hover:bg-white/[0.05] hover:text-white/90'
@@ -411,7 +411,7 @@ export default function GitGraphPage() {
                 <span className="w-32 shrink-0 truncate text-white/60">{wt.branch || 'detached'}</span>
                 <span className="w-24 shrink-0 text-white/40">{wt.isMain ? '—' : (mainWorktree?.branch ?? 'main')}</span>
                 <span className="w-32 shrink-0 text-white/40">{wt.lastActive > 0 ? new Date(wt.lastActive).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>
-                <div className="w-20 shrink-0 flex justify-end gap-2">
+                <div className="w-20 shrink-0 flex justify-end gap-2 text-[10px]">
                   {wt.ahead > 0 && <span className="font-mono text-green-400">{wt.ahead} ↑</span>}
                   {wt.behind > 0 && <span className="font-mono text-red-400">{wt.behind} ↓</span>}
                   {wt.ahead === 0 && wt.behind === 0 && <span className="text-white/30">—</span>}
@@ -433,16 +433,16 @@ export default function GitGraphPage() {
         ) : !showWorktreeBrowser && error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
             <svg className="h-8 w-8 text-red-400" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
-            <div className="max-w-sm text-center text-red-300">{error}</div>
+            <div className="max-w-sm text-center text-[11px] text-red-300">{error}</div>
             <div className="flex gap-2">
-              <button type="button" onClick={handleRetry} className="rounded-md bg-white/10 px-3 py-1.5 text-white/80 transition hover:bg-white/20 hover:text-white">Retry</button>
-              <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
+              <button type="button" onClick={handleRetry} className="rounded-md bg-white/10 px-3 py-1.5 text-xs text-white/80 transition hover:bg-white/20 hover:text-white">Retry</button>
+              <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
             </div>
           </div>
         ) : !showWorktreeBrowser && commits.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
-            <div className="max-w-sm text-center text-white/60">No commits found in this repository.</div>
-            <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
+            <div className="max-w-sm text-center text-[11px] text-white/60">No commits found in this repository.</div>
+            <button type="button" onClick={() => setPicking(true)} className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-300 transition hover:bg-green-500/30">Choose another folder</button>
           </div>
         ) : !showWorktreeBrowser && (
           <div className="min-h-0 flex-1 overflow-auto rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] scrollbar-thin" onScroll={handleScroll} ref={scrollRef}>
@@ -463,10 +463,10 @@ export default function GitGraphPage() {
                   </div>
                 )}
                 {!loading && hasMore && commits.length > 0 && !loadingMore && (
-                  <div className="py-3 text-center text-white/30">Scroll down to load more commits</div>
+                  <div className="py-3 text-center text-[11px] text-white/30">Scroll down to load more commits</div>
                 )}
                 {!loading && !hasMore && commits.length > 0 && (
-                  <div className="py-3 text-center text-white/20">All commits loaded ({commits.length})</div>
+                  <div className="py-3 text-center text-[11px] text-white/20">All commits loaded ({commits.length})</div>
                 )}
               </div>
             </div>
@@ -499,18 +499,18 @@ function CommitRow({ commit, branchColors, isExpanded, onClick, onContextMenu, o
   return (
     <div className={`flex h-6 cursor-pointer items-center leading-none transition-colors ${isExpanded ? 'bg-white/10' : isUncommitted ? 'bg-orange-500/5 hover:bg-orange-500/10' : 'hover:bg-white/5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} onClick={onClick} onContextMenu={(e) => onContextMenu(e, commit)}>
       {isUncommitted ? (
-        <div className="w-20 shrink-0 pl-2 text-orange-400/70">now</div>
+        <div className="w-20 shrink-0 pl-2 text-[10px] text-orange-400/70">now</div>
       ) : (
-        <div className="w-20 shrink-0 pl-2 text-white/50">{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+        <div className="w-20 shrink-0 pl-2 text-[10px] text-white/50">{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
       )}
-      <div className="min-w-0 flex-1 truncate text-white/90">{commit.message}</div>
+      <div className="min-w-0 flex-1 truncate text-sm text-white/90">{commit.message}</div>
       <div className="ml-2 flex shrink-0 items-center gap-1">
-        {(commit.heads || []).map((h) => <span key={h} onContextMenu={(e) => { e.stopPropagation(); onBranchContextMenu(e, h); }} style={{ backgroundColor: (branchColors?.[h] ?? '#3b82f6') + '33', color: branchColors?.[h] ?? '#60a5fa' }} className="cursor-pointer rounded-full px-1.5 py-[1px] transition-[filter] hover:brightness-125">{h}</span>)}
-        {(commit.tags || []).map((t) => <span key={t.name} onContextMenu={(e) => { e.stopPropagation(); onTagContextMenu(e, t); }} className="cursor-pointer rounded-full bg-yellow-500/20 px-1.5 py-[1px] text-yellow-400 hover:bg-yellow-500/30">{t.name}</span>)}
-        {commit.stash && <span onContextMenu={(e) => { e.stopPropagation(); onStashContextMenu(e, commit.stash!); }} className="cursor-pointer rounded-full bg-purple-500/20 px-1.5 py-[1px] text-purple-400 hover:bg-purple-500/30">{commit.stash.selector}</span>}
+        {(commit.heads || []).map((h) => <span key={h} onContextMenu={(e) => { e.stopPropagation(); onBranchContextMenu(e, h); }} style={{ backgroundColor: (branchColors?.[h] ?? '#3b82f6') + '33', color: branchColors?.[h] ?? '#60a5fa' }} className="cursor-pointer rounded-full px-1.5 py-[1px] text-[10px] transition-[filter] hover:brightness-125">{h}</span>)}
+        {(commit.tags || []).map((t) => <span key={t.name} onContextMenu={(e) => { e.stopPropagation(); onTagContextMenu(e, t); }} className="cursor-pointer rounded-full bg-yellow-500/20 px-1.5 py-[1px] text-[10px] text-yellow-400 hover:bg-yellow-500/30">{t.name}</span>)}
+        {commit.stash && <span onContextMenu={(e) => { e.stopPropagation(); onStashContextMenu(e, commit.stash!); }} className="cursor-pointer rounded-full bg-purple-500/20 px-1.5 py-[1px] text-[10px] text-purple-400 hover:bg-purple-500/30">{commit.stash.selector}</span>}
       </div>
-      <div className="ml-2 w-24 shrink-0 truncate text-white/40">{commit.author}</div>
-      <div className="ml-2 w-14 shrink-0 pr-2 text-right font-mono text-white/40">{commit.hash.slice(0, 7)}</div>
+      <div className="ml-2 w-24 shrink-0 truncate text-[11px] text-white/40">{commit.author}</div>
+      <div className="ml-2 w-14 shrink-0 pr-2 text-right text-[10px] font-mono text-white/40">{commit.hash.slice(0, 7)}</div>
     </div>
   );
 }
@@ -540,11 +540,11 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
       {loading ? (
         <div className="flex w-full items-center justify-center"><div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white/80" /></div>
       ) : loadError || !details ? (
-        <div className="flex w-full items-center justify-center px-4 text-red-300">{loadError || 'Failed to load commit details'}</div>
+        <div className="flex w-full items-center justify-center px-4 text-[11px] text-red-300">{loadError || 'Failed to load commit details'}</div>
       ) : (
         <>
           {/* ── Left: commit metadata ──────────────────────────────── */}
-          <div className="flex w-52 shrink-0 flex-col gap-1 border-r border-white/[0.06] px-3 py-2.5 leading-relaxed">
+          <div className="flex w-52 shrink-0 flex-col gap-1 border-r border-white/[0.06] px-3 py-2.5 text-xs leading-relaxed">
             {/* Hash + copy */}
             <button type="button" onClick={copyHash} className="group flex items-center gap-1.5 rounded px-1.5 py-0.5 -mx-1.5 text-left transition-colors hover:bg-white/[0.06]" title="Copy full commit hash">
               <svg className="h-3 w-3 shrink-0 text-white/30 transition-colors group-hover:text-white/60" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5z"/></svg>
@@ -567,9 +567,9 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
             {/* Message */}
             <div className="mt-1 border-t border-white/[0.06] pt-1">
               <span className="text-white/30">Message:</span>
-              <p className="mt-0.5 whitespace-pre-wrap leading-relaxed text-white/80">{details.message}</p>
+              <p className="mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-white/80">{details.message}</p>
               {details.body && details.body !== details.message && (
-                <p className="mt-1 whitespace-pre-wrap leading-relaxed text-white/50">{details.body}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-white/50">{details.body}</p>
               )}
             </div>
 
@@ -602,7 +602,7 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
           {/* ── Right: file changes ───────────────────────────────── */}
           <div className="min-w-0 flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
             {(details.fileChanges ?? []).length === 0 ? (
-              <div className="py-2 text-white/40">No file changes (empty or merge commit).</div>
+              <div className="py-2 text-[11px] text-white/40">No file changes (empty or merge commit).</div>
             ) : (details.fileChanges ?? []).map((f) => (
               <FileChangeItem key={f.newPath + f.oldPath} change={f} repoPath={repoPath} hash={hash} open={openDiff === f.newPath} onToggle={() => setOpenDiff(openDiff === f.newPath ? null : f.newPath)} />
             ))}
@@ -634,21 +634,21 @@ function FileChangeItem({ change, repoPath, hash, open, onToggle }: { change: Gi
 
   return (
     <div className="mb-1">
-      <button type="button" onClick={onToggle} className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left transition hover:bg-white/[0.06] ${open ? 'bg-white/[0.06]' : ''}`}>
-        <span className={`w-4 shrink-0 rounded text-center font-mono font-bold ${CHANGE_STYLES[change.type] ?? CHANGE_STYLES.M}`}>{change.type}</span>
+      <button type="button" onClick={onToggle} className={`flex w-full items-center gap-2 rounded px-2 py-1 text-sm text-left transition hover:bg-white/[0.06] ${open ? 'bg-white/[0.06]' : ''}`}>
+        <span className={`w-4 shrink-0 rounded text-center text-[10px] font-mono font-bold ${CHANGE_STYLES[change.type] ?? CHANGE_STYLES.M}`}>{change.type}</span>
         <span className="min-w-0 flex-1 truncate font-mono tracking-tight text-white/75 hover:text-white">
           {change.newPath}
           {change.type === 'R' && change.oldPath !== change.newPath && <span className="text-white/35"> ← {change.oldPath}</span>}
         </span>
-        {(change.adds || change.dels) ? <span className="shrink-0 font-mono"><span className="text-green-400">+{change.adds}</span> <span className="text-red-400">−{change.dels}</span></span> : null}
+        {(change.adds || change.dels) ? <span className="shrink-0 text-[10px] font-mono"><span className="text-green-400">+{change.adds}</span> <span className="text-red-400">−{change.dels}</span></span> : null}
         <svg className={`h-3 w-3 shrink-0 text-white/30 transition-transform duration-150 ${open ? 'rotate-90' : ''}`} viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 3.72a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z"/></svg>
       </button>
       {open && (
         <div className="ml-6 mt-0.5 overflow-hidden rounded border border-white/[0.08] bg-black/40">
           {diffLoading ? <div className="flex items-center justify-center p-3"><div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white/80" /></div>
-            : diffError ? <div className="p-2.5 text-red-300">{diffError}</div>
+            : diffError ? <div className="p-2.5 text-[11px] text-red-300">{diffError}</div>
             : diff ? <DiffView diff={diff} />
-            : <div className="p-2.5 text-white/40">No diff available.</div>}
+            : <div className="p-2.5 text-[11px] text-white/40">No diff available.</div>}
         </div>
       )}
     </div>
@@ -658,7 +658,7 @@ function FileChangeItem({ change, repoPath, hash, open, onToggle }: { change: Gi
 /* DiffView — monospace unified diff with +/- coloring */
 function DiffView({ diff }: { diff: string }) {
   return (
-    <pre className="max-h-40 overflow-auto scrollbar-thin p-2 font-mono leading-[1.5]">
+    <pre className="max-h-40 overflow-auto scrollbar-thin p-2 text-xs font-mono leading-[1.5]">
       {diff.split('\n').map((line, i) => {
         let cls = 'text-white/50';
         if (line.startsWith('+') && !line.startsWith('+++')) cls = 'bg-green-500/10 text-green-300';

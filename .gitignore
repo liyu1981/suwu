@@ -9,8 +9,8 @@
 # Frontend build output (vite builds into pkg/assets/web/)
 pkg/assets/web/
 
-# Generated background shader preview (frontend/scripts/render-ambient.mjs)
-frontend/scripts/ambient-preview.png
+# Generated background shader previews (frontend/scripts/*.mjs)
+frontend/scripts/*-preview.png
 
 # Local environment (secrets). Committed template is .env.example.
 .env

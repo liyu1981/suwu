@@ -12,6 +12,7 @@
     "check:typography": "node scripts/check-typography.mjs",
     "check:write": "biome check src --write",
     "bg:render": "node scripts/render-ambient.mjs",
+    "bg:render:matrix": "node scripts/render-matrix.mjs",
     "bg:check": "node scripts/check-background-shaders.mjs"
   },
   "dependencies": {

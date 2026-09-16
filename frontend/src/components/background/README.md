@@ -28,6 +28,13 @@ components/background/
       pointer-input.ts        # window-level pointer tracking ("stir")
       simulation.ts           # multi-pass compute solver (advect/curl/…/display)
       shaders/*.wgsl
+
+  matrix-rain/                # another family (GPU only)
+    index.ts                  # definition + registry entry
+    matrix-rain-gpu/          # procedural "digital rain" effect
+      renderer.ts             # vgpu storage upload + effect + frameLoop
+      glyph-atlas.ts          # canvas-rasterised 1-bit glyph atlas
+      shaders/*.wgsl
 ```
 
 Backends live in nested `<name>-cpu` / `<name>-gpu` folders so their
@@ -93,7 +100,8 @@ The ambient blob shader is additionally validated against an independent JS
 reference of the same additive radial-gradient math, without a browser:
 
 ```sh
-pnpm --dir frontend bg:render    # render offscreen, assert pixels, write a PNG
+pnpm --dir frontend bg:render           # blob: render offscreen, assert pixels, PNG
+pnpm --dir frontend bg:render:matrix    # matrix: render offscreen against a synthetic atlas
 ```
 
-`bg:render` writes `scripts/ambient-preview.png` for visual inspection.
+Each writes a `scripts/*-preview.png` for visual inspection.

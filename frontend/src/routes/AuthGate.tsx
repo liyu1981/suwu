@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AmbientBackground } from '../components/AmbientBackground'
+import { AmbientBackground } from '../components/background'
 import AppShell from './AppShell'
 import { AuthRequiredError, authenticate, fetchToken } from '../lib/api'
 

@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileViewerRenderers } from '@file-viewer/vite-plugin'
+import { wgslVitePlugin } from '@vgpu/wgsl/loader-vite'
 import { fileURLToPath } from 'node:url'
 import { readdir, rename } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -43,6 +44,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     fileViewerRenderers({ copyAssets: true, renderers: ['word', 'pdf', 'ofd', 'presentation-openxml', 'spreadsheet', 'archive', 'email', 'text', 'image', 'media'] }),
+    wgslVitePlugin(),
     fixGoEmbedFiles(),
   ],
   define: {

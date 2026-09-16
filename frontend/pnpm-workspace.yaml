@@ -1,0 +1,3 @@
+allowBuilds:
+  "@vgpu/adapter-node": false
+  webgpu: false

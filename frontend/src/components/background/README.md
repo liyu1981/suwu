@@ -51,6 +51,13 @@ components/background/
     seascape-gpu/
       renderer.ts             # capped ray-march target + blit + frameLoop
       shaders/*.wgsl
+
+  rainforest/                 # another family (GPU only)
+    index.ts                  # definition + params schema (animation speed)
+    params.ts                 # typed params + resolveRainforestParams()
+    rainforest-gpu/
+      renderer.ts             # ping-pong reprojection (camera matrix in texels) + blit
+      shaders/*.wgsl
 ```
 
 Backends live in nested `<name>-cpu` / `<name>-gpu` folders so their
@@ -135,8 +142,13 @@ validation; a backend never keeps its own copy.
   *before* touching the canvas, so an unsupported browser falls back cleanly. A
   device lost after the surface is attached calls `ctx.onFatal`, and the hook
   remounts a fresh canvas (a canvas context type is permanent) with the GPU path
-  disabled. `interactive-fluid`, `matrix-rain`, `atmospheric-landscape` and
-  `seascape` are GPU-only and have no CPU fallback.
+  disabled. `interactive-fluid`, `matrix-rain`, `atmospheric-landscape`,
+  `seascape` and `rainforest` are GPU-only and have no CPU fallback.
+
+> **Licensing note.** `rainforest` is an Inigo Quilez (iq) work whose original
+> license forbids use in a product, altered or not. It is included with express
+> permission from the author. Treat that permission as a dependency of shipping
+> the build, and keep it on file.
 
 ## Debug overrides
 

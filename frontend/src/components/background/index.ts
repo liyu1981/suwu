@@ -4,6 +4,7 @@ import './interactive-fluid'
 import './matrix-rain'
 import './atmospheric-landscape'
 import './seascape'
+import './rainforest'
 
 export { AmbientBackground, type AmbientBackgroundProps } from './AmbientBackground'
 export { DEFAULT_BACKGROUND_ID } from './constants'

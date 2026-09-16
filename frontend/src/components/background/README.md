@@ -64,6 +64,7 @@ components/background/
     params.ts                 # typed params + resolveVideoParams() + caps
     video-cpu/
       renderer.ts             # mediabunny playback loop, reduced motion, error overlay
+      loop.ts                 # crossfade-loop timing (window + blend progress)
       storage.ts              # OPFS copy/read/clear of the picked file
       fit.ts                  # cover source rect
 ```
@@ -159,7 +160,11 @@ validation; a backend never keeps its own copy.
   backpressure, so memory stays bounded regardless of clip length. No `<video>`
   element, no network fetch and no audio. A configurable colour mask (colour +
   opacity, default white 10%) is drawn over the frame. Load and codec failures
-  are reported on the canvas itself.
+  are reported on the canvas itself. The **Smooth loop** switch crossfades the
+  last 2s of the clip into a second copy started from the beginning (source-over
+  blending, so the mix is exactly `outgoing·(1−p) + incoming·p`), hiding the
+  jump at the loop point; it is off by default and skipped for clips shorter
+  than 4s.
 
 > **Licensing note.** `rainforest` is an Inigo Quilez (iq) work whose original
 > license forbids use in a product, altered or not. It is included with express

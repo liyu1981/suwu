@@ -1,4 +1,5 @@
 import type { BackgroundParam } from '../types'
+import { VIDEO_CROSSFADE_SECONDS } from './video-cpu/loop'
 import { clearVideoFile, storeVideoFile } from './video-cpu/storage'
 
 export type VideoFit = 'cover' | 'stretch'
@@ -19,6 +20,8 @@ export interface VideoParams {
   source: string
   fit: VideoFit
   speed: number
+  /** Crossfade the clip's tail into its start to hide the loop jump. */
+  crossfade: boolean
   /** Colour of the tint drawn over the video. */
   maskColor: string
   /** Opacity of the tint, 0 (off) to 1. */
@@ -57,6 +60,13 @@ export const VIDEO_PARAMS: readonly BackgroundParam[] = [
     format: (value) => `${value.toFixed(2)}×`,
   },
   {
+    kind: 'boolean',
+    key: 'crossfade',
+    label: 'Smooth loop',
+    hint: `Crossfade the last ${VIDEO_CROSSFADE_SECONDS}s into the start to hide the loop jump.`,
+    default: false,
+  },
+  {
     kind: 'color',
     key: 'maskColor',
     label: 'Mask colour',
@@ -84,6 +94,7 @@ export function resolveVideoParams(params?: Record<string, unknown>): VideoParam
   const source = params?.source
   const fit = params?.fit
   const speed = params?.speed
+  const crossfade = params?.crossfade
   const maskColor = params?.maskColor
   const maskOpacity = params?.maskOpacity
   return {
@@ -93,6 +104,7 @@ export function resolveVideoParams(params?: Record<string, unknown>): VideoParam
       typeof speed === 'number' && Number.isFinite(speed) && speed > 0
         ? speed
         : VIDEO_DEFAULT_SPEED,
+    crossfade: typeof crossfade === 'boolean' ? crossfade : false,
     maskColor:
       typeof maskColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(maskColor)
         ? maskColor.toLowerCase()

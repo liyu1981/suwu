@@ -12,13 +12,14 @@ import {
 import { clamp } from '../../../../lib/utils'
 import { resolveVideoParams, VIDEO_MAX_DURATION_SECONDS, type VideoParams } from '../params'
 import { coverSourceRect } from './fit'
+import { canCrossfade, fadeProgress } from './loop'
 import { readVideoBlob } from './storage'
 import type { BackgroundContext, BackgroundHandle } from '../../types'
 
 /** Containers a background clip may use; keeps the mediabunny bundle small. */
 const INPUT_FORMATS = [MP4, QTFF, MATROSKA, WEBM]
 
-/** Never hold more than this many decoded frames; mediabunny pre-decodes ahead. */
+/** Never hold more than this many decoded frames per stream. */
 const MAX_PENDING_FRAMES = 3
 
 /** Shared drawing surface + config, read live so resizes are picked up. */
@@ -38,8 +39,8 @@ interface Playback {
   dispose(): void
 }
 
-/** Draw one decoded frame with the configured fit, then the colour mask. */
-function renderSource(render: RenderCtx, sample: VideoSample): void {
+/** Draw one decoded frame with the configured fit at the given opacity. */
+function drawFrame(render: RenderCtx, sample: VideoSample, alpha: number): void {
   const width = render.width()
   const height = render.height()
   const sourceWidth = sample.displayWidth
@@ -47,52 +48,63 @@ function renderSource(render: RenderCtx, sample: VideoSample): void {
   if (width <= 0 || height <= 0 || sourceWidth <= 0 || sourceHeight <= 0) return
 
   const context = render.context
+  context.save()
+  context.globalAlpha = alpha
   if (render.config.fit === 'stretch') {
     sample.draw(context, 0, 0, width, height)
   } else {
     const rect = coverSourceRect(sourceWidth, sourceHeight, width, height)
     sample.draw(context, rect.sx, rect.sy, rect.sw, rect.sh, 0, 0, width, height)
   }
+  context.restore()
+}
 
+/** Draw the configured colour mask over the whole surface. */
+function drawMask(render: RenderCtx): void {
   const { maskColor, maskOpacity } = render.config
-  if (maskOpacity > 0) {
-    context.save()
-    context.globalAlpha = maskOpacity
-    context.fillStyle = maskColor
-    context.fillRect(0, 0, width, height)
-    context.restore()
-  }
+  if (maskOpacity <= 0) return
+  const context = render.context
+  context.save()
+  context.globalAlpha = maskOpacity
+  context.fillStyle = maskColor
+  context.fillRect(0, 0, render.width(), render.height())
+  context.restore()
+}
+
+/** One independent decode of the clip, advancing in lock-step with the others. */
+interface Stream {
+  /** Media time the stream has reached, in seconds. */
+  readonly time: number
+  /** Whether the underlying sample iterator is exhausted. */
+  readonly ended: boolean
+  hasFrame(): boolean
+  advance(seconds: number): void
+  draw(render: RenderCtx, alpha: number): void
+  dispose(): void
 }
 
 /**
- * Streaming forward playback that restarts at EOF. Frames come from a
- * mediabunny `VideoSampleSink`, which demuxes and decodes lazily and yields
- * them in presentation order, so memory stays bounded no matter the clip
- * length.
+ * A lazily-decoded stream over a clip. mediabunny's `VideoSampleSink` gives
+ * natural backpressure, so only a few frames are ever held at once.
  */
-function createPlayback(
+function createStream(
   sink: VideoSampleSink,
-  baseTimestamp: number,
-  render: RenderCtx,
+  firstTimestamp: number,
   onError: (error: unknown) => void,
-): Playback {
-  let iterator = sink.samples()[Symbol.asyncIterator]()
+): Stream {
+  const iterator = sink.samples()[Symbol.asyncIterator]()
   let pending: VideoSample[] = []
   let current: VideoSample | null = null
   let pumping = false
   let ended = false
   let stopped = false
-  let paused = false
-  let playheadUs = 0
-  let lastNow = performance.now()
+  let playhead = firstTimestamp
 
   const closePending = (): void => {
     for (const sample of pending) sample.close()
     pending = []
   }
 
-  // Pull only enough frames to keep the pipeline fed; the async iterator gives
-  // natural backpressure, so decoding never runs away on a long clip.
   const pump = (): void => {
     if (stopped || pumping || ended) return
     pumping = true
@@ -118,51 +130,34 @@ function createPlayback(
     })()
   }
 
-  const restart = (): void => {
-    if (stopped) return
-    closePending()
-    current?.close()
-    current = null
-    ended = false
-    playheadUs = 0
-    lastNow = performance.now()
-    iterator = sink.samples()[Symbol.asyncIterator]()
-    pump()
-  }
-
-  restart()
+  pump()
 
   return {
-    tick(now) {
-      if (stopped || paused) return
-      if (ended && pending.length === 0) {
-        restart()
-        return
-      }
-
-      playheadUs += Math.min(now - lastNow, 100) * 1000 * render.config.speed
-      lastNow = now
-      const playheadSeconds = baseTimestamp + playheadUs / 1e6
-
+    get time() {
+      return playhead
+    },
+    get ended() {
+      return ended
+    },
+    hasFrame() {
+      return current !== null
+    },
+    advance(seconds) {
+      if (stopped) return
+      playhead += seconds
       let due: VideoSample | null = null
-      while (pending.length > 0 && pending[0].timestamp <= playheadSeconds) {
+      while (pending.length > 0 && pending[0].timestamp <= playhead) {
         if (due) due.close()
         due = pending.shift() as VideoSample
       }
       if (due) {
         current?.close()
         current = due
-        renderSource(render, due)
       }
       pump()
     },
-    redraw() {
-      if (current) renderSource(render, current)
-    },
-    setPaused(value) {
-      paused = value
-      lastNow = performance.now()
-      if (!value) pump()
+    draw(render, alpha) {
+      if (current) drawFrame(render, current, alpha)
     },
     dispose() {
       stopped = true
@@ -174,12 +169,102 @@ function createPlayback(
   }
 }
 
+/**
+ * Streaming playback that restarts at EOF, with an optional crossfade between
+ * the end of one pass and the start of the next.
+ *
+ * At most two streams exist: the outgoing one plays to the end while a second
+ * copy starts at the beginning. The outgoing frame is drawn opaque and the
+ * incoming one is drawn over it at `fadeProgress` alpha, which (source-over)
+ * yields the exact per-pixel mix `outgoing * (1 - p) + incoming * p`.
+ */
+function createLoopPlayback(
+  sink: VideoSampleSink,
+  firstTimestamp: number,
+  duration: number,
+  render: RenderCtx,
+  crossfade: boolean,
+  onError: (error: unknown) => void,
+): Playback {
+  const useCrossfade = crossfade && canCrossfade(duration)
+  let streams: Stream[] = []
+  let stopped = false
+  let paused = false
+  let lastNow = performance.now()
+
+  const restart = (): void => {
+    for (const stream of streams) stream.dispose()
+    streams = [createStream(sink, firstTimestamp, onError)]
+    lastNow = performance.now()
+  }
+
+  const blend = (): number => {
+    if (streams.length < 2 || !streams[1].hasFrame()) return 0
+    return fadeProgress(streams[0].time, firstTimestamp, duration)
+  }
+
+  const draw = (): void => {
+    if (streams.length === 0) return
+    const progress = blend()
+    streams[0].draw(render, 1)
+    if (progress > 0) streams[1].draw(render, progress)
+    drawMask(render)
+  }
+
+  restart()
+
+  return {
+    tick(now) {
+      if (stopped || paused || streams.length === 0) return
+      const delta = (Math.min(now - lastNow, 100) / 1000) * render.config.speed
+      lastNow = now
+      for (const stream of streams) stream.advance(delta)
+
+      const end = firstTimestamp + duration
+      const outgoing = streams[0]
+
+      // Open the blend window: start a fresh copy while the outgoing one ends.
+      if (
+        useCrossfade &&
+        streams.length < 2 &&
+        outgoing.time < end &&
+        fadeProgress(outgoing.time, firstTimestamp, duration) > 0
+      ) {
+        streams.push(createStream(sink, firstTimestamp, onError))
+      }
+
+      if (outgoing.time >= end) {
+        if (streams.length >= 2) {
+          outgoing.dispose()
+          streams.shift()
+        } else {
+          restart()
+          return
+        }
+      }
+
+      draw()
+    },
+    redraw: draw,
+    setPaused(value) {
+      paused = value
+      lastNow = performance.now()
+    },
+    dispose() {
+      stopped = true
+      for (const stream of streams) stream.dispose()
+      streams = []
+    },
+  }
+}
+
 /** A single frozen frame, used when the user prefers reduced motion. */
 function createStaticPlayback(sample: VideoSample | null, render: RenderCtx): Playback {
   return {
     tick() {},
     redraw() {
-      if (sample) renderSource(render, sample)
+      if (sample) drawFrame(render, sample, 1)
+      drawMask(render)
     },
     setPaused() {},
     dispose() {
@@ -388,7 +473,7 @@ export async function startVideo(
       }
       playback = createStaticPlayback(sample, render)
     } else {
-      playback = createPlayback(sink, baseTimestamp, render, (error) => {
+      playback = createLoopPlayback(sink, baseTimestamp, duration, render, config.crossfade, (error) => {
         console.warn('[video] playback error', error)
       })
       start()

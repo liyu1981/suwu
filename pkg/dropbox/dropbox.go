@@ -24,7 +24,7 @@ type Entry struct {
 // SpaceInfo reports total space used and file count.
 type SpaceInfo struct {
 	Used  int64 `json:"used"`
-	Count int  `json:"count"`
+	Count int   `json:"count"`
 }
 
 // Dir resolves the dropbox directory under the given data root,

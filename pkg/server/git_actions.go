@@ -44,8 +44,8 @@ const (
 	ActionBranchFromStash GitAction = "branch-from-stash"
 
 	// Working directory
-	ActionClean      GitAction = "clean"
-	ActionResetHard  GitAction = "reset-hard"
+	ActionClean     GitAction = "clean"
+	ActionResetHard GitAction = "reset-hard"
 )
 
 // GitActionRequest is the request body for /api/git/action

@@ -53,9 +53,9 @@ type Session struct {
 	// mu guards the target-window cache below; xgb's connection itself is
 	// goroutine-safe but these fields are touched from both the input and
 	// the capture loops.
-	mu        sync.Mutex
-	windowID  xproto.Window
-	lastPick  time.Time
+	mu       sync.Mutex
+	windowID xproto.Window
+	lastPick time.Time
 }
 
 // repickInterval bounds how often the auto-picked target is re-evaluated

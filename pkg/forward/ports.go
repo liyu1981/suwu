@@ -33,19 +33,3 @@ func (m *Manager) IsPortAvailable(port int, protocol string) bool {
 	}
 	return true
 }
-
-func (m *Manager) AvailablePorts(protocol string, start, end, count int) []int {
-	if start < MinPort {
-		start = MinPort
-	}
-	if end > MaxPort {
-		end = MaxPort
-	}
-	var ports []int
-	for p := start; p <= end && len(ports) < count; p++ {
-		if m.IsPortAvailable(p, protocol) {
-			ports = append(ports, p)
-		}
-	}
-	return ports
-}

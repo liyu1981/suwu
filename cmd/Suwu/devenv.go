@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -116,35 +115,6 @@ func envWithAsdfShims() []string {
 		}
 	}
 	return env
-}
-
-// localMachineIPs returns non-loopback, non-link-local IPv4 addresses.
-func localMachineIPs() []string {
-	var ips []string
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return ips
-	}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
-		for _, addr := range addrs {
-			ipNet, ok := addr.(*net.IPNet)
-			if !ok {
-				continue
-			}
-			if ipNet.IP.IsLinkLocalUnicast() || ipNet.IP.IsLoopback() || ipNet.IP.To4() == nil {
-				continue
-			}
-			ips = append(ips, ipNet.IP.String())
-		}
-	}
-	return ips
 }
 
 func fetchLatestVersion(repo string) (string, error) {

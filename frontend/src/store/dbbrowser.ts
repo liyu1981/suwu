@@ -71,7 +71,6 @@ export const dbQueryAtom = atom<QueryExecution>({
 
 // Schema
 export const dbSchemaAtom = atom<TableInfo[]>([])
-export const dbSelectedTableAtom = atom<string | null>(null)
 
 // Saved connections (persisted to localStorage)
 const SAVED_CONNECTIONS_KEY = 'suwu_db_saved_connections'

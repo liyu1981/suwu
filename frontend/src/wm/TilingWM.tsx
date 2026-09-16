@@ -36,7 +36,6 @@ import { authFetch } from '../lib/api'
 import { TileTools } from './TileTools'
 import { usePaneGhosts } from './hooks/usePaneGhosts'
 import { getTilePlugin, getAllTilePlugins } from './tilePlugins'
-import { getAllAppConfigs } from './appConfigs'
 import { appMenuAtom, getVisibleApps, type AppMenuState } from '../store/appMenu'
 import { getAppIconClasses, getAppIconLetter } from './appIcons'
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
@@ -95,14 +94,13 @@ function TileTypePicker({
 }) {
   const { t } = useTranslation()
   const plugins = getAllTilePlugins()
-  const appConfigs = getAllAppConfigs()
   const [menuItems] = useAtom(appMenuAtom)
   const navRef = useRef<HTMLElement>(null)
   const [homeDir, setHomeDir] = useState<string | null>(null)
 
   // Get visible apps in user-defined order.
   const appState: AppMenuState = (!menuItems || typeof menuItems !== 'object' || Array.isArray(menuItems)) ? { hiddenApps: [], customApps: [] } : menuItems as AppMenuState
-  const visibleApps = getVisibleApps(plugins, appConfigs, appState)
+  const visibleApps = getVisibleApps(plugins, appState)
 
   useEffect(() => {
     navRef.current?.querySelector<HTMLButtonElement>('button')?.focus()

@@ -162,17 +162,3 @@ func (m *Manager) toStatus(f *Forward) *ForwardStatus {
 func (m *Manager) ToStatus(f *Forward) *ForwardStatus {
 	return m.toStatus(f)
 }
-
-// OccupiedPorts returns all external ports currently in use by running forwards.
-func (m *Manager) OccupiedPorts() map[string][]int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	result := map[string][]int{"tcp": {}, "udp": {}}
-	for _, f := range m.forwards {
-		if f.Status == "running" {
-			result[f.Protocol] = append(result[f.Protocol], f.ExternalPort)
-		}
-	}
-	return result
-}

@@ -251,14 +251,14 @@ func getGitWorktrees(repoPath string) ([]GitWorktree, error) {
 	// Parse porcelain output: blocks separated by blank lines
 	// Each block has lines like: worktree /path, HEAD hash, branch refs/heads/xxx
 	var raw []struct {
-		path string
-		head string
+		path   string
+		head   string
 		branch string
 	}
 
 	current := struct {
-		path string
-		head string
+		path   string
+		head   string
 		branch string
 	}{}
 
@@ -268,8 +268,8 @@ func getGitWorktrees(repoPath string) ([]GitWorktree, error) {
 			if current.path != "" {
 				raw = append(raw, current)
 				current = struct {
-					path string
-					head string
+					path   string
+					head   string
 					branch string
 				}{}
 			}

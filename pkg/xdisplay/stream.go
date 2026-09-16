@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jezek/xgb"
 	"github.com/coder/websocket"
+	"github.com/jezek/xgb"
 )
 
 // StreamParams configures a graphic streaming session.
@@ -33,6 +33,7 @@ var activeDisplaysMu sync.Mutex
 // When a display disconnects, a 10-minute timer starts to kill the Xorg.
 // If someone reconnects before the timer fires, it's cancelled.
 var displayReapers = map[string]*time.Timer{}
+
 const reaperTimeout = 10 * time.Minute
 
 // DisplayInUseError is returned when a display is already connected.

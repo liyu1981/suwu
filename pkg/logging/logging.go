@@ -9,7 +9,7 @@ import (
 )
 
 type earlyEntry struct {
-	msg  string
+	msg   string
 	attrs []slog.Attr
 }
 

@@ -50,22 +50,6 @@ export function createFluid(gpu: Gpu) {
 
 export type Fluid = ReturnType<typeof createFluid>
 
-export function destroyFluid(fluid: Fluid): void {
-  const buffers = [
-    fluid.velocity.read,
-    fluid.velocity.write,
-    fluid.dye.read,
-    fluid.dye.write,
-    fluid.pressure.read,
-    fluid.pressure.write,
-    fluid.divergence,
-    fluid.curl,
-  ]
-  for (const buffer of buffers) {
-    destroyBuffer(buffer)
-  }
-}
-
 function destroyBuffer(buffer: object) {
   const disposable = buffer as { destroy(): void }
   disposable.destroy()

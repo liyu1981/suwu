@@ -28,8 +28,8 @@ type Notification struct {
 
 // Command is a request-response message from CLI to server.
 type Command struct {
-	Action   string          `json:"action"`
-	Payload  json.RawMessage `json:"payload,omitempty"`
+	Action  string          `json:"action"`
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
 // CommandResponse is the server's reply to a Command.

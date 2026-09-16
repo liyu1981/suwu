@@ -46,9 +46,9 @@ type dbConnectRequest struct {
 
 // dbConnectResponse is the response for /api/db/connect.
 type dbConnectResponse struct {
-	SessionID string       `json:"sessionId"`
+	SessionID string         `json:"sessionId"`
 	Tables    []db.TableInfo `json:"tables,omitempty"`
-	Error     string       `json:"error,omitempty"`
+	Error     string         `json:"error,omitempty"`
 }
 
 // handleDBConnect validates a connection and creates a session.

@@ -57,15 +57,15 @@ var mimeTypes = map[string]string{
 
 // Server is the demo HTTP + WebSocket server.
 type Server struct {
-	cfg       *auth.Config
-	assets    fs.FS
-	sessions  *session.Manager
-	notify    *notify.Listener
-	forwards  *forward.Manager
+	cfg        *auth.Config
+	assets     fs.FS
+	sessions   *session.Manager
+	notify     *notify.Listener
+	forwards   *forward.Manager
 	dbSessions *db.Manager
-	dataDir   string
-	startedAt time.Time
-	rateLimit *RateLimiter
+	dataDir    string
+	startedAt  time.Time
+	rateLimit  *RateLimiter
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
@@ -83,11 +83,6 @@ func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify
 		startedAt:  time.Now(),
 		rateLimit:  NewRateLimiter(),
 	}
-}
-
-// StartedAt returns the server's start timestamp.
-func (s *Server) StartedAt() time.Time {
-	return s.startedAt
 }
 
 // StartDBCleanup starts the background cleanup loop for idle database sessions.

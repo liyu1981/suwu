@@ -40,17 +40,6 @@ export function setPaneData(space: Space, paneId: string, key: string, value: un
   }
 }
 
-/** Remove a pane's entire data bag (e.g. when the tile is closed). */
-export function removePaneData(space: Space, paneId: string): Space {
-  const prev = space.paneData ?? {}
-  if (!(paneId in prev)) return space
-  const { [paneId]: _, ...rest } = prev
-  return {
-    ...space,
-    paneData: Object.keys(rest).length > 0 ? rest : undefined,
-  }
-}
-
 /** Remove paneData entries for pane ids that no longer exist in the layout. */
 export function cleanStalePaneData(space: Space): Space {
   const paneData = space.paneData
@@ -69,16 +58,6 @@ export function cleanStalePaneData(space: Space): Space {
   return {
     ...space,
     paneData: Object.keys(next).length > 0 ? next : undefined,
-  }
-}
-
-/** Immutably set multiple keys in a pane's data bag at once. */
-export function setPaneDataMulti(space: Space, paneId: string, data: PaneData): Space {
-  const prev = space.paneData ?? {}
-  const prevPane = (prev[paneId] as PaneData | undefined) ?? {}
-  return {
-    ...space,
-    paneData: { ...prev, [paneId]: { ...prevPane, ...data } },
   }
 }
 
@@ -475,11 +454,6 @@ export function removeSpace(spaces: Space[], idx: number): { spaces: Space[]; in
   const next = spaces.filter((_, i) => i !== idx)
   const index = Math.min(idx, next.length - 1)
   return { spaces: next, index }
-}
-
-/** Rename a space. */
-export function renameSpace(spaces: Space[], idx: number, name: string): Space[] {
-  return spaces.map((s, i) => (i === idx ? { ...s, name } : s))
 }
 
 /**

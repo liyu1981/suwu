@@ -1,5 +1,4 @@
 import { atomWithStorage } from 'jotai/utils'
-import type { AppConfig } from '../wm/appConfigs'
 import type { TilePlugin } from '../wm/tilePlugins'
 
 // ── Data model (blacklist approach) ──────────────────────────────
@@ -56,21 +55,15 @@ export const appMenuAtom = atomWithStorage<AppMenuState | LegacyAppMenuItem[]>(
 
 // ── Pure helpers ─────────────────────────────────────────────────
 
-/** Check if a registry app is visible (not in the blacklist). */
-export function isRegistryAppVisible(id: string, state: AppMenuState): boolean {
-  return !state.hiddenApps.includes(id)
-}
-
 /** Get the combined order of all apps (registry + custom). */
 function getUnifiedOrder(
   plugins: TilePlugin[],
-  configs: AppConfig[],
   state: AppMenuState,
 ): Map<string, number> {
   const order = new Map<string, number>()
 
   // Registry items: use customApps order if present, otherwise registry index.
-  const allRegistry = [...plugins.filter((p) => p.id !== 'empty'), ...configs]
+  const allRegistry = plugins.filter((p) => p.id !== 'empty')
   for (let i = 0; i < allRegistry.length; i++) {
     const id = allRegistry[i].id
     const custom = state.customApps.find((c) => c.id === id)
@@ -87,21 +80,28 @@ function getUnifiedOrder(
   return order
 }
 
+/** A user-created app entry surfaced in the app menu. */
+interface CustomAppEntry {
+  id: string
+  label: string
+  description?: string
+  pluginId: string
+  params?: Record<string, string>
+}
+
 /**
- * Return visible apps in order, merged from plugins + configs + custom items.
+ * Return visible apps in order, merged from plugins + custom items.
  * Registry apps are always included unless explicitly hidden.
  */
 export function getVisibleApps(
   plugins: TilePlugin[],
-  configs: AppConfig[],
   state: AppMenuState,
 ): Array<
   | { kind: 'plugin'; plugin: TilePlugin; params?: Record<string, string> }
-  | { kind: 'config'; config: AppConfig; params?: Record<string, string> }
+  | { kind: 'config'; config: CustomAppEntry; params?: Record<string, string> }
 > {
   const pluginMap = new Map(plugins.map((p) => [p.id, p]))
-  const configMap = new Map(configs.map((c) => [c.id, c]))
-  const order = getUnifiedOrder(plugins, configs, state)
+  const order = getUnifiedOrder(plugins, state)
   const hiddenSet = new Set(state.hiddenApps)
 
   interface AppEntry {
@@ -109,7 +109,7 @@ export function getVisibleApps(
     kind: 'plugin' | 'config'
     order: number
     plugin?: TilePlugin
-    config?: AppConfig
+    config?: CustomAppEntry
     params?: Record<string, string>
   }
 
@@ -127,20 +127,9 @@ export function getVisibleApps(
     })
   }
 
-  // Add all registry configs.
-  for (const c of configs) {
-    if (hiddenSet.has(c.id)) continue
-    entries.push({
-      id: c.id,
-      kind: 'config',
-      order: order.get(c.id) ?? 0,
-      config: c,
-    })
-  }
-
-  // Add custom-only items (not backed by a registry plugin/config).
+  // Add custom-only items (not backed by a registry plugin).
   for (const custom of state.customApps) {
-    if (pluginMap.has(custom.id) || configMap.has(custom.id)) continue
+    if (pluginMap.has(custom.id)) continue
     const targetPlugin = pluginMap.get(custom.config.pluginId)
     if (!targetPlugin) continue
     entries.push({
@@ -153,8 +142,6 @@ export function getVisibleApps(
         description: custom.config.description,
         pluginId: custom.config.pluginId,
         params: custom.params,
-        iconBg: '',
-        iconLetter: '',
       },
       params: custom.params,
     })

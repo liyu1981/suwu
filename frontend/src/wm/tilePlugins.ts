@@ -20,7 +20,7 @@ export interface TileRenderContext {
   initialPath?: string
   /** Open the tile-type picker for this pane (used by the empty placeholder). */
   onOpenPicker?: (paneId: string) => void
-  /** Extra URL params from an AppConfig preset (merged into iframe src). */
+  /** Extra URL params merged into the iframe src (e.g. from a custom app). */
   params?: Record<string, string>
 }
 

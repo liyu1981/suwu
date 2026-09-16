@@ -27,8 +27,8 @@ const (
 	// ReleaseRepo is the GitHub owner/repo for releases.
 	ReleaseRepo = "liyu1981/suwu"
 
-	checkTimeout     = 10 * time.Second
-	downloadTimeout  = 5 * time.Minute
+	checkTimeout      = 10 * time.Second
+	downloadTimeout   = 5 * time.Minute
 	daemonStopTimeout = 5 * time.Second
 )
 

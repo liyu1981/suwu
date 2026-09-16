@@ -10,13 +10,13 @@ import (
 
 // InputEvent is one mouse or keyboard action sent from the browser.
 type InputEvent struct {
-	Type   string `json:"type"`   // "mousemove" | "mousedown" | "mouseup" | "keydown" | "wheel"
-	X      int    `json:"x"`      // Mouse X in display coordinates
-	Y      int    `json:"y"`      // Mouse Y in display coordinates
-	Button int    `json:"button"` // 1 = left, 2 = middle, 3 = right
-	Key    string `json:"key"`    // Browser key name, e.g. "a", "Enter", "ArrowUp"
-	W      int    `json:"w,omitempty"` // resize: desired display width
-	H      int    `json:"h,omitempty"` // resize: desired display height
+	Type   string `json:"type"`         // "mousemove" | "mousedown" | "mouseup" | "keydown" | "wheel"
+	X      int    `json:"x"`            // Mouse X in display coordinates
+	Y      int    `json:"y"`            // Mouse Y in display coordinates
+	Button int    `json:"button"`       // 1 = left, 2 = middle, 3 = right
+	Key    string `json:"key"`          // Browser key name, e.g. "a", "Enter", "ArrowUp"
+	W      int    `json:"w,omitempty"`  // resize: desired display width
+	H      int    `json:"h,omitempty"`  // resize: desired display height
 	Dx     int    `json:"dx,omitempty"` // wheel: horizontal delta (+right)
 	Dy     int    `json:"dy,omitempty"` // wheel: vertical delta (+down)
 	Ctrl   bool   `json:"ctrl,omitempty"`

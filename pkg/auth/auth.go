@@ -50,7 +50,7 @@ type Host struct {
 type Config struct {
 	Token        string
 	TokenExpiry  time.Time // when the current token expires (zero = never)
-	SigningKey    []byte    // HMAC-SHA256 signing key derived from the token
+	SigningKey   []byte    // HMAC-SHA256 signing key derived from the token
 	BindHost     string    // actual address passed to net.Listen
 	DisplayHost  string    // user-friendly host shown in banner (detected hostname/IP when HOST=auto)
 	AllowedHosts []string
@@ -544,18 +544,6 @@ func ValidateTokenRequest(cfg *Config, hostHeader, originHeader, authHeader stri
 		}
 	}
 	return allowed()
-}
-
-// ValidateHostAndOrigin validates only the Host and Origin headers without
-// checking any authentication credentials. Use this when auth is handled
-// separately (e.g. via a session token query parameter).
-func ValidateHostAndOrigin(cfg *Config, hostHeader, originHeader string) Decision {
-	d, _ := validateAllowedHost(cfg, hostHeader)
-	if !d.OK {
-		return d
-	}
-	d = validateMatchingOrigin(originHeader, hostFromHeader(hostHeader), false)
-	return d
 }
 
 // validateBasicAuth checks an "Authorization: Basic <base64(user:pass)>"

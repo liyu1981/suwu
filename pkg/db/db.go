@@ -52,12 +52,12 @@ type ColumnMeta struct {
 
 // QueryResult holds the output of a SQL execution.
 type QueryResult struct {
-	Columns      []ColumnMeta     `json:"columns"`
-	Rows         [][]interface{}  `json:"rows"`
-	RowsAffected int64            `json:"rowsAffected"`
-	Milliseconds int64            `json:"milliseconds"`
-	Error        string           `json:"error,omitempty"`
-	Truncated    bool             `json:"truncated"`
+	Columns      []ColumnMeta    `json:"columns"`
+	Rows         [][]interface{} `json:"rows"`
+	RowsAffected int64           `json:"rowsAffected"`
+	Milliseconds int64           `json:"milliseconds"`
+	Error        string          `json:"error,omitempty"`
+	Truncated    bool            `json:"truncated"`
 }
 
 // TableInfo for schema browsing.

@@ -3,7 +3,6 @@ import { useAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { appMenuAtom, type AppMenuState, type CustomApp } from '../../store/appMenu'
 import { getAllTilePlugins } from '../../wm/tilePlugins'
-import { getAllAppConfigs } from '../../wm/appConfigs'
 import { getAppIconClasses, getAppIconLetter } from '../../wm/appIcons'
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
 import type { PluginParamDoc } from '../../wm/tilePlugins'
@@ -332,7 +331,6 @@ export default function AppMenuView() {
   const [menuState, setMenuState] = useAtom(appMenuAtom)
 
   const plugins = useMemo(() => getAllTilePlugins(), [])
-  const configs = useMemo(() => getAllAppConfigs(), [])
 
   // Derive the current state (handle legacy migration in atom).
   const state: AppMenuState = useMemo(() => {
@@ -354,9 +352,8 @@ export default function AppMenuView() {
     [setMenuState],
   )
 
-  // Plugin/config lookup for labels/descriptions.
+  // Plugin lookup for labels/descriptions.
   const pluginMap = useMemo(() => new Map(plugins.map((p) => [p.id, p])), [plugins])
-  const configMap = useMemo(() => new Map(configs.map((c) => [c.id, c])), [configs])
   const hiddenSet = useMemo(() => new Set(state.hiddenApps), [state.hiddenApps])
 
   // Build unified display list (all apps: registry + custom).
@@ -377,23 +374,9 @@ export default function AppMenuView() {
       })
     }
 
-    // Registry configs.
-    for (const c of configs) {
-      items.push({
-        id: c.id,
-        label: c.label,
-        description: c.description,
-        visible: !hiddenSet.has(c.id),
-        isCustom: false,
-        isConfig: true,
-        params: c.params,
-        order: items.length,
-      })
-    }
-
     // Custom-only items (not backed by registry).
     for (const custom of state.customApps) {
-      if (pluginMap.has(custom.id) || configMap.has(custom.id)) continue
+      if (pluginMap.has(custom.id)) continue
       items.push({
         id: custom.id,
         label: custom.config.label,
@@ -409,7 +392,7 @@ export default function AppMenuView() {
     }
 
     return items
-  }, [plugins, configs, hiddenSet, state.customApps, pluginMap, configMap])
+  }, [plugins, hiddenSet, state.customApps, pluginMap])
 
   // ── Toggle visibility ──────────────────────────────────────────
   const toggleVisible = useCallback(
@@ -436,13 +419,12 @@ export default function AppMenuView() {
         const registryIds = plugins
           .filter((p) => p.id !== 'empty')
           .map((p) => p.id)
-          .concat(configs.map((c) => c.id))
         return { ...prev, hiddenApps: registryIds }
       }
       // Show all: clear the blacklist.
       return { ...prev, hiddenApps: [] }
     })
-  }, [allVisible, setState, plugins, configs])
+  }, [allVisible, setState, plugins])
 
   // ── Drag to reorder (custom apps only) ─────────────────────────
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -583,12 +565,12 @@ export default function AppMenuView() {
         classes: getAppIconClasses(item.id, pluginId),
         letter: getAppIconLetter(
           item.id,
-          pluginMap.get(item.id)?.label ?? configMap.get(item.id)?.label ?? item.label,
+          pluginMap.get(item.id)?.label ?? item.label,
           pluginId,
         ),
       }
     },
-    [pluginMap, configMap],
+    [pluginMap],
   )
 
   return (

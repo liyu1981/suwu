@@ -17,11 +17,6 @@ type Session struct {
 	ptmx *os.File
 }
 
-// Start launches the user's shell in a new PTY with the given size.
-func Start(cols, rows uint16) (*Session, error) {
-	return StartWithCWD(cols, rows, "")
-}
-
 // StartWithCWD launches the user's shell in a new PTY with the given size
 // and an optional initial working directory. If cwd is empty, the home
 // directory is used.
@@ -57,11 +52,6 @@ func StartWithCWD(cols, rows uint16, cwd string) (*Session, error) {
 	}
 
 	return &Session{cmd: cmd, ptmx: ptmx}, nil
-}
-
-// File returns the PTY master file, for use with io.Copy etc.
-func (s *Session) File() *os.File {
-	return s.ptmx
 }
 
 // Read implements io.Reader over the PTY master.
@@ -105,14 +95,6 @@ func (s *Session) Wait() int {
 		return exitErr.ExitCode()
 	}
 	return -1
-}
-
-// Shell returns the shell path used for this session.
-func (s *Session) Shell() string {
-	if s.cmd == nil {
-		return ""
-	}
-	return s.cmd.Path
 }
 
 // Pid returns the shell process ID, or -1 if unavailable.

@@ -57,5 +57,15 @@ function coerceParam(
       return typeof value === 'string' && param.options.some((o) => o.value === value)
         ? value
         : param.default
+    case 'text':
+      return typeof value === 'string'
+        ? value.slice(0, param.maxLength ?? 2048)
+        : param.default
+    case 'file':
+      return typeof value === 'string' ? value : param.default
+    case 'color':
+      return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)
+        ? value.toLowerCase()
+        : param.default
   }
 }

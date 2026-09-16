@@ -58,6 +58,15 @@ components/background/
     rainforest-gpu/
       renderer.ts             # ping-pong reprojection (camera matrix in texels) + blit
       shaders/*.wgsl
+
+  video/                      # another family (canvas-2D, WebCodecs)
+    index.ts                  # definition + params schema (file, fit, speed, mask)
+    params.ts                 # typed params + resolveVideoParams() + caps
+    video-cpu/
+      renderer.ts             # OPFS read, draw loop, reduced motion, error overlay
+      mp4.ts                  # mp4box.js demux -> codec, description, samples
+      storage.ts              # OPFS copy/read/clear of the picked file
+      fit.ts                  # cover source rect
 ```
 
 Backends live in nested `<name>-cpu` / `<name>-gpu` folders so their
@@ -103,9 +112,9 @@ registerBackground({
   label: 'Seascape',
   params: [
     {
-      kind: 'number',            // slider (also: 'boolean' -> switch, 'select' -> dropdown)
-      key: 'speed',
-      label: 'Animation speed',  // plain string, like the background label
+      kind: 'number',            // slider (also: 'boolean' -> switch, 'select' -> dropdown,
+      key: 'speed',              //         'text' -> input, 'file' -> file picker,
+      label: 'Animation speed',  //         'color' -> colour picker)
       hint: 'Scales the drift of the camera and the waves.',
       default: 1,
       min: 0,
@@ -144,6 +153,13 @@ validation; a backend never keeps its own copy.
   remounts a fresh canvas (a canvas context type is permanent) with the GPU path
   disabled. `interactive-fluid`, `matrix-rain`, `atmospheric-landscape`,
   `seascape` and `rainforest` are GPU-only and have no CPU fallback.
+- **Video** — the `video` family is CPU-only (canvas-2D). The user picks a short
+  MP4/WebM in System Settings; the file is copied into OPFS (`storage.ts`) and
+  the renderer demuxes it with mp4box.js and decodes with WebCodecs
+  (`VideoDecoder`), drawing the frames to the canvas in a loop. No `<video>`
+  element, no network fetch and no audio. A configurable colour mask (colour +
+  opacity, default white 10%) is drawn over the frame. Load and codec failures
+  are reported on the canvas itself.
 
 > **Licensing note.** `rainforest` is an Inigo Quilez (iq) work whose original
 > license forbids use in a product, altered or not. It is included with express

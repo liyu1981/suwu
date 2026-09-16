@@ -80,6 +80,39 @@ export interface BackgroundSelectParam extends BackgroundParamBase {
   readonly options: readonly BackgroundSelectOption[]
 }
 
+/** Free-form text parameter, rendered as a text input. */
+export interface BackgroundTextParam extends BackgroundParamBase {
+  readonly kind: 'text'
+  readonly default: string
+  /** Placeholder shown when empty. */
+  readonly placeholder?: string
+  /** Maximum stored length; longer input is truncated. Defaults to 2048. */
+  readonly maxLength?: number
+}
+
+/**
+ * File picker parameter. The selected `File` is persisted by the background's
+ * `store` callback (e.g. copied into OPFS) and the returned string is what gets
+ * stored — a file name or cache key, not the bytes (localStorage can't hold
+ * them).
+ */
+export interface BackgroundFileParam extends BackgroundParamBase {
+  readonly kind: 'file'
+  readonly default: string
+  /** `accept` attribute for the file input. */
+  readonly accept?: string
+  /** Persist the picked file; resolve to the value to store. */
+  readonly store: (file: File) => Promise<string>
+  /** Optional cleanup when the value is cleared. */
+  readonly clear?: () => Promise<void>
+}
+
+/** Colour parameter, rendered as a colour picker. Stored as `#rrggbb`. */
+export interface BackgroundColorParam extends BackgroundParamBase {
+  readonly kind: 'color'
+  readonly default: string
+}
+
 /**
  * One user-adjustable background parameter. A background declares these in its
  * definition; System Settings renders the matching control and stores the
@@ -89,6 +122,9 @@ export type BackgroundParam =
   | BackgroundNumberParam
   | BackgroundBooleanParam
   | BackgroundSelectParam
+  | BackgroundTextParam
+  | BackgroundFileParam
+  | BackgroundColorParam
 
 /** A named background with an optional CPU backend and an optional GPU backend. */
 export interface BackgroundDefinition {

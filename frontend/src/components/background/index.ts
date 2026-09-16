@@ -5,6 +5,7 @@ import './matrix-rain'
 import './atmospheric-landscape'
 import './seascape'
 import './rainforest'
+import './video'
 
 export { AmbientBackground, type AmbientBackgroundProps } from './AmbientBackground'
 export { DEFAULT_BACKGROUND_ID } from './constants'
@@ -17,8 +18,10 @@ export {
 export type {
   BackendKind,
   BackgroundBooleanParam,
+  BackgroundColorParam,
   BackgroundContext,
   BackgroundDefinition,
+  BackgroundFileParam,
   BackgroundHandle,
   BackgroundModule,
   BackgroundNumberParam,
@@ -27,4 +30,5 @@ export type {
   BackgroundSelectOption,
   BackgroundSelectParam,
   BackgroundStarter,
+  BackgroundTextParam,
 } from './types'

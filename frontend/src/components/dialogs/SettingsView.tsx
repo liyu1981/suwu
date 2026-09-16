@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
@@ -10,10 +10,13 @@ import { Combobox } from '../ui/combobox'
 import { getBackground, listBackgrounds, resolveBackgroundParams } from '../background'
 import type {
   BackgroundBooleanParam,
+  BackgroundColorParam,
+  BackgroundFileParam,
   BackgroundNumberParam,
   BackgroundParam,
   BackgroundParamValue,
   BackgroundSelectParam,
+  BackgroundTextParam,
 } from '../background'
 
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
@@ -146,6 +149,156 @@ function SelectField({
   )
 }
 
+/** Free-form text/URL input. Commits on blur or Enter. */
+function TextField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundTextParam
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [local, setLocal] = useState(value)
+  useEffect(() => setLocal(value), [value])
+
+  // Commit on blur/Enter, not per keystroke: a params change restarts the
+  // backend, so typing a URL must not restart it on every character.
+  const commit = () => {
+    const next = local.trim()
+    if (next !== value) onChange(next)
+  }
+
+  return (
+    <div>
+      <span className={sectionLabel}>{param.label}</span>
+      <input
+        type="url"
+        value={local}
+        placeholder={param.placeholder}
+        maxLength={param.maxLength}
+        spellCheck={false}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+        }}
+        aria-label={param.label}
+        className="mt-2 h-8 w-full rounded border border-white/10 bg-black/30 px-2 text-xs text-popover-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-sky-400/60 focus:ring-1 focus:ring-sky-400/30"
+      />
+      {param.hint && <p className={sectionHint}>{param.hint}</p>}
+    </div>
+  )
+}
+
+/** File picker; the chosen file is persisted by the param's `store` callback. */
+function FileField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundFileParam
+  value: string
+  onChange: (value: string) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const pick = (): void => inputRef.current?.click()
+
+  const onPicked = async (files: FileList | null): Promise<void> => {
+    const file = files?.[0]
+    if (!file) return
+    setBusy(true)
+    setError(null)
+    try {
+      onChange(await param.store(file))
+    } catch (storeError) {
+      setError(storeError instanceof Error ? storeError.message : String(storeError))
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  const button =
+    'shrink-0 cursor-pointer rounded border border-white/10 bg-black/30 px-2 py-1 text-xs ' +
+    'text-popover-foreground outline-none transition-colors hover:bg-white/10 ' +
+    'focus-visible:ring-1 focus-visible:ring-sky-400/60 disabled:cursor-not-allowed disabled:opacity-50'
+
+  return (
+    <div>
+      <span className={sectionLabel}>{param.label}</span>
+      <div className="mt-2 flex items-center gap-2">
+        <button type="button" onClick={pick} disabled={busy} className={button}>
+          {busy ? 'Copying…' : value ? 'Choose another…' : 'Choose file…'}
+        </button>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {value || 'No file selected'}
+        </span>
+        {value && (
+          <button
+            type="button"
+            disabled={busy}
+            className={button}
+            onClick={() => {
+              void (async () => {
+                await param.clear?.()
+                onChange('')
+              })()
+            }}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={param.accept}
+        className="hidden"
+        onChange={(e) => void onPicked(e.target.files)}
+      />
+      {param.hint && <p className={sectionHint}>{param.hint}</p>}
+      {error && <p className="mt-1 text-[11px] text-red-400">{error}</p>}
+    </div>
+  )
+}
+
+/** Colour picker; commits on blur so dragging the picker doesn't thrash the backend. */
+function ColorField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundColorParam
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [local, setLocal] = useState(value)
+  useEffect(() => setLocal(value), [value])
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className={sectionLabel}>{param.label}</span>
+        <span className="font-mono text-xs text-popover-foreground">{local}</span>
+      </div>
+      <input
+        type="color"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={() => {
+          if (local !== value) onChange(local)
+        }}
+        aria-label={param.label}
+        className="mt-2 h-8 w-full cursor-pointer rounded border border-white/10 bg-black/30"
+      />
+      {param.hint && <p className={sectionHint}>{param.hint}</p>}
+    </div>
+  )
+}
+
 /** Renders the control matching a parameter's declared kind. */
 function BackgroundParamField({
   param,
@@ -176,6 +329,30 @@ function BackgroundParamField({
     case 'select':
       return (
         <SelectField
+          param={param}
+          value={typeof value === 'string' ? value : param.default}
+          onChange={onChange}
+        />
+      )
+    case 'text':
+      return (
+        <TextField
+          param={param}
+          value={typeof value === 'string' ? value : param.default}
+          onChange={onChange}
+        />
+      )
+    case 'file':
+      return (
+        <FileField
+          param={param}
+          value={typeof value === 'string' ? value : param.default}
+          onChange={onChange}
+        />
+      )
+    case 'color':
+      return (
+        <ColorField
           param={param}
           value={typeof value === 'string' ? value : param.default}
           onChange={onChange}

@@ -1,5 +1,6 @@
 // Register built-in backgrounds (side-effect imports).
 import './ambient-blob'
+import './interactive-fluid'
 
 export { AmbientBackground, type AmbientBackgroundProps } from './AmbientBackground'
 export { startBackground, type StartBackgroundOptions } from './select'

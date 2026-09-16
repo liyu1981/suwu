@@ -1,19 +1,37 @@
 import { useBackground } from './useBackground'
 import type { BackendKind } from './types'
 
+const DEFAULT_BACKGROUND = 'ambient-blob'
+const DEBUG_ID_KEY = 'suwu.bg-id'
+
+/** Debug override: `?bg-id=<id>`, then localStorage, then undefined. */
+function debugBackgroundId(): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  const fromQuery = new URLSearchParams(window.location.search).get('bg-id')
+  if (fromQuery) return fromQuery
+  try {
+    return window.localStorage.getItem(DEBUG_ID_KEY) ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
 export interface AmbientBackgroundProps {
+  /** Registered background id. Defaults to `ambient-blob`. */
+  background?: string
   /** Backend override; defaults to auto-detection (GPU, then CPU). */
   force?: BackendKind | 'auto'
 }
 
 /**
- * Full-viewport ambient background. Renders the WebGPU (vgpu) blob field when
- * the browser supports it and transparently falls back to the canvas-2D
- * implementation. The current backend is exposed on `data-backend` for
- * debugging and perf tooling.
+ * Full-viewport ambient background. Renders the selected background's GPU
+ * backend when WebGPU is available and falls back to its CPU backend
+ * otherwise (GPU-only backgrounds simply render nothing without WebGPU). The
+ * active backend is exposed on `data-backend` for debugging and perf tooling.
  */
-export function AmbientBackground({ force }: AmbientBackgroundProps) {
-  const { canvasRef, canvasKey, backend } = useBackground({ id: 'ambient-blob', force })
+export function AmbientBackground({ background, force }: AmbientBackgroundProps) {
+  const id = background ?? debugBackgroundId() ?? DEFAULT_BACKGROUND
+  const { canvasRef, canvasKey, backend } = useBackground({ id, force })
   return (
     <canvas
       key={canvasKey}

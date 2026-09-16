@@ -74,6 +74,7 @@ export function useBackground(options: UseBackgroundOptions): UseBackgroundResul
 
     void startBackground(definition, ctx, { force: effectiveForce })
       .then((started) => {
+        if (!started) return
         if (cancelled) {
           started.dispose()
           return

@@ -38,11 +38,11 @@ export interface BackgroundModule {
   readonly start: BackgroundStarter
 }
 
-/** A named background with a CPU backend and an optional GPU backend. */
+/** A named background with an optional CPU backend and an optional GPU backend. */
 export interface BackgroundDefinition {
   readonly id: string
   readonly label: string
   readonly defaultParams?: Record<string, unknown>
-  readonly cpu: () => Promise<BackgroundModule>
+  readonly cpu?: () => Promise<BackgroundModule>
   readonly gpu?: () => Promise<BackgroundModule>
 }

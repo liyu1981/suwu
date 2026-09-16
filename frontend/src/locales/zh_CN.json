@@ -1,7 +1,9 @@
 {
   "app": {
     "title": "Suwu",
-    "openMenu": "打开菜单"
+    "openMenu": "打开菜单",
+    "hideSpaces": "隐藏空间",
+    "showSpaces": "显示空间"
   },
   "menu": {
     "shortcuts": "键盘快捷键",

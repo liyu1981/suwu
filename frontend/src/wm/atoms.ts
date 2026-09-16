@@ -158,6 +158,13 @@ export const menuOpenAtom = atom(false)
 /** The currently visible screen inside the unified menu dialog. */
 export const menuViewAtom = atom<MenuView>('menu')
 
+/**
+ * Whether all tiling spaces are temporarily hidden so the ambient background
+ * shows through. Ephemeral (not persisted): the header brand toggles it, and
+ * the panes stay mounted underneath so sessions survive the peek.
+ */
+export const spacesHiddenAtom = atom(false)
+
 /** Swap mode state: null = inactive, otherwise tracks which tile initiated the swap. */
 export const swapModeAtom = atom<string | null>(null)
 

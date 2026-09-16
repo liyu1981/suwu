@@ -8,7 +8,7 @@ import { NotificationBell } from '../components/NotificationBell'
 import { NotificationPanel } from '../components/NotificationPanel'
 import { useNotifications } from './hooks/useNotifications'
 import { useUpdateCheck } from './hooks/useUpdateCheck'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, FOCUS_SPACE_NAME } from '../wm/atoms'
+import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, spacesHiddenAtom, activeSpaceAtom, FOCUS_SPACE_NAME } from '../wm/atoms'
 import {
   addSpace,
   findLeaf,
@@ -70,6 +70,7 @@ export default function AppShell() {
   const [, setMenuView] = useAtom(menuViewAtom)
   const [spaces] = useAtom(spacesAtom)
   const [activeSpace] = useAtom(activeSpaceAtom)
+  const [spacesHidden, setSpacesHidden] = useAtom(spacesHiddenAtom)
   const [focusedId] = useAtom(focusedIdAtom)
   const [background] = useAtom(backgroundAtom)
 
@@ -155,7 +156,16 @@ export default function AppShell() {
               <MenuIcon />
             </button>
 
-            <span className="text-xs font-semibold tracking-tight">{t('app.title')}</span>
+            <button
+              type="button"
+              onClick={() => setSpacesHidden((v) => !v)}
+              aria-pressed={spacesHidden}
+              aria-label={spacesHidden ? t('app.showSpaces') : t('app.hideSpaces')}
+              title={spacesHidden ? t('app.showSpaces') : t('app.hideSpaces')}
+              className="-mx-1 cursor-pointer rounded px-1 text-xs font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+            >
+              {t('app.title')}
+            </button>
 
             {isTiling && (
               <>
@@ -281,7 +291,13 @@ export default function AppShell() {
             )}
           </div>
         </header>
-        <main className="min-h-0 overflow-hidden pb-3">
+        <main
+          aria-hidden={spacesHidden || undefined}
+          inert={spacesHidden || undefined}
+          className={`min-h-0 overflow-hidden pb-3 transition-opacity duration-200 motion-reduce:transition-none ${
+            spacesHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
+          }`}
+        >
           <Outlet />
         </main>
       </div>

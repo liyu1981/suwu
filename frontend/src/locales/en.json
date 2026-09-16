@@ -1,7 +1,9 @@
 {
   "app": {
     "title": "Suwu",
-    "openMenu": "Open menu"
+    "openMenu": "Open menu",
+    "hideSpaces": "Hide spaces",
+    "showSpaces": "Show spaces"
   },
   "menu": {
     "shortcuts": "Keyboard shortcuts",

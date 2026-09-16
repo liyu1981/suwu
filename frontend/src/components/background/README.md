@@ -35,6 +35,13 @@ components/background/
       renderer.ts             # vgpu storage upload + effect + frameLoop
       glyph-atlas.ts          # canvas-rasterised 1-bit glyph atlas
       shaders/*.wgsl
+
+  atmospheric-landscape/      # another family (GPU only)
+    index.ts                  # definition + registry entry
+    atmospheric-landscape-gpu/
+      renderer.ts             # ping-pong accumulation + ray-march + tone pass
+      noise-volume.ts         # deterministic 64³ RGBA8 value-noise volume
+      shaders/*.wgsl
 ```
 
 Backends live in nested `<name>-cpu` / `<name>-gpu` folders so their
@@ -76,7 +83,8 @@ this folder.
   *before* touching the canvas, so an unsupported browser falls back cleanly. A
   device lost after the surface is attached calls `ctx.onFatal`, and the hook
   remounts a fresh canvas (a canvas context type is permanent) with the GPU path
-  disabled. `interactive-fluid` is GPU-only and has no CPU fallback.
+  disabled. `interactive-fluid`, `matrix-rain` and `atmospheric-landscape` are
+  GPU-only and have no CPU fallback.
 
 ## Debug overrides
 

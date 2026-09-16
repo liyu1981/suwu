@@ -20,6 +20,7 @@ import {
   type SplitSide,
 } from '../wm/layout'
 import { getTilePlugin } from '../wm/tilePlugins'
+import { backgroundAtom } from '../store/settings'
 
 const wmBase =
   'grid h-7 w-7 place-items-center rounded transition glass-btn disabled:cursor-not-allowed disabled:opacity-40'
@@ -70,6 +71,7 @@ export default function AppShell() {
   const [spaces] = useAtom(spacesAtom)
   const [activeSpace] = useAtom(activeSpaceAtom)
   const [focusedId] = useAtom(focusedIdAtom)
+  const [background] = useAtom(backgroundAtom)
 
   useNotifications()
   useUpdateCheck()
@@ -145,7 +147,7 @@ export default function AppShell() {
 
   return (
     <div className="ambient-bg min-h-screen w-full overflow-x-clip text-slate-100">
-      <AmbientBackground />
+      <AmbientBackground background={background} />
       <div className="relative z-10 grid h-dvh grid-rows-[auto_1fr] gap-2 px-3 pt-2">
         <header className="apple-panel rounded-[6px]">
           <div className="flex items-center gap-2 px-2 py-1">

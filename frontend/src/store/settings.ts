@@ -1,4 +1,5 @@
 import { atomWithStorage } from 'jotai/utils'
+import { DEFAULT_BACKGROUND_ID } from '../components/background/constants'
 
 export interface AutoResolveSettings {
   filebrowser: boolean
@@ -18,3 +19,9 @@ export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-r
   gitgraph: true,
   diff: true,
 })
+
+/**
+ * The app-shell background the user chose in System Settings. Persisted in
+ * localStorage; falls back to the default background when unset.
+ */
+export const backgroundAtom = atomWithStorage<string>('suwu:background', DEFAULT_BACKGROUND_ID)

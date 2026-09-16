@@ -3,6 +3,7 @@ import './ambient-blob'
 import './interactive-fluid'
 
 export { AmbientBackground, type AmbientBackgroundProps } from './AmbientBackground'
+export { DEFAULT_BACKGROUND_ID } from './constants'
 export { startBackground, type StartBackgroundOptions } from './select'
 export { getBackground, listBackgrounds, registerBackground } from './registry'
 export type {

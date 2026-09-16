@@ -18,6 +18,7 @@
   "settings": {
     "termTab": "Term",
     "notificationsTab": "Notifications",
+    "appearanceTab": "Appearance",
     "fileBrowserTab": "File Browser",
     "fontSize": "Font size",
     "fontFamily": "Font family",
@@ -26,6 +27,8 @@
     "themePresetHint": "Choose a built-in theme or customize individual colors below.",
     "bgOpacity": "Background opacity",
     "bgOpacityHint": "Applied instantly to all terminal panes. Independent of the theme preset.",
+    "backgroundHint": "Choose the ambient background for the app shell. Backgrounds marked WebGPU need a browser with WebGPU support.",
+    "backgroundGpuOnly": "WebGPU",
     "lineHeight": "Line height",
     "lineHeightHint": "Applied instantly to all terminal panes. Currently the default is {{default}}; save to make this the default too.",
     "themeColors": "Theme colors",

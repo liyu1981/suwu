@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { Tabs as TabsPrimitive } from 'radix-ui'
 import { maxEntriesAtom } from '../../store/notifications'
-import { autoResolveAtom } from '../../store/settings'
+import { autoResolveAtom, backgroundAtom } from '../../store/settings'
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
+import { Combobox } from '../ui/combobox'
+import { listBackgrounds } from '../background'
 
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
 const sectionLabel = 'text-xs font-medium text-muted-foreground'
@@ -51,6 +53,14 @@ export default function SettingsView() {
   const { t } = useTranslation()
   const [maxEntries, setMaxEntries] = useAtom(maxEntriesAtom)
   const [autoResolve, setAutoResolve] = useAtom(autoResolveAtom)
+  const [background, setBackground] = useAtom(backgroundAtom)
+
+  const backgroundItems = listBackgrounds().map((definition) => ({
+    label: definition.cpu
+      ? definition.label
+      : `${definition.label} · ${t('settings.backgroundGpuOnly')}`,
+    value: definition.id,
+  }))
 
   return (
     <div>
@@ -65,6 +75,9 @@ export default function SettingsView() {
         >
           <TabsPrimitive.Trigger value="notifications" className={tabBtn}>
             {t('settings.notificationsTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="appearance" className={tabBtn}>
+            {t('settings.appearanceTab')}
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="actions" className={tabBtn}>
             {t('settings.actionsTab')}
@@ -95,6 +108,23 @@ export default function SettingsView() {
             <p className={sectionHint}>
               {t('settings.maxMessageHistoryHint')}
             </p>
+          </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="appearance" className="min-w-0 flex-1">
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.background')}</span>
+            </div>
+            <div className="mt-2">
+              <Combobox
+                items={backgroundItems}
+                value={background}
+                onChange={setBackground}
+                placeholder={t('settings.background')}
+              />
+            </div>
+            <p className={sectionHint}>{t('settings.backgroundHint')}</p>
           </div>
         </TabsPrimitive.Content>
 

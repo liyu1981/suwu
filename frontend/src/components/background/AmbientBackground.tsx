@@ -1,7 +1,8 @@
+import { DEFAULT_BACKGROUND_ID } from './constants'
+import { getBackground } from './registry'
 import { useBackground } from './useBackground'
 import type { BackendKind } from './types'
 
-const DEFAULT_BACKGROUND = 'ambient-blob'
 const DEBUG_ID_KEY = 'suwu.bg-id'
 
 /** Debug override: `?bg-id=<id>`, then localStorage, then undefined. */
@@ -16,8 +17,14 @@ function debugBackgroundId(): string | undefined {
   }
 }
 
+/** Debug override, then the chosen id, then default — falling back if unregistered. */
+function resolveBackgroundId(preferred?: string): string {
+  const candidate = debugBackgroundId() ?? preferred ?? DEFAULT_BACKGROUND_ID
+  return getBackground(candidate) ? candidate : DEFAULT_BACKGROUND_ID
+}
+
 export interface AmbientBackgroundProps {
-  /** Registered background id. Defaults to `ambient-blob`. */
+  /** Registered background id. Defaults to the user's choice, then `ambient-blob`. */
   background?: string
   /** Backend override; defaults to auto-detection (GPU, then CPU). */
   force?: BackendKind | 'auto'
@@ -28,13 +35,16 @@ export interface AmbientBackgroundProps {
  * backend when WebGPU is available and falls back to its CPU backend
  * otherwise (GPU-only backgrounds simply render nothing without WebGPU). The
  * active backend is exposed on `data-backend` for debugging and perf tooling.
+ *
+ * The canvas is keyed by the background id: a canvas context type is permanent,
+ * so switching backgrounds must start on a fresh element.
  */
 export function AmbientBackground({ background, force }: AmbientBackgroundProps) {
-  const id = background ?? debugBackgroundId() ?? DEFAULT_BACKGROUND
+  const id = resolveBackgroundId(background)
   const { canvasRef, canvasKey, backend } = useBackground({ id, force })
   return (
     <canvas
-      key={canvasKey}
+      key={`${id}-${canvasKey}`}
       ref={canvasRef}
       aria-hidden="true"
       data-backend={backend ?? undefined}

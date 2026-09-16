@@ -38,11 +38,67 @@ export interface BackgroundModule {
   readonly start: BackgroundStarter
 }
 
+/** A value a background parameter can take. */
+export type BackgroundParamValue = number | boolean | string
+
+interface BackgroundParamBase {
+  /** Stable key in the params bag handed to the backend. */
+  readonly key: string
+  /** Control label shown in System Settings. */
+  readonly label: string
+  /** Optional helper line shown under the control. */
+  readonly hint?: string
+}
+
+/** Continuous numeric parameter, rendered as a slider. */
+export interface BackgroundNumberParam extends BackgroundParamBase {
+  readonly kind: 'number'
+  readonly default: number
+  readonly min: number
+  readonly max: number
+  readonly step?: number
+  /** Formats the value shown beside the slider. */
+  readonly format?: (value: number) => string
+}
+
+/** On/off parameter, rendered as a switch. */
+export interface BackgroundBooleanParam extends BackgroundParamBase {
+  readonly kind: 'boolean'
+  readonly default: boolean
+}
+
+/** One choice of a `select` parameter. */
+export interface BackgroundSelectOption {
+  readonly value: string
+  readonly label: string
+}
+
+/** Enumerated parameter, rendered as a select. */
+export interface BackgroundSelectParam extends BackgroundParamBase {
+  readonly kind: 'select'
+  readonly default: string
+  readonly options: readonly BackgroundSelectOption[]
+}
+
+/**
+ * One user-adjustable background parameter. A background declares these in its
+ * definition; System Settings renders the matching control and stores the
+ * chosen value under the background id. Backends receive the resolved bag.
+ */
+export type BackgroundParam =
+  | BackgroundNumberParam
+  | BackgroundBooleanParam
+  | BackgroundSelectParam
+
 /** A named background with an optional CPU backend and an optional GPU backend. */
 export interface BackgroundDefinition {
   readonly id: string
   readonly label: string
-  readonly defaultParams?: Record<string, unknown>
+  /**
+   * User-adjustable parameters, rendered in System Settings and persisted per
+   * background. Omit for a background with nothing to tune.
+   */
+  readonly params?: readonly BackgroundParam[]
   readonly cpu?: () => Promise<BackgroundModule>
   readonly gpu?: () => Promise<BackgroundModule>
 }

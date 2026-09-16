@@ -8,11 +8,12 @@ background simply renders nothing on a browser without WebGPU.
 ```
 components/background/
   index.ts                    # public API + registry barrel
-  types.ts                    # BackgroundContext / Handle / Starter / Definition
+  types.ts                    # Context / Handle / Starter / Definition / Param schema
   registry.ts                 # registerBackground() / getBackground() / listBackgrounds()
+  params.ts                   # default + override resolution for the param schema
   select.ts                   # capability detection + gpu -> cpu fallback chain
   useBackground.ts            # React lifecycle hook (detection, reduced motion, remount)
-  AmbientBackground.tsx       # the app-shell canvas + hook
+  AmbientBackground.tsx       # the app-shell canvas + hook + param resolution
 
   ambient-blob/               # one background family
     index.ts                  # definition + registry entry (backend-agnostic)
@@ -37,10 +38,18 @@ components/background/
       shaders/*.wgsl
 
   atmospheric-landscape/      # another family (GPU only)
-    index.ts                  # definition + registry entry
+    index.ts                  # definition + params schema (animation speed)
+    params.ts                 # typed params + resolveAtmosphericLandscapeParams()
     atmospheric-landscape-gpu/
       renderer.ts             # ping-pong accumulation + ray-march + tone pass
       noise-volume.ts         # deterministic 64³ RGBA8 value-noise volume
+      shaders/*.wgsl
+
+  seascape/                   # another family (GPU only)
+    index.ts                  # definition + params schema (animation speed)
+    params.ts                 # typed params + resolveSeascapeParams()
+    seascape-gpu/
+      renderer.ts             # capped ray-march target + blit + frameLoop
       shaders/*.wgsl
 ```
 
@@ -64,15 +73,58 @@ background. It sets `data-backend` (`gpu` / `cpu`) once a backend is running.
 ## Adding a background
 
 1. Create `<name>/` with any shared params/types and a definition module that
-   calls `registerBackground({ id, label, defaultParams, cpu, gpu })`. `cpu` and
-   `gpu` are dynamic imports of the backend folders; both are optional (declare
-   only the backends you have).
+   calls `registerBackground({ id, label, params, cpu, gpu })`. `cpu` and `gpu`
+   are dynamic imports of the backend folders; both are optional (declare only
+   the backends you have). `params` is optional — see below.
 2. Create `<name>/<name>-cpu/` and/or `<name>/<name>-gpu/`, each exporting
-   `start` with the `BackgroundStarter` signature.
+   `start` with the `BackgroundStarter` signature. The resolved params bag is
+   the second argument.
 3. Import the definition module from `index.ts` (side-effect import).
 
 The shell selects a background by id, so new backgrounds need no changes outside
 this folder.
+
+## Parameters
+
+A background can expose user-tunable settings without any UI work. Declare them
+in the definition; System Settings renders a control for each kind and stores
+the chosen value per background id:
+
+```ts
+registerBackground({
+  id: 'seascape',
+  label: 'Seascape',
+  params: [
+    {
+      kind: 'number',            // slider (also: 'boolean' -> switch, 'select' -> dropdown)
+      key: 'speed',
+      label: 'Animation speed',  // plain string, like the background label
+      hint: 'Scales the drift of the camera and the waves.',
+      default: 1,
+      min: 0,
+      max: 3,
+      step: 0.05,
+      format: (v) => `${v.toFixed(2)}×`,
+    },
+  ],
+  gpu: () => import('./seascape-gpu'),
+})
+```
+
+- `defaultBackgroundParams(definition)` / `resolveBackgroundParams(definition,
+  overrides)` (in `params.ts`) merge the declared defaults with the stored
+  overrides, validating each against its schema — a stale or hand-edited
+  localStorage entry can never reach a backend.
+- `AmbientBackground` resolves the selected background's params and threads them
+  through `useBackground` → `startBackground` → `starter(ctx, params)`.
+- A params change restarts the backend (the params bag is part of the effect
+  deps), because some values (e.g. a palette) can only be applied at setup.
+  Sliders therefore commit on release rather than on every drag tick.
+- Backends read typed values out of the bag in their own `<name>/params.ts`
+  (e.g. `resolveSeascapeParams`) so the schema and the reader stay together.
+
+The parameter schema is the single source of truth for defaults, UI and
+validation; a backend never keeps its own copy.
 
 ## Backends
 
@@ -83,8 +135,8 @@ this folder.
   *before* touching the canvas, so an unsupported browser falls back cleanly. A
   device lost after the surface is attached calls `ctx.onFatal`, and the hook
   remounts a fresh canvas (a canvas context type is permanent) with the GPU path
-  disabled. `interactive-fluid`, `matrix-rain` and `atmospheric-landscape` are
-  GPU-only and have no CPU fallback.
+  disabled. `interactive-fluid`, `matrix-rain`, `atmospheric-landscape` and
+  `seascape` are GPU-only and have no CPU fallback.
 
 ## Debug overrides
 

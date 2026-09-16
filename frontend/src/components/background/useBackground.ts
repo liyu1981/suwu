@@ -10,6 +10,11 @@ export interface UseBackgroundOptions {
   id: string
   /** Backend override; defaults to `'auto'` (GPU, then CPU). */
   force?: BackendKind | 'auto'
+  /**
+   * Resolved parameters bag. A new identity restarts the backend, so memoize it
+   * in the caller (see `AmbientBackground`).
+   */
+  params?: Record<string, unknown>
   /** Allowed device-pixel-ratio range. */
   dpr?: readonly [number, number]
   /** Target frame rate for animated backgrounds. */
@@ -30,7 +35,7 @@ export interface UseBackgroundResult {
  * canvas remount when a backend reports a fatal error.
  */
 export function useBackground(options: UseBackgroundOptions): UseBackgroundResult {
-  const { id, force = 'auto', dpr = DEFAULT_DPR, fps = 30 } = options
+  const { id, force = 'auto', params, dpr = DEFAULT_DPR, fps = 30 } = options
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [canvasKey, setCanvasKey] = useState(0)
   const [gpuDisabled, setGpuDisabled] = useState(false)
@@ -72,7 +77,7 @@ export function useBackground(options: UseBackgroundOptions): UseBackgroundResul
     const effectiveForce: BackendKind | 'auto' = gpuDisabled ? 'cpu' : force
     const ctx = { canvas, dpr, fps, reducedMotion, onFatal }
 
-    void startBackground(definition, ctx, { force: effectiveForce })
+    void startBackground(definition, ctx, { force: effectiveForce, params })
       .then((started) => {
         if (!started) return
         if (cancelled) {
@@ -91,7 +96,7 @@ export function useBackground(options: UseBackgroundOptions): UseBackgroundResul
       setBackend(null)
       handle?.dispose()
     }
-  }, [id, force, dpr, fps, reducedMotion, gpuDisabled, canvasKey, onFatal])
+  }, [id, force, params, dpr, fps, reducedMotion, gpuDisabled, canvasKey, onFatal])
 
   return { canvasRef, canvasKey, backend }
 }

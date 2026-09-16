@@ -4,10 +4,16 @@ import type {
   BackgroundDefinition,
   BackgroundHandle,
 } from './types'
+import { defaultBackgroundParams } from './params'
 
 export interface StartBackgroundOptions {
   /** `'auto'` (default) tries the GPU backend first, then falls back to CPU. */
   force?: BackendKind | 'auto'
+  /**
+   * Resolved parameters bag. Callers usually pass `resolveBackgroundParams()`
+   * output; when omitted the background's declared defaults are used.
+   */
+  params?: Record<string, unknown>
 }
 
 const DEBUG_KEY = 'suwu.bg'
@@ -52,11 +58,12 @@ export async function startBackground(
   options: StartBackgroundOptions = {},
 ): Promise<BackgroundHandle | null> {
   const force = options.force ?? debugOverride() ?? 'auto'
+  const params: Record<string, unknown> = options.params ?? defaultBackgroundParams(definition)
 
   if (force !== 'cpu' && definition.gpu && hasWebGpu()) {
     try {
       const gpuModule = await definition.gpu()
-      return await gpuModule.start(ctx, definition.defaultParams)
+      return await gpuModule.start(ctx, params)
     } catch (error) {
       if (!definition.cpu) {
         console.warn(
@@ -72,7 +79,7 @@ export async function startBackground(
   if (definition.cpu) {
     try {
       const cpuModule = await definition.cpu()
-      return await cpuModule.start(ctx, definition.defaultParams)
+      return await cpuModule.start(ctx, params)
     } catch (error) {
       ctx.onFatal(error)
       throw error

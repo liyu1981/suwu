@@ -1,4 +1,5 @@
 import { registerBackground } from '../registry'
+import { ATMOSPHERIC_LANDSCAPE_PARAMS } from './params'
 
 /**
  * Atmospheric Landscape — a slow volumetric fly-over of a foggy, sunlit
@@ -8,10 +9,11 @@ import { registerBackground } from '../registry'
  * accumulation target, a second pass applies the contrast/sRGB tone curve to
  * the canvas. Ported from the Shadertoy demo "Atmospheric Landscape" by TekF
  * (https://www.shadertoy.com/view/slVfD1); see the shaders for the adaptation
- * notes.
+ * notes. Exposes an adjustable animation speed.
  */
 registerBackground({
   id: 'atmospheric-landscape',
   label: 'Atmospheric Landscape',
+  params: ATMOSPHERIC_LANDSCAPE_PARAMS,
   gpu: () => import('./atmospheric-landscape-gpu'),
 })

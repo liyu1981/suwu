@@ -1,12 +1,20 @@
+import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { Tabs as TabsPrimitive } from 'radix-ui'
 import { maxEntriesAtom } from '../../store/notifications'
-import { autoResolveAtom, backgroundAtom } from '../../store/settings'
+import { autoResolveAtom, backgroundAtom, backgroundParamsAtom } from '../../store/settings'
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
 import { Combobox } from '../ui/combobox'
-import { listBackgrounds } from '../background'
+import { getBackground, listBackgrounds, resolveBackgroundParams } from '../background'
+import type {
+  BackgroundBooleanParam,
+  BackgroundNumberParam,
+  BackgroundParam,
+  BackgroundParamValue,
+  BackgroundSelectParam,
+} from '../background'
 
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
 const sectionLabel = 'text-xs font-medium text-muted-foreground'
@@ -46,6 +54,136 @@ function Toggle({
   )
 }
 
+function NumberField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundNumberParam
+  value: number
+  onChange: (value: number) => void
+}) {
+  const [local, setLocal] = useState(value)
+  useEffect(() => setLocal(value), [value])
+
+  // Commit on release, not while dragging: a params change restarts the
+  // backend, so a continuous write would thrash the renderer mid-drag.
+  const commit = (input: HTMLInputElement) => {
+    const next = Number(input.value)
+    if (next !== value) onChange(next)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className={sectionLabel}>{param.label}</span>
+        <span className="font-mono text-xs text-popover-foreground">
+          {param.format ? param.format(local) : String(local)}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={param.min}
+        max={param.max}
+        step={param.step ?? 1}
+        value={local}
+        onChange={(e) => setLocal(Number(e.target.value))}
+        onPointerUp={(e) => commit(e.currentTarget)}
+        onKeyUp={(e) => commit(e.currentTarget)}
+        onBlur={(e) => commit(e.currentTarget)}
+        aria-label={param.label}
+        className="mt-2 h-1 w-full cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
+      />
+      {param.hint && <p className={sectionHint}>{param.hint}</p>}
+    </div>
+  )
+}
+
+function BooleanField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundBooleanParam
+  value: boolean
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className={sectionLabel}>{param.label}</span>
+      <Toggle checked={value} onCheckedChange={onChange} />
+    </div>
+  )
+}
+
+function SelectField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundSelectParam
+  value: string
+  onChange: (value: string) => void
+}) {
+  const current = param.options.find((option) => option.value === value) ?? param.options[0]
+  return (
+    <div>
+      <span className={sectionLabel}>{param.label}</span>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger aria-label={param.label} className="mt-2">
+          <span>{current?.label}</span>
+        </SelectTrigger>
+        <SelectContent>
+          {param.options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {param.hint && <p className={sectionHint}>{param.hint}</p>}
+    </div>
+  )
+}
+
+/** Renders the control matching a parameter's declared kind. */
+function BackgroundParamField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundParam
+  value: BackgroundParamValue
+  onChange: (value: BackgroundParamValue) => void
+}) {
+  switch (param.kind) {
+    case 'number':
+      return (
+        <NumberField
+          param={param}
+          value={typeof value === 'number' ? value : param.default}
+          onChange={onChange}
+        />
+      )
+    case 'boolean':
+      return (
+        <BooleanField
+          param={param}
+          value={typeof value === 'boolean' ? value : param.default}
+          onChange={onChange}
+        />
+      )
+    case 'select':
+      return (
+        <SelectField
+          param={param}
+          value={typeof value === 'string' ? value : param.default}
+          onChange={onChange}
+        />
+      )
+  }
+}
+
 /**
  * Settings screen: Notifications, Actions, and Language preferences.
  */
@@ -54,6 +192,7 @@ export default function SettingsView() {
   const [maxEntries, setMaxEntries] = useAtom(maxEntriesAtom)
   const [autoResolve, setAutoResolve] = useAtom(autoResolveAtom)
   const [background, setBackground] = useAtom(backgroundAtom)
+  const [backgroundParams, setBackgroundParams] = useAtom(backgroundParamsAtom)
 
   const backgroundItems = listBackgrounds().map((definition) => ({
     label: definition.cpu
@@ -61,6 +200,19 @@ export default function SettingsView() {
       : `${definition.label} · ${t('settings.backgroundGpuOnly')}`,
     value: definition.id,
   }))
+
+  const definition = getBackground(background)
+  const paramDefs = definition?.params ?? []
+  const resolvedParams = definition
+    ? resolveBackgroundParams(definition, backgroundParams[background])
+    : {}
+
+  const setParam = (key: string, value: BackgroundParamValue) => {
+    setBackgroundParams((prev) => ({
+      ...prev,
+      [background]: { ...prev[background], [key]: value },
+    }))
+  }
 
   return (
     <div>
@@ -125,6 +277,18 @@ export default function SettingsView() {
               />
             </div>
             <p className={sectionHint}>{t('settings.backgroundHint')}</p>
+            {paramDefs.length > 0 && (
+              <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3">
+                {paramDefs.map((param) => (
+                  <BackgroundParamField
+                    key={param.key}
+                    param={param}
+                    value={resolvedParams[param.key] ?? param.default}
+                    onChange={(value) => setParam(param.key, value)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </TabsPrimitive.Content>
 

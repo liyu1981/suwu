@@ -1,5 +1,6 @@
 import { atomWithStorage } from 'jotai/utils'
 import { DEFAULT_BACKGROUND_ID } from '../components/background/constants'
+import type { BackgroundParamValue } from '../components/background/types'
 
 export interface AutoResolveSettings {
   filebrowser: boolean
@@ -25,3 +26,13 @@ export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-r
  * localStorage; falls back to the default background when unset.
  */
 export const backgroundAtom = atomWithStorage<string>('suwu:background', DEFAULT_BACKGROUND_ID)
+
+/**
+ * Per-background parameter overrides chosen in System Settings, keyed by
+ * background id and then parameter key. Missing entries fall back to the
+ * background's declared defaults (see `resolveBackgroundParams`), so adding or
+ * removing a parameter never needs a migration.
+ */
+export const backgroundParamsAtom = atomWithStorage<
+  Record<string, Record<string, BackgroundParamValue>>
+>('suwu:background-params', {})

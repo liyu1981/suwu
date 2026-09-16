@@ -1,5 +1,6 @@
-import { clock, effect, frame, frameLoop, init, pingPong, sampler, surface, texture } from 'vgpu'
+import { effect, frame, frameLoop, init, pingPong, sampler, surface, texture } from 'vgpu'
 import type { Effect, Frame, FrameLoopHandle, PingPongTargets, Surface, Target } from 'vgpu'
+import { resolveAtmosphericLandscapeParams } from '../params'
 import { buildNoiseVolume, NOISE_VOLUME_SIZE } from './noise-volume'
 import sceneShader from './shaders/scene.wgsl'
 import displayShader from './shaders/display.wgsl'
@@ -15,10 +16,17 @@ const MAX_MEGAPIXELS = 0.3
 const BLEND = 0.3
 // Playback speed for the fly-over. The original runs at 1.0; Suwu scales the
 // clock down 10× so the drift reads as a near-still, atmospheric backdrop
-// rather than a moving shot. Raise toward 1.0 for more motion.
+// rather than a moving shot. The user's `speed` setting multiplies this.
 const TIME_SCALE = 0.1
 // Reduced motion: settle the accumulation, then show one static frame.
 const SETTLE_FRAMES = 12
+
+/**
+ * Time base shared across backend restarts: changing the speed setting starts
+ * a new GPU device, and reading `performance.now()` against a module-level
+ * epoch keeps the fly-over from snapping back to t = 0.
+ */
+const TIME_EPOCH = typeof performance !== 'undefined' ? performance.now() : 0
 
 /** Canvas size clamped to the megapixel budget, preserving aspect ratio. */
 function internalSize(width: number, height: number): [number, number] {
@@ -37,7 +45,11 @@ function internalSize(width: number, height: number): [number, number] {
  * target (temporal antialiasing), then the tone pass samples it onto the canvas.
  * On a browser without WebGPU the selector renders nothing.
  */
-export async function startAtmosphericLandscape(ctx: BackgroundContext): Promise<BackgroundHandle> {
+export async function startAtmosphericLandscape(
+  ctx: BackgroundContext,
+  params?: Record<string, unknown>,
+): Promise<BackgroundHandle> {
+  const { speed } = resolveAtmosphericLandscapeParams(params)
   const gpu = await init({ powerPreference: 'low-power' })
 
   let disposed = false
@@ -124,14 +136,13 @@ export async function startAtmosphericLandscape(ctx: BackgroundContext): Promise
       },
     })
 
-    const gpuClock = clock(gpu)
     let frameIndex = 0
 
     const encode = (current: Frame): void => {
       // Wrap so the f32 jitter coordinate keeps its fractional precision.
       frameIndex = (frameIndex + 1) % 1024
       scene.set({
-        params: { time: gpuClock.time * TIME_SCALE, frame: frameIndex },
+        params: { time: (performance.now() - TIME_EPOCH) / 1000 * TIME_SCALE * speed, frame: frameIndex },
         prev_frame: accum.read,
       })
       // The scene pass writes `accum.write`; the tone pass reads it back in the

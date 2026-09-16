@@ -12,7 +12,7 @@
     "check:typography": "node scripts/check-typography.mjs",
     "check:write": "biome check src --write",
     "bg:render": "node scripts/render-ambient.mjs",
-    "bg:check": "vgpu check src/components/background/ambient-blob-gpu/shaders/ambient.wgsl"
+    "bg:check": "vgpu check src/components/background/ambient-blob/ambient-blob-gpu/shaders/ambient.wgsl"
   },
   "dependencies": {
     "@file-viewer/preset-standard": "^3.0.0",

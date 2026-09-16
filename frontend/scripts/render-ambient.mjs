@@ -22,7 +22,7 @@ const TOLERANCE = 2
 
 const SHADER_ENTRY = fileURLToPath(
   new URL(
-    '../src/components/background/ambient-blob-gpu/shaders/ambient.wgsl',
+    '../src/components/background/ambient-blob/ambient-blob-gpu/shaders/ambient.wgsl',
     import.meta.url,
   ),
 )

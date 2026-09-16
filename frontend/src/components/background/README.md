@@ -13,15 +13,18 @@ components/background/
   useBackground.ts            # React lifecycle hook (detection, reduced motion, remount)
   AmbientBackground.tsx       # the app-shell canvas + hook
 
-  ambient-blob/               # shared, backend-agnostic definition (params, motion, colours)
-  ambient-blob-cpu/           # canvas-2D backend (fallback)
-  ambient-blob-gpu/           # WebGPU (vgpu) backend + .wgsl shaders
+  ambient-blob/               # one background family
+    index.ts                  # definition + registry entry (backend-agnostic)
+    params.ts                 # palette + motion math (shared)
+    types.ts                  # BlobSeed / RenderBlob / params types (shared)
+    ambient-blob-cpu/         # canvas-2D backend (fallback)
+    ambient-blob-gpu/         # WebGPU (vgpu) backend + .wgsl shaders
 ```
 
-The two backends live in sibling `<name>-cpu` / `<name>-gpu` folders so their
+The two backends live in nested `<name>-cpu` / `<name>-gpu` folders so their
 dependencies stay separate: the vgpu/WGSL chunk is only fetched when the GPU
-backend actually runs. Shared palette and motion math live in `<name>/` so the
-backends cannot drift apart.
+backend actually runs. Shared palette and motion math live next to them in
+`<name>/` so the backends cannot drift apart.
 
 ## Using a background
 
@@ -39,8 +42,8 @@ background. It sets `data-backend` (`gpu` / `cpu`) once a backend is running.
 1. Create `<name>/` with the shared params/types and a definition module that
    calls `registerBackground({ id, label, defaultParams, cpu, gpu })`, where
    `cpu`/`gpu` are dynamic imports of the backend folders.
-2. Create `<name>-cpu/` and (optionally) `<name>-gpu/`, each exporting
-   `start` with the `BackgroundStarter` signature.
+2. Create `<name>/<name>-cpu/` and (optionally) `<name>/<name>-gpu/`, each
+   exporting `start` with the `BackgroundStarter` signature.
 3. Import the definition module from `index.ts` (side-effect import).
 
 The shell imports `AmbientBackground` by id, so new backgrounds need no changes

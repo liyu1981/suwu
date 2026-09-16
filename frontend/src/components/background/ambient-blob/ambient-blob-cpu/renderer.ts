@@ -1,13 +1,13 @@
-import { clamp } from '../../../lib/utils'
+import { clamp } from '../../../../lib/utils'
 import {
   BLOB_CORE_STOP,
   computeBlobFrame,
   makeBlobs,
   prefersReducedTransparency,
   resolveParams,
-} from '../ambient-blob/params'
-import type { BlobSeed } from '../ambient-blob/types'
-import type { BackgroundContext, BackgroundHandle } from '../types'
+} from '../params'
+import type { BlobSeed } from '../types'
+import type { BackgroundContext, BackgroundHandle } from '../../types'
 
 /**
  * Canvas-2D ambient blob renderer — the fallback used when WebGPU is

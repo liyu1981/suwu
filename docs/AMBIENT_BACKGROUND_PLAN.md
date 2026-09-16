@@ -5,7 +5,7 @@ Status: **implemented** · Owner: frontend · Related:
 
 > Implementation notes (what shipped):
 > - Subsystem at `frontend/src/components/background/` with a registry + fallback
->   selector, `ambient-blob/` (shared), `ambient-blob-cpu/`, `ambient-blob-gpu/`.
+>   selector, and `ambient-blob/` (shared + nested `ambient-blob-cpu/`, `ambient-blob-gpu/`).
 > - vgpu 0.5.0 + Vite WGSL loader wired (`vite.config.ts`, `src/wgsl-env.d.ts`);
 >   the GPU backend is a lazy ~149 kB chunk, the CPU backend ~1.7 kB.
 > - CPU fallback hardened: 30 fps cap, pause on hidden/blur, static under
@@ -81,11 +81,12 @@ pnpm --dir frontend add vgpu
 Location: **`frontend/src/components/background/`** (as requested).
 
 Design rules:
-- **One folder per renderer backend**: `<background>-cpu` and `<background>-gpu` are
-  siblings, so the CPU and GPU implementations are fully separated and independently
+- **One folder per background family**: a background is a folder (`<name>/`) holding
+  the backend-agnostic shared code plus nested `<name>-cpu/` and `<name>-gpu/` backend
+  folders, so the CPU and GPU implementations are fully separated and independently
   reviewable/testable.
-- **A shared `<background>/` folder** holds the backend-agnostic definition (palette,
-  motion math, types, defaults) so both backends are driven by identical numbers.
+- **Shared code next to the backends** holds the definition (palette, motion math,
+  types, defaults) so both backends are driven by identical numbers.
 - **A registry + generic selector** at the subsystem root means new backgrounds are added
   by dropping a folder and registering a definition — the shell never changes.
 
@@ -101,25 +102,25 @@ frontend/src/components/background/
   AmbientBackground.tsx         # thin React wrapper (<canvas> + useBackground)
 
   # ---- ambient blob (the first background) ----
-  ambient-blob/                 # shared, backend-agnostic
+  ambient-blob/                 # the background family
     index.ts                    # BackgroundDefinition: id 'ambient-blob', default params
-    params.ts                   # HUES, LIGHT/DARK, makeBlobs(), motion constants
-    types.ts                    # Blob, Palette, AmbientBlobParams
+    params.ts                   # HUES, LIGHT/DARK, makeBlobs(), motion constants (shared)
+    types.ts                    # Blob, Palette, AmbientBlobParams (shared)
 
-  ambient-blob-cpu/             # CPU backend — current canvas-2D, moved + hardened
-    index.ts                    # export startAmbientBlobCpu
-    renderer.ts
+    ambient-blob-cpu/           # CPU backend — current canvas-2D, moved + hardened
+      index.ts                  # export startAmbientBlobCpu
+      renderer.ts
 
-  ambient-blob-gpu/             # GPU backend — vgpu / WebGPU
-    index.ts                    # export startAmbientBlobGpu
-    renderer.ts
-    shaders/
-      ambient.wgsl
-      common.wgsl               # (optional) shared hash / color helpers
+    ambient-blob-gpu/           # GPU backend — vgpu / WebGPU
+      index.ts                  # export startAmbientBlobGpu
+      renderer.ts
+      shaders/
+        ambient.wgsl
+        common.wgsl             # (optional) shared hash / color helpers
 ```
 
 Future backgrounds follow the same shape, e.g.
-`aurora/`, `aurora-cpu/`, `aurora-gpu/` — no changes to `AppShell.tsx`.
+`aurora/` with nested `aurora-cpu/`, `aurora-gpu/` — no changes to `AppShell.tsx`.
 
 `AppShell.tsx` / `AuthGate.tsx` keep importing the component; the public API is stable:
 
@@ -238,7 +239,7 @@ Two implementation options:
 
 Recommendation: **option 1 first** (parity), optimise to option 2 only if profiling says so.
 
-Shader sketch (`ambient-blob-gpu/shaders/ambient.wgsl`):
+Shader sketch (`ambient-blob/ambient-blob-gpu/shaders/ambient.wgsl`):
 
 ```wgsl
 struct Blob { center: vec2f, radius: f32, hue: f32, sat: f32, light: f32, alpha: f32, _pad: vec2f }
@@ -291,9 +292,9 @@ Notes:
   `vgpu doctor`, record the result in this doc.
 - **Phase 1 — subsystem skeleton + CPU extraction.** Create `components/background/`
   (`types`, `registry`, `select`, `useBackground`, `AmbientBackground`), move the existing
-  canvas code to `ambient-blob-cpu/`, extract shared `ambient-blob/params.ts`. Apply the
+  canvas code to `ambient-blob/ambient-blob-cpu/`, extract shared `ambient-blob/params.ts`. Apply the
   approved fallback hardening. Re-point `AppShell`/`AuthGate`. No GPU code yet.
-- **Phase 2 — GPU backend.** Add `ambient-blob-gpu/` (renderer + `.wgsl`) behind
+- **Phase 2 — GPU backend.** Add `ambient-blob/ambient-blob-gpu/` (renderer + `.wgsl`) behind
   `?bg=gpu` only; iterate on visual parity with pixel readback.
 - **Phase 3 — selection + default.** Wire `select.ts`, make `auto` the default, handle
   device loss / canvas remount.
@@ -307,7 +308,7 @@ Notes:
 - **Static pixels (no browser):** `frontend/scripts/render-ambient.mjs` uses `vgpu/node`
   (`pngjs`) to render the shader offscreen at fixed `time`, write `ambient.png`, and assert
   sample pixels. Gated on `vgpu doctor` being healthy.
-- **Parity:** render `ambient-blob-cpu` and `ambient-blob-gpu` at the same `t` and diff
+- **Parity:** render `ambient-blob/ambient-blob-cpu` and `ambient-blob/ambient-blob-gpu` at the same `t` and diff
   (perceptual or per-pixel tolerance) — at minimum eyeball side by side.
 - **Browser perf:** reuse the CDP harness (headless Chromium) to measure
   `Performance.getMetrics().TaskDuration` on the shell with `?bg=gpu` vs `?bg=cpu`. Target:

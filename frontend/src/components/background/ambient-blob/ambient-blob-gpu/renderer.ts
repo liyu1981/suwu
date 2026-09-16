@@ -5,9 +5,9 @@ import {
   makeBlobs,
   prefersReducedTransparency,
   resolveParams,
-} from '../ambient-blob/params'
-import type { BlobSeed } from '../ambient-blob/types'
-import type { BackgroundContext, BackgroundHandle } from '../types'
+} from '../params'
+import type { BlobSeed } from '../types'
+import type { BackgroundContext, BackgroundHandle } from '../../types'
 import ambientShader from './shaders/ambient.wgsl'
 
 interface BlobUniform {

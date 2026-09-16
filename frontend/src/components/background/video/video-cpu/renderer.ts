@@ -1,9 +1,25 @@
+import {
+  BlobSource,
+  Input,
+  MATROSKA,
+  MP4,
+  QTFF,
+  WEBM,
+  VideoSampleSink,
+  type InputVideoTrack,
+  type VideoSample,
+} from 'mediabunny'
 import { clamp } from '../../../../lib/utils'
 import { resolveVideoParams, VIDEO_MAX_DURATION_SECONDS, type VideoParams } from '../params'
 import { coverSourceRect } from './fit'
-import { parseVideo, type ParsedVideo, type VideoSample, type VideoTrack } from './demux'
-import { readVideoFile } from './storage'
+import { readVideoBlob } from './storage'
 import type { BackgroundContext, BackgroundHandle } from '../../types'
+
+/** Containers a background clip may use; keeps the mediabunny bundle small. */
+const INPUT_FORMATS = [MP4, QTFF, MATROSKA, WEBM]
+
+/** Never hold more than this many decoded frames; mediabunny pre-decodes ahead. */
+const MAX_PENDING_FRAMES = 3
 
 /** Shared drawing surface + config, read live so resizes are picked up. */
 interface RenderCtx {
@@ -22,42 +38,20 @@ interface Playback {
   dispose(): void
 }
 
-function decoderConfig(track: VideoTrack): VideoDecoderConfig {
-  const config: VideoDecoderConfig = {
-    codec: track.codec,
-    codedWidth: track.width,
-    codedHeight: track.height,
-    optimizeForLatency: true,
-  }
-  if (track.description && track.description.byteLength > 0) {
-    config.description = track.description.slice()
-  }
-  return config
-}
-
-function toChunk(sample: VideoSample): EncodedVideoChunk {
-  return new EncodedVideoChunk({
-    type: sample.key ? 'key' : 'delta',
-    timestamp: sample.timestamp,
-    duration: sample.duration,
-    data: sample.data,
-  })
-}
-
 /** Draw one decoded frame with the configured fit, then the colour mask. */
-function renderSource(render: RenderCtx, frame: VideoFrame): void {
+function renderSource(render: RenderCtx, sample: VideoSample): void {
   const width = render.width()
   const height = render.height()
-  const sourceWidth = frame.displayWidth
-  const sourceHeight = frame.displayHeight
+  const sourceWidth = sample.displayWidth
+  const sourceHeight = sample.displayHeight
   if (width <= 0 || height <= 0 || sourceWidth <= 0 || sourceHeight <= 0) return
 
   const context = render.context
   if (render.config.fit === 'stretch') {
-    context.drawImage(frame, 0, 0, width, height)
+    sample.draw(context, 0, 0, width, height)
   } else {
     const rect = coverSourceRect(sourceWidth, sourceHeight, width, height)
-    context.drawImage(frame, rect.sx, rect.sy, rect.sw, rect.sh, 0, 0, width, height)
+    sample.draw(context, rect.sx, rect.sy, rect.sw, rect.sh, 0, 0, width, height)
   }
 
   const { maskColor, maskOpacity } = render.config
@@ -70,61 +64,58 @@ function renderSource(render: RenderCtx, frame: VideoFrame): void {
   }
 }
 
-/** Streaming forward playback that restarts at EOF. */
+/**
+ * Streaming forward playback that restarts at EOF. Frames come from a
+ * mediabunny `VideoSampleSink`, which demuxes and decodes lazily and yields
+ * them in presentation order, so memory stays bounded no matter the clip
+ * length.
+ */
 function createPlayback(
-  parsed: ParsedVideo,
+  sink: VideoSampleSink,
+  baseTimestamp: number,
   render: RenderCtx,
-  reducedMotion: boolean,
   onError: (error: unknown) => void,
 ): Playback {
-  const samples = parsed.samples
-  const base = parsed.baseTimestamp
-  let decoder: VideoDecoder | null = null
-  let pending: VideoFrame[] = []
-  let current: VideoFrame | null = null
+  let iterator = sink.samples()[Symbol.asyncIterator]()
+  let pending: VideoSample[] = []
+  let current: VideoSample | null = null
+  let pumping = false
+  let ended = false
+  let stopped = false
+  let paused = false
   let playheadUs = 0
   let lastNow = performance.now()
-  let next = 0
-  let flushing = false
-  let paused = false
-  let stopped = false
-  let drewStatic = false
 
   const closePending = (): void => {
-    for (const frame of pending) frame.close()
+    for (const sample of pending) sample.close()
     pending = []
   }
 
-  const onOutput = (frame: VideoFrame): void => {
-    if (reducedMotion) {
-      if (!drewStatic) {
-        drewStatic = true
-        current?.close()
-        current = frame
-        renderSource(render, frame)
-      } else {
-        frame.close()
-      }
-      return
-    }
-    pending.push(frame)
-  }
-
+  // Pull only enough frames to keep the pipeline fed; the async iterator gives
+  // natural backpressure, so decoding never runs away on a long clip.
   const pump = (): void => {
-    const active = decoder
-    if (!active || stopped || paused || flushing) return
-    while (next < samples.length && active.decodeQueueSize < 16) {
-      active.decode(toChunk(samples[next++]))
-    }
-    if (next >= samples.length) {
-      flushing = true
-      active.flush().then(
-        () => {
-          if (!stopped && !reducedMotion && active === decoder) restart()
-        },
-        () => undefined,
-      )
-    }
+    if (stopped || pumping || ended) return
+    pumping = true
+    void (async () => {
+      try {
+        while (!stopped && !ended && pending.length < MAX_PENDING_FRAMES) {
+          const result = await iterator.next()
+          if (stopped) {
+            if (!result.done) result.value.close()
+            return
+          }
+          if (result.done) {
+            ended = true
+            break
+          }
+          pending.push(result.value)
+        }
+      } catch (error) {
+        if (!stopped) onError(error)
+      } finally {
+        pumping = false
+      }
+    })()
   }
 
   const restart = (): void => {
@@ -132,14 +123,10 @@ function createPlayback(
     closePending()
     current?.close()
     current = null
-    decoder?.close()
-    next = 0
-    flushing = false
+    ended = false
     playheadUs = 0
     lastNow = performance.now()
-    decoder = new VideoDecoder({ output: onOutput, error: onError })
-    decoder.ondequeue = () => pump()
-    decoder.configure(decoderConfig(parsed.track))
+    iterator = sink.samples()[Symbol.asyncIterator]()
     pump()
   }
 
@@ -148,14 +135,19 @@ function createPlayback(
   return {
     tick(now) {
       if (stopped || paused) return
+      if (ended && pending.length === 0) {
+        restart()
+        return
+      }
+
       playheadUs += Math.min(now - lastNow, 100) * 1000 * render.config.speed
       lastNow = now
+      const playheadSeconds = baseTimestamp + playheadUs / 1e6
 
-      let due: VideoFrame | null = null
-      while (pending.length > 0 && pending[0].timestamp - base <= playheadUs) {
-        const frame = pending.shift() as VideoFrame
+      let due: VideoSample | null = null
+      while (pending.length > 0 && pending[0].timestamp <= playheadSeconds) {
         if (due) due.close()
-        due = frame
+        due = pending.shift() as VideoSample
       }
       if (due) {
         current?.close()
@@ -177,8 +169,21 @@ function createPlayback(
       closePending()
       current?.close()
       current = null
-      decoder?.close()
-      decoder = null
+      void iterator.return?.()
+    },
+  }
+}
+
+/** A single frozen frame, used when the user prefers reduced motion. */
+function createStaticPlayback(sample: VideoSample | null, render: RenderCtx): Playback {
+  return {
+    tick() {},
+    redraw() {
+      if (sample) renderSource(render, sample)
+    },
+    setPaused() {},
+    dispose() {
+      sample?.close()
     },
   }
 }
@@ -189,10 +194,10 @@ function describeError(error: unknown): string {
 }
 
 /**
- * Video background (canvas-2D + WebCodecs). Reads the clip the user picked from
- * OPFS, demuxes it with mp4box.js, decodes it with `VideoDecoder` and draws the
- * frames to the ambient canvas in a loop. No `<video>` element, no network
- * fetch and no audio.
+ * Video background (canvas-2D + WebCodecs). Reads the clip the user picked
+ * from OPFS, demuxes and decodes it with mediabunny (`VideoSampleSink`) and
+ * draws the frames to the ambient canvas in a loop. No `<video>` element, no
+ * network fetch and no audio.
  */
 export async function startVideo(
   ctx: BackgroundContext,
@@ -213,6 +218,7 @@ export async function startVideo(
   let lastTick = 0
   let disposed = false
   let playback: Playback | null = null
+  let input: Input | null = null
   let warning: string | null = null
   let warningUntil = 0
 
@@ -327,44 +333,64 @@ export async function startVideo(
 
     showMessage(['Loading video…'])
 
-    const buffer = await readVideoFile()
+    const file = await readVideoBlob()
     if (disposed) return
-    if (!buffer) {
+    if (!file) {
       showMessage(['Video file not found', 'Choose it again in System Settings.'])
       return
     }
 
-    let parsed: ParsedVideo
+    let track: InputVideoTrack | null
     try {
-      parsed = parseVideo(buffer)
+      input = new Input({ formats: INPUT_FORMATS, source: new BlobSource(file) })
+      track = await input.getPrimaryVideoTrack()
     } catch (error) {
       showMessage(['Could not read the video', describeError(error)])
       return
     }
     if (disposed) return
+    if (!track) {
+      showMessage(['No video track', 'The file has no video stream.'])
+      return
+    }
 
+    let decodable = false
     try {
-      const support = await VideoDecoder.isConfigSupported(decoderConfig(parsed.track))
-      if (!support.supported) throw new Error(parsed.track.codec)
+      decodable = await track.canDecode()
     } catch {
-      showMessage(['Video codec not supported', parsed.track.codec])
+      decodable = false
+    }
+    if (!decodable) {
+      const codec = await track.getCodecParameterString().catch(() => null)
+      showMessage(['Video codec not supported', codec ?? 'unknown'])
       return
     }
     if (disposed) return
 
-    if (parsed.track.durationSeconds > VIDEO_MAX_DURATION_SECONDS) {
-      warning = `Long clip (${parsed.track.durationSeconds.toFixed(0)}s) — backgrounds are meant for short loops.`
+    const [duration, baseTimestamp] = await Promise.all([
+      track.computeDuration().catch(() => 0),
+      track.getFirstTimestamp().catch(() => 0),
+    ])
+    if (disposed) return
+
+    if (duration > VIDEO_MAX_DURATION_SECONDS) {
+      warning = `Long clip (${duration.toFixed(0)}s) — backgrounds are meant for short loops.`
       warningUntil = performance.now() + 8000
       console.info('[video]', warning)
     }
 
-    playback = createPlayback(parsed, render, reducedMotion, (error) => {
-      console.warn('[video] decoder error', error)
-    })
-
+    const sink = new VideoSampleSink(track)
     if (reducedMotion) {
-      playback.tick(performance.now())
+      const sample = await sink.getSample(baseTimestamp).catch(() => null)
+      if (disposed) {
+        sample?.close()
+        return
+      }
+      playback = createStaticPlayback(sample, render)
     } else {
+      playback = createPlayback(sink, baseTimestamp, render, (error) => {
+        console.warn('[video] playback error', error)
+      })
       start()
     }
   }
@@ -378,6 +404,8 @@ export async function startVideo(
       stop()
       playback?.dispose()
       playback = null
+      input?.dispose()
+      input = null
       window.removeEventListener('resize', resize)
       document.removeEventListener('visibilitychange', onVisibility)
     },

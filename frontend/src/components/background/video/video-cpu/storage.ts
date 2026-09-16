@@ -53,15 +53,14 @@ export async function storeVideoFile(file: File): Promise<string> {
   return file.name
 }
 
-/** Read the cached clip bytes, or null when nothing has been stored. */
-export async function readVideoFile(): Promise<ArrayBuffer | null> {
+/** Read the cached clip as a Blob-backed `File` for mediabunny, or null. */
+export async function readVideoBlob(): Promise<File | null> {
   if (!isOpfsAvailable()) return null
   try {
     const dir = await cacheDir(false)
     const handle = await dir.getFileHandle(DATA_FILE)
     const file = await handle.getFile()
-    if (file.size === 0) return null
-    return await file.arrayBuffer()
+    return file.size === 0 ? null : file
   } catch {
     return null
   }

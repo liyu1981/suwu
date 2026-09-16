@@ -63,11 +63,7 @@ components/background/
     index.ts                  # definition + params schema (file, fit, speed, mask)
     params.ts                 # typed params + resolveVideoParams() + caps
     video-cpu/
-      renderer.ts             # OPFS read, draw loop, reduced motion, error overlay
-      demux.ts                # container sniffing -> MP4 or WebM parser
-      types.ts                # shared VideoTrack / VideoSample / ParsedVideo
-      mp4.ts                  # mp4box.js demux -> codec, description, samples
-      webm.ts                 # WebM/Matroska (EBML) demux -> codec, samples
+      renderer.ts             # mediabunny playback loop, reduced motion, error overlay
       storage.ts              # OPFS copy/read/clear of the picked file
       fit.ts                  # cover source rect
 ```
@@ -158,8 +154,9 @@ validation; a backend never keeps its own copy.
   `seascape` and `rainforest` are GPU-only and have no CPU fallback.
 - **Video** — the `video` family is CPU-only (canvas-2D). The user picks a short
   MP4/WebM in System Settings; the file is copied into OPFS (`storage.ts`) and
-  the renderer demuxes it with mp4box.js and decodes with WebCodecs
-  (`VideoDecoder`), drawing the frames to the canvas in a loop. No `<video>`
+  the renderer demuxes and decodes it with mediabunny (`VideoSampleSink`),
+  drawing the frames to the canvas in a loop. Frames are pulled lazily with
+  backpressure, so memory stays bounded regardless of clip length. No `<video>`
   element, no network fetch and no audio. A configurable colour mask (colour +
   opacity, default white 10%) is drawn over the frame. Load and codec failures
   are reported on the canvas itself.

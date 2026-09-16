@@ -1,34 +1,5 @@
 import { createFile, DataStream, MP4BoxBuffer, type ISOFile, type Sample, type Track } from 'mp4box'
-
-/** Video-track metadata pulled out of the MP4 `moov` box. */
-export interface Mp4VideoTrack {
-  readonly id: number
-  readonly codec: string
-  readonly width: number
-  readonly height: number
-  readonly timescale: number
-  readonly durationSeconds: number
-  readonly frameCount: number
-  /** Codec-private data (avcC/hvcC/av1C/vpcC) for `VideoDecoder.configure`. */
-  readonly description?: Uint8Array
-}
-
-/** One sample, ready to become an `EncodedVideoChunk`. */
-export interface Mp4Sample {
-  readonly data: Uint8Array
-  /** Presentation timestamp, in microseconds. */
-  readonly timestamp: number
-  /** Presentation duration, in microseconds. */
-  readonly duration: number
-  readonly key: boolean
-}
-
-export interface ParsedMp4 {
-  readonly track: Mp4VideoTrack
-  readonly samples: Mp4Sample[]
-  /** Smallest presentation timestamp across samples (microseconds). */
-  readonly baseTimestamp: number
-}
+import type { ParsedVideo, VideoSample } from './types'
 
 interface SampleEntryBox {
   avcC?: { write(stream: DataStream): void }
@@ -62,7 +33,7 @@ function buildDescription(file: ISOFile, trackId: number): Uint8Array | undefine
  * and its samples, in decode order. Short background clips make a full-file
  * buffer the simplest path; streaming/`Range` demuxing can be added later.
  */
-export function parseMp4(buffer: ArrayBuffer): ParsedMp4 {
+export function parseMp4(buffer: ArrayBuffer): ParsedVideo {
   const file = createFile()
   const samples: Sample[] = []
   // Callback results live in holders: TS cannot see assignments made inside the
@@ -97,7 +68,7 @@ export function parseMp4(buffer: ArrayBuffer): ParsedMp4 {
   }
 
   const timescale = track.timescale || 1
-  const mapped = samples.map((sample) => {
+  const mapped: VideoSample[] = samples.map((sample) => {
     const scale = sample.timescale || timescale
     return {
       data: sample.data ?? new Uint8Array(),

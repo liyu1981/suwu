@@ -64,7 +64,10 @@ components/background/
     params.ts                 # typed params + resolveVideoParams() + caps
     video-cpu/
       renderer.ts             # OPFS read, draw loop, reduced motion, error overlay
+      demux.ts                # container sniffing -> MP4 or WebM parser
+      types.ts                # shared VideoTrack / VideoSample / ParsedVideo
       mp4.ts                  # mp4box.js demux -> codec, description, samples
+      webm.ts                 # WebM/Matroska (EBML) demux -> codec, samples
       storage.ts              # OPFS copy/read/clear of the picked file
       fit.ts                  # cover source rect
 ```

@@ -2,12 +2,13 @@ import { registerBackground } from '../registry'
 import { VIDEO_PARAMS } from './params'
 
 /**
- * Video — plays a short, muted MP4 clip as the app-shell background.
+ * Video — plays a short, muted MP4 or WebM clip as the app-shell background.
  *
- * Canvas-2D backend only: WebCodecs (`VideoDecoder`) decodes the frames and
- * they are drawn straight to the canvas — no `<video>` element, no WebGPU, no
- * audio. The clip URL, playback mode (loop / boomerang), fit and speed are
- * exposed through the shared background parameter framework.
+ * Canvas-2D backend only: the container is demuxed in JS and WebCodecs
+ * (`VideoDecoder`) decodes the frames, which are drawn straight to the canvas —
+ * no `<video>` element, no WebGPU, no audio. The clip source, fit, playback
+ * speed and colour mask are exposed through the shared background parameter
+ * framework.
  */
 registerBackground({
   id: 'video',

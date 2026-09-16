@@ -1,7 +1,7 @@
 import { clamp } from '../../../../lib/utils'
 import { resolveVideoParams, VIDEO_MAX_DURATION_SECONDS, type VideoParams } from '../params'
 import { coverSourceRect } from './fit'
-import { parseMp4, type Mp4Sample, type Mp4VideoTrack, type ParsedMp4 } from './mp4'
+import { parseVideo, type ParsedVideo, type VideoSample, type VideoTrack } from './demux'
 import { readVideoFile } from './storage'
 import type { BackgroundContext, BackgroundHandle } from '../../types'
 
@@ -22,7 +22,7 @@ interface Playback {
   dispose(): void
 }
 
-function decoderConfig(track: Mp4VideoTrack): VideoDecoderConfig {
+function decoderConfig(track: VideoTrack): VideoDecoderConfig {
   const config: VideoDecoderConfig = {
     codec: track.codec,
     codedWidth: track.width,
@@ -35,7 +35,7 @@ function decoderConfig(track: Mp4VideoTrack): VideoDecoderConfig {
   return config
 }
 
-function toChunk(sample: Mp4Sample): EncodedVideoChunk {
+function toChunk(sample: VideoSample): EncodedVideoChunk {
   return new EncodedVideoChunk({
     type: sample.key ? 'key' : 'delta',
     timestamp: sample.timestamp,
@@ -72,7 +72,7 @@ function renderSource(render: RenderCtx, frame: VideoFrame): void {
 
 /** Streaming forward playback that restarts at EOF. */
 function createPlayback(
-  parsed: ParsedMp4,
+  parsed: ParsedVideo,
   render: RenderCtx,
   reducedMotion: boolean,
   onError: (error: unknown) => void,
@@ -303,17 +303,15 @@ export async function startVideo(
     playback?.setPaused(true)
   }
 
+  // The clip is ambient: it keeps looping regardless of where focus lands.
+  // Only a hidden tab pauses it (rAF stops there anyway).
   const onVisibility = (): void => {
     if (document.hidden) stop()
     else start()
   }
-  const onBlur = (): void => stop()
-  const onFocus = (): void => start()
 
   window.addEventListener('resize', resize)
   document.addEventListener('visibilitychange', onVisibility)
-  window.addEventListener('blur', onBlur)
-  window.addEventListener('focus', onFocus)
 
   resize()
 
@@ -336,9 +334,9 @@ export async function startVideo(
       return
     }
 
-    let parsed: ParsedMp4
+    let parsed: ParsedVideo
     try {
-      parsed = parseMp4(buffer)
+      parsed = parseVideo(buffer)
     } catch (error) {
       showMessage(['Could not read the video', describeError(error)])
       return
@@ -382,8 +380,6 @@ export async function startVideo(
       playback = null
       window.removeEventListener('resize', resize)
       document.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('blur', onBlur)
-      window.removeEventListener('focus', onFocus)
     },
   }
 }

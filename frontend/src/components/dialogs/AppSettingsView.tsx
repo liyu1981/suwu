@@ -20,6 +20,7 @@ import { THEME_PRESETS, matchPresetId } from '../../store/themePresets'
 import { alphaOf, hex6Of, withAlpha } from '../../lib/color'
 import { Combobox } from '../ui/combobox'
 import { ThemeSelect } from '../ui/theme-select'
+import { CodeExplorerSettings } from './CodeExplorerSettings'
 
 // ── Style constants ──────────────────────────────────────────────────
 
@@ -253,6 +254,9 @@ export default function AppSettingsView() {
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="diff" className={tabBtn}>
             {t('settings.diffTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="code" className={tabBtn}>
+            {t('plugin.code')}
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="guiapp" className={tabBtn}>
             {t('settings.guiappTab')}
@@ -534,6 +538,10 @@ export default function AppSettingsView() {
               hint={t('settings.zoomHint', { app: t('settings.diffTab') })}
             />
           </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="code" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">
+          <CodeExplorerSettings />
         </TabsPrimitive.Content>
 
         <TabsPrimitive.Content value="guiapp" className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-thin pl-3">

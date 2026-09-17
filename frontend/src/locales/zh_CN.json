@@ -18,6 +18,9 @@
     "closeMenu": "关闭菜单"
   },
   "settings": {
+    "codeExplorerHint": "自动保存并立即应用到所有代码浏览器编辑器，不影响终端字体和窗口缩放。",
+    "codeFontHint": "选择字体，或输入自定义字体名称及备用字体列表后按回车。字体需已安装在您的设备上或可供浏览器使用，否则使用备用字体。",
+    "codeLineHeightHint": "行高为编辑器字号的倍数（1.0–2.5 倍）。",
     "termTab": "终端",
     "notificationsTab": "通知",
     "appearanceTab": "外观",

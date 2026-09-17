@@ -18,6 +18,9 @@
     "closeMenu": "Close menu"
   },
   "settings": {
+    "codeExplorerHint": "Saved automatically and applied immediately to all Code Explorer editors. Terminal fonts and tile zoom are unchanged.",
+    "codeFontHint": "Choose a font or enter a custom font family/fallback list and press Enter. The font must be installed on your device or available in the browser; otherwise a fallback is used.",
+    "codeLineHeightHint": "Line height is a multiplier of the editor font size (1.0–2.5×).",
     "termTab": "Term",
     "notificationsTab": "Notifications",
     "appearanceTab": "Appearance",

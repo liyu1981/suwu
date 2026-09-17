@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as monaco from 'monaco-editor'
+import { useAtomValue } from 'jotai'
 import i18n from '../../i18n'
 import { authFetch } from '../../lib/api'
 import { useReportTileState } from '../CommonTileContainer'
 import { MONACO_THEME, ensureMonacoTheme } from './monacoSetup'
 import { languageForPath } from './languages'
 import { completeSave } from './saveState'
+import { codeEditorFontOptions, codeEditorSettingsAtom } from '../../store/codeExplorer'
 import { extensionForPath, normalizeCodePath, type SearchLocation, type SearchSelection } from './search'
 import { looksBinary, normalizeRanges, type HighlightRange } from './spec'
 import type { CodeFileSpec } from '../../store/notifications'
@@ -81,6 +83,7 @@ export function useCodeExplorer(
 
   const tabsRef = useRef<CodeTab[]>([])
   tabsRef.current = tabs
+  const editorOptions = useAtomValue(codeEditorSettingsAtom)
   const activeRef = useRef<string | null>(null)
   activeRef.current = activeId
   const viewStates = useRef(new Map<string, monaco.editor.ICodeEditorViewState | null>())
@@ -353,8 +356,7 @@ export function useCodeExplorer(
       theme: MONACO_THEME,
       model: null,
       automaticLayout: true,
-      fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace",
+      ...codeEditorFontOptions(editorOptions),
       fontLigatures: true,
       minimap: { enabled: false },
       glyphMargin: false,
@@ -424,6 +426,11 @@ export function useCodeExplorer(
       tabsRef.current = []
     }
   }, [])
+
+  // Apply editor font settings without recreating the editor.
+  useEffect(() => {
+    editorRef.current?.updateOptions(codeEditorFontOptions(editorOptions))
+  }, [editorOptions])
 
   // Open the files handed over by the action resolver (`suwu code`).
   const initialOpened = useRef(false)

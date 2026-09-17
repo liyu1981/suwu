@@ -7,6 +7,8 @@ interface OpenFileDialogProps {
   onClose: () => void
   onOpenFile: (path: string) => void
   onNewFile: (path: string) => void
+  /** Folder to start in (e.g. the active file's directory). Falls back to home. */
+  defaultDir?: string | null
 }
 
 interface DirEntry {
@@ -28,10 +30,10 @@ function parentPath(dir: string): string {
 }
 
 /** Directory + file browser for opening an existing file or creating a new one. */
-export function OpenFileDialog({ onClose, onOpenFile, onNewFile }: OpenFileDialogProps) {
+export function OpenFileDialog({ onClose, onOpenFile, onNewFile, defaultDir }: OpenFileDialogProps) {
   const { t } = useTranslation()
-  const [currentDir, setCurrentDir] = useState('/')
-  const [pathInput, setPathInput] = useState('/')
+  const [currentDir, setCurrentDir] = useState(defaultDir || '/')
+  const [pathInput, setPathInput] = useState(defaultDir || '/')
   const [entries, setEntries] = useState<DirEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +42,7 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile }: OpenFileDialo
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    if (defaultDir) return
     authFetch('/api/home', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -49,7 +52,7 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile }: OpenFileDialo
         }
       })
       .catch(() => {})
-  }, [])
+  }, [defaultDir])
 
   useEffect(() => {
     abortRef.current?.abort()
@@ -94,7 +97,7 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile }: OpenFileDialo
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="glass-control flex h-[75%] w-[min(92%,44rem)] flex-col gap-2 rounded-lg p-3"
+        className="glass-control menu-glass flex h-[75%] w-[min(92%,44rem)] flex-col gap-2 rounded-lg p-3"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

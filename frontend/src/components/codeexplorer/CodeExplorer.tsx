@@ -36,6 +36,14 @@ export function CodeExplorer() {
   const activeError = explorer.activeId ? explorer.errors[explorer.activeId] : undefined
   const anyDirty = Object.values(explorer.dirty).some(Boolean)
 
+  // Start the open/new-file dialog in the active file's folder.
+  const activeDir = useMemo(() => {
+    const path = activeTab?.path
+    if (!path) return null
+    const idx = path.lastIndexOf('/')
+    return idx <= 0 ? '/' : path.slice(0, idx)
+  }, [activeTab?.path])
+
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden" style={{ backgroundColor: background }}>
       <TabBar
@@ -93,6 +101,7 @@ export function CodeExplorer() {
 
       {dialogOpen && (
         <OpenFileDialog
+          defaultDir={activeDir}
           onClose={() => setDialogOpen(false)}
           onOpenFile={(path) => void explorer.openPath(path)}
           onNewFile={explorer.openNewFile}

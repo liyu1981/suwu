@@ -81,31 +81,33 @@ func Upload(dir, filename string, r io.Reader) (string, error) {
 		return "", fmt.Errorf("invalid filename")
 	}
 
-	// Deduplicate name.
+	// Reserve each candidate atomically so concurrent uploads cannot overwrite
+	// one another. Only name collisions should cause a retry.
+	ext := filepath.Ext(filename)
+	base := strings.TrimSuffix(filename, ext)
 	dest := filepath.Join(dir, filename)
-	if _, err := os.Stat(dest); err == nil {
-		ext := filepath.Ext(filename)
-		base := strings.TrimSuffix(filename, ext)
-		for i := 2; ; i++ {
-			candidate := fmt.Sprintf("%s_%d%s", base, i, ext)
-			candidatePath := filepath.Join(dir, candidate)
-			if _, err := os.Stat(candidatePath); os.IsNotExist(err) {
-				dest = candidatePath
-				break
-			}
+	var f *os.File
+	for i := 2; ; i++ {
+		var err error
+		f, err = os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+		if err == nil {
+			break
 		}
+		if !os.IsExist(err) {
+			return "", fmt.Errorf("create file: %w", err)
+		}
+		dest = filepath.Join(dir, fmt.Sprintf("%s_%d%s", base, i, ext))
 	}
-
-	f, err := os.Create(dest)
-	if err != nil {
-		return "", fmt.Errorf("create file: %w", err)
-	}
-	defer f.Close()
 
 	written, err := io.Copy(f, r)
+	closeErr := f.Close()
 	if err != nil {
 		os.Remove(dest)
 		return "", fmt.Errorf("write file: %w", err)
+	}
+	if closeErr != nil {
+		os.Remove(dest)
+		return "", fmt.Errorf("close file: %w", closeErr)
 	}
 
 	slog.Debug("dropbox upload", "path", dest, "size", written)

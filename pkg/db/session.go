@@ -45,12 +45,8 @@ func (m *Manager) Connect(params ConnectionParams) (*Session, error) {
 		return nil, err
 	}
 
-	dsn, err := BuildDSN(params)
-	if err != nil {
-		return nil, err
-	}
-
-	slog.Info("db connect", "driver", params.Driver, "dsn", maskDSN(dsn, params))
+	// DSNs contain credentials; log only the driver, not connection strings.
+	slog.Info("db connect", "driver", params.Driver)
 
 	db, err := d.Open(params)
 	if err != nil {
@@ -157,13 +153,4 @@ func (m *Manager) ListTables(sessionID string) ([]TableInfo, error) {
 	}
 
 	return d.ListTables(context.Background(), session.DB())
-}
-
-// maskDSN hides passwords in DSN strings for logging.
-func maskDSN(dsn string, params ConnectionParams) string {
-	if params.Password == "" {
-		return dsn
-	}
-	// Simple mask — just indicate password is present
-	return dsn[:len(params.Password)] + "***"
 }

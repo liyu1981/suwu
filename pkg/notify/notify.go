@@ -173,9 +173,9 @@ func (l *Listener) handleCommand(cmd Command) CommandResponse {
 }
 
 func (l *Listener) broadcast(n Notification) {
-	slog.Debug("notify broadcast", "id", n.ID, "message", n.Message, "subscribers", len(l.subs))
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	slog.Debug("notify broadcast", "id", n.ID, "message", n.Message, "subscribers", len(l.subs))
 	for s := range l.subs {
 		select {
 		case s.ch <- n:

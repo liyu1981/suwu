@@ -463,6 +463,28 @@ export default function TilingWM() {
   // Close a specific tile (hover ✕); Alt+Q closes the focused one.
   const closeTile = useCallback(
     (id: string) => {
+      const focus = store.get(focusAtom)
+
+      // Closing the tile while it is in focus mode must also leave focus mode:
+      // restore the source space (the pre-focus layout with this tile removed)
+      // and drop the temporary focus space. Otherwise the tile is only removed
+      // from the focus space, stranding the user in an empty focus space while
+      // the source space is never restored.
+      if (focus && focus.paneId === id) {
+        const sp = store.get(spacesAtom)
+        const nextSpaces = sp.filter((_, i) => i !== 0)
+        const sourceIdx = Math.max(0, Math.min(focus.sourceSpaceIndex - 1, nextSpaces.length - 1))
+        const sourceLayout = focus.sourceLayoutSnapshot ? closeAt(focus.sourceLayoutSnapshot, id) : null
+        nextSpaces[sourceIdx] = { ...nextSpaces[sourceIdx], layout: sourceLayout }
+        store.set(spacesAtom, nextSpaces)
+        store.set(activeSpaceAtom, sourceIdx)
+        store.set(focusedIdAtom, leaves(sourceLayout)[0] ?? '')
+        store.set(focusAtom, null)
+        // Skip the picker-open effect for the focus shift caused by this close.
+        closeRefCount.current++
+        return
+      }
+
       const cur = store.get(layoutAtom)
       if (!cur) return
       const next = closeAt(cur, id)

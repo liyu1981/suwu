@@ -28,14 +28,17 @@ import (
 )
 
 // CSP is the Content-Security-Policy applied to all HTML responses.
-// - No inline scripts, no eval, no remote scripts
-// - WebSocket connections allowed to same origin
-// - Frame ancestors blocked (no framing by other pages)
+//   - No inline scripts, no eval, no remote scripts
+//   - WebSocket connections allowed to same origin
+//   - `blob:` media is allowed so the video background can grab preview frames
+//     from OPFS clips with a <video> element
+//   - Frame ancestors blocked (no framing by other pages)
 const csp = "default-src 'self'; " +
 	"script-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; " +
 	"connect-src 'self' ws: wss: blob:; " +
 	"img-src 'self' data: blob:; " +
+	"media-src 'self' blob:; " +
 	"font-src 'self'; " +
 	"object-src 'none'; " +
 	"frame-ancestors 'self'; " +

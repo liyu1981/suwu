@@ -418,7 +418,7 @@ export async function startVideo(
 
     showMessage(['Loading video…'])
 
-    const file = await readVideoBlob()
+    const file = await readVideoBlob(config.source)
     if (disposed) return
     if (!file) {
       showMessage(['Video file not found', 'Choose it again in System Settings.'])

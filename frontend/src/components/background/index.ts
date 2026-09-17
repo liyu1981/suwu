@@ -21,7 +21,7 @@ export type {
   BackgroundColorParam,
   BackgroundContext,
   BackgroundDefinition,
-  BackgroundFileParam,
+  BackgroundFileListParam,
   BackgroundHandle,
   BackgroundModule,
   BackgroundNumberParam,
@@ -30,5 +30,6 @@ export type {
   BackgroundSelectOption,
   BackgroundSelectParam,
   BackgroundStarter,
+  BackgroundStoredFile,
   BackgroundTextParam,
 } from './types'

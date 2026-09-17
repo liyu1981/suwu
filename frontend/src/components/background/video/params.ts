@@ -1,6 +1,6 @@
 import type { BackgroundParam } from '../types'
 import { VIDEO_CROSSFADE_SECONDS } from './video-cpu/loop'
-import { clearVideoFile, storeVideoFile } from './video-cpu/storage'
+import { clearVideoFile, listVideoFiles, storeVideoFile } from './video-cpu/storage'
 
 export type VideoFit = 'cover' | 'stretch'
 
@@ -16,7 +16,7 @@ export const VIDEO_MAX_DURATION_SECONDS = 30
 
 /** User-facing parameters for the Video background. */
 export interface VideoParams {
-  /** Stored value of the picked file (its name); the bytes live in OPFS. */
+  /** Stored id of the selected clip; the bytes live in OPFS. */
   source: string
   fit: VideoFit
   speed: number
@@ -30,13 +30,14 @@ export interface VideoParams {
 
 export const VIDEO_PARAMS: readonly BackgroundParam[] = [
   {
-    kind: 'file',
+    kind: 'fileList',
     key: 'source',
-    label: 'Video file',
+    label: 'Video clips',
     accept: 'video/mp4,video/webm,video/x-matroska,video/*',
-    hint: 'MP4 or WebM. Copied into this browser’s OPFS storage. Short, muted clips work best.',
+    hint: 'Stored in this browser. Short, muted clips work best.',
     default: VIDEO_DEFAULT_SOURCE,
     store: storeVideoFile,
+    list: listVideoFiles,
     clear: clearVideoFile,
   },
   {

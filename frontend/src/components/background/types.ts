@@ -91,20 +91,35 @@ export interface BackgroundTextParam extends BackgroundParamBase {
 }
 
 /**
- * File picker parameter. The selected `File` is persisted by the background's
- * `store` callback (e.g. copied into OPFS) and the returned string is what gets
- * stored — a file name or cache key, not the bytes (localStorage can't hold
- * them).
+ * A file persisted by a `fileList` parameter (e.g. a clip copied into OPFS).
  */
-export interface BackgroundFileParam extends BackgroundParamBase {
-  readonly kind: 'file'
+export interface BackgroundStoredFile {
+  /** Stable id used as the stored param value. */
+  readonly id: string
+  /** Original file name, shown in the list. */
+  readonly name: string
+  readonly size: number
+  readonly type: string
+  readonly lastModified: number
+  /** Thumbnail bytes (or null when one could not be generated). */
+  readonly thumbnail: Blob | null
+}
+
+/**
+ * A library of user-picked files. The selected file's id is what gets stored;
+ * the bytes live wherever the background persists them (e.g. OPFS).
+ */
+export interface BackgroundFileListParam extends BackgroundParamBase {
+  readonly kind: 'fileList'
   readonly default: string
   /** `accept` attribute for the file input. */
   readonly accept?: string
-  /** Persist the picked file; resolve to the value to store. */
+  /** Persist a picked file; resolve to the id to store. */
   readonly store: (file: File) => Promise<string>
-  /** Optional cleanup when the value is cleared. */
-  readonly clear?: () => Promise<void>
+  /** List persisted files (with thumbnails) for the picker. */
+  readonly list: () => Promise<BackgroundStoredFile[]>
+  /** Remove a persisted file by id. */
+  readonly clear: (id: string) => Promise<void>
 }
 
 /** Colour parameter, rendered as a colour picker. Stored as `#rrggbb`. */
@@ -123,7 +138,7 @@ export type BackgroundParam =
   | BackgroundBooleanParam
   | BackgroundSelectParam
   | BackgroundTextParam
-  | BackgroundFileParam
+  | BackgroundFileListParam
   | BackgroundColorParam
 
 /** A named background with an optional CPU backend and an optional GPU backend. */

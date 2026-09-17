@@ -65,7 +65,7 @@ components/background/
     video-cpu/
       renderer.ts             # mediabunny playback loop, reduced motion, error overlay
       loop.ts                 # crossfade-loop timing (window + blend progress)
-      storage.ts              # OPFS copy/read/clear of the picked file
+      storage.ts              # OPFS clip library (store/list/read/clear, thumbnails)
       fit.ts                  # cover source rect
 ```
 
@@ -153,18 +153,18 @@ validation; a backend never keeps its own copy.
   remounts a fresh canvas (a canvas context type is permanent) with the GPU path
   disabled. `interactive-fluid`, `matrix-rain`, `atmospheric-landscape`,
   `seascape` and `rainforest` are GPU-only and have no CPU fallback.
-- **Video** — the `video` family is CPU-only (canvas-2D). The user picks a short
-  MP4/WebM in System Settings; the file is copied into OPFS (`storage.ts`) and
-  the renderer demuxes and decodes it with mediabunny (`VideoSampleSink`),
-  drawing the frames to the canvas in a loop. Frames are pulled lazily with
-  backpressure, so memory stays bounded regardless of clip length. No `<video>`
-  element, no network fetch and no audio. A configurable colour mask (colour +
-  opacity, default white 10%) is drawn over the frame. Load and codec failures
-  are reported on the canvas itself. The **Smooth loop** switch crossfades the
-  last 2s of the clip into a second copy started from the beginning (source-over
-  blending, so the mix is exactly `outgoing·(1−p) + incoming·p`), hiding the
-  jump at the loop point; it is off by default and skipped for clips shorter
-  than 4s.
+- **Video** — the `video` family is CPU-only (canvas-2D). The user picks short
+  clips in System Settings; each is copied into an OPFS library (`storage.ts`)
+  with a ~2s thumbnail, and the selected one is demuxed/decoded with mediabunny
+  (`VideoSampleSink`), drawing the frames to the canvas in a loop. Frames are
+  pulled lazily with backpressure, so memory stays bounded regardless of clip
+  length. No `<video>` element, no network fetch and no audio. A configurable
+  colour mask (colour + opacity, default white 10%) is drawn over the frame.
+  Load and codec failures are reported on the canvas itself. The **Smooth loop**
+  switch crossfades the last 2s of the clip into a second copy started from the
+  beginning (source-over blending, so the mix is exactly
+  `outgoing·(1−p) + incoming·p`), hiding the jump at the loop point; it is off
+  by default and skipped for clips shorter than 4s.
 
 > **Licensing note.** `rainforest` is an Inigo Quilez (iq) work whose original
 > license forbids use in a product, altered or not. It is included with express

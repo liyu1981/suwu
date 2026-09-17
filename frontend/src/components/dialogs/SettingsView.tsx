@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
@@ -11,11 +11,12 @@ import { getBackground, listBackgrounds, resolveBackgroundParams } from '../back
 import type {
   BackgroundBooleanParam,
   BackgroundColorParam,
-  BackgroundFileParam,
+  BackgroundFileListParam,
   BackgroundNumberParam,
   BackgroundParam,
   BackgroundParamValue,
   BackgroundSelectParam,
+  BackgroundStoredFile,
   BackgroundTextParam,
 } from '../background'
 
@@ -78,25 +79,25 @@ function NumberField({
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <span className={sectionLabel}>{param.label}</span>
-        <span className="font-mono text-xs text-popover-foreground">
+      <div className="flex items-center gap-3">
+        <span className={`${sectionLabel} shrink-0`}>{param.label}</span>
+        <input
+          type="range"
+          min={param.min}
+          max={param.max}
+          step={param.step ?? 1}
+          value={local}
+          onChange={(e) => setLocal(Number(e.target.value))}
+          onPointerUp={(e) => commit(e.currentTarget)}
+          onKeyUp={(e) => commit(e.currentTarget)}
+          onBlur={(e) => commit(e.currentTarget)}
+          aria-label={param.label}
+          className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
+        />
+        <span className="w-12 shrink-0 text-right font-mono text-xs text-popover-foreground">
           {param.format ? param.format(local) : String(local)}
         </span>
       </div>
-      <input
-        type="range"
-        min={param.min}
-        max={param.max}
-        step={param.step ?? 1}
-        value={local}
-        onChange={(e) => setLocal(Number(e.target.value))}
-        onPointerUp={(e) => commit(e.currentTarget)}
-        onKeyUp={(e) => commit(e.currentTarget)}
-        onBlur={(e) => commit(e.currentTarget)}
-        aria-label={param.label}
-        className="mt-2 h-1 w-full cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
-      />
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
     </div>
   )
@@ -191,29 +192,75 @@ function TextField({
   )
 }
 
-/** File picker; the chosen file is persisted by the param's `store` callback. */
-function FileField({
+/** Human-readable file size. */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB']
+  let value = bytes / 1024
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  return `${value.toFixed(value >= 10 || Number.isInteger(value) ? 0 : 1)} ${units[unit]}`
+}
+
+/**
+ * Library of persisted files: thumbnail, name and size per entry, with
+ * Use/Clear actions and an Add button. The selected id is the stored value.
+ */
+function FileListField({
   param,
   value,
   onChange,
 }: {
-  param: BackgroundFileParam
+  param: BackgroundFileListParam
   value: string
   onChange: (value: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [files, setFiles] = useState<BackgroundStoredFile[]>([])
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const pick = (): void => inputRef.current?.click()
+  const refresh = useCallback(async () => {
+    try {
+      setFiles(await param.list())
+      setError(null)
+    } catch (listError) {
+      setError(listError instanceof Error ? listError.message : String(listError))
+    } finally {
+      setLoading(false)
+    }
+  }, [param])
 
-  const onPicked = async (files: FileList | null): Promise<void> => {
-    const file = files?.[0]
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  // Object URLs for the thumbnails, revoked when the list changes/unmounts.
+  useEffect(() => {
+    const urls: Record<string, string> = {}
+    for (const file of files) {
+      if (file.thumbnail) urls[file.id] = URL.createObjectURL(file.thumbnail)
+    }
+    setThumbUrls(urls)
+    return () => {
+      for (const url of Object.values(urls)) URL.revokeObjectURL(url)
+    }
+  }, [files])
+
+  const add = async (list: FileList | null): Promise<void> => {
+    const file = list?.[0]
     if (!file) return
     setBusy(true)
     setError(null)
     try {
-      onChange(await param.store(file))
+      const id = await param.store(file)
+      onChange(id)
+      await refresh()
     } catch (storeError) {
       setError(storeError instanceof Error ? storeError.message : String(storeError))
     } finally {
@@ -222,43 +269,89 @@ function FileField({
     }
   }
 
+  const remove = async (id: string): Promise<void> => {
+    setBusy(true)
+    try {
+      await param.clear(id)
+      if (value === id) onChange('')
+      await refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const button =
-    'shrink-0 cursor-pointer rounded border border-white/10 bg-black/30 px-2 py-1 text-xs ' +
-    'text-popover-foreground outline-none transition-colors hover:bg-white/10 ' +
-    'focus-visible:ring-1 focus-visible:ring-sky-400/60 disabled:cursor-not-allowed disabled:opacity-50'
+    'shrink-0 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs outline-none ' +
+    'transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
+    'disabled:cursor-not-allowed disabled:opacity-40'
 
   return (
     <div>
-      <span className={sectionLabel}>{param.label}</span>
-      <div className="mt-2 flex items-center gap-2">
-        <button type="button" onClick={pick} disabled={busy} className={button}>
-          {busy ? 'Copying…' : value ? 'Choose another…' : 'Choose file…'}
+      <div className="flex items-center justify-between">
+        <span className={sectionLabel}>{param.label}</span>
+        <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className={button}>
+          {busy ? 'Working…' : 'Add file…'}
         </button>
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          {value || 'No file selected'}
-        </span>
-        {value && (
-          <button
-            type="button"
-            disabled={busy}
-            className={button}
-            onClick={() => {
-              void (async () => {
-                await param.clear?.()
-                onChange('')
-              })()
-            }}
-          >
-            Clear
-          </button>
-        )}
       </div>
+
+      <div className="mt-2 space-y-1.5">
+        {loading && (
+          <p className="px-2 py-3 text-center text-[11px] text-muted-foreground">Loading…</p>
+        )}
+        {!loading && files.length === 0 && (
+          <p className="rounded border border-dashed border-white/10 px-2 py-3 text-center text-[11px] text-muted-foreground">
+            No clips stored yet.
+          </p>
+        )}
+        {files.map((file) => {
+          const active = file.id === value
+          return (
+            <div
+              key={file.id}
+              className={`flex items-center gap-2 rounded border p-1.5 ${
+                active ? 'border-sky-400/50 bg-sky-400/10' : 'border-white/10 bg-black/20'
+              }`}
+            >
+              <div className="h-10 w-16 shrink-0 overflow-hidden rounded bg-black/40">
+                {thumbUrls[file.id] ? (
+                  <img src={thumbUrls[file.id]} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="grid h-full w-full place-items-center text-[9px] text-white/30">no preview</div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs text-popover-foreground" title={file.name}>
+                  {file.name}
+                </div>
+                <div className="text-[11px] text-muted-foreground">{formatSize(file.size)}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onChange(file.id)}
+                disabled={busy || active}
+                className={`${button} ${active ? 'text-sky-300' : ''}`}
+              >
+                {active ? 'In use' : 'Use'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void remove(file.id)}
+                disabled={busy}
+                className={`${button} text-red-300 hover:bg-red-500/15`}
+              >
+                Clear
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
       <input
         ref={inputRef}
         type="file"
         accept={param.accept}
         className="hidden"
-        onChange={(e) => void onPicked(e.target.files)}
+        onChange={(e) => void add(e.target.files)}
       />
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
       {error && <p className="mt-1 text-[11px] text-red-400">{error}</p>}
@@ -280,20 +373,28 @@ function ColorField({
   useEffect(() => setLocal(value), [value])
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <span className={sectionLabel}>{param.label}</span>
-        <span className="font-mono text-xs text-popover-foreground">{local}</span>
+      <div className="flex items-center justify-between gap-3">
+        <span className={`${sectionLabel} shrink-0`}>{param.label}</span>
+        <div className="flex items-center gap-2">
+          <label
+            className="relative block h-5 w-8 cursor-pointer overflow-hidden rounded border border-white/15"
+            title={param.label}
+          >
+            <span className="absolute inset-0" style={{ backgroundColor: local }} />
+            <input
+              type="color"
+              value={local}
+              onChange={(e) => setLocal(e.target.value)}
+              onBlur={() => {
+                if (local !== value) onChange(local)
+              }}
+              aria-label={param.label}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            />
+          </label>
+          <span className="font-mono text-xs text-popover-foreground">{local}</span>
+        </div>
       </div>
-      <input
-        type="color"
-        value={local}
-        onChange={(e) => setLocal(e.target.value)}
-        onBlur={() => {
-          if (local !== value) onChange(local)
-        }}
-        aria-label={param.label}
-        className="mt-2 h-8 w-full cursor-pointer rounded border border-white/10 bg-black/30"
-      />
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
     </div>
   )
@@ -342,9 +443,9 @@ function BackgroundParamField({
           onChange={onChange}
         />
       )
-    case 'file':
+    case 'fileList':
       return (
-        <FileField
+        <FileListField
           param={param}
           value={typeof value === 'string' ? value : param.default}
           onChange={onChange}

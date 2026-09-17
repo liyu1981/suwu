@@ -57,6 +57,10 @@ type GitActionRequest struct {
 
 // handleGitAction handles POST /api/git/action
 func (s *Server) handleGitAction(w http.ResponseWriter, r *http.Request) {
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		writeGitError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return

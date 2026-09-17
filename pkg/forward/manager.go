@@ -133,7 +133,7 @@ func (m *Manager) StatusAll() []ForwardStatus {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var statuses []ForwardStatus
+	statuses := make([]ForwardStatus, 0, len(m.forwards))
 	for _, f := range m.forwards {
 		statuses = append(statuses, *m.toStatus(f))
 	}

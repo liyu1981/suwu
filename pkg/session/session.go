@@ -94,6 +94,7 @@ func (m *Manager) Close() {
 	m.sessions = map[string]*session{}
 	for _, s := range live {
 		s.closed = true
+		close(s.done) // stop the state poller, as finish and expire do
 		if s.timer != nil {
 			s.timer.Stop()
 			s.timer = nil
@@ -104,6 +105,7 @@ func (m *Manager) Close() {
 
 	for _, s := range live {
 		_ = s.pty.Kill()
+		<-s.pollerDone
 		s.releaseVT()
 	}
 	if m.rt != nil {
@@ -257,7 +259,7 @@ func (m *Manager) start(key string, cols, rows uint16, cwd string) (*session, er
 		return nil, fmt.Errorf("session: create emulator: %w", err)
 	}
 
-	s := &session{key: key, pty: ps, vt: vt, cols: cols, rows: rows, done: make(chan struct{})}
+	s := &session{key: key, pty: ps, vt: vt, cols: cols, rows: rows, done: make(chan struct{}), pollerDone: make(chan struct{})}
 	m.sessions[key] = s
 	go m.readLoop(s)
 	go m.statePoller(s)
@@ -304,6 +306,7 @@ func (m *Manager) broadcast(s *session, data []byte) {
 }
 
 func (m *Manager) statePoller(s *session) {
+	defer close(s.pollerDone)
 	ticker := time.NewTicker(statePollInterval)
 	defer ticker.Stop()
 	for {
@@ -429,9 +432,10 @@ type session struct {
 	closed     bool
 
 	// State tracking — polled periodically from /proc.
-	state   SessionState
-	stateMu sync.RWMutex
-	done    chan struct{} // closed on session exit to stop state poller
+	state      SessionState
+	stateMu    sync.RWMutex
+	done       chan struct{} // closed on session exit to stop state poller
+	pollerDone chan struct{} // closed when the state poller has exited
 }
 
 func (s *session) releaseVT() {

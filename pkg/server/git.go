@@ -135,6 +135,10 @@ func git(repoPath string, args ...string) (string, error) {
 
 // handleGitCommits handles GET /api/git/commits
 func (s *Server) handleGitCommits(w http.ResponseWriter, r *http.Request) {
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		writeGitError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -220,6 +224,10 @@ func (s *Server) handleGitCommits(w http.ResponseWriter, r *http.Request) {
 
 // handleGitWorktrees handles GET /api/git/worktrees
 func (s *Server) handleGitWorktrees(w http.ResponseWriter, r *http.Request) {
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		writeGitError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -365,6 +373,10 @@ func getGitWorktrees(repoPath string) ([]GitWorktree, error) {
 
 // handleGitCommitDetails handles GET /api/git/commit
 func (s *Server) handleGitCommitDetails(w http.ResponseWriter, r *http.Request) {
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		writeGitError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -410,6 +422,10 @@ func (s *Server) handleGitCommitDetails(w http.ResponseWriter, r *http.Request) 
 
 // handleGitBranches handles GET /api/git/branches
 func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		writeGitError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -799,6 +815,10 @@ func getGitFileChanges(repoPath, hash string) ([]GitFileChange, error) {
 
 // handleGitDiff handles GET /api/git/diff
 func (s *Server) handleGitDiff(w http.ResponseWriter, r *http.Request) {
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		writeGitError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return

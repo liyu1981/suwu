@@ -5,6 +5,7 @@ import { authFetch } from '../../lib/api'
 import { useReportTileState } from '../CommonTileContainer'
 import { MONACO_THEME, ensureMonacoTheme } from './monacoSetup'
 import { languageForPath } from './languages'
+import { completeSave } from './saveState'
 import { looksBinary, normalizeRanges, type HighlightRange } from './spec'
 import type { CodeFileSpec } from '../../store/notifications'
 import type { CodeExplorerSessionState } from '../../wm/sessionState'
@@ -78,6 +79,7 @@ export function useCodeExplorer(
   const decorationIds = useRef(new Map<string, string[]>())
   const revealed = useRef(new Set<string>())
   const pendingPaths = useRef(new Set<string>())
+  const savingTabs = useRef(new Set<string>())
 
   const report = useReportTileState()
 
@@ -212,11 +214,13 @@ export function useCodeExplorer(
     const tabId = id ?? activeRef.current
     if (!tabId) return
     const tab = tabsRef.current.find((candidate) => candidate.id === tabId)
-    if (!tab || tab.readOnly) return
+    if (!tab || tab.readOnly || savingTabs.current.has(tabId)) return
 
+    const submittedVersionId = tab.model.getAlternativeVersionId()
     const payload: Record<string, unknown> = { path: tab.path, content: tab.model.getValue() }
     if (!tab.isNew && tab.mtimeMs !== null) payload.mtimeMs = tab.mtimeMs
 
+    savingTabs.current.add(tabId)
     setSaving(true)
     try {
       const res = await authFetch('/api/file/write', {
@@ -227,22 +231,24 @@ export function useCodeExplorer(
       const body = (await res.json().catch(() => null)) as
         | { error?: string; mtimeMs?: number; path?: string }
         | null
+      if (tab.model.isDisposed()) return
       if (!res.ok) {
         setErrors((prev) => ({ ...prev, [tabId]: body?.error ?? `HTTP ${res.status}` }))
         return
       }
-      tab.savedVersionId = tab.model.getAlternativeVersionId()
-      if (typeof body?.mtimeMs === 'number') tab.mtimeMs = body.mtimeMs
-      tab.isNew = false
-      tab.error = undefined
+      const isDirty = completeSave(tab, submittedVersionId, body?.mtimeMs)
+      if (isDirty === null) return
       setErrors((prev) => ({ ...prev, [tabId]: undefined }))
-      setDirty((prev) => ({ ...prev, [tabId]: false }))
+      setDirty((prev) => ({ ...prev, [tabId]: isDirty }))
       setSavedAt(Date.now())
       setTabs([...tabsRef.current])
     } catch (e) {
-      setErrors((prev) => ({ ...prev, [tabId]: e instanceof Error ? e.message : i18n.t('codeExplorer.saveFailed') }))
+      if (!tab.model.isDisposed()) {
+        setErrors((prev) => ({ ...prev, [tabId]: e instanceof Error ? e.message : i18n.t('codeExplorer.saveFailed') }))
+      }
     } finally {
-      setSaving(false)
+      savingTabs.current.delete(tabId)
+      setSaving(savingTabs.current.size > 0)
     }
   }, [])
 

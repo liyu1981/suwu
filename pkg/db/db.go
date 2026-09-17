@@ -199,7 +199,10 @@ func executeSelect(ctx context.Context, db *sql.DB, query string, start time.Tim
 	for i, col := range columns {
 		// Use ScanType to get the Go type name as a fallback
 		scanType := col.ScanType()
-		dataType := scanType.String()
+		dataType := "unknown"
+		if scanType != nil {
+			dataType = scanType.String()
+		}
 		// Try to get a more database-specific type if available
 		if dataType == "interface {}" {
 			dataType = "unknown"
@@ -210,7 +213,7 @@ func executeSelect(ctx context.Context, db *sql.DB, query string, start time.Tim
 		}
 	}
 
-	var resultRows [][]interface{}
+	resultRows := make([][]interface{}, 0)
 	truncated := false
 	for rows.Next() {
 		if len(resultRows) >= MaxRows {

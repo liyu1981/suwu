@@ -23,12 +23,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"log/slog"
@@ -157,8 +157,9 @@ Usage:
                            when explicitly set, the global env is skipped
   suwu send [--sock <path>] [<message>]
                            send a notification to the running server;
-                           reads from stdin if no message is given
-                           (e.g. cat log | suwu send)
+                           reads stdin as one message if no message is given
+                           (e.g. cat log | suwu send); max 1 MiB encoded JSON,
+                           oversized messages are rejected without sending
   suwu open [--sock <path>] <path>
                            open a file or directory in the running Suwu session
   suwu gitgraph [--sock <path>] <dir>
@@ -233,7 +234,11 @@ Examples:
 		fmt.Print(`Usage: suwu send [flags] [<message>]
 
 Send a notification to the running Suwu server. The message is displayed
-in the browser notification panel. Reads from stdin if no message is given.
+in the browser notification panel. With no message argument, reads stdin to EOF
+and sends it as one message, preserving internal newlines. One final newline
+is removed. For both arguments and stdin, the JSON-encoded notification must
+not exceed 1 MiB (1048576 bytes), including escaping and metadata. Oversized
+messages are rejected before sending; no part of the message is sent.
 
 Flags:
   --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
@@ -776,31 +781,44 @@ func sendMsg(args []string) error {
 	// Positional args: send as a single message.
 	if fs.NArg() > 0 {
 		message := strings.Join(fs.Args(), " ")
-		if err := notify.Send(sockPath, message); err != nil {
+		if err := sendTextMessage(sockPath, message); err != nil {
 			return err
 		}
 		fmt.Printf("Sent: %s\n", message)
 		return nil
 	}
 
-	// No args: read from stdin (pipe support).
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Buffer(make([]byte, 0, 256), 64*1024)
-	var msgs []string
-	for scanner.Scan() {
-		msgs = append(msgs, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("read stdin: %w", err)
-	}
-	if len(msgs) == 0 {
-		return fmt.Errorf("usage: suwu send [--sock <path>] <message>\n       cat file | suwu send")
-	}
-	if err := notify.Send(sockPath, msgs...); err != nil {
+	if err := sendStdinMessage(sockPath, os.Stdin); err != nil {
 		return err
 	}
-	fmt.Printf("Sent %d message(s)\n", len(msgs))
+	fmt.Println("Sent 1 message")
 	return nil
+}
+
+func sendStdinMessage(sockPath string, input io.Reader) error {
+	// Bound the read as well as the encoded frame; JSON escaping can expand it.
+	content, err := io.ReadAll(io.LimitReader(input, notify.MaxMessageBytes+2))
+	if err != nil {
+		return fmt.Errorf("read stdin: %w", err)
+	}
+	message := strings.TrimSuffix(string(content), "\n")
+	if message == "" {
+		return fmt.Errorf("usage: suwu send [--sock <path>] <message>\n       cat file | suwu send")
+	}
+	return sendTextMessage(sockPath, message)
+}
+
+func sendTextMessage(sockPath, message string) error {
+	if len(message) > notify.MaxMessageBytes {
+		return notify.MessageTooLargeError()
+	}
+	// A JSON envelope escapes embedded newlines so the line-framed socket
+	// delivers the complete input as one notification, not one per line.
+	data, err := json.Marshal(notify.Notification{Message: message})
+	if err != nil {
+		return fmt.Errorf("encode notification: %w", err)
+	}
+	return notify.Send(sockPath, string(data))
 }
 
 // openAction is the JSON payload sent by `suwu open`.

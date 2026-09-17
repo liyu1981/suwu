@@ -120,10 +120,14 @@ func (l *Listener) acceptLoop() {
 func (l *Listener) handleConn(conn net.Conn) {
 	defer conn.Close()
 	scanner := bufio.NewScanner(conn)
-	// Limit message to 64 KiB — generous for a notification.
-	scanner.Buffer(make([]byte, 0, 256), 64*1024)
+	// Reserve a byte for the newline after a maximum-sized encoded message.
+	scanner.Buffer(make([]byte, 0, 4096), MaxMessageBytes+1)
 	for scanner.Scan() {
 		raw := scanner.Text()
+		if len(raw) > MaxMessageBytes {
+			slog.Warn("notify: message exceeds limit", "limitBytes", MaxMessageBytes)
+			return
+		}
 		if raw == "" {
 			continue
 		}
@@ -157,6 +161,9 @@ func (l *Listener) handleConn(conn net.Conn) {
 			Message:   raw,
 			Timestamp: time.Now().UnixMilli(),
 		})
+	}
+	if err := scanner.Err(); err != nil {
+		slog.Warn("notify: read message failed", "error", err, "limitBytes", MaxMessageBytes)
 	}
 }
 

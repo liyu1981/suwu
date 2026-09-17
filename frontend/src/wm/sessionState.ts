@@ -18,6 +18,10 @@ export interface GitGraphSessionState {
   expandedCommitIndex?: number | null
   scrollPosition?: number
   showRemoteBranches?: boolean
+  selectedWorktree?: string | null
+  allBranches?: boolean
+  diffTabs?: Array<{ id: string; repoPath: string; base: string; target: string; focusFile?: string }>
+  activeTab?: string
 }
 
 export interface CodeExplorerSessionState {

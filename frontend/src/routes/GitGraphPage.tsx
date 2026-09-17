@@ -28,6 +28,11 @@ import { fetchJson } from '../lib/format';
 import { setPageTransparent } from '../lib/constants';
 import { useAutoRefreshDropdown, AutoRefreshDropdown, AutoRefreshTrigger } from '../components/AutoRefreshDropdown';
 import type { GitCommit } from '../components/gitgraph/graph';
+import { useTranslation } from 'react-i18next';
+import { GitGraphTabs } from '../components/gitgraph/GitGraphTabs';
+import { CompareCommitDialog } from '../components/gitgraph/CompareCommitDialog';
+import { CommitDiffTab } from '../components/gitgraph/CommitDiffTab';
+import { comparisonId, type DiffTab } from '../components/gitgraph/comparison';
 
 interface GitGraphSessionState {
   repoPath?: string;
@@ -35,6 +40,8 @@ interface GitGraphSessionState {
   scrollPosition?: number;
   selectedWorktree?: string | null;
   allBranches?: boolean;
+  diffTabs?: DiffTab[];
+  activeTab?: string;
 }
 
 interface GitWorktree {
@@ -79,6 +86,11 @@ function resolveInitPath(saved: GitGraphSessionState | null): string | null {
 
 
 export default function GitGraphPage() {
+  return <CommonTileContainer zoomAtom={gitGraphZoomAtom} noPadding><GitGraphContent /></CommonTileContainer>;
+}
+
+function GitGraphContent() {
+  const { t } = useTranslation();
   const savedState = useTileSessionState<GitGraphSessionState>();
   const reportState = useReportTileState();
   const bgColor = useAtomValue(fileBrowserBgAtom);
@@ -90,7 +102,7 @@ export default function GitGraphPage() {
 
   const initPath = resolveInitPath(savedState);
   const [repoPath, setRepoPath] = useState<string | null>(initPath);
-  const [branch] = useState(savedState?.branch ?? 'HEAD');
+  const [branch, setBranch] = useState(savedState?.branch ?? 'HEAD');
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [picking, setPicking] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -100,6 +112,37 @@ export default function GitGraphPage() {
   const [allBranches, setAllBranches] = useState(savedState?.allBranches ?? true);
   const [autoRefresh, setAutoRefresh] = useState(0);
   const dropdown = useAutoRefreshDropdown();
+  const [diffTabs, setDiffTabs] = useState<DiffTab[]>([]);
+  const [activeTab, setActiveTab] = useState('commits');
+  const [compareDialog, setCompareDialog] = useState<{ commit: GitCommit; mode: 'parent' | 'custom'; repoPath: string; focusFile?: string } | null>(null);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const restored = useRef(false);
+  const pendingScrollRestore = useRef<number | null>(null);
+  useEffect(() => {
+    if (!savedState || restored.current) return;
+    restored.current = true;
+    if (savedState.repoPath) setRepoPath(savedState.repoPath);
+    setBranch(savedState.branch ?? 'HEAD');
+    pendingScrollRestore.current = savedState.scrollPosition ?? 0;
+    setSelectedWorktree(savedState.selectedWorktree ?? null);
+    setAllBranches(savedState.allBranches ?? true);
+    const tabs = (savedState.diffTabs ?? []).filter(tab => typeof tab.repoPath === 'string' && typeof tab.base === 'string' && typeof tab.target === 'string' && tab.id === comparisonId(tab.repoPath, tab.base, tab.target));
+    setDiffTabs(tabs);
+    setActiveTab(tabs.some(tab => tab.id === savedState.activeTab) ? savedState.activeTab! : 'commits');
+    setScrollPosition(savedState.scrollPosition ?? 0);
+  }, [savedState]);
+  const addDiffTab = useCallback((path: string, base: string, target: string, focusFile?: string) => {
+    const id = comparisonId(path, base, target);
+    setDiffTabs(tabs => tabs.some(tab => tab.id === id)
+      ? tabs.map(tab => tab.id === id && focusFile ? { ...tab, focusFile } : tab)
+      : [...tabs, { id, repoPath: path, base, target, focusFile }]);
+    setActiveTab(id);
+  }, []);
+  const closeDiffTab = useCallback((id: string) => {
+    const index = diffTabs.findIndex(tab => tab.id === id);
+    if (activeTab === id) setActiveTab(diffTabs[index + 1]?.id ?? diffTabs[index - 1]?.id ?? 'commits');
+    setDiffTabs(tabs => tabs.filter(tab => tab.id !== id));
+  }, [diffTabs, activeTab]);
 
   // Determine the active worktree path and base for diff mode
   const activeWorktree = worktrees.find((wt) => wt.path === selectedWorktree);
@@ -111,7 +154,7 @@ export default function GitGraphPage() {
     repoPath: activePath,
     branch,
     maxCount: 100,
-    enabled: activePath !== null,
+    enabled: repoPath !== null,
     base,
     allBranches,
   });
@@ -135,26 +178,30 @@ export default function GitGraphPage() {
     refresh();
   }, [fetchWorktrees, refresh]);
 
-  useEffect(() => { reportState({ repoPath: repoPath ?? undefined, branch, selectedWorktree, allBranches }); }, [repoPath, branch, selectedWorktree, allBranches, reportState]);
+  useEffect(() => { reportState({ repoPath: repoPath ?? undefined, branch, selectedWorktree, allBranches, scrollPosition, diffTabs, activeTab }); }, [repoPath, branch, selectedWorktree, allBranches, scrollPosition, diffTabs, activeTab, reportState]);
 
   useEffect(() => { if (autoRefresh <= 0) return; const id = setInterval(() => refreshAll(), autoRefresh); return () => clearInterval(id); }, [autoRefresh, refreshAll]);
 
   const handleIntervalSelect = useCallback((ms: number) => { setAutoRefresh(ms); dropdown.close(); }, [dropdown]);
 
-  useEffect(() => { if (scrollRef.current && savedState?.scrollPosition) scrollRef.current.scrollTop = savedState.scrollPosition; }, [savedState?.scrollPosition]);
+  useEffect(() => {
+    if (loading || activeTab !== 'commits' || !scrollRef.current || pendingScrollRestore.current === null) return;
+    scrollRef.current.scrollTop = pendingScrollRestore.current;
+    pendingScrollRestore.current = null;
+  }, [loading, commits.length, activeTab]);
 
   // Scroll to bottom → load more commits
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
     const el = scrollRef.current;
-    reportState({ repoPath: repoPath ?? undefined, branch, scrollPosition: el.scrollTop });
+    setScrollPosition(el.scrollTop);
     // Trigger load more when within 120px of the bottom
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 120 && hasMore && !loadingMore && !loading) {
       loadMore();
     }
   }, [repoPath, branch, reportState, hasMore, loadingMore, loading, loadMore]);
 
-  const handleSelectPath = useCallback((path: string) => { setRepoPath(path); setPicking(false); setExpandedIndex(null); setSelectedWorktree(null); setShowWorktreeBrowser(false); }, []);
+  const handleSelectPath = useCallback((path: string) => { setRepoPath(path); setPicking(false); setExpandedIndex(null); setSelectedWorktree(null); setShowWorktreeBrowser(false); setDiffTabs([]); setActiveTab('commits'); setCompareDialog(null); }, []);
   const handleRetry = useCallback(() => { setExpandedIndex(null); refresh(); }, [refresh]);
 
   const copyPath = useCallback(async () => {
@@ -187,6 +234,10 @@ export default function GitGraphPage() {
     // Normal commit context menu
     const items: ContextMenuItem[][] = [
       [
+        { label: t('gitCompare.againstParent'), onClick: () => setCompareDialog({ commit, mode: 'parent', repoPath: activePath }) },
+        { label: t('gitCompare.againstCustom'), onClick: () => setCompareDialog({ commit, mode: 'custom', repoPath: activePath }) },
+      ],
+      [
         { label: 'Checkout', onClick: () => { gitAction('checkout-commit', { hash: commit.hash }); refresh(); } },
         { label: 'Cherry Pick...', onClick: () => setDialog({ title: 'Cherry Pick', message: `Cherry pick <b>${commit.hash.slice(0, 7)}</b>?`, inputs: [{ type: 'checkbox', name: 'No Commit', checked: false }], actionLabel: 'Cherry Pick', onAction: (v) => { gitAction('cherry-pick', { hash: commit.hash, noCommit: String(v['No Commit']) }); refresh(); } }) },
         { label: 'Revert...', onClick: () => setDialog({ title: 'Revert', message: `Revert commit <b>${commit.hash.slice(0, 7)}</b>?`, actionLabel: 'Revert', onAction: () => { gitAction('revert', { hash: commit.hash }); refresh(); } }) },
@@ -206,7 +257,7 @@ export default function GitGraphPage() {
       ],
     ];
     setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
-  }, [gitAction, refresh]);
+  }, [gitAction, refresh, activePath, t]);
 
   const showBranchContextMenu = useCallback((e: React.MouseEvent, branchName: string) => {
     e.preventDefault();
@@ -315,7 +366,7 @@ export default function GitGraphPage() {
   }, [loadMore]);
 
   return (
-    <CommonTileContainer zoomAtom={gitGraphZoomAtom} noPadding>
+    <>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
         {/* Row 1 — toolbar (file viewer style) */}
@@ -329,6 +380,8 @@ export default function GitGraphPage() {
         {dropdown.showDropdown && (
           <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdown.dropdownRef} dropdownPos={dropdown.dropdownPos} />
         )}
+
+        <GitGraphTabs tabs={diffTabs} active={activeTab} onSelect={setActiveTab} onClose={closeDiffTab} />
 
         {/* Row 2 — repo path bar */}
         <div className="flex shrink-0 items-center gap-2 border-b border-x border-white/[0.10] bg-white/[0.03] px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
@@ -358,7 +411,7 @@ export default function GitGraphPage() {
               {worktrees.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => setShowWorktreeBrowser((v) => !v)}
+                  onClick={() => { setActiveTab('commits'); setShowWorktreeBrowser((v) => !v); }}
                   className={`shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-all duration-150 active:scale-[0.97] ${
                     showWorktreeBrowser
                       ? 'bg-sky-500/20 text-sky-300'
@@ -374,11 +427,12 @@ export default function GitGraphPage() {
                 </button>
               )}
               <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-1 text-[10px] text-white/50">{error ? '—' : `${commits.length} commits`}</span>
-              <button type="button" onClick={() => setPicking(true)} title="Change repository folder" className="shrink-0 rounded-md bg-white/[0.06] px-2.5 py-1 text-xs text-white/70 transition-all duration-150 hover:bg-white/[0.12] hover:text-white active:scale-[0.97]">Change repo</button>
+              <button type="button" onClick={() => { setActiveTab('commits'); setPicking(true); }} title="Change repository folder" className="shrink-0 rounded-md bg-white/[0.06] px-2.5 py-1 text-xs text-white/70 transition-all duration-150 hover:bg-white/[0.12] hover:text-white active:scale-[0.97]">Change repo</button>
             </>
           ) : <span className="px-1 text-[11px] text-white/50">No repository selected</span>}
         </div>
 
+        <div id="git-panel-0" role={diffTabs.length ? 'tabpanel' : undefined} aria-labelledby={diffTabs.length ? 'git-tab-0' : undefined} className="min-h-0 flex-1 flex-col overflow-hidden" style={{ display: activeTab === 'commits' ? 'flex' : 'none' }}>
         {/* Worktree browser */}
         {showWorktreeBrowser && worktrees.length > 1 && (
           <div className="flex flex-1 flex-col overflow-auto rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 scrollbar-thin">
@@ -454,7 +508,7 @@ export default function GitGraphPage() {
                 {commits.map((commit, index) => (
                   <div key={commit.hash} data-commit-idx={index} style={{ minHeight: ROW_HEIGHT }}>
                     <CommitRow commit={commit} branchColors={graphLayout?.branchColors} isExpanded={expandedIndex === index} onClick={() => handleCommitClick(commit, index)} onContextMenu={showCommitContextMenu} onBranchContextMenu={showBranchContextMenu} onTagContextMenu={showTagContextMenu} onStashContextMenu={showStashContextMenu} />
-                    {expandedIndex === index && repoPath && <ExpandedCommitRow repoPath={repoPath} hash={commit.hash} height={DETAILS_HEIGHT} onParentClick={handleParentClick} />}
+                    {expandedIndex === index && repoPath && <ExpandedCommitRow repoPath={activePath} hash={commit.hash} height={DETAILS_HEIGHT} onParentClick={handleParentClick} onOpenDiff={commit.hash === 'UNCOMMITTED' ? undefined : (focusFile) => setCompareDialog({ commit, mode: 'parent', repoPath: activePath, focusFile })} />}
                   </div>
                 ))}
                 {loadingMore && (
@@ -472,7 +526,16 @@ export default function GitGraphPage() {
             </div>
           </div>
         )}
+        </div>
+        {diffTabs.map((tab, index) => <div key={tab.id} id={`git-panel-${index + 1}`} role="tabpanel" aria-labelledby={`git-tab-${index + 1}`} className="min-h-0 flex-1 flex-col overflow-hidden" style={{ display: activeTab === tab.id ? 'flex' : 'none' }}>
+          <CommitDiffTab tab={tab} active={activeTab === tab.id} onSwap={() => addDiffTab(tab.repoPath, tab.target, tab.base)} onParent={base => addDiffTab(tab.repoPath, base, tab.target)} />
+        </div>)}
       </div>
+
+      {compareDialog && <CompareCommitDialog commit={compareDialog.commit} commits={commits} repoPath={compareDialog.repoPath} mode={compareDialog.mode} onCancel={() => setCompareDialog(null)} onOpen={comparison => {
+        addDiffTab(compareDialog.repoPath, comparison.base, comparison.target, compareDialog.focusFile);
+        setCompareDialog(null);
+      }} />}
 
       {/* Context menu */}
       {contextMenu && <ContextMenu items={contextMenu.items} position={contextMenu.pos} onClose={() => setContextMenu(null)} />}
@@ -488,7 +551,7 @@ export default function GitGraphPage() {
           onCancel={() => setDialog(null)}
         />
       )}
-    </CommonTileContainer>
+    </>
   );
 }
 
@@ -516,7 +579,8 @@ function CommitRow({ commit, branchColors, isExpanded, onClick, onContextMenu, o
 }
 
 /* ExpandedCommitRow — two-column layout: left = metadata, right = file changes */
-function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath: string; hash: string; height: number; onParentClick?: (parentHash: string) => void }) {
+function ExpandedCommitRow({ repoPath, hash, height, onParentClick, onOpenDiff }: { repoPath: string; hash: string; height: number; onParentClick?: (parentHash: string) => void; onOpenDiff?: (file?: string) => void }) {
+  const { t } = useTranslation();
   const [details, setDetails] = useState<GitCommitDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -601,10 +665,11 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
 
           {/* ── Right: file changes ───────────────────────────────── */}
           <div className="min-w-0 flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
+            {onOpenDiff && <button type="button" onClick={() => onOpenDiff()} className="mb-2 rounded bg-sky-500/15 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/25">{t('gitCompare.openSplit')}</button>}
             {(details.fileChanges ?? []).length === 0 ? (
               <div className="py-2 text-[11px] text-white/40">No file changes (empty or merge commit).</div>
             ) : (details.fileChanges ?? []).map((f) => (
-              <FileChangeItem key={f.newPath + f.oldPath} change={f} repoPath={repoPath} hash={hash} open={openDiff === f.newPath} onToggle={() => setOpenDiff(openDiff === f.newPath ? null : f.newPath)} />
+              <FileChangeItem key={f.newPath + f.oldPath} change={f} repoPath={repoPath} hash={hash} onOpenDiff={onOpenDiff ? () => onOpenDiff(f.newPath) : undefined} open={openDiff === f.newPath} onToggle={() => setOpenDiff(openDiff === f.newPath ? null : f.newPath)} />
             ))}
           </div>
         </>
@@ -616,7 +681,8 @@ function ExpandedCommitRow({ repoPath, hash, height, onParentClick }: { repoPath
 /* FileChangeItem — badge + path + add/del counts, click to show inline diff */
 const CHANGE_STYLES: Record<string, string> = { A: 'bg-green-500/20 text-green-400', M: 'bg-yellow-500/20 text-yellow-400', D: 'bg-red-500/20 text-red-400', R: 'bg-violet-500/20 text-violet-400', U: 'bg-cyan-500/20 text-cyan-400' };
 
-function FileChangeItem({ change, repoPath, hash, open, onToggle }: { change: GitFileChange; repoPath: string; hash: string; open: boolean; onToggle: () => void }) {
+function FileChangeItem({ change, repoPath, hash, open, onToggle, onOpenDiff }: { change: GitFileChange; repoPath: string; hash: string; open: boolean; onToggle: () => void; onOpenDiff?: () => void }) {
+  const { t } = useTranslation();
   const [diff, setDiff] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffError, setDiffError] = useState<string | null>(null);
@@ -643,6 +709,7 @@ function FileChangeItem({ change, repoPath, hash, open, onToggle }: { change: Gi
         {(change.adds || change.dels) ? <span className="shrink-0 text-[10px] font-mono"><span className="text-green-400">+{change.adds}</span> <span className="text-red-400">−{change.dels}</span></span> : null}
         <svg className={`h-3 w-3 shrink-0 text-white/30 transition-transform duration-150 ${open ? 'rotate-90' : ''}`} viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 3.72a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z"/></svg>
       </button>
+      {open && onOpenDiff && <button type="button" onClick={onOpenDiff} className="ml-6 rounded px-2 py-1 text-xs text-sky-300 hover:bg-white/5">{t('gitCompare.openSplit')}</button>}
       {open && (
         <div className="ml-6 mt-0.5 overflow-hidden rounded border border-white/[0.08] bg-black/40">
           {diffLoading ? <div className="flex items-center justify-center p-3"><div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white/80" /></div>

@@ -23,6 +23,8 @@ func TestGitHandlersRequireAuthentication(t *testing.T) {
 		{"/api/git/branches", http.MethodGet},
 		{"/api/git/worktrees", http.MethodGet},
 		{"/api/git/diff", http.MethodGet},
+		{"/api/git/compare", http.MethodGet},
+		{"/api/git/compare/file", http.MethodGet},
 		{"/api/git/action", http.MethodPost},
 	} {
 		t.Run(endpoint.path, func(t *testing.T) {

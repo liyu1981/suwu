@@ -216,6 +216,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/git/compare" || r.URL.Path == "/api/git/compare/file" {
+		s.handleGitCompare(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/git/diff" {
 		s.handleGitDiff(w, r)
 		return

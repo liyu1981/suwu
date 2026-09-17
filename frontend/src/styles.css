@@ -387,3 +387,15 @@ body {
 .scrollbar-thin {
   overscroll-behavior: contain;
 }
+
+/* ============================================================================
+   Code Explorer
+   ============================================================================ */
+
+/* Gutter mark for the line ranges passed via `suwu code` / the files param. */
+.code-gutter-mark {
+  width: 3px !important;
+  margin-left: 4px;
+  border-radius: 1px;
+  background: #3b82f6cc;
+}

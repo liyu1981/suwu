@@ -112,6 +112,11 @@ func main() {
 				log.Fatalf("diff: %v", err)
 			}
 			return
+		case "code":
+			if err := codeMain(os.Args[2:]); err != nil {
+				log.Fatalf("code: %v", err)
+			}
+			return
 		case "forward":
 			if err := forwardCmd(os.Args[2:]); err != nil {
 				log.Fatalf("forward: %v", err)
@@ -160,6 +165,8 @@ Usage:
                            open git graph for a repository directory
   suwu diff [--sock <path>] <file1> <file2>
                            open a side-by-side diff view between two files
+  suwu code [--sock <path>] <path[:start[-end][,start[-end]]...]>...
+                           open files in the Code Explorer with highlighted lines
   suwu forward [flags] <localport> [targethost] <targetport>
                            create TCP/UDP port forwarding through the server
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
@@ -283,6 +290,22 @@ Flags:
 Examples:
   suwu diff old.go new.go
   suwu diff ~/project/v1.go ~/project/v2.go
+`)
+	case "code":
+		fmt.Print(`Usage: suwu code [flags] <path[:ranges]>...
+
+Open one or more files in the Code Explorer tile. Each argument is a file
+path optionally followed by ':' and a comma-separated list of line ranges
+to highlight, e.g. path:50-55,40-41. A bare path opens without highlights.
+
+Flags:
+  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
+                   or $SUWU_SOCK_PATH)
+
+Examples:
+  suwu code README.md
+  suwu code src/a.ts:10-20 src/b.ts
+  suwu code /home/me/notes.md:50-55,40-41
 `)
 	case "gencerts":
 		fmt.Print(`Usage: suwu gencerts [flags]

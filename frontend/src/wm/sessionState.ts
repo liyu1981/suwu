@@ -20,6 +20,12 @@ export interface GitGraphSessionState {
   showRemoteBranches?: boolean
 }
 
+export interface CodeExplorerSessionState {
+  /** Saved (on-disk) tabs to reopen; unsaved buffers are never persisted. */
+  tabs: Array<{ path: string; ranges?: Array<{ start: number; end: number }> }>
+  activePath?: string
+}
+
 /** Per-tile session state entry. */
 export interface TileEntry {
   tileType: string

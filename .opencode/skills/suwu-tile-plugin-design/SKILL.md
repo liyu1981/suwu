@@ -235,6 +235,7 @@ The query string is the plugin's launch API. Keep the vocabulary consistent.
 | `pane` | Owning pane id — required by every iframe route | plugin `render` |
 | `path` | One-shot initial path (browser/viewer/db/gitgraph) | plugin `render` from `initialPath`/`params` |
 | `file1`, `file2` | Diff inputs | diff plugin |
+| `files` | JSON array of `{ path, ranges }` opened as editor tabs | code plugin |
 | arbitrary | Anything declared in `supportedParams` | app-menu custom app / preset |
 
 Precedence convention: `context.initialPath` is a transient hand-off from the
@@ -300,8 +301,8 @@ onClick={() => {
 ## 8. App menu & custom apps (replaces hardcoded presets)
 
 Design decision worth knowing: **presets are user data, not code.** The static
-`registerAppConfig()` registry still exists, but the shipping model is the App
-Menu (`frontend/src/store/appMenu.ts`):
+`registerAppConfig()` registry has been removed; the only model is the App Menu
+(`frontend/src/store/appMenu.ts`):
 
 - `appMenuAtom` (`atomWithStorage('suwu:app-menu')`) holds
   `{ hiddenApps: string[], customApps: CustomApp[] }`.
@@ -309,8 +310,8 @@ Menu (`frontend/src/store/appMenu.ts`):
   hide what they don't want.
 - **`customApps`** — a user creates a named entry that targets an existing
   `pluginId` with a `params` map. There is no per-preset code.
-- `getVisibleApps(plugins, configs, state)` merges registry plugins, registry
-  configs and custom apps into one ordered list; order is user-defined.
+- `getVisibleApps(plugins, state)` merges registry plugins and custom apps into
+  one ordered list; order is user-defined.
 - Custom apps inherit their icon from the parent `pluginId` via `appIcons.ts`.
 
 Consequence for plugin authors: you do **not** add a preset file per
@@ -351,7 +352,7 @@ Same-origin `window.postMessage`, discriminated by a `type` field.
 | iframe → parent | `wm-shortcut` | `{ action }` | relay a WM shortcut |
 | iframe → parent | `wm-open-file` | `{ path, tileType, sourcePane }` | open a file in a new tile |
 | iframe → parent | `wm-close-pane` | `{ pane }` | close this tile |
-| parent → iframe (plugin-defined) | e.g. `gitgraph-refresh`, `diff-refresh` | — | toolbar-triggered refresh |
+| parent → iframe (plugin-defined) | e.g. `gitgraph-refresh`, `diff-refresh`, `code-save`, `code-open` | — | toolbar-triggered actions |
 
 Conventions: always `window.parent?.postMessage({ type: '…', … }, '*')` from a
 child; the parent listens on `window.addEventListener('message', …)`. Namespace
@@ -438,7 +439,6 @@ SVGs in `frontend/src/components/icons.tsx`. Reuse, don't inline.
 frontend/src/
 ├── wm/
 │   ├── tilePlugins.ts        registry + TilePlugin / contexts / PluginParamDoc
-│   ├── appConfigs.ts         static preset registry (still supported)
 │   ├── TilingWM.tsx          parent: panes, dividers, picker, IPC listeners
 │   ├── TileTools.tsx         per-tile hover toolbar (composes plugin toolbar)
 │   ├── layout.ts             pure tree ops + computeTiling

@@ -5,7 +5,7 @@ import {
   type LayoutNode,
 } from '../wm/layout'
 import { fontDefaultAtom } from '../store/fonts'
-import type { NotificationData } from '../store/notifications'
+import type { NotificationData, CodeFileSpec } from '../store/notifications'
 import type { AutoResolveSettings } from '../store/settings'
 
 export type Store = ReturnType<typeof createStore>
@@ -62,10 +62,10 @@ function doSplit(store: Store): string | null {
   return focus
 }
 
-function setTypeAndFocus(store: Store, leafId: string, tileType: string): void {
+function setTypeAndFocus(store: Store, leafId: string, tileType: string, params?: Record<string, string>): void {
   const root = store.get(layoutAtom)
   if (!root) return
-  store.set(layoutAtom, setLeafType(root, leafId, tileType))
+  store.set(layoutAtom, setLeafType(root, leafId, tileType, undefined, params))
   store.set(focusedIdAtom, leafId)
   // For terminal tiles, initialize font in paneData using the global preset.
   if (tileType === 'term') {
@@ -182,6 +182,17 @@ export function openDiff(file1: string, file2: string, store: Store): string | n
 }
 
 /**
+ * Open the Code Explorer in a new tile with the given files and highlight
+ * ranges. Always a fresh tile — no reuse.
+ */
+export function openCode(files: CodeFileSpec[], store: Store): string | null {
+  const leafId = doSplit(store)
+  if (!leafId) return null
+  setTypeAndFocus(store, leafId, 'code', { files: JSON.stringify(files) })
+  return leafId
+}
+
+/**
  * Resolve an action from a notification. Returns true if auto-resolved,
  * false if it should show as an action button in the notification panel.
  */
@@ -190,29 +201,35 @@ export function resolveAction(
   store: Store,
   autoResolve: AutoResolveSettings,
 ): boolean {
-  const { type, path } = data.payload
-
-  if (type === 'gitgraph' && autoResolve.gitgraph) {
-    openGitGraph(path, store)
-    return true
+  const payload = data.payload
+  switch (payload.type) {
+    case 'gitgraph':
+      if (!autoResolve.gitgraph) return false
+      openGitGraph(payload.path, store)
+      return true
+    case 'diff':
+      if (!autoResolve.diff) return false
+      openDiff(payload.file1, payload.file2, store)
+      return true
+    case 'dir':
+      if (!autoResolve.filebrowser) return false
+      openFileBrowser(payload.path, store)
+      return true
+    case 'file':
+      if (!autoResolve.fileviewer) return false
+      openViewer(payload.path, store)
+      return true
+    case 'forward':
+      if (!autoResolve.forward) return false
+      openForward(store)
+      return true
+    case 'code':
+      if (!autoResolve.code) return false
+      openCode(payload.files, store)
+      return true
+    default:
+      return false
   }
-  if (type === 'diff' && autoResolve.diff && data.payload.file1 && data.payload.file2) {
-    openDiff(data.payload.file1, data.payload.file2, store)
-    return true
-  }
-  if (type === 'dir' && autoResolve.filebrowser) {
-    openFileBrowser(path, store)
-    return true
-  }
-  if (type === 'file' && autoResolve.fileviewer) {
-    openViewer(path, store)
-    return true
-  }
-  if (type === 'forward' && autoResolve.forward) {
-    openForward(store)
-    return true
-  }
-  return false
 }
 
 /**
@@ -222,16 +239,25 @@ export function executeAction(
   data: NotificationData,
   store: Store,
 ): void {
-  const { type, path } = data.payload
-  if (type === 'gitgraph') {
-    openGitGraph(path, store)
-  } else if (type === 'diff' && data.payload.file1 && data.payload.file2) {
-    openDiff(data.payload.file1, data.payload.file2, store)
-  } else if (type === 'dir') {
-    openFileBrowser(path, store)
-  } else if (type === 'forward') {
-    openForward(store)
-  } else {
-    openViewer(path, store)
+  const payload = data.payload
+  switch (payload.type) {
+    case 'gitgraph':
+      openGitGraph(payload.path, store)
+      break
+    case 'diff':
+      openDiff(payload.file1, payload.file2, store)
+      break
+    case 'dir':
+      openFileBrowser(payload.path, store)
+      break
+    case 'forward':
+      openForward(store)
+      break
+    case 'code':
+      openCode(payload.files, store)
+      break
+    case 'file':
+      openViewer(payload.path, store)
+      break
   }
 }

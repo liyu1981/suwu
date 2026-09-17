@@ -167,6 +167,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/file/write" {
+		s.handleFileWrite(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/dropbox/list" {
 		s.handleDropboxList(w, r)
 		return
@@ -608,6 +613,9 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	// Expose millisecond mtime for optimistic-concurrency saves; Last-Modified
+	// only has second precision.
+	w.Header().Set("X-Suwu-Mtime-Ms", strconv.FormatInt(info.ModTime().UnixMilli(), 10))
 
 	// If ?download=true, force Content-Disposition: attachment so the browser
 	// saves the file instead of trying to display it inline.

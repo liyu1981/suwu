@@ -10,6 +10,7 @@ import GitGraphPage from './routes/GitGraphPage'
 import DiffPage from './routes/DiffPage'
 import XDisplayPage from './routes/XDisplayPage'
 import DBBrowserPage from './routes/DBBrowserPage'
+import CodeExplorerPage from './routes/CodeExplorerPage'
 
 const rootRoute = createRootRoute()
 
@@ -85,6 +86,12 @@ const dbbrowserRoute = createRoute({
   component: DBBrowserPage,
 })
 
+const codeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/code',
+  component: CodeExplorerPage,
+})
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -96,6 +103,7 @@ const routeTree = rootRoute.addChildren([
   diffRoute,
   xdisplayRoute,
   dbbrowserRoute,
+  codeRoute,
 ])
 
 export const router = createRouter({ routeTree })

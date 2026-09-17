@@ -53,6 +53,7 @@ import './plugins/gitgraph'
 import './plugins/diff'
 import './plugins/xdisplay'
 import './plugins/dbbrowser'
+import './plugins/code'
 
 
 

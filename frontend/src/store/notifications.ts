@@ -1,20 +1,27 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 
+export interface CodeFileSpec {
+  path: string
+  ranges?: Array<{ start: number; end: number }>
+}
+
+/** Action payload variants emitted by the `suwu` CLI. */
+export type NotificationPayload =
+  | { type: 'dir' | 'file' | 'gitgraph'; path: string }
+  | { type: 'diff'; file1: string; file2: string }
+  | {
+      type: 'forward'
+      localPort?: number
+      targetHost?: string
+      targetPort?: number
+      protocol?: string
+    }
+  | { type: 'code'; files: CodeFileSpec[] }
+
 export interface NotificationData {
   action: string
-  payload: {
-    type: 'dir' | 'file' | 'forward' | 'gitgraph' | 'diff'
-    path: string
-    // diff-specific fields (type === 'diff')
-    file1?: string
-    file2?: string
-    // forward-specific fields (type === 'forward')
-    localPort?: number
-    targetHost?: string
-    targetPort?: number
-    protocol?: string
-  }
+  payload: NotificationPayload
 }
 
 export interface Notification {

@@ -275,6 +275,34 @@
     "codeDesc": "Multi-file editor with highlighted lines"
   },
   "codeExplorer": {
+    "search": {
+      "title": "Find Occurrences",
+      "fileDirectory": "Find Occurrences in File Directory",
+      "customDirectory": "Find Occurrences in Custom Directory…",
+      "directory": "Directory (absolute path)",
+      "extension": "File extension",
+      "allExtensions": "All extensions",
+      "extensionHint": "One extension, such as ts or .tsx. Leave blank for all extensions.",
+      "submit": "Search",
+      "again": "Search again",
+      "close": "Close",
+      "showResults": "Search results",
+      "loading": "Searching…",
+      "opening": "Opening file…",
+      "ready": "Choose a directory and search.",
+      "count": "{{count}} occurrences in {{files}} files",
+      "empty": "No occurrences found in the searched files.",
+      "partial": "Incomplete results. Narrow the directory or search text and try again.",
+      "diskHint": "Literal, case-sensitive search of saved files (up to 2 MiB each). Ignores hidden/ignored files and environment files. Unsaved edits are preserved, but positions may have shifted.",
+      "warnings": {
+        "timeout": "Search timed out.",
+        "searchError": "ripgrep could not finish searching all files.",
+        "unsupportedEncoding": "Some results were skipped because their paths or contents are not UTF-8.",
+        "invalidOutput": "Some ripgrep output could not be interpreted.",
+        "outputLimit": "Search output exceeded the size limit.",
+        "matchLimit": "Only the first 1,000 occurrences are shown."
+      }
+    },
     "openFile": "Open file",
     "newFileName": "New file name",
     "create": "Create",

@@ -274,6 +274,34 @@
     "codeDesc": "带行高亮的多文件编辑器"
   },
   "codeExplorer": {
+    "search": {
+      "title": "查找出现位置",
+      "fileDirectory": "在文件所在目录中查找出现位置",
+      "customDirectory": "在自定义目录中查找出现位置…",
+      "directory": "目录（绝对路径）",
+      "extension": "文件扩展名",
+      "allExtensions": "所有扩展名",
+      "extensionHint": "输入一个扩展名，如 ts 或 .tsx。留空搜索所有扩展名。",
+      "submit": "搜索",
+      "again": "重新搜索",
+      "close": "关闭",
+      "showResults": "搜索结果",
+      "loading": "搜索中…",
+      "opening": "正在打开文件…",
+      "ready": "选择目录并搜索。",
+      "count": "在 {{files}} 个文件中找到 {{count}} 处匹配",
+      "empty": "在已搜索的文件中未找到匹配。",
+      "partial": "结果不完整。请缩小目录范围或调整搜索文本后重试。",
+      "diskHint": "区分大小写的字面文本搜索，仅搜索已保存且不超过 2 MiB 的文件。跳过隐藏文件、忽略文件和环境文件。未保存的编辑会保留，但位置可能已发生变化。",
+      "warnings": {
+        "timeout": "搜索超时。",
+        "searchError": "ripgrep 未能完成所有文件的搜索。",
+        "unsupportedEncoding": "部分结果的路径或内容不是 UTF-8，已跳过。",
+        "invalidOutput": "部分 ripgrep 输出无法解析。",
+        "outputLimit": "搜索输出超出大小限制。",
+        "matchLimit": "仅显示前 1,000 处匹配。"
+      }
+    },
     "openFile": "打开文件",
     "newFileName": "新文件名",
     "create": "创建",

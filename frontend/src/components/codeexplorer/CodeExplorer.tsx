@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useAtomValue } from 'jotai'
 import { useTileSessionState } from '../CommonTileContainer'
 import { OpenFileDialog } from './OpenFileDialog'
+import { SearchOccurrencesDialog } from './SearchOccurrencesDialog'
+import { useOccurrenceSearch } from './useOccurrenceSearch'
 import { StatusBar } from './StatusBar'
 import { TabBar } from './TabBar'
 import { parseFileSpecs } from './spec'
@@ -25,6 +27,7 @@ export function CodeExplorer() {
   )
 
   const explorer = useCodeExplorer(initialSpecs, restoreSpecs)
+  const search = useOccurrenceSearch(explorer.searchSelection)
   const [dialogOpen, setDialogOpen] = useState(false)
   const background = useAtomValue(fileBrowserBgAtom)
 
@@ -85,6 +88,16 @@ export function CodeExplorer() {
           </div>
         )}
       </div>
+
+      {search.hasSearch && (
+        <div className="flex shrink-0 justify-end border-t border-white/5 px-2 py-1">
+          <button type="button" onClick={search.reopen} className="glass-btn rounded px-2 py-1 text-xs text-white/70">
+            {t('codeExplorer.search.showResults')}
+          </button>
+        </div>
+      )}
+
+      <SearchOccurrencesDialog search={search} onNavigate={explorer.openLocation} onRestoreFocus={explorer.focusEditor} />
 
       <StatusBar
         path={activeTab?.path ?? null}

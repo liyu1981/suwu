@@ -130,6 +130,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/files/search" {
+		s.handleFileSearch(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/files" {
 		s.handleFiles(w, r)
 		return

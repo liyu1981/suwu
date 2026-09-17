@@ -6,6 +6,7 @@ import { useReportTileState } from '../CommonTileContainer'
 import { MONACO_THEME, ensureMonacoTheme } from './monacoSetup'
 import { languageForPath } from './languages'
 import { completeSave } from './saveState'
+import { extensionForPath, normalizeCodePath, type SearchLocation, type SearchSelection } from './search'
 import { looksBinary, normalizeRanges, type HighlightRange } from './spec'
 import type { CodeFileSpec } from '../../store/notifications'
 import type { CodeExplorerSessionState } from '../../wm/sessionState'
@@ -40,6 +41,9 @@ export interface CodeExplorer {
   errors: Record<string, string | undefined>
   cursor: { line: number; column: number }
   openSignal: number
+  searchSelection: SearchSelection | null
+  openLocation: (path: string, location: SearchLocation) => Promise<void>
+  focusEditor: () => void
   requestOpen: () => void
   setActive: (id: string) => void
   closeTab: (id: string) => void
@@ -70,6 +74,10 @@ export function useCodeExplorer(
   const [savedAt, setSavedAt] = useState(0)
   const [openSignal, setOpenSignal] = useState(0)
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const [searchSelection, setSearchSelection] = useState<SearchSelection | null>(null)
+  const [navigation, setNavigation] = useState<{ path: string; location: SearchLocation; id: number } | null>(null)
+  const navigationId = useRef(0)
+  const mounted = useRef(true)
 
   const tabsRef = useRef<CodeTab[]>([])
   tabsRef.current = tabs
@@ -78,7 +86,7 @@ export function useCodeExplorer(
   const viewStates = useRef(new Map<string, monaco.editor.ICodeEditorViewState | null>())
   const decorationIds = useRef(new Map<string, string[]>())
   const revealed = useRef(new Set<string>())
-  const pendingPaths = useRef(new Set<string>())
+  const pendingPaths = useRef(new Map<string, Promise<void>>())
   const savingTabs = useRef(new Set<string>())
 
   const report = useReportTileState()
@@ -114,15 +122,17 @@ export function useCodeExplorer(
   }, [])
 
   const openPath = useCallback(
-    async (rawPath: string, ranges?: HighlightRange[]) => {
+    async (rawPath: string, ranges?: HighlightRange[], activateOnLoad = true) => {
+      rawPath = normalizeCodePath(rawPath)
       const existing = tabsRef.current.find((tab) => tab.path === rawPath)
       if (existing) {
-        activate(existing.id)
+        if (activateOnLoad) activate(existing.id)
         return
       }
-      if (pendingPaths.current.has(rawPath)) return
-      pendingPaths.current.add(rawPath)
+      const pending = pendingPaths.current.get(rawPath)
+      if (pending) return pending
 
+      const loading = (async () => {
       try {
         const id = newTabId()
         const language = languageForPath(rawPath)
@@ -154,6 +164,7 @@ export function useCodeExplorer(
           readOnly = true
         }
 
+        if (!mounted.current) return
         const model = monaco.editor.createModel(content, language, monaco.Uri.file(rawPath))
         const tab: CodeTab = {
           id,
@@ -172,16 +183,31 @@ export function useCodeExplorer(
         tabsRef.current = [...tabsRef.current, tab]
         setTabs(tabsRef.current)
         if (error) setErrors((prev) => ({ ...prev, [id]: error }))
-        activate(id)
+        if (activateOnLoad) activate(id)
       } finally {
         pendingPaths.current.delete(rawPath)
       }
+      })()
+      pendingPaths.current.set(rawPath, loading)
+      return loading
     },
     [activate, attachModel, applyDecorations],
   )
 
+  const openLocation = useCallback(async (rawPath: string, location: SearchLocation) => {
+    const path = normalizeCodePath(rawPath)
+    const id = ++navigationId.current
+    await openPath(path, undefined, false)
+    if (!mounted.current || id !== navigationId.current) return
+    const tab = tabsRef.current.find((candidate) => candidate.path === path)
+    if (!tab || tab.error) throw new Error(tab?.error ?? i18n.t('codeExplorer.loadFailed'))
+    activate(tab.id)
+    setNavigation({ path, location, id })
+  }, [activate, openPath])
+
   const openNewFile = useCallback(
     (path: string) => {
+      path = normalizeCodePath(path)
       const existing = tabsRef.current.find((tab) => tab.path === path)
       if (existing) {
         activate(existing.id)
@@ -321,6 +347,7 @@ export function useCodeExplorer(
   // Create the editor once.
   useEffect(() => {
     if (!containerRef.current || editorRef.current) return
+    mounted.current = true
     ensureMonacoTheme()
     const editor = monaco.editor.create(containerRef.current, {
       theme: MONACO_THEME,
@@ -365,8 +392,32 @@ export function useCodeExplorer(
         void saveRef.current()
       },
     })
+    for (const custom of [false, true]) {
+      editor.addAction({
+        id: custom ? 'suwu-find-custom-directory' : 'suwu-find-file-directory',
+        label: i18n.t(custom ? 'codeExplorer.search.customDirectory' : 'codeExplorer.search.fileDirectory'),
+        precondition: 'editorHasSelection',
+        contextMenuGroupId: '9_suwu_search',
+        contextMenuOrder: custom ? 2 : 1,
+        run: () => {
+          const selection = editor.getSelection()
+          const model = editor.getModel()
+          const tab = tabsRef.current.find((candidate) => candidate.model === model)
+          if (!selection || selection.isEmpty() || !model || !tab) return
+          const query = model.getValueInRange(selection)
+          setSearchSelection((previous) => ({
+            id: (previous?.id ?? 0) + 1,
+            query,
+            directory: tab.path.slice(0, tab.path.lastIndexOf('/')) || '/',
+            custom,
+            extension: extensionForPath(tab.path),
+          }))
+        },
+      })
+    }
     setEditorReady(true)
     return () => {
+      mounted.current = false
       editor.dispose()
       editorRef.current = null
       for (const tab of tabsRef.current) tab.model.dispose()
@@ -419,6 +470,20 @@ export function useCodeExplorer(
     editor.focus()
   }, [activeId, tabs])
 
+  // Run after model attachment/view restoration, including same-tab jumps.
+  useEffect(() => {
+    if (!navigation) return
+    const editor = editorRef.current
+    const tab = tabs.find((candidate) => candidate.path === navigation.path)
+    if (!editor || !tab || activeId !== tab.id || editor.getModel() !== tab.model) return
+    const { line, column, endLine, endColumn } = navigation.location
+    const range = tab.model.validateRange(new monaco.Range(line, column, endLine, endColumn))
+    editor.setSelection(range)
+    editor.revealRangeInCenter(range)
+    editor.focus()
+    setNavigation(null)
+  }, [navigation, activeId, tabs])
+
   // Persist the restorable session state (saved files only).
   useEffect(() => {
     const state: CodeExplorerSessionState = {
@@ -464,6 +529,12 @@ export function useCodeExplorer(
     cursor,
     openSignal,
     requestOpen,
+    searchSelection,
+    openLocation,
+    focusEditor: () => {
+      navigationId.current++
+      editorRef.current?.focus()
+    },
     setActive: activate,
     closeTab,
     save: (id?: string) => void save(id),

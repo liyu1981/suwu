@@ -42,6 +42,14 @@ type githubRelease struct {
 	AssetPattern  string `json:"asset_pattern"`
 	ExtractBinary string `json:"extract_binary"`
 	ArchOverride  string `json:"arch_override,omitempty"`
+	// InstallLocalBin prefers ~/.local/bin (created as needed) over
+	// /usr/local/bin, which usually requires root.
+	InstallLocalBin bool `json:"install_to_local_bin,omitempty"`
+	// TagPrefix matches releases whose tags carry the conventional "v"
+	// prefix (e.g. junegunn/fzf v0.44.0). It defaults to true; set it to
+	// false for projects like BurntSushi/ripgrep whose tags are bare
+	// versions (15.2.0), since download URLs omit the "v".
+	TagPrefix *bool `json:"tag_prefix,omitempty"`
 }
 
 func loadChecklist() ([]checklistItem, error) {
@@ -151,6 +159,19 @@ func fetchLatestVersion(repo string) (string, error) {
 	return ghResp.TagName, nil
 }
 
+// rustTarget maps GOARCH to the Rust triple's CPU part, as used by
+// Rust-based projects like ripgrep (x86_64-unknown-linux-musl).
+func rustTarget(goArch string) string {
+	switch goArch {
+	case "amd64":
+		return "x86_64-unknown-linux-musl"
+	case "arm64":
+		return "aarch64-unknown-linux-musl"
+	default:
+		return ""
+	}
+}
+
 func renderAssetName(pattern, version string, archOverride string) (string, error) {
 	arch := goarch()
 	if archOverride != "" {
@@ -164,6 +185,10 @@ func renderAssetName(pattern, version string, archOverride string) (string, erro
 	if err := t.Execute(&buf, map[string]string{
 		"Version": version,
 		"Arch":    arch,
+		// Rust-style triple for projects that name assets by target triple
+		// (e.g. ripgrep). Empty on unsupported architectures, which renders
+		// an obviously invalid asset name that the download rejects.
+		"RustTarget": rustTarget(arch),
 	}); err != nil {
 		return "", err
 	}
@@ -183,7 +208,9 @@ func downloadGitHubBinary(rel *githubRelease) error {
 		return fmt.Errorf("render asset name: %w", err)
 	}
 
-	downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s", rel.Repo, version, assetName)
+	// Tags default to the "v" prefix (fzf, lazygit, asdf); ripgrep tags are
+	// bare versions, so the URL segment is configurable per tool.
+	downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/%s%s/%s", rel.Repo, tagPrefix(rel), version, assetName)
 	fmt.Printf("    → downloading %s...\n", assetName)
 
 	tmpDir, err := os.MkdirTemp("", "suwu-devenv-*")
@@ -215,13 +242,21 @@ func downloadGitHubBinary(rel *githubRelease) error {
 	f.Close()
 
 	if strings.HasSuffix(assetName, ".tar.gz") {
-		return extractAndInstall(tarPath, rel.ExtractBinary)
+		return extractAndInstall(tarPath, rel.ExtractBinary, rel.InstallLocalBin)
 	}
 	// Plain binary (e.g. herdr-linux-x86_64)
-	return installBinary(tarPath, rel.ExtractBinary)
+	return installBinary(tarPath, rel.ExtractBinary, rel.InstallLocalBin)
 }
 
-func extractAndInstall(tarPath, binaryName string) error {
+// tagPrefix returns "v" unless the tool opts out via tag_prefix: false.
+func tagPrefix(rel *githubRelease) string {
+	if rel.TagPrefix != nil && !*rel.TagPrefix {
+		return ""
+	}
+	return "v"
+}
+
+func extractAndInstall(tarPath, binaryName string, userLocal bool) error {
 	f, err := os.Open(tarPath)
 	if err != nil {
 		return err
@@ -247,36 +282,52 @@ func extractAndInstall(tarPath, binaryName string) error {
 		base := strings.TrimSuffix(hdr.Name, "/")
 		base = base[strings.LastIndex(base, "/")+1:]
 		if base == binaryName && !hdr.FileInfo().IsDir() {
-			return installFromReader(tr, binaryName)
+			return installFromReader(tr, binaryName, userLocal)
 		}
 	}
 	return fmt.Errorf("%s not found in archive", binaryName)
 }
 
-func installFromReader(r io.Reader, name string) error {
-	binPath := "/usr/local/bin/" + name
-	tmpPath := binPath + ".tmp"
-
+func installFromReader(r io.Reader, name string, userLocal bool) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
 
+	binPath := "/usr/local/bin/" + name
+	tmpPath := binPath + ".tmp"
+
+	if userLocal {
+		home, herr := os.UserHomeDir()
+		if herr != nil {
+			return herr
+		}
+		localBin := home + "/.local/bin"
+		if err := os.MkdirAll(localBin, 0o755); err != nil {
+			return err
+		}
+		binPath = localBin + "/" + name
+		tmpPath = binPath + ".tmp"
+	}
+
 	if err := os.WriteFile(tmpPath, data, 0o755); err != nil {
-		// Try user-local if /usr/local/bin is not writable
+		if userLocal {
+			return err
+		}
+		// /usr/local/bin is not writable — fall back to ~/.local/bin.
 		home, herr := os.UserHomeDir()
 		if herr != nil {
 			return err
 		}
 		localBin := home + "/.local/bin"
-		if err2 := os.MkdirAll(localBin, 0o755); err2 != nil {
-			return err
-		}
-		tmpPath = localBin + "/" + name + ".tmp"
-		if err := os.WriteFile(tmpPath, data, 0o755); err != nil {
+		if mkErr := os.MkdirAll(localBin, 0o755); mkErr != nil {
 			return err
 		}
 		binPath = localBin + "/" + name
+		tmpPath = binPath + ".tmp"
+		if err := os.WriteFile(tmpPath, data, 0o755); err != nil {
+			return err
+		}
 	}
 
 	if err := os.Chmod(tmpPath, 0o755); err != nil {
@@ -292,10 +343,10 @@ func installFromReader(r io.Reader, name string) error {
 	return nil
 }
 
-func installBinary(srcPath, name string) error {
+func installBinary(srcPath, name string, userLocal bool) error {
 	f := mustOpen(srcPath)
 	defer f.Close()
-	return installFromReader(f, name)
+	return installFromReader(f, name, userLocal)
 }
 
 func mustOpen(path string) *os.File {

@@ -28,9 +28,22 @@
     "install_cmd": "if ldconfig -p 2>/dev/null | grep -q libatomic; then exit 0; fi; if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y libatomic1; elif command -v dnf >/dev/null 2>&1; then dnf install -y libatomic; elif command -v yum >/dev/null 2>&1; then yum install -y libatomic; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm gcc-libs; elif command -v apk >/dev/null 2>&1; then apk add libatomic; else echo ' unsupported package manager — install libatomic1 manually' && exit 1; fi"
   },
   {
-    "id": "asdf",
-    "name": "asdf",
+    "id": "ripgrep",
+    "name": "ripgrep",
     "category": "essential",
+    "default_selected": true,
+    "description": "Fast file search used by Suwu's code search",
+    "check_binary": "rg",
+    "github_release": {
+      "repo": "BurntSushi/ripgrep",
+      "asset_pattern": "ripgrep-{{ .Version }}-{{ .RustTarget }}.tar.gz",
+      "extract_binary": "rg",
+      "install_to_local_bin": true,
+      "tag_prefix": false
+    }
+  },
+  {
+    "id": "asdf",
     "default_selected": true,
     "description": "Polyglot version manager for Node.js, Python, Go, and other tools",
     "check_binary": "asdf",

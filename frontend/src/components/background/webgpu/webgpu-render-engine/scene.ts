@@ -3,7 +3,7 @@ import type { Frame, FrameLoopHandle, Gpu, Surface } from 'vgpu'
 import { openGpuHost } from './host'
 import type { GpuHostOptions } from './host'
 import { elapsedSeconds } from './time'
-import type { BackgroundContext, BackgroundHandle } from '../types'
+import type { BackgroundContext, BackgroundHandle } from '../../types'
 
 /**
  * A running WebGPU renderer: one frame's worth of encoding plus its lifecycle.

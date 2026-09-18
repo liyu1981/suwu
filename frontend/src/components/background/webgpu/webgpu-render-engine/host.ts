@@ -1,6 +1,6 @@
 import { init, surface } from 'vgpu'
 import type { ClearColor, Gpu, Surface } from 'vgpu'
-import type { BackgroundContext } from '../types'
+import type { BackgroundContext } from '../../types'
 
 /** Options for the canvas surface the host owns. */
 export interface GpuHostOptions {

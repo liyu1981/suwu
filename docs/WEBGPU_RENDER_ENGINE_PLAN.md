@@ -1,6 +1,13 @@
 # WebGPU Render Engine — Plan
 
-Status: **implemented** · Owner: frontend · Family: `frontend/src/components/background/webgpu-render-engine/`
+Status: **implemented** · Owner: frontend · Family: `frontend/src/components/background/webgpu/`
+
+> **Reorganized** after implementation: the engine and the backgrounds built on
+> it now live together under `background/webgpu/` — the engine at
+> `webgpu/webgpu-render-engine/`, each background at
+> `webgpu/shadertoys/<name>/` as a single `setup.ts` plus its `shaders/`. The
+> paths in this document below reflect the original layout; the design is
+> unchanged.
 
 > Implementation notes (what shipped):
 > - `webgpu-render-engine/` with `host.ts`, `scene.ts` (`GpuScene` +
@@ -110,22 +117,31 @@ layer** (everyone) and a **declarative fragment layer** (the four fragment backg
 
 ### 3.2 Folder layout
 
-Recommended name: **`webgpu-render-engine/`**.
+Grouped under **`webgpu/`** so the engine and the backgrounds built on it sit
+together:
 
 ```
 frontend/src/components/background/
-  webgpu-render-engine/
-    index.ts        # re-exports
-    host.ts         # openGpuHost(): init, surface, device-lost/onError, teardown
-    time.ts         # one shared epoch + elapsed()
-    size.ts         # cappedSize(w, h, megapixels), resizePingPong()
-    scene.ts        # GpuScene interface + startGpuBackground()
-    fragment.ts     # fragmentScene(spec): declarative pass pipeline
-    assets.ts       # storage / texture3d asset builders
+  webgpu/
+    index.ts             # registers every shadertoy (side-effect imports)
+    webgpu-render-engine/
+      index.ts           # re-exports
+      host.ts            # openGpuHost(): init, surface, device-lost/onError, teardown
+      time.ts            # one shared epoch + elapsed()
+      size.ts            # cappedSize(w, h, megapixels)
+      scene.ts           # GpuScene interface + startGpuBackground()
+      fragment.ts        # fragmentScene(spec): declarative pass pipeline
+      assets.ts          # storage / texture3d asset builders
+    shadertoys/
+      <name>/            # one file per background
+        setup.ts         # params + definition + scene
+        shaders/*.wgsl
 ```
 
-Each `*-gpu/renderer.ts` shrinks to a small scene descriptor (see §5). Shader folders stay where
-they are.
+Each shadertoy's `setup.ts` merges what used to be `index.ts` + `params.ts` +
+`<name>-gpu/renderer.ts` (+ helper modules). It registers metadata eagerly and
+dynamically imports the engine and the WGSL inside `start`, so the lazy chunking
+is preserved. See §5.
 
 ### 3.3 Interfaces
 

@@ -62,7 +62,7 @@ function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number]
 /**
  * A small live preview of a background, rendered into its own canvas so it can
  * sit inside the System Settings panel while the real, full-viewport
- * `AmbientBackground` stays behind the scrim.
+ * `BackgroundCanvas` stays behind the scrim.
  *
  * The canvas box is sized to the window's aspect ratio (capped at `maxHeight`)
  * and the backend renders at that logical size — the GPU backends size from the

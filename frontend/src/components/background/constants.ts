@@ -4,8 +4,8 @@ import type { BackgroundEngine } from './types'
 export const DEFAULT_BACKGROUND_ID = 'ambient-blob'
 
 /**
- * The shared GPU render engine (`background/webgpu-render-engine/`). Backgrounds
- * that declare this engine are grouped under one "WebGPU" selector in System
- * Settings.
+ * The shared GPU render engine (`background/webgpu/webgpu-render-engine/`).
+ * Backgrounds that declare this engine are grouped under one "WebGPU" selector
+ * in System Settings.
  */
 export const WEBGPU_ENGINE: BackgroundEngine = 'webgpu-render-engine'

@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AmbientBackground } from '../components/background'
+import { BackgroundCanvas } from '../components/background'
 import AppShell from './AppShell'
 import { AuthRequiredError, authenticate, fetchToken } from '../lib/api'
 
@@ -27,7 +27,7 @@ function LoginPage({ onAuthenticated }: { onAuthenticated: () => void }) {
 
   return (
     <div className="ambient-bg min-h-screen w-full overflow-x-clip text-slate-100">
-      <AmbientBackground />
+      <BackgroundCanvas />
       <main className="relative z-10 flex min-h-screen items-center justify-center px-4">
         <form
           onSubmit={submit}

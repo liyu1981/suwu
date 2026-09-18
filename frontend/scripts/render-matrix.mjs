@@ -22,7 +22,7 @@ const GLYPH_W = 24
 const GLYPH_H = 30
 const WORDS_PER_GLYPH = Math.ceil((GLYPH_W * GLYPH_H) / 32)
 
-const SHADERS = new URL('../src/components/background/matrix-rain/matrix-rain-gpu/shaders/', import.meta.url)
+const SHADERS = new URL('../src/components/background/webgpu/shadertoys/matrix-rain/shaders/', import.meta.url)
 const PREVIEW = fileURLToPath(new URL('./matrix-preview.png', import.meta.url))
 
 // One synthetic glyph: a checkerboard, so a lit cell has both ink and gaps.

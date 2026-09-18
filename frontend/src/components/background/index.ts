@@ -1,13 +1,9 @@
 // Register built-in backgrounds (side-effect imports).
 import './ambient-blob'
-import './interactive-fluid'
-import './matrix-rain'
-import './atmospheric-landscape'
-import './seascape'
-import './rainforest'
 import './video'
+import './webgpu'
 
-export { AmbientBackground, type AmbientBackgroundProps } from './AmbientBackground'
+export { BackgroundCanvas, type BackgroundCanvasProps } from './BackgroundCanvas'
 export { BackgroundPreview, type BackgroundPreviewProps } from './BackgroundPreview'
 export { fitPreviewBox } from './preview-size'
 export { DEFAULT_BACKGROUND_ID, WEBGPU_ENGINE } from './constants'

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from '@tanstack/react-router'
 import { useAtom, useStore } from 'jotai'
 import { useTranslation } from 'react-i18next'
-import { AmbientBackground } from '../components/background'
+import { BackgroundCanvas } from '../components/background'
 import SuwuDialog from '../components/dialogs/SuwuDialog'
 import { NotificationBell } from '../components/NotificationBell'
 import { NotificationPanel } from '../components/NotificationPanel'
@@ -148,7 +148,7 @@ export default function AppShell() {
 
   return (
     <div className="ambient-bg min-h-screen w-full overflow-x-clip text-slate-100">
-      <AmbientBackground background={background} />
+      <BackgroundCanvas background={background} />
       <div className="relative z-10 grid h-dvh grid-rows-[auto_1fr] gap-2 px-3 pt-2">
         <header className="apple-panel rounded-[6px]">
           <div className="flex items-center gap-2 px-2 py-1">

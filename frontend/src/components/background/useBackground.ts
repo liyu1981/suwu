@@ -12,7 +12,7 @@ export interface UseBackgroundOptions {
   force?: BackendKind | 'auto'
   /**
    * Resolved parameters bag. A new identity restarts the backend, so memoize it
-   * in the caller (see `AmbientBackground`).
+   * in the caller (see `BackgroundCanvas`).
    */
   params?: Record<string, unknown>
   /** Allowed device-pixel-ratio range. */

@@ -13,7 +13,7 @@ function resolveBackgroundId(preferred?: string): string {
   return getBackground(candidate) ? candidate : DEFAULT_BACKGROUND_ID
 }
 
-export interface AmbientBackgroundProps {
+export interface BackgroundCanvasProps {
   /** Registered background id. Defaults to the user's choice, then `ambient-blob`. */
   background?: string
   /** Backend override; defaults to auto-detection (GPU, then CPU). */
@@ -21,17 +21,19 @@ export interface AmbientBackgroundProps {
 }
 
 /**
- * Full-viewport ambient background. Renders the selected background's GPU
- * backend when WebGPU is available and falls back to its CPU backend
- * otherwise (GPU-only backgrounds simply render nothing without WebGPU). The
- * active backend is exposed on `data-backend` for debugging and perf tooling.
+ * The app shell's full-viewport background canvas. Despite the old name it is
+ * not specific to `ambient-blob` (that is merely the default background id): it
+ * renders whichever background is selected, using the GPU backend when WebGPU
+ * is available and falling back to the CPU backend otherwise (GPU-only
+ * backgrounds render nothing without WebGPU). The active backend is exposed on
+ * `data-backend` for debugging and perf tooling.
  *
  * The canvas is keyed by the background id: a canvas context type is permanent,
  * so switching backgrounds must start on a fresh element. The selected
  * background's parameters are resolved from System Settings and passed to the
  * backend; changing one restarts the backend (see `useBackground`).
  */
-export function AmbientBackground({ background, force }: AmbientBackgroundProps) {
+export function BackgroundCanvas({ background, force }: BackgroundCanvasProps) {
   const id = resolveBackgroundId(background)
   const paramOverrides = useAtomValue(backgroundParamsAtom)
 

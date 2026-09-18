@@ -13,57 +13,19 @@ components/background/
   params.ts                   # default + override resolution for the param schema
   select.ts                   # capability detection + gpu -> cpu fallback chain
   useBackground.ts            # React lifecycle hook (detection, reduced motion, remount)
-  AmbientBackground.tsx       # the app-shell canvas + hook + param resolution
+  BackgroundCanvas.tsx        # the app-shell canvas + hook + param resolution
   BackgroundPreview.tsx       # small in-dialog preview (same hook, own canvas)
   canvas-size.ts              # CPU backends size from the canvas layout box
   preview-size.ts             # fitPreviewBox(): aspect-preserving preview box math
-  webgpu-render-engine/       # shared host + declarative pipeline for GPU-only families
 
-  ambient-blob/               # one background family
+  ambient-blob/               # background family: canvas-2D (fallback) + WebGPU
     index.ts                  # definition + registry entry (backend-agnostic)
     params.ts                 # palette + motion math (shared)
     types.ts                  # BlobSeed / RenderBlob / params types (shared)
     ambient-blob-cpu/         # canvas-2D backend (fallback)
     ambient-blob-gpu/         # WebGPU (vgpu) backend + .wgsl shaders
 
-  interactive-fluid/          # another family (GPU only)
-    index.ts                  # definition + registry entry
-    interactive-fluid-gpu/    # vgpu fluid solver + .wgsl shaders
-      renderer.ts             # GpuScene: engine-driven loop, fixed-step simulation
-      pointer-input.ts        # window-level pointer tracking ("stir")
-      simulation.ts           # multi-pass compute solver (advect/curl/…/display)
-      shaders/*.wgsl
-
-  matrix-rain/                # another family (GPU only)
-    index.ts                  # definition + registry entry
-    matrix-rain-gpu/          # procedural "digital rain" effect
-      renderer.ts             # fragmentScene: glyph storage asset + rain/CRT passes
-      glyph-atlas.ts          # canvas-rasterised 1-bit glyph atlas
-      shaders/*.wgsl
-
-  atmospheric-landscape/      # another family (GPU only)
-    index.ts                  # definition + params schema (animation speed)
-    params.ts                 # typed params + resolveAtmosphericLandscapeParams()
-    atmospheric-landscape-gpu/
-      renderer.ts             # fragmentScene: ping-pong accum + noise-volume asset
-      noise-volume.ts         # deterministic 64³ RGBA8 value-noise volume
-      shaders/*.wgsl
-
-  seascape/                   # another family (GPU only)
-    index.ts                  # definition + params schema (animation speed)
-    params.ts                 # typed params + resolveSeascapeParams()
-    seascape-gpu/
-      renderer.ts             # fragmentScene: capped scene target + blit
-      shaders/*.wgsl
-
-  rainforest/                 # another family (GPU only)
-    index.ts                  # definition + params schema (animation speed)
-    params.ts                 # typed params + resolveRainforestParams()
-    rainforest-gpu/
-      renderer.ts             # fragmentScene: ping-pong reprojection + detail budget
-      shaders/*.wgsl
-
-  video/                      # another family (canvas-2D, WebCodecs)
+  video/                      # background family (canvas-2D, WebCodecs)
     index.ts                  # definition + params schema (file, fit, speed, mask)
     params.ts                 # typed params + resolveVideoParams() + caps
     video-cpu/
@@ -71,24 +33,44 @@ components/background/
       loop.ts                 # crossfade-loop timing (window + blend progress)
       storage.ts              # OPFS clip library (store/list/read/clear, thumbnails)
       fit.ts                  # cover source rect
+
+  webgpu/                     # the WebGPU background family
+    index.ts                  # registers every shadertoy (side-effect imports)
+    webgpu-render-engine/     # shared host + declarative pipeline
+      index.ts                # startGpuBackground / fragmentScene / GpuScene / time+size
+      host.ts                 # device + surface, device-lost -> ctx.onFatal, teardown
+      scene.ts                # GpuScene + lifecycle (loop, resize, reduced motion)
+      fragment.ts             # fragmentScene(): targets, assets, samplers, passes
+      assets.ts               # storage / texture3d upload helpers
+      time.ts, size.ts        # shared epoch; megapixel budget math
+    shadertoys/
+      seascape/               # one shadertoy = one setup.ts + its .wgsl
+        setup.ts              # params + definition + scene
+        shaders/*.wgsl
+      atmospheric-landscape/  # setup.ts merges params + noise-volume builder + scene
+      rainforest/             # setup.ts merges params + scene
+      matrix-rain/            # setup.ts merges params + glyph-atlas builder + scene
+      interactive-fluid/      # setup.ts merges params + pointer input + solver + scene
 ```
 
-Backends live in nested `<name>-cpu` / `<name>-gpu` folders so their
-dependencies stay separate: the vgpu/WGSL chunk is only fetched when a GPU
-backend actually runs. Shared code lives next to them in `<name>/` so backends
-cannot drift apart.
+A classic family keeps its nested `<name>-cpu` / `<name>-gpu` backends so their
+dependencies stay separate. An engine-backed shadertoy keeps everything in one
+`setup.ts` next to its `shaders/`: the eager path is metadata only, and the
+heavy code — `vgpu`, the engine and the `.wgsl` — sits behind a dynamic import,
+so those chunks are fetched only when the background actually runs.
 
 ## Using a background
 
 ```tsx
-import { AmbientBackground } from '../components/background'
+import { BackgroundCanvas } from '../components/background'
 
-<AmbientBackground />                                   // ambient-blob (default)
-<AmbientBackground background="interactive-fluid" />    // GPU only
+<BackgroundCanvas />                                   // ambient-blob (default)
+<BackgroundCanvas background="interactive-fluid" />    // GPU only
 ```
 
-`AmbientBackground` renders a full-viewport canvas and starts the selected
-background. It sets `data-backend` (`gpu` / `cpu`) once a backend is running.
+`BackgroundCanvas` renders the app shell's full-viewport canvas and starts the
+selected background. It sets `data-backend` (`gpu` / `cpu`) once a backend is
+running.
 
 `BackgroundPreview` renders the same background into a small canvas sized to the
 current window's aspect ratio, for the System Settings panel:
@@ -105,16 +87,25 @@ and always shows exactly the selected background.
 
 ## Adding a background
 
-1. Create `<name>/` with any shared params/types and a definition module that
-   calls `registerBackground({ id, label, params, cpu, gpu })`. `cpu` and `gpu`
-   are dynamic imports of the backend folders; both are optional (declare only
-   the backends you have). `params` is optional — see below. A GPU-only
-   background built on the shared engine also declares
-   `engine: WEBGPU_ENGINE` so System Settings lists it under the WebGPU group.
+There are two shapes.
+
+**A classic family** (a CPU backend, a standalone WebGPU backend, or both):
+
+1. Create `<name>/` with the shared params/types and a definition module that
+   calls `registerBackground({ id, label, params, cpu, gpu })`; `cpu` and `gpu`
+   are dynamic imports of the backend folders (both optional).
 2. Create `<name>/<name>-cpu/` and/or `<name>/<name>-gpu/`, each exporting
-   `start` with the `BackgroundStarter` signature. The resolved params bag is
-   the second argument.
+   `start` with the `BackgroundStarter` signature (the resolved params bag is
+   the second argument).
 3. Import the definition module from `index.ts` (side-effect import).
+
+**A WebGPU shadertoy** (built on the shared engine) is one file: drop
+`webgpu/shadertoys/<name>/setup.ts` plus its `shaders/*.wgsl`, then add the
+side-effect import to `webgpu/index.ts`. `setup.ts` declares the params, calls
+`registerBackground({ ..., engine: WEBGPU_ENGINE, gpu: async () => ({ start }) })`
+and builds the scene, dynamically importing the engine and the WGSL inside
+`start` so the eager path stays metadata-only. See `webgpu/shadertoys/seascape/`
+for the minimal form and `interactive-fluid/` for a hand-written `GpuScene`.
 
 The shell selects a background by id, so new backgrounds need no changes outside
 this folder.
@@ -142,7 +133,7 @@ registerBackground({
       format: (v) => `${v.toFixed(2)}×`,
     },
   ],
-  gpu: () => import('./seascape-gpu'),
+  gpu: async () => ({ start }),
 })
 ```
 
@@ -150,13 +141,13 @@ registerBackground({
   overrides)` (in `params.ts`) merge the declared defaults with the stored
   overrides, validating each against its schema — a stale or hand-edited
   localStorage entry can never reach a backend.
-- `AmbientBackground` resolves the selected background's params and threads them
+- `BackgroundCanvas` resolves the selected background's params and threads them
   through `useBackground` → `startBackground` → `starter(ctx, params)`.
 - A params change restarts the backend (the params bag is part of the effect
   deps), because some values (e.g. a palette) can only be applied at setup.
   Sliders therefore commit on release rather than on every drag tick.
-- Backends read typed values out of the bag in their own `<name>/params.ts`
-  (e.g. `resolveSeascapeParams`) so the schema and the reader stay together.
+- A background reads typed values out of the bag in its own setup/params (e.g.
+  `resolveSeascapeParams`) so the schema and the reader stay together.
 
 The parameter schema is the single source of truth for defaults, UI and
 validation; a backend never keeps its own copy.
@@ -197,9 +188,8 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
 
 ### WebGPU render engine
 
-The five GPU-only families (`interactive-fluid`, `matrix-rain`,
-`atmospheric-landscape`, `seascape`, `rainforest`) share
-`webgpu-render-engine/`:
+The five engine-backed backgrounds (`webgpu/shadertoys/…`) share
+`webgpu/webgpu-render-engine/`:
 
 - `startGpuBackground()` owns the lifecycle they used to repeat: device +
   surface creation, device-lost reporting through `ctx.onFatal`, error logging,
@@ -221,7 +211,7 @@ of the engine. Engine-backed backgrounds declare `engine: WEBGPU_ENGINE`, and
 System Settings groups them under one **WebGPU** selector with a second selector
 for the currently registered engine backgrounds. Backgrounds are still declared
 with `registerBackground({ id, label, params, gpu })`; the engine is an
-implementation detail behind each family's `start`.
+implementation detail behind each shadertoy's `start`.
 
 > **Licensing note.** `rainforest` is an Inigo Quilez (iq) work whose original
 > license forbids use in a product, altered or not. It is included with express

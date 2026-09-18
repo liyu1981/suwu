@@ -7,6 +7,7 @@ import {
   resolveParams,
 } from '../params'
 import type { BlobSeed } from '../types'
+import { resizeCanvas } from '../../canvas-size'
 import type { BackgroundContext, BackgroundHandle } from '../../types'
 
 /**
@@ -58,13 +59,9 @@ export async function startAmbientBlobCpu(
   }
 
   const resize = (): void => {
-    width = window.innerWidth
-    height = window.innerHeight
-    canvas.width = Math.round(width * dpr)
-    canvas.height = Math.round(height * dpr)
-    canvas.style.width = `${width}px`
-    canvas.style.height = `${height}px`
-    context.setTransform(dpr, 0, 0, dpr, 0, 0)
+    const size = resizeCanvas(canvas, context, dpr)
+    width = size[0]
+    height = size[1]
     if (!running) render(performance.now() / 1000)
   }
 
@@ -100,7 +97,10 @@ export async function startAmbientBlobCpu(
   })
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 
-  window.addEventListener('resize', resize)
+  // Track the canvas's own layout box: the full-viewport canvas follows the
+  // window, and a small preview canvas follows its container.
+  const resizeObserver = new ResizeObserver(resize)
+  resizeObserver.observe(canvas)
   document.addEventListener('visibilitychange', onVisibility)
   window.addEventListener('blur', stop)
   window.addEventListener('focus', start)
@@ -117,7 +117,7 @@ export async function startAmbientBlobCpu(
     dispose() {
       stop()
       themeObserver.disconnect()
-      window.removeEventListener('resize', resize)
+      resizeObserver.disconnect()
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('blur', stop)
       window.removeEventListener('focus', start)

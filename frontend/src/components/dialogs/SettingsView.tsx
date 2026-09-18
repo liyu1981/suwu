@@ -7,7 +7,7 @@ import { maxEntriesAtom } from '../../store/notifications'
 import { autoResolveAtom, backgroundAtom, backgroundParamsAtom } from '../../store/settings'
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
 import { Combobox } from '../ui/combobox'
-import { getBackground, listBackgrounds, resolveBackgroundParams } from '../background'
+import { BackgroundPreview, getBackground, listBackgrounds, resolveBackgroundParams } from '../background'
 import type {
   BackgroundBooleanParam,
   BackgroundColorParam,
@@ -545,6 +545,9 @@ export default function SettingsView() {
           <div className={section}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.background')}</span>
+            </div>
+            <div className="mt-2">
+              <BackgroundPreview />
             </div>
             <div className="mt-2">
               <Combobox

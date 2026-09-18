@@ -68,6 +68,7 @@
     "bgOpacityHint": "立即应用到所有终端窗口。与主题预设独立设置。",
     "backgroundHint": "选择应用外壳的动态背景。标记为 WebGPU 的背景需要浏览器支持 WebGPU。",
     "backgroundGpuOnly": "WebGPU",
+    "backgroundPreviewNeedsWebGPU": "预览需要 WebGPU",
     "lineHeight": "行高",
     "lineHeightHint": "立即应用到所有终端窗口。当前默认值为 {{default}}；保存可将此值设为默认。",
     "themeColors": "主题颜色",

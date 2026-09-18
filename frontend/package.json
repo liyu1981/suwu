@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "check": "biome check src --reporter=summary && node scripts/check-typography.mjs && node scripts/check-code-ranges.mjs && node scripts/check-code-save.mjs && node scripts/check-code-settings.mjs && node scripts/check-video-loop.mjs && node --experimental-strip-types scripts/check-git-compare.mjs",
+    "check": "biome check src --reporter=summary && node scripts/check-typography.mjs && node scripts/check-code-ranges.mjs && node scripts/check-code-save.mjs && node scripts/check-code-settings.mjs && node scripts/check-video-loop.mjs && node --experimental-strip-types scripts/check-preview-size.mjs && node --experimental-strip-types scripts/check-git-compare.mjs",
     "check:git-compare": "node --experimental-strip-types scripts/check-git-compare.mjs",
     "check:typography": "node scripts/check-typography.mjs",
     "check:code-ranges": "node scripts/check-code-ranges.mjs",

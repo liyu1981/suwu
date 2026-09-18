@@ -14,6 +14,9 @@ components/background/
   select.ts                   # capability detection + gpu -> cpu fallback chain
   useBackground.ts            # React lifecycle hook (detection, reduced motion, remount)
   AmbientBackground.tsx       # the app-shell canvas + hook + param resolution
+  BackgroundPreview.tsx       # small in-dialog preview (same hook, own canvas)
+  canvas-size.ts              # CPU backends size from the canvas layout box
+  preview-size.ts             # fitPreviewBox(): aspect-preserving preview box math
 
   ambient-blob/               # one background family
     index.ts                  # definition + registry entry (backend-agnostic)
@@ -86,6 +89,20 @@ import { AmbientBackground } from '../components/background'
 `AmbientBackground` renders a full-viewport canvas and starts the selected
 background. It sets `data-backend` (`gpu` / `cpu`) once a backend is running.
 
+`BackgroundPreview` renders the same background into a small canvas sized to the
+current window's aspect ratio, for the System Settings panel:
+
+```tsx
+import { BackgroundPreview } from '../components/background'
+
+<BackgroundPreview />                    // follows the selected background
+<BackgroundPreview background="video" /> // a specific background
+```
+
+It reuses `useBackground` (so a selection or param change restarts the backend)
+but, unlike `AmbientBackground`, ignores the `?bg-id` / `suwu.bg-id` debug
+override — the preview must show exactly what the user picked.
+
 ## Adding a background
 
 1. Create `<name>/` with any shared params/types and a definition module that
@@ -143,6 +160,16 @@ The parameter schema is the single source of truth for defaults, UI and
 validation; a backend never keeps its own copy.
 
 ## Backends
+
+### Sizing
+
+**Every backend sizes from its canvas's layout box** (`clientWidth ×
+clientHeight × dpr`) and never touches `window.innerWidth/innerHeight` or
+`canvas.style.*`. The React layer owns layout; the backend only fills the box it
+is given. This is what lets the same backend render full-viewport in the shell
+and tiny inside `BackgroundPreview`. GPU backends get it from vgpu (a canvas
+with a numeric `clientWidth` is layout-backed and auto-resizes each frame); CPU
+backends use `canvas-size.ts` and a `ResizeObserver`.
 
 - **CPU** — anything that can render to the canvas without WebGPU. The ambient
   blob CPU backend is canvas-2D, throttled to `ctx.fps`, paused while the tab is

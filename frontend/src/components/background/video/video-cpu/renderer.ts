@@ -14,6 +14,7 @@ import { resolveVideoParams, VIDEO_MAX_DURATION_SECONDS, type VideoParams } from
 import { coverSourceRect } from './fit'
 import { canCrossfade, fadeProgress } from './loop'
 import { readVideoBlob } from './storage'
+import { resizeCanvas } from '../../canvas-size'
 import type { BackgroundContext, BackgroundHandle } from '../../types'
 
 /** Containers a background clip may use; keeps the mediabunny bundle small. */
@@ -360,13 +361,9 @@ export async function startVideo(
   }
 
   const resize = (): void => {
-    width = window.innerWidth
-    height = window.innerHeight
-    canvas.width = Math.round(width * dpr)
-    canvas.height = Math.round(height * dpr)
-    canvas.style.width = `${width}px`
-    canvas.style.height = `${height}px`
-    applyTransform()
+    const size = resizeCanvas(canvas, context, dpr)
+    width = size[0]
+    height = size[1]
     playback?.redraw()
   }
 
@@ -401,7 +398,10 @@ export async function startVideo(
     else start()
   }
 
-  window.addEventListener('resize', resize)
+  // Track the canvas's own layout box: the full-viewport canvas follows the
+  // window, and a small preview canvas follows its container.
+  const resizeObserver = new ResizeObserver(resize)
+  resizeObserver.observe(canvas)
   document.addEventListener('visibilitychange', onVisibility)
 
   resize()
@@ -491,7 +491,7 @@ export async function startVideo(
       playback = null
       input?.dispose()
       input = null
-      window.removeEventListener('resize', resize)
+      resizeObserver.disconnect()
       document.removeEventListener('visibilitychange', onVisibility)
     },
   }

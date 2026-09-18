@@ -17,9 +17,9 @@ const COLOR_MAP: Record<string, { bg: string; text: string; letter: string }> = 
   xdisplay: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', letter: 'X' },
   dbbrowser: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', letter: 'D' },
   code: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', letter: 'C' },
-}
+};
 
-const DEFAULT_COLORS = { bg: 'bg-white/10', text: 'text-white/40', letter: '' }
+const DEFAULT_COLORS = { bg: 'bg-white/10', text: 'text-white/40', letter: '' };
 
 /**
  * Return icon background + text classes for an app.
@@ -27,14 +27,14 @@ const DEFAULT_COLORS = { bg: 'bg-white/10', text: 'text-white/40', letter: '' }
  * parent plugin's colour palette.
  */
 export function getAppIconClasses(id: string, pluginId?: string): { bg: string; text: string } {
-  const entry = COLOR_MAP[id]
-  if (entry) return { bg: entry.bg, text: entry.text }
+  const entry = COLOR_MAP[id];
+  if (entry) return { bg: entry.bg, text: entry.text };
   // Custom item → derive from plugin.
   if (pluginId) {
-    const pluginEntry = COLOR_MAP[pluginId]
-    if (pluginEntry) return { bg: pluginEntry.bg, text: pluginEntry.text }
+    const pluginEntry = COLOR_MAP[pluginId];
+    if (pluginEntry) return { bg: pluginEntry.bg, text: pluginEntry.text };
   }
-  return { bg: DEFAULT_COLORS.bg, text: DEFAULT_COLORS.text }
+  return { bg: DEFAULT_COLORS.bg, text: DEFAULT_COLORS.text };
 }
 
 /**
@@ -42,11 +42,11 @@ export function getAppIconClasses(id: string, pluginId?: string): { bg: string; 
  * Custom items inherit the plugin's letter.
  */
 export function getAppIconLetter(id: string, label: string, pluginId?: string): string {
-  const entry = COLOR_MAP[id]
-  if (entry) return entry.letter
+  const entry = COLOR_MAP[id];
+  if (entry) return entry.letter;
   if (pluginId) {
-    const pluginEntry = COLOR_MAP[pluginId]
-    if (pluginEntry) return pluginEntry.letter
+    const pluginEntry = COLOR_MAP[pluginId];
+    if (pluginEntry) return pluginEntry.letter;
   }
-  return label.charAt(0).toUpperCase()
+  return label.charAt(0).toUpperCase();
 }

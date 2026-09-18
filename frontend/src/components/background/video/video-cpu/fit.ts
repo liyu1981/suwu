@@ -4,10 +4,10 @@
  * destination is always the full render surface.
  */
 export interface SourceRect {
-  sx: number
-  sy: number
-  sw: number
-  sh: number
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
 }
 
 export function coverSourceRect(
@@ -16,8 +16,8 @@ export function coverSourceRect(
   canvasWidth: number,
   canvasHeight: number,
 ): SourceRect {
-  const scale = Math.max(canvasWidth / videoWidth, canvasHeight / videoHeight)
-  const sw = canvasWidth / scale
-  const sh = canvasHeight / scale
-  return { sx: (videoWidth - sw) / 2, sy: (videoHeight - sh) / 2, sw, sh }
+  const scale = Math.max(canvasWidth / videoWidth, canvasHeight / videoHeight);
+  const sw = canvasWidth / scale;
+  const sh = canvasHeight / scale;
+  return { sx: (videoWidth - sw) / 2, sy: (videoHeight - sh) / 2, sw, sh };
 }

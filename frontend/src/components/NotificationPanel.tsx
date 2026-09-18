@@ -1,69 +1,78 @@
-import { useEffect, useRef, useState } from 'react'
-import { useAtom, useSetAtom, useStore } from 'jotai'
-import { useTranslation } from 'react-i18next'
-import { executeAction, type Store } from '../lib/actionResolver'
-import { authFetch } from '../lib/api'
-import { maxEntriesAtom, notificationsAtom, panelOpenAtom, unreadCountAtom, type Notification } from '../store/notifications'
-import { upgradingAtom } from '../store/update'
-import { BellIcon, CheckIcon, CloseIcon, CopyIcon } from './icons'
+import { useEffect, useRef, useState } from 'react';
+import { useAtom, useSetAtom, useStore } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import { executeAction, type Store } from '../lib/actionResolver';
+import { authFetch } from '../lib/api';
+import {
+  maxEntriesAtom,
+  notificationsAtom,
+  panelOpenAtom,
+  unreadCountAtom,
+  type Notification,
+} from '../store/notifications';
+import { upgradingAtom } from '../store/update';
+import { BellIcon, CheckIcon, CloseIcon, CopyIcon } from './icons';
 
-const TRUNCATE_LEN = 140
+const TRUNCATE_LEN = 140;
 
-function relativeTime(ts: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  const diff = Date.now() - ts
-  const sec = Math.floor(diff / 1000)
-  if (sec < 60) return t('notifications.justNow')
-  const min = Math.floor(sec / 60)
-  if (min < 60) return t('notifications.minutesAgo', { count: min })
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return t('notifications.hoursAgo', { count: hr })
-  const d = Math.floor(hr / 24)
-  return t('notifications.daysAgo', { count: d })
+function relativeTime(
+  ts: number,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  const diff = Date.now() - ts;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return t('notifications.justNow');
+  const min = Math.floor(sec / 60);
+  if (min < 60) return t('notifications.minutesAgo', { count: min });
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return t('notifications.hoursAgo', { count: hr });
+  const d = Math.floor(hr / 24);
+  return t('notifications.daysAgo', { count: d });
 }
 
 function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) => void }) {
-  const { t } = useTranslation()
-  const store: Store = useStore()
-  const setOpen = useSetAtom(panelOpenAtom)
-  const setUpgrading = useSetAtom(upgradingAtom)
-  const setNotifications = useSetAtom(notificationsAtom)
-  const [upgradingLocal, setUpgradingLocal] = useState(false)
-  const needsTruncation = n.message.length > TRUNCATE_LEN
+  const { t } = useTranslation();
+  const store: Store = useStore();
+  const setOpen = useSetAtom(panelOpenAtom);
+  const setUpgrading = useSetAtom(upgradingAtom);
+  const setNotifications = useSetAtom(notificationsAtom);
+  const [upgradingLocal, setUpgradingLocal] = useState(false);
+  const needsTruncation = n.message.length > TRUNCATE_LEN;
 
   const handleDismiss = () => {
-    setNotifications((prev) => prev.filter((x) => x.id !== n.id))
-  }
+    setNotifications((prev) => prev.filter((x) => x.id !== n.id));
+  };
 
-  const isUpgrade = n.data?.action === 'upgrade'
+  const isUpgrade = n.data?.action === 'upgrade';
 
   const handleAction = () => {
     if (n.data && !isUpgrade) {
-      executeAction(n.data, store)
-      setOpen(false)
+      executeAction(n.data, store);
+      setOpen(false);
     }
-  }
+  };
 
   const handleUpgrade = async () => {
-    setUpgradingLocal(true)
-    setUpgrading(true)
+    setUpgradingLocal(true);
+    setUpgrading(true);
     try {
-      const res = await authFetch('/api/update/upgrade', { method: 'POST' })
+      const res = await authFetch('/api/update/upgrade', { method: 'POST' });
       if (res.ok) {
         // Remove the update notification.
-        setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+        setNotifications((prev) => prev.filter((x) => x.id !== n.id));
         // Show a brief "upgrading" message then the server will restart.
         setTimeout(() => {
           // The server is restarting — the page will auto-reconnect.
-        }, 1000)
+        }, 1000);
       } else {
-        setUpgradingLocal(false)
-        setUpgrading(false)
+        setUpgradingLocal(false);
+        setUpgrading(false);
       }
     } catch {
-      setUpgradingLocal(false)
-      setUpgrading(false)
+      setUpgradingLocal(false);
+      setUpgrading(false);
     }
-  }
+  };
 
   const actionLabel = isUpgrade
     ? t('notifications.upgrade')
@@ -77,7 +86,7 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
             ? t('notifications.openDiff')
             : n.data?.payload.type === 'gitgraph'
               ? t('notifications.openGitGraph')
-              : t('notifications.openInViewr')
+              : t('notifications.openInViewr');
 
   return (
     <div className="group relative rounded px-3 py-2 transition hover:bg-white/5">
@@ -119,18 +128,18 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
       </div>
       <p className="mt-0.5 text-[10px] text-muted-foreground">{relativeTime(n.timestamp, t)}</p>
     </div>
-  )
+  );
 }
 
 function TextReader({ message, onClose }: { message: string; onClose: () => void }) {
-  const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(message)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }
+    await navigator.clipboard.writeText(message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   return (
     <div
@@ -166,54 +175,56 @@ function TextReader({ message, onClose }: { message: string; onClose: () => void
       </div>
       {/* Content */}
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-3">
-        <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-popover-foreground">{message}</pre>
+        <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-popover-foreground">
+          {message}
+        </pre>
       </div>
     </div>
-  )
+  );
 }
 
 function EmptyState() {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
       <BellIcon className="h-8 w-8 opacity-30" />
       <p className="text-xs">{t('notifications.empty')}</p>
     </div>
-  )
+  );
 }
 
 export function NotificationPanel() {
-  const { t } = useTranslation()
-  const [open, setOpen] = useAtom(panelOpenAtom)
-  const [notifications, setNotifications] = useAtom(notificationsAtom)
-  const [, setUnread] = useAtom(unreadCountAtom)
-  const [maxEntries] = useAtom(maxEntriesAtom)
-  const listRef = useRef<HTMLDivElement>(null)
-  const [readerMsg, setReaderMsg] = useState<string | null>(null)
+  const { t } = useTranslation();
+  const [open, setOpen] = useAtom(panelOpenAtom);
+  const [notifications, setNotifications] = useAtom(notificationsAtom);
+  const [, setUnread] = useAtom(unreadCountAtom);
+  const [maxEntries] = useAtom(maxEntriesAtom);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [readerMsg, setReaderMsg] = useState<string | null>(null);
 
   // Escape closes.
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (readerMsg) {
-          setReaderMsg(null)
+          setReaderMsg(null);
         } else {
-          setOpen(false)
+          setOpen(false);
         }
       }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, setOpen, readerMsg])
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, setOpen, readerMsg]);
 
   const clearAll = () => {
-    setNotifications([])
-    setUnread(0)
-    setReaderMsg(null)
-  }
+    setNotifications([]);
+    setUnread(0);
+    setReaderMsg(null);
+  };
 
-  if (!open) return null
+  if (!open) return null;
 
   return (
     <>
@@ -285,5 +296,5 @@ export function NotificationPanel() {
         </div>
       </div>
     </>
-  )
+  );
 }

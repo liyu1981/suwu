@@ -1,26 +1,32 @@
-import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { useAtom } from 'jotai'
-import { useTranslation } from 'react-i18next'
-import { appMenuAtom, type AppMenuState, type CustomApp } from '../../store/appMenu'
-import { getAllTilePlugins } from '../../wm/tilePlugins'
-import { getAppIconClasses, getAppIconLetter } from '../../wm/appIcons'
-import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
-import type { PluginParamDoc } from '../../wm/tilePlugins'
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { useAtom } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import { appMenuAtom, type AppMenuState, type CustomApp } from '../../store/appMenu';
+import { getAllTilePlugins } from '../../wm/tilePlugins';
+import { getAppIconClasses, getAppIconLetter } from '../../wm/appIcons';
+import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
+import type { PluginParamDoc } from '../../wm/tilePlugins';
 
 // ── Style constants ──────────────────────────────────────────────────
 
 const toggle =
   'relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ' +
-  'bg-white/15 data-[state=checked]:bg-sky-500/60'
+  'bg-white/15 data-[state=checked]:bg-sky-500/60';
 
 const toggleThumb =
   'block h-4 w-4 translate-x-0.5 rounded-full bg-white shadow transition-transform ' +
-  'data-[state=checked]:translate-x-4'
+  'data-[state=checked]:translate-x-4';
 
-const row = 'flex items-center gap-3 rounded px-2 py-2 transition-colors'
+const row = 'flex items-center gap-3 rounded px-2 py-2 transition-colors';
 
 const inputBase =
-  'flex-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-popover-foreground outline-none transition-colors focus:border-sky-400/50 focus:ring-1 focus:ring-sky-400/20'
+  'flex-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-popover-foreground outline-none transition-colors focus:border-sky-400/50 focus:ring-1 focus:ring-sky-400/20';
 
 // ── Tiny sub-components ──────────────────────────────────────────────
 
@@ -28,8 +34,8 @@ function Toggle({
   checked,
   onCheckedChange,
 }: {
-  checked: boolean
-  onCheckedChange: (v: boolean) => void
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
 }) {
   return (
     <button
@@ -42,7 +48,7 @@ function Toggle({
     >
       <span data-state={checked ? 'checked' : 'unchecked'} className={toggleThumb} />
     </button>
-  )
+  );
 }
 
 /** Drag handle icon (three horizontal lines). */
@@ -56,7 +62,7 @@ function DragHandle({ onPointerDown }: { onPointerDown: (e: ReactPointerEvent) =
         <path d="M3 4h10v1.5H3zm0 3.25h10v1.5H3zm0 3.25h10v1.5H3z" />
       </svg>
     </div>
-  )
+  );
 }
 
 /** Chevron icon for expand/collapse. */
@@ -73,18 +79,26 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path d="m9 6 6 6-6 6" />
     </svg>
-  )
+  );
 }
 
 /** Trash / delete icon. */
 function TrashIcon() {
   return (
-    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="h-3.5 w-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 6h18" />
       <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
       <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
     </svg>
-  )
+  );
 }
 
 // ── Param editor row ─────────────────────────────────────────────────
@@ -97,12 +111,12 @@ function ParamRow({
   onChangeValue,
   onRemove,
 }: {
-  doc?: PluginParamDoc
-  paramKey: string
-  value: string
-  onChangeKey: (next: string) => void
-  onChangeValue: (next: string) => void
-  onRemove: () => void
+  doc?: PluginParamDoc;
+  paramKey: string;
+  value: string;
+  onChangeKey: (next: string) => void;
+  onChangeValue: (next: string) => void;
+  onRemove: () => void;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -131,10 +145,12 @@ function ParamRow({
         </button>
       </div>
       {doc?.description && (
-        <span className="pl-22 text-[11px] leading-tight text-muted-foreground/50">{doc.description}</span>
+        <span className="pl-22 text-[11px] leading-tight text-muted-foreground/50">
+          {doc.description}
+        </span>
       )}
     </div>
-  )
+  );
 }
 
 // ── Expanded editing form ────────────────────────────────────────────
@@ -145,70 +161,80 @@ function EditingForm({
   onUpdate,
   onDelete,
 }: {
-  item: { id: string; params?: Record<string, string>; customConfig?: { label: string; description?: string; pluginId: string } }
-  plugins: ReturnType<typeof getAllTilePlugins>
-  onUpdate: (patch: { params?: Record<string, string>; customConfig?: { label: string; description?: string; pluginId: string } }) => void
-  onDelete: () => void
+  item: {
+    id: string;
+    params?: Record<string, string>;
+    customConfig?: { label: string; description?: string; pluginId: string };
+  };
+  plugins: ReturnType<typeof getAllTilePlugins>;
+  onUpdate: (patch: {
+    params?: Record<string, string>;
+    customConfig?: { label: string; description?: string; pluginId: string };
+  }) => void;
+  onDelete: () => void;
 }) {
-  const { t } = useTranslation()
-  const cfg = item.customConfig ?? { label: item.id, pluginId: 'term' }
-  const params = item.params ?? {}
+  const { t } = useTranslation();
+  const cfg = item.customConfig ?? { label: item.id, pluginId: 'term' };
+  const params = item.params ?? {};
 
   const activePlugin = useMemo(
     () => plugins.find((p) => p.id === cfg.pluginId),
     [plugins, cfg.pluginId],
-  )
+  );
 
   const supportedKeys = useMemo(
     () => new Set((activePlugin?.supportedParams ?? []).map((d) => d.key)),
     [activePlugin],
-  )
+  );
 
   // Keys in params that are NOT in supportedParams (user-added arbitrary keys).
   const customKeys = useMemo(
     () => Object.keys(params).filter((k) => !supportedKeys.has(k)),
     [params, supportedKeys],
-  )
+  );
 
   // Merged ordered list: supported first (in plugin order), then custom.
   const allKeys = useMemo(() => {
-    const supported = (activePlugin?.supportedParams ?? []).map((d) => d.key)
-    return [...supported, ...customKeys]
-  }, [activePlugin, customKeys])
+    const supported = (activePlugin?.supportedParams ?? []).map((d) => d.key);
+    return [...supported, ...customKeys];
+  }, [activePlugin, customKeys]);
 
   // Only plugins that declare supportedParams can be used for custom apps.
-  const pluginOptions = plugins.filter((p) => p.id !== 'empty' && p.supportedParams && p.supportedParams.length > 0)
+  const pluginOptions = plugins.filter(
+    (p) => p.id !== 'empty' && p.supportedParams && p.supportedParams.length > 0,
+  );
 
   // ── handlers ──────────────────────────────────────────────────
 
-  const setLabel = (label: string) => onUpdate({ customConfig: { ...cfg, label } })
-  const setDescription = (description: string) => onUpdate({ customConfig: { ...cfg, description } })
+  const setLabel = (label: string) => onUpdate({ customConfig: { ...cfg, label } });
+  const setDescription = (description: string) =>
+    onUpdate({ customConfig: { ...cfg, description } });
 
   const setPluginId = (pluginId: string) => {
     // Keep existing params; user can clean up irrelevant ones.
-    onUpdate({ customConfig: { ...cfg, pluginId } })
-  }
+    onUpdate({ customConfig: { ...cfg, pluginId } });
+  };
 
   const setParam = (key: string, value: string) => {
-    onUpdate({ params: { ...params, [key]: value } })
-  }
+    onUpdate({ params: { ...params, [key]: value } });
+  };
 
   const removeParam = (key: string) => {
-    const next = { ...params }
-    delete next[key]
-    onUpdate({ params: next })
-  }
+    const next = { ...params };
+    delete next[key];
+    onUpdate({ params: next });
+  };
 
   const addParam = () => {
     // Pick a key that doesn't exist yet.
-    let candidate = 'key'
-    let i = 1
-    while (candidate in params) candidate = `key${++i}`
-    onUpdate({ params: { ...params, [candidate]: '' } })
-  }
+    let candidate = 'key';
+    let i = 1;
+    while (candidate in params) candidate = `key${++i}`;
+    onUpdate({ params: { ...params, [candidate]: '' } });
+  };
 
   const docFor = (key: string): PluginParamDoc | undefined =>
-    activePlugin?.supportedParams?.find((d) => d.key === key)
+    activePlugin?.supportedParams?.find((d) => d.key === key);
 
   return (
     <div className="mx-10 my-1 space-y-2.5 rounded border border-white/5 bg-black/20 p-2.5">
@@ -225,7 +251,9 @@ function EditingForm({
 
       {/* Description */}
       <div className="flex items-center gap-2">
-        <span className="w-20 shrink-0 text-xs text-muted-foreground">{t('appMenu.descField')}</span>
+        <span className="w-20 shrink-0 text-xs text-muted-foreground">
+          {t('appMenu.descField')}
+        </span>
         <input
           type="text"
           value={cfg.description ?? ''}
@@ -244,7 +272,9 @@ function EditingForm({
           </SelectTrigger>
           <SelectContent>
             {pluginOptions.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -276,10 +306,10 @@ function EditingForm({
               value={params[key] ?? ''}
               onChangeKey={(nextKey) => {
                 // Rename: remove old, add new.
-                const next = { ...params }
-                delete next[key]
-                next[nextKey] = params[key] ?? ''
-                onUpdate({ params: next })
+                const next = { ...params };
+                delete next[key];
+                next[nextKey] = params[key] ?? '';
+                onUpdate({ params: next });
               }}
               onChangeValue={(v) => setParam(key, v)}
               onRemove={() => removeParam(key)}
@@ -300,22 +330,22 @@ function EditingForm({
         </button>
       </div>
     </div>
-  )
+  );
 }
 
 // ── Display row item ─────────────────────────────────────────────────
 
 interface DisplayItem {
-  id: string
-  label: string
-  description?: string
-  visible: boolean
-  isCustom: boolean
-  isConfig: boolean
-  pluginId?: string
-  params?: Record<string, string>
-  customConfig?: { label: string; description?: string; pluginId: string }
-  order: number
+  id: string;
+  label: string;
+  description?: string;
+  visible: boolean;
+  isCustom: boolean;
+  isConfig: boolean;
+  pluginId?: string;
+  params?: Record<string, string>;
+  customConfig?: { label: string; description?: string; pluginId: string };
+  order: number;
 }
 
 // ── Main component ───────────────────────────────────────────────────
@@ -327,42 +357,43 @@ interface DisplayItem {
  * the user stores which ones they've hidden.
  */
 export default function AppMenuView() {
-  const { t } = useTranslation()
-  const [menuState, setMenuState] = useAtom(appMenuAtom)
+  const { t } = useTranslation();
+  const [menuState, setMenuState] = useAtom(appMenuAtom);
 
-  const plugins = useMemo(() => getAllTilePlugins(), [])
+  const plugins = useMemo(() => getAllTilePlugins(), []);
 
   // Derive the current state (handle legacy migration in atom).
   const state: AppMenuState = useMemo(() => {
     if (!menuState || typeof menuState !== 'object' || Array.isArray(menuState)) {
-      return { hiddenApps: [], customApps: [] }
+      return { hiddenApps: [], customApps: [] };
     }
-    return menuState as AppMenuState
-  }, [menuState])
+    return menuState as AppMenuState;
+  }, [menuState]);
 
   const setState = useCallback(
     (fn: (prev: AppMenuState) => AppMenuState) => {
       setMenuState((prev) => {
-        const current: AppMenuState = (!prev || typeof prev !== 'object' || Array.isArray(prev))
-          ? { hiddenApps: [], customApps: [] }
-          : prev as AppMenuState
-        return fn(current)
-      })
+        const current: AppMenuState =
+          !prev || typeof prev !== 'object' || Array.isArray(prev)
+            ? { hiddenApps: [], customApps: [] }
+            : (prev as AppMenuState);
+        return fn(current);
+      });
     },
     [setMenuState],
-  )
+  );
 
   // Plugin lookup for labels/descriptions.
-  const pluginMap = useMemo(() => new Map(plugins.map((p) => [p.id, p])), [plugins])
-  const hiddenSet = useMemo(() => new Set(state.hiddenApps), [state.hiddenApps])
+  const pluginMap = useMemo(() => new Map(plugins.map((p) => [p.id, p])), [plugins]);
+  const hiddenSet = useMemo(() => new Set(state.hiddenApps), [state.hiddenApps]);
 
   // Build unified display list (all apps: registry + custom).
   const displayItems: DisplayItem[] = useMemo(() => {
-    const items: DisplayItem[] = []
+    const items: DisplayItem[] = [];
 
     // Registry plugins (except 'empty').
     for (const p of plugins) {
-      if (p.id === 'empty') continue
+      if (p.id === 'empty') continue;
       items.push({
         id: p.id,
         label: p.label,
@@ -371,12 +402,12 @@ export default function AppMenuView() {
         isCustom: false,
         isConfig: false,
         order: items.length,
-      })
+      });
     }
 
     // Custom-only items (not backed by registry).
     for (const custom of state.customApps) {
-      if (pluginMap.has(custom.id)) continue
+      if (pluginMap.has(custom.id)) continue;
       items.push({
         id: custom.id,
         label: custom.config.label,
@@ -388,139 +419,134 @@ export default function AppMenuView() {
         params: custom.params,
         customConfig: custom.config,
         order: items.length,
-      })
+      });
     }
 
-    return items
-  }, [plugins, hiddenSet, state.customApps, pluginMap])
+    return items;
+  }, [plugins, hiddenSet, state.customApps, pluginMap]);
 
   // ── Toggle visibility ──────────────────────────────────────────
   const toggleVisible = useCallback(
     (id: string) => {
       setState((prev) => {
-        const isHidden = prev.hiddenApps.includes(id)
+        const isHidden = prev.hiddenApps.includes(id);
         return {
           ...prev,
-          hiddenApps: isHidden
-            ? prev.hiddenApps.filter((h) => h !== id)
-            : [...prev.hiddenApps, id],
-        }
-      })
+          hiddenApps: isHidden ? prev.hiddenApps.filter((h) => h !== id) : [...prev.hiddenApps, id],
+        };
+      });
     },
     [setState],
-  )
+  );
 
   // ── Show / Hide all ────────────────────────────────────────────
-  const allVisible = displayItems.every((i) => i.visible)
+  const allVisible = displayItems.every((i) => i.visible);
   const toggleAll = useCallback(() => {
     setState((prev) => {
       if (allVisible) {
         // Hide all registry apps.
-        const registryIds = plugins
-          .filter((p) => p.id !== 'empty')
-          .map((p) => p.id)
-        return { ...prev, hiddenApps: registryIds }
+        const registryIds = plugins.filter((p) => p.id !== 'empty').map((p) => p.id);
+        return { ...prev, hiddenApps: registryIds };
       }
       // Show all: clear the blacklist.
-      return { ...prev, hiddenApps: [] }
-    })
-  }, [allVisible, setState, plugins])
+      return { ...prev, hiddenApps: [] };
+    });
+  }, [allVisible, setState, plugins]);
 
   // ── Drag to reorder (custom apps only) ─────────────────────────
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  const dragStartY = useRef(0)
-  const dragStartIdx = useRef(0)
-  const currentIdx = useRef(0)
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const dragStartY = useRef(0);
+  const dragStartIdx = useRef(0);
+  const currentIdx = useRef(0);
 
   const onDragStart = useCallback(
     (id: string, e: ReactPointerEvent) => {
       // Only custom apps can be reordered.
-      if (!id.startsWith('custom-')) return
+      if (!id.startsWith('custom-')) return;
 
-      e.preventDefault()
-      e.stopPropagation()
+      e.preventDefault();
+      e.stopPropagation();
 
-      const el = e.currentTarget.closest('[data-app-row]') as HTMLElement | null
-      if (!el) return
+      const el = e.currentTarget.closest('[data-app-row]') as HTMLElement | null;
+      if (!el) return;
 
-      el.setPointerCapture(e.pointerId)
-      setDraggingId(id)
-      dragStartY.current = e.clientY
-      dragStartIdx.current = displayItems.findIndex((i) => i.id === id)
-      currentIdx.current = dragStartIdx.current
+      el.setPointerCapture(e.pointerId);
+      setDraggingId(id);
+      dragStartY.current = e.clientY;
+      dragStartIdx.current = displayItems.findIndex((i) => i.id === id);
+      currentIdx.current = dragStartIdx.current;
 
       const onMove = (ev: PointerEvent) => {
-        const delta = ev.clientY - dragStartY.current
-        const rowHeight = el.offsetHeight + 4 // gap
-        const offset = Math.round(delta / rowHeight)
-        const newIdx = Math.max(0, Math.min(displayItems.length - 1, dragStartIdx.current + offset))
+        const delta = ev.clientY - dragStartY.current;
+        const rowHeight = el.offsetHeight + 4; // gap
+        const offset = Math.round(delta / rowHeight);
+        const newIdx = Math.max(
+          0,
+          Math.min(displayItems.length - 1, dragStartIdx.current + offset),
+        );
 
         if (newIdx !== currentIdx.current) {
-          currentIdx.current = newIdx
+          currentIdx.current = newIdx;
           setState((prev) => {
-            const customApps = [...prev.customApps]
-            const fromIdx = customApps.findIndex((c) => c.id === id)
-            if (fromIdx === -1) return prev
-            const [moved] = customApps.splice(fromIdx, 1)
+            const customApps = [...prev.customApps];
+            const fromIdx = customApps.findIndex((c) => c.id === id);
+            if (fromIdx === -1) return prev;
+            const [moved] = customApps.splice(fromIdx, 1);
             // Insert at the target position among custom apps.
-            const targetCustomIdx = Math.min(newIdx, customApps.length)
-            customApps.splice(targetCustomIdx, 0, moved)
+            const targetCustomIdx = Math.min(newIdx, customApps.length);
+            customApps.splice(targetCustomIdx, 0, moved);
             // Reassign orders.
             return {
               ...prev,
               customApps: customApps.map((c, i) => ({ ...c, order: i })),
-            }
-          })
+            };
+          });
         }
-      }
+      };
 
       const onUp = () => {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        setDraggingId(null)
-      }
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        setDraggingId(null);
+      };
 
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
     },
     [displayItems, setState],
-  )
+  );
 
   // ── Expand / collapse ──────────────────────────────────────────
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const toggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // ── Update a config/custom item ────────────────────────────────
   const updateCustomParams = useCallback(
     (id: string, params: Record<string, string>) => {
       setState((prev) => ({
         ...prev,
-        customApps: prev.customApps.map((c) =>
-          c.id === id ? { ...c, params } : c,
-        ),
-      }))
+        customApps: prev.customApps.map((c) => (c.id === id ? { ...c, params } : c)),
+      }));
     },
     [setState],
-  )
+  );
 
   const updateCustomConfig = useCallback(
     (id: string, config: { label: string; description?: string; pluginId: string }) => {
       setState((prev) => ({
         ...prev,
-        customApps: prev.customApps.map((c) =>
-          c.id === id ? { ...c, config } : c,
-        ),
-      }))
+        customApps: prev.customApps.map((c) => (c.id === id ? { ...c, config } : c)),
+      }));
     },
     [setState],
-  )
+  );
 
   // ── Delete a custom item ───────────────────────────────────────
   const deleteCustom = useCallback(
@@ -528,17 +554,24 @@ export default function AppMenuView() {
       setState((prev) => ({
         ...prev,
         customApps: prev.customApps.filter((c) => c.id !== id),
-      }))
-      setExpandedIds((prev) => { const next = new Set(prev); next.delete(id); return next })
+      }));
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     },
     [setState],
-  )
+  );
 
   // ── Create a new custom app ────────────────────────────────────
   const addCustom = useCallback(() => {
-    const pluginsWithParams = plugins.filter((p) => p.id !== 'empty' && p.supportedParams && p.supportedParams.length > 0)
-    const defaultPlugin = pluginsWithParams[0]?.id ?? plugins.find((p) => p.id !== 'empty')?.id ?? 'term'
-    const maxOrder = state.customApps.reduce((m, c) => Math.max(m, c.order), -1)
+    const pluginsWithParams = plugins.filter(
+      (p) => p.id !== 'empty' && p.supportedParams && p.supportedParams.length > 0,
+    );
+    const defaultPlugin =
+      pluginsWithParams[0]?.id ?? plugins.find((p) => p.id !== 'empty')?.id ?? 'term';
+    const maxOrder = state.customApps.reduce((m, c) => Math.max(m, c.order), -1);
 
     const newCustom: CustomApp = {
       id: `custom-${Date.now()}`,
@@ -548,30 +581,26 @@ export default function AppMenuView() {
         label: 'New App',
         pluginId: defaultPlugin,
       },
-    }
+    };
 
     setState((prev) => ({
       ...prev,
       customApps: [...prev.customApps, newCustom],
-    }))
-    setExpandedIds((prev) => new Set(prev).add(newCustom.id))
-  }, [plugins, state.customApps, setState])
+    }));
+    setExpandedIds((prev) => new Set(prev).add(newCustom.id));
+  }, [plugins, state.customApps, setState]);
 
   // ── Determine icon for an item ─────────────────────────────────
   const getIcon = useCallback(
     (item: DisplayItem) => {
-      const pluginId = item.isCustom ? item.pluginId : undefined
+      const pluginId = item.isCustom ? item.pluginId : undefined;
       return {
         classes: getAppIconClasses(item.id, pluginId),
-        letter: getAppIconLetter(
-          item.id,
-          pluginMap.get(item.id)?.label ?? item.label,
-          pluginId,
-        ),
-      }
+        letter: getAppIconLetter(item.id, pluginMap.get(item.id)?.label ?? item.label, pluginId),
+      };
     },
     [pluginMap],
-  )
+  );
 
   return (
     <div>
@@ -590,18 +619,14 @@ export default function AppMenuView() {
       {/* App list */}
       <div className="divide-y divide-white/5 rounded-[6px] border border-white/10 bg-black/20">
         {displayItems.map((item) => {
-          const expanded = expandedIds.has(item.id)
-          const { classes: iconClasses, letter } = getIcon(item)
+          const expanded = expandedIds.has(item.id);
+          const { classes: iconClasses, letter } = getIcon(item);
 
           return (
             <div key={item.id} data-app-row>
               {/* Row content — the grabbable / draggable surface */}
-              <div
-                className={`${row} ${draggingId === item.id ? 'bg-white/5' : ''}`}
-              >
-                {item.isCustom && (
-                  <DragHandle onPointerDown={(e) => onDragStart(item.id, e)} />
-                )}
+              <div className={`${row} ${draggingId === item.id ? 'bg-white/5' : ''}`}>
+                {item.isCustom && <DragHandle onPointerDown={(e) => onDragStart(item.id, e)} />}
 
                 {/* Icon */}
                 <div
@@ -629,10 +654,7 @@ export default function AppMenuView() {
                 </div>
 
                 {/* Toggle */}
-                <Toggle
-                  checked={item.visible}
-                  onCheckedChange={() => toggleVisible(item.id)}
-                />
+                <Toggle checked={item.visible} onCheckedChange={() => toggleVisible(item.id)} />
               </div>
 
               {/* Expanded editing form (config items only) — below the row */}
@@ -641,23 +663,31 @@ export default function AppMenuView() {
                   item={{
                     id: item.id,
                     params: item.params,
-                    customConfig: item.customConfig ?? (item.isCustom ? { label: item.label, description: item.description, pluginId: item.pluginId ?? 'term' } : undefined),
+                    customConfig:
+                      item.customConfig ??
+                      (item.isCustom
+                        ? {
+                            label: item.label,
+                            description: item.description,
+                            pluginId: item.pluginId ?? 'term',
+                          }
+                        : undefined),
                   }}
                   plugins={plugins}
                   onUpdate={(patch) => {
                     if (item.isCustom) {
-                      if (patch.params) updateCustomParams(item.id, patch.params)
-                      if (patch.customConfig) updateCustomConfig(item.id, patch.customConfig)
+                      if (patch.params) updateCustomParams(item.id, patch.params);
+                      if (patch.customConfig) updateCustomConfig(item.id, patch.customConfig);
                     }
                     // Registry config items: params would be stored via a future feature.
                   }}
                   onDelete={() => {
-                    if (item.isCustom) deleteCustom(item.id)
+                    if (item.isCustom) deleteCustom(item.id);
                   }}
                 />
               )}
             </div>
-          )
+          );
         })}
       </div>
 
@@ -667,7 +697,14 @@ export default function AppMenuView() {
         onClick={addCustom}
         className="mt-2 flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-white/10 px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-white/20 hover:bg-white/5 hover:text-popover-foreground"
       >
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg
+          className="h-3.5 w-3.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
           <path d="M12 5v14M5 12h14" />
         </svg>
         {t('appMenu.addCustom')}
@@ -676,5 +713,5 @@ export default function AppMenuView() {
       {/* Hint */}
       <p className="mt-2 text-[10px] text-muted-foreground/60">{t('appMenu.dragHint')}</p>
     </div>
-  )
+  );
 }

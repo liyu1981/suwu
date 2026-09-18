@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
-import ForwardPanel from '../components/ForwardPanel'
-import { setPageTransparent } from '../lib/constants'
+import { useEffect } from 'react';
+import ForwardPanel from '../components/ForwardPanel';
+import { setPageTransparent } from '../lib/constants';
 
 /**
  * Full-space port forward page loaded inside each tiling pane's iframe.
@@ -8,7 +8,7 @@ import { setPageTransparent } from '../lib/constants'
  */
 export default function ForwardPage() {
   useEffect(() => {
-    setPageTransparent()
-  }, [])
-  return <ForwardPanel />
+    setPageTransparent();
+  }, []);
+  return <ForwardPanel />;
 }

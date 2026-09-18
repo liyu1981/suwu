@@ -1,31 +1,31 @@
-import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
-import AuthGate from './routes/AuthGate'
-import DemoPage from './routes/DemoPage'
-import TermPage from './routes/TermPage'
-import FileViewerPage from './routes/FileViewerPage'
-import FileBrowserPage from './routes/FileBrowserPage'
-import ForwardPage from './routes/ForwardPage'
-import DropboxPage from './routes/DropboxPage'
-import GitGraphPage from './routes/GitGraphPage'
-import DiffPage from './routes/DiffPage'
-import XDisplayPage from './routes/XDisplayPage'
-import DBBrowserPage from './routes/DBBrowserPage'
-import CodeExplorerPage from './routes/CodeExplorerPage'
+import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import AuthGate from './routes/AuthGate';
+import DemoPage from './routes/DemoPage';
+import TermPage from './routes/TermPage';
+import FileViewerPage from './routes/FileViewerPage';
+import FileBrowserPage from './routes/FileBrowserPage';
+import ForwardPage from './routes/ForwardPage';
+import DropboxPage from './routes/DropboxPage';
+import GitGraphPage from './routes/GitGraphPage';
+import DiffPage from './routes/DiffPage';
+import XDisplayPage from './routes/XDisplayPage';
+import DBBrowserPage from './routes/DBBrowserPage';
+import CodeExplorerPage from './routes/CodeExplorerPage';
 
-const rootRoute = createRootRoute()
+const rootRoute = createRootRoute();
 
 // App shell (header + content) for the interactive pages.
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
   component: AuthGate,
-})
+});
 
 const indexRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/',
   component: DemoPage,
-})
+});
 
 // Full-space terminal page, loaded inside each tiling pane's iframe.
 // Lives outside the app shell so it has no header.
@@ -33,64 +33,64 @@ const termRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/term',
   component: TermPage,
-})
+});
 
 // Full-space file viewer page, loaded inside each file viewer pane's iframe.
 const fileViewerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/viewer',
   component: FileViewerPage,
-})
+});
 
 // Full-space file browser page, loaded inside each filebrowser pane's iframe.
 const filebrowserRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/filebrowser',
   component: FileBrowserPage,
-})
+});
 
 // Full-space port forward page, loaded inside each forward pane's iframe.
 const forwardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/forward',
   component: ForwardPage,
-})
+});
 
 const dropboxRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dropbox',
   component: DropboxPage,
-})
+});
 
 const gitgraphRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/gitgraph',
   component: GitGraphPage,
-})
+});
 
 const diffRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/diff',
   component: DiffPage,
-})
+});
 
 const xdisplayRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/xdisplay',
   component: XDisplayPage,
-})
+});
 
 const dbbrowserRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dbbrowser',
   component: DBBrowserPage,
-})
+});
 
 const codeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/code',
   component: CodeExplorerPage,
-})
+});
 
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
@@ -104,12 +104,12 @@ const routeTree = rootRoute.addChildren([
   xdisplayRoute,
   dbbrowserRoute,
   codeRoute,
-])
+]);
 
-export const router = createRouter({ routeTree })
+export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {
   interface Register {
-    router: typeof router
+    router: typeof router;
   }
 }

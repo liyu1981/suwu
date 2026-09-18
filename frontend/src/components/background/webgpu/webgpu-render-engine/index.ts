@@ -12,9 +12,9 @@
  * `ambient-blob` (CPU fallback, baseline image) and `video` (CPU only) are not
  * part of the engine.
  */
-export { startGpuBackground } from './scene'
-export type { GpuScene, GpuSceneFactory, GpuSceneInit } from './scene'
-export { fragmentScene } from './fragment'
+export { startGpuBackground } from './scene';
+export type { GpuScene, GpuSceneFactory, GpuSceneInit } from './scene';
+export { fragmentScene } from './fragment';
 export type {
   FragmentFrameState,
   FragmentPassSpec,
@@ -22,10 +22,10 @@ export type {
   PingPongTargetSpec,
   SingleTargetSpec,
   TargetSpec,
-} from './fragment'
-export { storageAsset, texture3dAsset } from './assets'
-export type { GpuAssetBuilder } from './assets'
-export { openGpuHost } from './host'
-export type { GpuHost, GpuHostOptions } from './host'
-export { elapsedSeconds } from './time'
-export { cappedSize } from './size'
+} from './fragment';
+export { storageAsset, texture3dAsset } from './assets';
+export type { GpuAssetBuilder } from './assets';
+export { openGpuHost } from './host';
+export type { GpuHost, GpuHostOptions } from './host';
+export { elapsedSeconds } from './time';
+export { cappedSize } from './size';

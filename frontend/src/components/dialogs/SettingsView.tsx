@@ -1,13 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAtom } from 'jotai'
-import { useTranslation } from 'react-i18next'
-import i18n from 'i18next'
-import { Tabs as TabsPrimitive } from 'radix-ui'
-import { maxEntriesAtom } from '../../store/notifications'
-import { autoResolveAtom, backgroundAtom, backgroundParamsAtom, webgpuBackgroundAtom } from '../../store/settings'
-import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
-import { Combobox } from '../ui/combobox'
-import { BackgroundPreview, DEFAULT_BACKGROUND_ID, getBackground, listBackgrounds, resolveBackgroundParams, WEBGPU_ENGINE } from '../background'
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAtom } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
+import { Tabs as TabsPrimitive } from 'radix-ui';
+import { maxEntriesAtom } from '../../store/notifications';
+import {
+  autoResolveAtom,
+  backgroundAtom,
+  backgroundParamsAtom,
+  webgpuBackgroundAtom,
+} from '../../store/settings';
+import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
+import { Combobox } from '../ui/combobox';
+import {
+  BackgroundPreview,
+  DEFAULT_BACKGROUND_ID,
+  getBackground,
+  listBackgrounds,
+  resolveBackgroundParams,
+  WEBGPU_ENGINE,
+} from '../background';
 import type {
   BackgroundBooleanParam,
   BackgroundColorParam,
@@ -18,31 +30,31 @@ import type {
   BackgroundSelectParam,
   BackgroundStoredFile,
   BackgroundTextParam,
-} from '../background'
+} from '../background';
 
-const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3'
-const sectionLabel = 'text-xs font-medium text-muted-foreground'
-const sectionHint = 'mt-2 text-[11px] leading-relaxed text-muted-foreground'
+const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3';
+const sectionLabel = 'text-xs font-medium text-muted-foreground';
+const sectionHint = 'mt-2 text-[11px] leading-relaxed text-muted-foreground';
 
 const tabBtn =
   'rounded px-2.5 py-1.5 text-left text-xs text-muted-foreground outline-none transition-colors ' +
   'hover:bg-white/5 hover:text-popover-foreground focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
-  'data-[state=active]:bg-white/10 data-[state=active]:text-popover-foreground'
+  'data-[state=active]:bg-white/10 data-[state=active]:text-popover-foreground';
 
 const toggle =
   'relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ' +
-  'bg-white/15 data-[state=checked]:bg-sky-500/60'
+  'bg-white/15 data-[state=checked]:bg-sky-500/60';
 
 const toggleThumb =
   'block h-4 w-4 translate-x-0.5 rounded-full bg-white shadow transition-transform ' +
-  'data-[state=checked]:translate-x-4'
+  'data-[state=checked]:translate-x-4';
 
 function Toggle({
   checked,
   onCheckedChange,
 }: {
-  checked: boolean
-  onCheckedChange: (v: boolean) => void
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
 }) {
   return (
     <button
@@ -55,7 +67,7 @@ function Toggle({
     >
       <span data-state={checked ? 'checked' : 'unchecked'} className={toggleThumb} />
     </button>
-  )
+  );
 }
 
 function NumberField({
@@ -63,19 +75,19 @@ function NumberField({
   value,
   onChange,
 }: {
-  param: BackgroundNumberParam
-  value: number
-  onChange: (value: number) => void
+  param: BackgroundNumberParam;
+  value: number;
+  onChange: (value: number) => void;
 }) {
-  const [local, setLocal] = useState(value)
-  useEffect(() => setLocal(value), [value])
+  const [local, setLocal] = useState(value);
+  useEffect(() => setLocal(value), [value]);
 
   // Commit on release, not while dragging: a params change restarts the
   // backend, so a continuous write would thrash the renderer mid-drag.
   const commit = (input: HTMLInputElement) => {
-    const next = Number(input.value)
-    if (next !== value) onChange(next)
-  }
+    const next = Number(input.value);
+    if (next !== value) onChange(next);
+  };
 
   return (
     <div>
@@ -100,7 +112,7 @@ function NumberField({
       </div>
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
     </div>
-  )
+  );
 }
 
 function BooleanField({
@@ -108,16 +120,16 @@ function BooleanField({
   value,
   onChange,
 }: {
-  param: BackgroundBooleanParam
-  value: boolean
-  onChange: (value: boolean) => void
+  param: BackgroundBooleanParam;
+  value: boolean;
+  onChange: (value: boolean) => void;
 }) {
   return (
     <div className="flex items-center justify-between">
       <span className={sectionLabel}>{param.label}</span>
       <Toggle checked={value} onCheckedChange={onChange} />
     </div>
-  )
+  );
 }
 
 function SelectField({
@@ -125,11 +137,11 @@ function SelectField({
   value,
   onChange,
 }: {
-  param: BackgroundSelectParam
-  value: string
-  onChange: (value: string) => void
+  param: BackgroundSelectParam;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const current = param.options.find((option) => option.value === value) ?? param.options[0]
+  const current = param.options.find((option) => option.value === value) ?? param.options[0];
   return (
     <div>
       <span className={sectionLabel}>{param.label}</span>
@@ -147,7 +159,7 @@ function SelectField({
       </Select>
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
     </div>
-  )
+  );
 }
 
 /** Free-form text/URL input. Commits on blur or Enter. */
@@ -156,19 +168,19 @@ function TextField({
   value,
   onChange,
 }: {
-  param: BackgroundTextParam
-  value: string
-  onChange: (value: string) => void
+  param: BackgroundTextParam;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const [local, setLocal] = useState(value)
-  useEffect(() => setLocal(value), [value])
+  const [local, setLocal] = useState(value);
+  useEffect(() => setLocal(value), [value]);
 
   // Commit on blur/Enter, not per keystroke: a params change restarts the
   // backend, so typing a URL must not restart it on every character.
   const commit = () => {
-    const next = local.trim()
-    if (next !== value) onChange(next)
-  }
+    const next = local.trim();
+    if (next !== value) onChange(next);
+  };
 
   return (
     <div>
@@ -182,27 +194,27 @@ function TextField({
         onChange={(e) => setLocal(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Enter') e.currentTarget.blur();
         }}
         aria-label={param.label}
         className="mt-2 h-8 w-full rounded border border-white/10 bg-black/30 px-2 text-xs text-popover-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-sky-400/60 focus:ring-1 focus:ring-sky-400/30"
       />
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
     </div>
-  )
+  );
 }
 
 /** Human-readable file size. */
 function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  const units = ['KB', 'MB', 'GB']
-  let value = bytes / 1024
-  let unit = 0
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes / 1024;
+  let unit = 0;
   while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit++
+    value /= 1024;
+    unit++;
   }
-  return `${value.toFixed(value >= 10 || Number.isInteger(value) ? 0 : 1)} ${units[unit]}`
+  return `${value.toFixed(value >= 10 || Number.isInteger(value) ? 0 : 1)} ${units[unit]}`;
 }
 
 /**
@@ -214,82 +226,87 @@ function FileListField({
   value,
   onChange,
 }: {
-  param: BackgroundFileListParam
-  value: string
-  onChange: (value: string) => void
+  param: BackgroundFileListParam;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [files, setFiles] = useState<BackgroundStoredFile[]>([])
-  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({})
-  const [busy, setBusy] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [files, setFiles] = useState<BackgroundStoredFile[]>([]);
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      setFiles(await param.list())
-      setError(null)
+      setFiles(await param.list());
+      setError(null);
     } catch (listError) {
-      setError(listError instanceof Error ? listError.message : String(listError))
+      setError(listError instanceof Error ? listError.message : String(listError));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [param])
+  }, [param]);
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    void refresh();
+  }, [refresh]);
 
   // Object URLs for the thumbnails, revoked when the list changes/unmounts.
   useEffect(() => {
-    const urls: Record<string, string> = {}
+    const urls: Record<string, string> = {};
     for (const file of files) {
-      if (file.thumbnail) urls[file.id] = URL.createObjectURL(file.thumbnail)
+      if (file.thumbnail) urls[file.id] = URL.createObjectURL(file.thumbnail);
     }
-    setThumbUrls(urls)
+    setThumbUrls(urls);
     return () => {
-      for (const url of Object.values(urls)) URL.revokeObjectURL(url)
-    }
-  }, [files])
+      for (const url of Object.values(urls)) URL.revokeObjectURL(url);
+    };
+  }, [files]);
 
   const add = async (list: FileList | null): Promise<void> => {
-    const file = list?.[0]
-    if (!file) return
-    setBusy(true)
-    setError(null)
+    const file = list?.[0];
+    if (!file) return;
+    setBusy(true);
+    setError(null);
     try {
-      const id = await param.store(file)
-      onChange(id)
-      await refresh()
+      const id = await param.store(file);
+      onChange(id);
+      await refresh();
     } catch (storeError) {
-      setError(storeError instanceof Error ? storeError.message : String(storeError))
+      setError(storeError instanceof Error ? storeError.message : String(storeError));
     } finally {
-      setBusy(false)
-      if (inputRef.current) inputRef.current.value = ''
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
     }
-  }
+  };
 
   const remove = async (id: string): Promise<void> => {
-    setBusy(true)
+    setBusy(true);
     try {
-      await param.clear(id)
-      if (value === id) onChange('')
-      await refresh()
+      await param.clear(id);
+      if (value === id) onChange('');
+      await refresh();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const button =
     'shrink-0 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs outline-none ' +
     'transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
-    'disabled:cursor-not-allowed disabled:opacity-40'
+    'disabled:cursor-not-allowed disabled:opacity-40';
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <span className={sectionLabel}>{param.label}</span>
-        <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className={button}>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          className={button}
+        >
           {busy ? 'Working…' : 'Add file…'}
         </button>
       </div>
@@ -304,7 +321,7 @@ function FileListField({
           </p>
         )}
         {files.map((file) => {
-          const active = file.id === value
+          const active = file.id === value;
           return (
             <div
               key={file.id}
@@ -316,7 +333,9 @@ function FileListField({
                 {thumbUrls[file.id] ? (
                   <img src={thumbUrls[file.id]} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="grid h-full w-full place-items-center text-[9px] text-white/30">no preview</div>
+                  <div className="grid h-full w-full place-items-center text-[9px] text-white/30">
+                    no preview
+                  </div>
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -342,7 +361,7 @@ function FileListField({
                 Clear
               </button>
             </div>
-          )
+          );
         })}
       </div>
 
@@ -356,7 +375,7 @@ function FileListField({
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
       {error && <p className="mt-1 text-[11px] text-red-400">{error}</p>}
     </div>
-  )
+  );
 }
 
 /** Colour picker; commits on blur so dragging the picker doesn't thrash the backend. */
@@ -365,12 +384,12 @@ function ColorField({
   value,
   onChange,
 }: {
-  param: BackgroundColorParam
-  value: string
-  onChange: (value: string) => void
+  param: BackgroundColorParam;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const [local, setLocal] = useState(value)
-  useEffect(() => setLocal(value), [value])
+  const [local, setLocal] = useState(value);
+  useEffect(() => setLocal(value), [value]);
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
@@ -386,7 +405,7 @@ function ColorField({
               value={local}
               onChange={(e) => setLocal(e.target.value)}
               onBlur={() => {
-                if (local !== value) onChange(local)
+                if (local !== value) onChange(local);
               }}
               aria-label={param.label}
               className="absolute inset-0 cursor-pointer opacity-0"
@@ -397,7 +416,7 @@ function ColorField({
       </div>
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
     </div>
-  )
+  );
 }
 
 /** Renders the control matching a parameter's declared kind. */
@@ -406,9 +425,9 @@ function BackgroundParamField({
   value,
   onChange,
 }: {
-  param: BackgroundParam
-  value: BackgroundParamValue
-  onChange: (value: BackgroundParamValue) => void
+  param: BackgroundParam;
+  value: BackgroundParamValue;
+  onChange: (value: BackgroundParamValue) => void;
 }) {
   switch (param.kind) {
     case 'number':
@@ -418,7 +437,7 @@ function BackgroundParamField({
           value={typeof value === 'number' ? value : param.default}
           onChange={onChange}
         />
-      )
+      );
     case 'boolean':
       return (
         <BooleanField
@@ -426,7 +445,7 @@ function BackgroundParamField({
           value={typeof value === 'boolean' ? value : param.default}
           onChange={onChange}
         />
-      )
+      );
     case 'select':
       return (
         <SelectField
@@ -434,7 +453,7 @@ function BackgroundParamField({
           value={typeof value === 'string' ? value : param.default}
           onChange={onChange}
         />
-      )
+      );
     case 'text':
       return (
         <TextField
@@ -442,7 +461,7 @@ function BackgroundParamField({
           value={typeof value === 'string' ? value : param.default}
           onChange={onChange}
         />
-      )
+      );
     case 'fileList':
       return (
         <FileListField
@@ -450,7 +469,7 @@ function BackgroundParamField({
           value={typeof value === 'string' ? value : param.default}
           onChange={onChange}
         />
-      )
+      );
     case 'color':
       return (
         <ColorField
@@ -458,7 +477,7 @@ function BackgroundParamField({
           value={typeof value === 'string' ? value : param.default}
           onChange={onChange}
         />
-      )
+      );
   }
 }
 
@@ -466,60 +485,60 @@ function BackgroundParamField({
  * Settings screen: Notifications, Actions, and Language preferences.
  */
 export default function SettingsView() {
-  const { t } = useTranslation()
-  const [maxEntries, setMaxEntries] = useAtom(maxEntriesAtom)
-  const [autoResolve, setAutoResolve] = useAtom(autoResolveAtom)
-  const [background, setBackground] = useAtom(backgroundAtom)
-  const [backgroundParams, setBackgroundParams] = useAtom(backgroundParamsAtom)
-  const [webgpuBackground, setWebgpuBackground] = useAtom(webgpuBackgroundAtom)
+  const { t } = useTranslation();
+  const [maxEntries, setMaxEntries] = useAtom(maxEntriesAtom);
+  const [autoResolve, setAutoResolve] = useAtom(autoResolveAtom);
+  const [background, setBackground] = useAtom(backgroundAtom);
+  const [backgroundParams, setBackgroundParams] = useAtom(backgroundParamsAtom);
+  const [webgpuBackground, setWebgpuBackground] = useAtom(webgpuBackgroundAtom);
 
-  const definitions = listBackgrounds()
-  const engineDefinitions = definitions.filter((d) => d.engine === WEBGPU_ENGINE)
-  const otherDefinitions = definitions.filter((d) => d.engine !== WEBGPU_ENGINE)
+  const definitions = listBackgrounds();
+  const engineDefinitions = definitions.filter((d) => d.engine === WEBGPU_ENGINE);
+  const otherDefinitions = definitions.filter((d) => d.engine !== WEBGPU_ENGINE);
 
   // A stale stored id falls back to the default, matching the shell.
-  const definition = getBackground(background) ?? getBackground(DEFAULT_BACKGROUND_ID)
-  const activeId = definition?.id ?? DEFAULT_BACKGROUND_ID
-  const inWebgpu = definition?.engine === WEBGPU_ENGINE
+  const definition = getBackground(background) ?? getBackground(DEFAULT_BACKGROUND_ID);
+  const activeId = definition?.id ?? DEFAULT_BACKGROUND_ID;
+  const inWebgpu = definition?.engine === WEBGPU_ENGINE;
 
   // The primary selector picks a background family; "WebGPU" reveals a second
   // selector for the engine-backed backgrounds that are currently registered.
   const familyItems = [
     ...otherDefinitions.map((d) => ({ label: d.label, value: d.id })),
     { label: t('settings.backgroundWebgpu'), value: WEBGPU_ENGINE },
-  ]
-  const engineItems = engineDefinitions.map((d) => ({ label: d.label, value: d.id }))
+  ];
+  const engineItems = engineDefinitions.map((d) => ({ label: d.label, value: d.id }));
 
   const selectFamily = (value: string) => {
     if (value !== WEBGPU_ENGINE) {
-      setBackground(value)
-      return
+      setBackground(value);
+      return;
     }
     // Enter the WebGPU group: restore the last engine background, else the first.
-    const remembered = engineDefinitions.find((d) => d.id === webgpuBackground)?.id
-    const next = remembered ?? engineDefinitions[0]?.id
+    const remembered = engineDefinitions.find((d) => d.id === webgpuBackground)?.id;
+    const next = remembered ?? engineDefinitions[0]?.id;
     if (next) {
-      setBackground(next)
-      setWebgpuBackground(next)
+      setBackground(next);
+      setWebgpuBackground(next);
     }
-  }
+  };
 
   const selectEngineBackground = (id: string) => {
-    setBackground(id)
-    setWebgpuBackground(id)
-  }
+    setBackground(id);
+    setWebgpuBackground(id);
+  };
 
-  const paramDefs = definition?.params ?? []
+  const paramDefs = definition?.params ?? [];
   const resolvedParams = definition
     ? resolveBackgroundParams(definition, backgroundParams[activeId])
-    : {}
+    : {};
 
   const setParam = (key: string, value: BackgroundParamValue) => {
     setBackgroundParams((prev) => ({
       ...prev,
       [activeId]: { ...prev[activeId], [key]: value },
-    }))
-  }
+    }));
+  };
 
   return (
     <div>
@@ -564,9 +583,7 @@ export default function SettingsView() {
                 className="h-1 flex-1 cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
               />
             </div>
-            <p className={sectionHint}>
-              {t('settings.maxMessageHistoryHint')}
-            </p>
+            <p className={sectionHint}>{t('settings.maxMessageHistoryHint')}</p>
           </div>
         </TabsPrimitive.Content>
 
@@ -636,9 +653,7 @@ export default function SettingsView() {
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.autoResolveTitle')}</span>
             </div>
-            <p className={sectionHint}>
-              {t('settings.autoResolveHint')}
-            </p>
+            <p className={sectionHint}>{t('settings.autoResolveHint')}</p>
 
             <div className="mt-3 divide-y divide-white/5">
               <div className="flex items-center justify-between py-2.5">
@@ -717,5 +732,5 @@ export default function SettingsView() {
         </TabsPrimitive.Content>
       </TabsPrimitive.Root>
     </div>
-  )
+  );
 }

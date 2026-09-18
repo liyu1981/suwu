@@ -69,10 +69,7 @@ function wordDiff(oldLine: string, newLine: string): [WordSpan[], WordSpan[]] {
   const b = tokenize(newLine);
 
   if (oldLine === newLine) {
-    return [
-      [{ text: oldLine, highlight: false }],
-      [{ text: newLine, highlight: false }],
-    ];
+    return [[{ text: oldLine, highlight: false }], [{ text: newLine, highlight: false }]];
   }
 
   const dp = lcsTable(a, b);
@@ -121,7 +118,12 @@ function parseDiff(raw: string): DiffLine[] {
   const result: DiffLine[] = [];
 
   for (const line of lines) {
-    if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('diff ') || line.startsWith('index ')) {
+    if (
+      line.startsWith('--- ') ||
+      line.startsWith('+++ ') ||
+      line.startsWith('diff ') ||
+      line.startsWith('index ')
+    ) {
       continue;
     }
     if (line.startsWith('@@')) {
@@ -152,11 +154,17 @@ function parseDiff(raw: string): DiffLine[] {
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 
-
-
 /* ── Inline word-diff renderer ─────────────────────────────────── */
 
-function WordDiffLine({ text, pairedText, side }: { text: string; pairedText: string | null; side: 'left' | 'right' }) {
+function WordDiffLine({
+  text,
+  pairedText,
+  side,
+}: {
+  text: string;
+  pairedText: string | null;
+  side: 'left' | 'right';
+}) {
   const spans = useMemo(() => {
     if (pairedText === null) return [{ text, highlight: false }];
     const [leftSpans, rightSpans] = wordDiff(
@@ -170,7 +178,9 @@ function WordDiffLine({ text, pairedText, side }: { text: string; pairedText: st
     <>
       {spans.map((s, i) =>
         s.highlight ? (
-          <mark key={i} className="bg-amber-300/15 text-amber-100/80 rounded-sm px-0">{s.text}</mark>
+          <mark key={i} className="bg-amber-300/15 text-amber-100/80 rounded-sm px-0">
+            {s.text}
+          </mark>
         ) : (
           <span key={i}>{s.text}</span>
         ),
@@ -225,11 +235,19 @@ export default function DiffPage() {
 
     const params = new URLSearchParams({ file1: file1Param, file2: file2Param });
     fetchJson<DiffResult>(`/api/file/diff?${params}`)
-      .then((d) => { if (!cancelled) setResult(d); })
-      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load diff'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .then((d) => {
+        if (!cancelled) setResult(d);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load diff');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [file1Param, file2Param]);
 
   useEffect(() => {
@@ -240,13 +258,12 @@ export default function DiffPage() {
   const addCount = parsed.filter((l) => l.type === 'add').length;
   const removeCount = parsed.filter((l) => l.type === 'remove').length;
 
-  const fileName1 = file1Param ? file1Param.split('/').pop() ?? file1Param : '—';
-  const fileName2 = file2Param ? file2Param.split('/').pop() ?? file2Param : '—';
+  const fileName1 = file1Param ? (file1Param.split('/').pop() ?? file1Param) : '—';
+  const fileName2 = file2Param ? (file2Param.split('/').pop() ?? file2Param) : '—';
 
   return (
     <CommonTileContainer zoomAtom={diffZoomAtom} noPadding>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-
         {/* Row 1 — toolbar */}
         <div className="flex h-8 shrink-0 items-center gap-2 rounded-t-[6px] border-b border-white/10 px-3 py-1.5 glass-control">
           <span className="text-base font-semibold tracking-wide text-white/60">Diff</span>
@@ -270,7 +287,9 @@ export default function DiffPage() {
           </div>
         ) : error ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-b-[6px] border-x border-b border-white/[0.10] bg-black/20 p-6">
-            <svg className="h-8 w-8 text-red-400" viewBox="0 0 16 16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
+            <svg className="h-8 w-8 text-red-400" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+            </svg>
             <div className="max-w-sm text-center text-[11px] text-red-300">{error}</div>
           </div>
         ) : parsed.length === 0 ? (
@@ -281,12 +300,20 @@ export default function DiffPage() {
           /* Side-by-side diff */
           <div className="min-h-0 flex-1 flex rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             {/* Left panel — file1 */}
-            <div className="min-w-0 flex-1 flex flex-col border-r border-white/[0.06]" style={{ backgroundColor: bgColor }}>
+            <div
+              className="min-w-0 flex-1 flex flex-col border-r border-white/[0.06]"
+              style={{ backgroundColor: bgColor }}
+            >
               <div className="flex items-center border-b border-white/[0.06] bg-white/[0.03] px-3 py-1">
                 <span className="text-[10px] font-medium text-white/50 truncate">{fileName1}</span>
                 <span className="ml-2 text-[10px] text-red-400/60">old</span>
               </div>
-              <div ref={leftRef} onScroll={onLeftScroll} className="min-h-0 flex-1 overflow-y-auto text-xs scrollbar-thin" style={{ fontFamily: diffFontFamily, lineHeight: 1.6 }}>
+              <div
+                ref={leftRef}
+                onScroll={onLeftScroll}
+                className="min-h-0 flex-1 overflow-y-auto text-xs scrollbar-thin"
+                style={{ fontFamily: diffFontFamily, lineHeight: 1.6 }}
+              >
                 {parsed.map((line, i) => {
                   let cls = 'text-white/50';
                   if (line.type === 'remove') cls = 'bg-rose-400/[0.06] text-rose-200/60';
@@ -294,7 +321,10 @@ export default function DiffPage() {
                   else if (line.type === 'add') cls = 'bg-white/[0.015] text-white/15';
 
                   const content = line.left ?? '';
-                  const pairedText = line.pairIdx !== undefined ? parsed[line.pairIdx].right ?? parsed[line.pairIdx].left : null;
+                  const pairedText =
+                    line.pairIdx !== undefined
+                      ? (parsed[line.pairIdx].right ?? parsed[line.pairIdx].left)
+                      : null;
 
                   return (
                     <div key={`l-${i}`} className={`flex ${cls}`}>
@@ -318,7 +348,12 @@ export default function DiffPage() {
                 <span className="text-[10px] font-medium text-white/50 truncate">{fileName2}</span>
                 <span className="ml-2 text-[10px] text-green-400/60">new</span>
               </div>
-              <div ref={rightRef} onScroll={onRightScroll} className="min-h-0 flex-1 overflow-y-auto text-xs scrollbar-thin" style={{ fontFamily: diffFontFamily, lineHeight: 1.6 }}>
+              <div
+                ref={rightRef}
+                onScroll={onRightScroll}
+                className="min-h-0 flex-1 overflow-y-auto text-xs scrollbar-thin"
+                style={{ fontFamily: diffFontFamily, lineHeight: 1.6 }}
+              >
                 {parsed.map((line, i) => {
                   let cls = 'text-white/50';
                   if (line.type === 'add') cls = 'bg-emerald-400/[0.06] text-emerald-200/60';
@@ -326,7 +361,10 @@ export default function DiffPage() {
                   else if (line.type === 'remove') cls = 'bg-white/[0.015] text-white/15';
 
                   const content = line.right ?? '';
-                  const pairedText = line.pairIdx !== undefined ? parsed[line.pairIdx].left ?? parsed[line.pairIdx].right : null;
+                  const pairedText =
+                    line.pairIdx !== undefined
+                      ? (parsed[line.pairIdx].left ?? parsed[line.pairIdx].right)
+                      : null;
 
                   return (
                     <div key={`r-${i}`} className={`flex ${cls}`}>

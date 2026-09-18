@@ -1,42 +1,49 @@
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import type { MoveDir } from './layout'
-import type { TilePlugin } from './tilePlugins'
-import { ChevronIcon, CloseIcon, ExitFocusIcon, FocusIcon, MoveToSpaceIcon, SwapIcon } from './icons'
-import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { MoveDir } from './layout';
+import type { TilePlugin } from './tilePlugins';
+import {
+  ChevronIcon,
+  CloseIcon,
+  ExitFocusIcon,
+  FocusIcon,
+  MoveToSpaceIcon,
+  SwapIcon,
+} from './icons';
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 
-const MOVE_DIRS: MoveDir[] = ['left', 'right', 'up', 'down']
-const ARROW_KEY: Record<MoveDir, string> = { left: '←', right: '→', up: '↑', down: '↓' }
+const MOVE_DIRS: MoveDir[] = ['left', 'right', 'up', 'down'];
+const ARROW_KEY: Record<MoveDir, string> = { left: '←', right: '→', up: '↑', down: '↓' };
 
 const toolBtn =
-  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300'
+  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300';
 
 const closeBtn =
-  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-rose-500/20 hover:text-rose-300'
+  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-rose-500/20 hover:text-rose-300';
 
 interface SpaceInfo {
-  index: number
-  name: string
-  label: string
-  tileCount: number
-  tileLabels: string[]
+  index: number;
+  name: string;
+  label: string;
+  tileCount: number;
+  tileLabels: string[];
 }
 
 interface TileToolsProps {
-  paneId: string
-  fontSize: number
-  fontDefault: number
-  setFontSize: (size: number) => void
-  plugin?: TilePlugin
-  canMove: (id: string, dir: MoveDir) => boolean
-  move: (id: string, dir: MoveDir) => void
-  closeTile: (id: string) => void
-  startSwap: (id: string) => void
-  isFocused: boolean
-  onToggleFocus: (id: string) => void
-  spaces: SpaceInfo[]
-  activeSpaceIndex: number
-  onMoveToSpace: (paneId: string, targetIndex: number) => void
+  paneId: string;
+  fontSize: number;
+  fontDefault: number;
+  setFontSize: (size: number) => void;
+  plugin?: TilePlugin;
+  canMove: (id: string, dir: MoveDir) => boolean;
+  move: (id: string, dir: MoveDir) => void;
+  closeTile: (id: string) => void;
+  startSwap: (id: string) => void;
+  isFocused: boolean;
+  onToggleFocus: (id: string) => void;
+  spaces: SpaceInfo[];
+  activeSpaceIndex: number;
+  onMoveToSpace: (paneId: string, targetIndex: number) => void;
 }
 
 /**
@@ -62,8 +69,8 @@ export function TileTools({
   activeSpaceIndex,
   onMoveToSpace,
 }: TileToolsProps) {
-  const { t } = useTranslation()
-  const [showSpaceDialog, setShowSpaceDialog] = useState(false)
+  const { t } = useTranslation();
+  const [showSpaceDialog, setShowSpaceDialog] = useState(false);
   const pluginToolbar = plugin?.renderToolbar?.({
     paneId,
     fontSize,
@@ -73,10 +80,10 @@ export function TileTools({
     move,
     closeTile,
     startSwap,
-  })
+  });
 
   // Filter out focus space, show all user spaces (current one disabled).
-  const availableSpaces = spaces.filter((s) => s.name !== '__focus__')
+  const availableSpaces = spaces.filter((s) => s.name !== '__focus__');
 
   return (
     <div className="group/corner absolute right-0 top-0 z-10 h-12 w-56">
@@ -153,45 +160,56 @@ export function TileTools({
 
       {/* Move to space dialog */}
       {showSpaceDialog && (
-        <Dialog open onOpenChange={(open) => { if (!open) setShowSpaceDialog(false) }}>
-          <DialogContent className="w-[min(92vw,24rem)]" onKeyDown={(e) => { if (e.key === 'Escape') setShowSpaceDialog(false) }}>
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setShowSpaceDialog(false);
+          }}
+        >
+          <DialogContent
+            className="w-[min(92vw,24rem)]"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowSpaceDialog(false);
+            }}
+          >
             <DialogTitle>{t('wm.moveToSpaceDialog')}</DialogTitle>
             <p className="mt-1 text-xs text-muted-foreground">{t('wm.moveToSpaceDialogDesc')}</p>
             <div className="mt-3 flex flex-col gap-2">
               {availableSpaces.map((s) => {
-                const isCurrent = s.index === activeSpaceIndex
+                const isCurrent = s.index === activeSpaceIndex;
                 return (
-                <button
-                  key={s.index}
-                  type="button"
-                  disabled={isCurrent}
-                  className={`flex w-full flex-col items-start gap-1 rounded-[6px] border bg-black/20 p-3 text-left transition ${
-                    isCurrent
-                      ? 'cursor-not-allowed border-white/5 opacity-40'
-                      : 'border-white/10 hover:border-white/20 hover:bg-white/5'
-                  }`}
-                  onClick={() => {
-                    if (!isCurrent) {
-                      onMoveToSpace(paneId, s.index)
-                      setShowSpaceDialog(false)
-                    }
-                  }}
-                >
-                  <span className="text-xs font-semibold text-white/80">{t('wm.spaceLabel', { number: s.label })}{isCurrent ? ' (' + t('wm.currentSpace') + ')' : ''}</span>
-                  {s.tileLabels.length > 0 ? (
-                    <span className="text-[11px] text-white/40">
-                      {s.tileLabels.join(' · ')}
+                  <button
+                    key={s.index}
+                    type="button"
+                    disabled={isCurrent}
+                    className={`flex w-full flex-col items-start gap-1 rounded-[6px] border bg-black/20 p-3 text-left transition ${
+                      isCurrent
+                        ? 'cursor-not-allowed border-white/5 opacity-40'
+                        : 'border-white/10 hover:border-white/20 hover:bg-white/5'
+                    }`}
+                    onClick={() => {
+                      if (!isCurrent) {
+                        onMoveToSpace(paneId, s.index);
+                        setShowSpaceDialog(false);
+                      }
+                    }}
+                  >
+                    <span className="text-xs font-semibold text-white/80">
+                      {t('wm.spaceLabel', { number: s.label })}
+                      {isCurrent ? ' (' + t('wm.currentSpace') + ')' : ''}
                     </span>
-                  ) : (
-                    <span className="text-[11px] text-white/30">{t('wm.emptySpace')}</span>
-                  )}
-                </button>
-                )
+                    {s.tileLabels.length > 0 ? (
+                      <span className="text-[11px] text-white/40">{s.tileLabels.join(' · ')}</span>
+                    ) : (
+                      <span className="text-[11px] text-white/30">{t('wm.emptySpace')}</span>
+                    )}
+                  </button>
+                );
               })}
             </div>
           </DialogContent>
         </Dialog>
       )}
     </div>
-  )
+  );
 }

@@ -57,18 +57,18 @@ const BY_EXTENSION: Record<string, string> = {
   dockerfile: 'dockerfile',
   makefile: 'makefile',
   mk: 'makefile',
-}
+};
 
 const BY_FILENAME: Record<string, string> = {
   dockerfile: 'dockerfile',
   makefile: 'makefile',
   '.gitignore': 'plaintext',
   '.env': 'ini',
-}
+};
 
 export function languageForPath(path: string): string {
-  const name = (path.split('/').pop() ?? '').toLowerCase()
-  if (BY_FILENAME[name]) return BY_FILENAME[name]
-  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : ''
-  return BY_EXTENSION[ext] ?? 'plaintext'
+  const name = (path.split('/').pop() ?? '').toLowerCase();
+  if (BY_FILENAME[name]) return BY_FILENAME[name];
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : '';
+  return BY_EXTENSION[ext] ?? 'plaintext';
 }

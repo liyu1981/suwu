@@ -7,14 +7,14 @@
  */
 
 /** Length of the crossfade, in media seconds. */
-export const VIDEO_CROSSFADE_SECONDS = 2
+export const VIDEO_CROSSFADE_SECONDS = 2;
 
 /**
  * A crossfade needs a clip at least twice as long as the blend; otherwise the
  * whole clip would be permanently blended.
  */
 export function canCrossfade(duration: number): boolean {
-  return duration > VIDEO_CROSSFADE_SECONDS * 2
+  return duration > VIDEO_CROSSFADE_SECONDS * 2;
 }
 
 /**
@@ -25,8 +25,12 @@ export function canCrossfade(duration: number): boolean {
  * @param firstTimestamp Start timestamp of the track, in seconds.
  * @param duration      Clip duration, in seconds.
  */
-export function fadeProgress(primaryTime: number, firstTimestamp: number, duration: number): number {
-  const start = firstTimestamp + duration - VIDEO_CROSSFADE_SECONDS
-  const progress = (primaryTime - start) / VIDEO_CROSSFADE_SECONDS
-  return Math.max(0, Math.min(1, progress))
+export function fadeProgress(
+  primaryTime: number,
+  firstTimestamp: number,
+  duration: number,
+): number {
+  const start = firstTimestamp + duration - VIDEO_CROSSFADE_SECONDS;
+  const progress = (primaryTime - start) / VIDEO_CROSSFADE_SECONDS;
+  return Math.max(0, Math.min(1, progress));
 }

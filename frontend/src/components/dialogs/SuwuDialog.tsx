@@ -1,25 +1,25 @@
-import { type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useAtom } from 'jotai'
-import { useTranslation } from 'react-i18next'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { menuOpenAtom, menuViewAtom, type MenuView } from '../../wm/atoms'
-import AboutView from './AboutView'
-import AppMenuView from './AppMenuView'
-import AppSettingsView from './AppSettingsView'
-import MainMenuView from './MainMenuView'
-import SettingsView from './SettingsView'
-import ShortcutsView from './ShortcutsView'
-import { ChevronLeftIcon, CloseIcon } from '../icons'
+import { type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useAtom } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { menuOpenAtom, menuViewAtom, type MenuView } from '../../wm/atoms';
+import AboutView from './AboutView';
+import AppMenuView from './AppMenuView';
+import AppSettingsView from './AppSettingsView';
+import MainMenuView from './MainMenuView';
+import SettingsView from './SettingsView';
+import ShortcutsView from './ShortcutsView';
+import { ChevronLeftIcon, CloseIcon } from '../icons';
 
 const navBtn =
-  'grid h-7 w-7 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-300'
+  'grid h-7 w-7 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-300';
 
 /** True while the user is typing in a form control — keys must not navigate. */
 function isFormField(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null
-  if (!el) return false
-  const tag = el.tagName
-  return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable;
 }
 
 /**
@@ -38,13 +38,13 @@ function isFormField(target: EventTarget | null): boolean {
  * closes the dialog (Radix).
  */
 export default function SuwuDialog() {
-  const { t } = useTranslation()
-  const [open, setOpen] = useAtom(menuOpenAtom)
-  const [view, setView] = useAtom(menuViewAtom)
+  const { t } = useTranslation();
+  const [open, setOpen] = useAtom(menuOpenAtom);
+  const [view, setView] = useAtom(menuViewAtom);
 
-  const isRoot = view === 'menu'
-  const back = () => setView('menu')
-  const close = () => setOpen(false)
+  const isRoot = view === 'menu';
+  const back = () => setView('menu');
+  const close = () => setOpen(false);
 
   const TITLES: Record<MenuView, string> = {
     menu: t('app.title'),
@@ -53,17 +53,17 @@ export default function SuwuDialog() {
     appSettings: t('menu.appSettings'),
     settings: t('menu.settings'),
     about: t('menu.about'),
-  }
+  };
 
   // Global in-dialog keys: back from a sub-screen without grabbing focus
   // away from wherever the user is.
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (isRoot || e.altKey || e.ctrlKey || e.metaKey) return
+    if (isRoot || e.altKey || e.ctrlKey || e.metaKey) return;
     if ((e.key === 'Backspace' || e.key === 'ArrowLeft') && !isFormField(e.target)) {
-      e.preventDefault()
-      back()
+      e.preventDefault();
+      back();
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -79,7 +79,12 @@ export default function SuwuDialog() {
           {isRoot ? (
             <span className="h-7 w-7" aria-hidden="true" />
           ) : (
-            <button type="button" onClick={back} aria-label={t('dialog.backToMenu')} className={navBtn}>
+            <button
+              type="button"
+              onClick={back}
+              aria-label={t('dialog.backToMenu')}
+              className={navBtn}
+            >
               <ChevronLeftIcon className="h-4 w-4" />
             </button>
           )}
@@ -88,7 +93,12 @@ export default function SuwuDialog() {
             {TITLES[view]}
           </span>
 
-          <button type="button" onClick={close} aria-label={t('dialog.closeMenu')} className={navBtn}>
+          <button
+            type="button"
+            onClick={close}
+            aria-label={t('dialog.closeMenu')}
+            className={navBtn}
+          >
             <CloseIcon className="h-4 w-4" />
           </button>
         </div>
@@ -109,5 +119,5 @@ export default function SuwuDialog() {
         )}
       </DialogContent>
     </Dialog>
-  )
+  );
 }

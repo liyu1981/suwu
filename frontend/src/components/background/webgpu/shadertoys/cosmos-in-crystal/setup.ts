@@ -1,6 +1,6 @@
-import { registerBackground } from '../../../registry'
-import { WEBGPU_ENGINE } from '../../../constants'
-import type { BackgroundContext, BackgroundHandle, BackgroundParam } from '../../../types'
+import { registerBackground } from '../../../registry';
+import { WEBGPU_ENGINE } from '../../../constants';
+import type { BackgroundContext, BackgroundHandle, BackgroundParam } from '../../../types';
 
 /**
  * Render-resolution presets. The scene is heavy (a 20×13 star tunnel, 45
@@ -8,7 +8,7 @@ import type { BackgroundContext, BackgroundHandle, BackgroundParam } from '../..
  * renders into a capped offscreen target that the blit pass upscales. Higher
  * detail means more scene pixels — sharper, but heavier.
  */
-type CosmosDetail = 'low' | 'medium' | 'high' | 'ultra' | 'native'
+type CosmosDetail = 'low' | 'medium' | 'high' | 'ultra' | 'native';
 
 /** Scene render budget, in megapixels (`Infinity` = the full canvas backing). */
 const COSMOS_DETAIL_BUDGETS: Record<CosmosDetail, number> = {
@@ -17,9 +17,9 @@ const COSMOS_DETAIL_BUDGETS: Record<CosmosDetail, number> = {
   high: 2.0,
   ultra: 4.0,
   native: Number.POSITIVE_INFINITY,
-}
+};
 
-const COSMOS_DEFAULT_DETAIL: CosmosDetail = 'high'
+const COSMOS_DEFAULT_DETAIL: CosmosDetail = 'high';
 
 /** User-facing parameters for the Cosmos in Crystal background. */
 const COSMOS_PARAMS: readonly BackgroundParam[] = [
@@ -48,13 +48,13 @@ const COSMOS_PARAMS: readonly BackgroundParam[] = [
       { value: 'native', label: 'Native (canvas)' },
     ],
   },
-]
+];
 
 interface CosmosParams {
   /** Multiplier on the animation clock; 1 is the original speed, 0 freezes it. */
-  speed: number
+  speed: number;
   /** Offscreen render budget / sharpness. */
-  detail: CosmosDetail
+  detail: CosmosDetail;
 }
 
 function isDetail(value: unknown): value is CosmosDetail {
@@ -64,17 +64,17 @@ function isDetail(value: unknown): value is CosmosDetail {
     value === 'high' ||
     value === 'ultra' ||
     value === 'native'
-  )
+  );
 }
 
 /** Read the typed params out of the opaque subsystem params bag. */
 function resolveCosmosParams(params?: Record<string, unknown>): CosmosParams {
-  const speed = params?.speed
-  const detail = params?.detail
+  const speed = params?.speed;
+  const detail = params?.detail;
   return {
     speed: typeof speed === 'number' && Number.isFinite(speed) ? speed : 1,
     detail: isDetail(detail) ? detail : COSMOS_DEFAULT_DETAIL,
-  }
+  };
 }
 
 /**
@@ -89,8 +89,8 @@ async function start(
   ctx: BackgroundContext,
   params?: Record<string, unknown>,
 ): Promise<BackgroundHandle> {
-  const { speed, detail } = resolveCosmosParams(params)
-  const megapixels = COSMOS_DETAIL_BUDGETS[detail]
+  const { speed, detail } = resolveCosmosParams(params);
+  const megapixels = COSMOS_DETAIL_BUDGETS[detail];
   const [
     { fragmentScene, startGpuBackground },
     { default: cosmosShader },
@@ -99,7 +99,7 @@ async function start(
     import('../../webgpu-render-engine'),
     import('./shaders/cosmos.wgsl'),
     import('./shaders/blit.wgsl'),
-  ])
+  ]);
 
   return startGpuBackground(
     'cosmos-in-crystal',
@@ -127,7 +127,7 @@ async function start(
     ctx,
     params,
     { clearColor: [0, 0, 0, 1] },
-  )
+  );
 }
 
 registerBackground({
@@ -137,4 +137,4 @@ registerBackground({
   credit: { author: 'nayk', url: 'https://www.shadertoy.com/view/MXccR4' },
   params: COSMOS_PARAMS,
   gpu: async () => ({ start }),
-})
+});

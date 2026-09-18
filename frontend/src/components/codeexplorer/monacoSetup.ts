@@ -1,18 +1,18 @@
-import { loader } from '@monaco-editor/react'
-import * as monaco from 'monaco-editor'
+import { loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
 
 // Use the locally bundled Monaco instead of a CDN.
-loader.config({ monaco })
+loader.config({ monaco });
 
 /** Shared Suwu editor theme (transparent so the glass tile shows through). */
-export const MONACO_THEME = 'suwu-code'
+export const MONACO_THEME = 'suwu-code';
 
-let themeReady = false
+let themeReady = false;
 
 /** Register the shared editor theme once and apply it. */
 export function ensureMonacoTheme(m: typeof monaco = monaco): void {
-  if (themeReady) return
-  themeReady = true
+  if (themeReady) return;
+  themeReady = true;
   m.editor.defineTheme(MONACO_THEME, {
     base: 'vs-dark',
     inherit: true,
@@ -44,6 +44,6 @@ export function ensureMonacoTheme(m: typeof monaco = monaco): void {
       'scrollbarSlider.hoverBackground': '#ffffff20',
       'scrollbarSlider.activeBackground': '#ffffff30',
     },
-  })
-  m.editor.setTheme(MONACO_THEME)
+  });
+  m.editor.setTheme(MONACO_THEME);
 }

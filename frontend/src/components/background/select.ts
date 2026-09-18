@@ -3,40 +3,40 @@ import type {
   BackgroundContext,
   BackgroundDefinition,
   BackgroundHandle,
-} from './types'
-import { defaultBackgroundParams } from './params'
+} from './types';
+import { defaultBackgroundParams } from './params';
 
 export interface StartBackgroundOptions {
   /** `'auto'` (default) tries the GPU backend first, then falls back to CPU. */
-  force?: BackendKind | 'auto'
+  force?: BackendKind | 'auto';
   /**
    * Resolved parameters bag. Callers usually pass `resolveBackgroundParams()`
    * output; when omitted the background's declared defaults are used.
    */
-  params?: Record<string, unknown>
+  params?: Record<string, unknown>;
 }
 
-const DEBUG_KEY = 'suwu.bg'
+const DEBUG_KEY = 'suwu.bg';
 
 /** Debug override: `?bg=gpu|cpu|auto`, then localStorage, then undefined. */
 function debugOverride(): BackendKind | 'auto' | undefined {
-  if (typeof window === 'undefined') return undefined
-  const fromQuery = new URLSearchParams(window.location.search).get('bg')
-  if (fromQuery === 'gpu' || fromQuery === 'cpu' || fromQuery === 'auto') return fromQuery
+  if (typeof window === 'undefined') return undefined;
+  const fromQuery = new URLSearchParams(window.location.search).get('bg');
+  if (fromQuery === 'gpu' || fromQuery === 'cpu' || fromQuery === 'auto') return fromQuery;
   try {
-    const fromStorage = window.localStorage.getItem(DEBUG_KEY)
-    if (fromStorage === 'gpu' || fromStorage === 'cpu' || fromStorage === 'auto') return fromStorage
+    const fromStorage = window.localStorage.getItem(DEBUG_KEY);
+    if (fromStorage === 'gpu' || fromStorage === 'cpu' || fromStorage === 'auto')
+      return fromStorage;
   } catch {
     // localStorage may be unavailable (private mode, disabled storage).
   }
-  return undefined
+  return undefined;
 }
 
 function hasWebGpu(): boolean {
   return (
-    typeof navigator !== 'undefined' &&
-    (navigator as Navigator & { gpu?: unknown }).gpu != null
-  )
+    typeof navigator !== 'undefined' && (navigator as Navigator & { gpu?: unknown }).gpu != null
+  );
 }
 
 /**
@@ -57,36 +57,36 @@ export async function startBackground(
   ctx: BackgroundContext,
   options: StartBackgroundOptions = {},
 ): Promise<BackgroundHandle | null> {
-  const force = options.force ?? debugOverride() ?? 'auto'
-  const params: Record<string, unknown> = options.params ?? defaultBackgroundParams(definition)
+  const force = options.force ?? debugOverride() ?? 'auto';
+  const params: Record<string, unknown> = options.params ?? defaultBackgroundParams(definition);
 
   if (force !== 'cpu' && definition.gpu && hasWebGpu()) {
     try {
-      const gpuModule = await definition.gpu()
-      return await gpuModule.start(ctx, params)
+      const gpuModule = await definition.gpu();
+      return await gpuModule.start(ctx, params);
     } catch (error) {
       if (!definition.cpu) {
         console.warn(
           `[background] "${definition.id}" GPU backend failed and it has no CPU fallback`,
           error,
-        )
-        return null
+        );
+        return null;
       }
-      console.warn('[background] GPU backend failed; falling back to CPU', error)
+      console.warn('[background] GPU backend failed; falling back to CPU', error);
     }
   }
 
   if (definition.cpu) {
     try {
-      const cpuModule = await definition.cpu()
-      return await cpuModule.start(ctx, params)
+      const cpuModule = await definition.cpu();
+      return await cpuModule.start(ctx, params);
     } catch (error) {
-      ctx.onFatal(error)
-      throw error
+      ctx.onFatal(error);
+      throw error;
     }
   }
 
   // GPU-only background in a browser without WebGPU: render nothing.
-  console.info(`[background] "${definition.id}" has no available backend on this browser`)
-  return null
+  console.info(`[background] "${definition.id}" has no available backend on this browser`);
+  return null;
 }

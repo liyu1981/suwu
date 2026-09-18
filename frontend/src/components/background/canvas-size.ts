@@ -16,7 +16,7 @@ export function layoutSize(canvas: HTMLCanvasElement): [number, number] {
   return [
     Math.max(1, Math.round(canvas.clientWidth)),
     Math.max(1, Math.round(canvas.clientHeight)),
-  ]
+  ];
 }
 
 /**
@@ -32,13 +32,13 @@ export function resizeCanvas(
   context: CanvasRenderingContext2D,
   dpr: number,
 ): [number, number] {
-  const [width, height] = layoutSize(canvas)
-  const backingWidth = Math.round(width * dpr)
-  const backingHeight = Math.round(height * dpr)
+  const [width, height] = layoutSize(canvas);
+  const backingWidth = Math.round(width * dpr);
+  const backingHeight = Math.round(height * dpr);
   if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
-    canvas.width = backingWidth
-    canvas.height = backingHeight
+    canvas.width = backingWidth;
+    canvas.height = backingHeight;
   }
-  context.setTransform(dpr, 0, 0, dpr, 0, 0)
-  return [width, height]
+  context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [width, height];
 }

@@ -1,80 +1,95 @@
-import { layoutAtom, focusedIdAtom, spacesAtom, activeSpaceAtom } from '../wm/atoms'
-import { createStore } from 'jotai/vanilla'
+import { layoutAtom, focusedIdAtom, spacesAtom, activeSpaceAtom } from '../wm/atoms';
+import { createStore } from 'jotai/vanilla';
 import {
-  splitAndFocus, setLeafType, setLeafInitialPath, computeTiling, setPaneData,
+  splitAndFocus,
+  setLeafType,
+  setLeafInitialPath,
+  computeTiling,
+  setPaneData,
   type LayoutNode,
-} from '../wm/layout'
-import { fontDefaultAtom } from '../store/fonts'
-import type { NotificationData, CodeFileSpec } from '../store/notifications'
-import type { AutoResolveSettings } from '../store/settings'
+} from '../wm/layout';
+import { fontDefaultAtom } from '../store/fonts';
+import type { NotificationData, CodeFileSpec } from '../store/notifications';
+import type { AutoResolveSettings } from '../store/settings';
 
-export type Store = ReturnType<typeof createStore>
+export type Store = ReturnType<typeof createStore>;
 
 /**
  * Determine the best split direction and side based on the focused tile's
  * dimensions. If the tile is wider than tall, split right; if taller, split
  * down. Falls back to split right when there's no focused tile.
  */
-function resolveSplit(store: Store): { direction: 'horizontal' | 'vertical'; side: 'before' | 'after' } {
-  const root = store.get(layoutAtom)
-  const focused = store.get(focusedIdAtom)
+function resolveSplit(store: Store): {
+  direction: 'horizontal' | 'vertical';
+  side: 'before' | 'after';
+} {
+  const root = store.get(layoutAtom);
+  const focused = store.get(focusedIdAtom);
 
   if (!root || !focused) {
-    return { direction: 'horizontal', side: 'after' }
+    return { direction: 'horizontal', side: 'after' };
   }
 
   // Get viewport dimensions from the tiling container.
-  const viewport = document.querySelector('[data-tiling-viewport]')
-  const vw = viewport?.clientWidth || window.innerWidth
-  const vh = viewport?.clientHeight || window.innerHeight
+  const viewport = document.querySelector('[data-tiling-viewport]');
+  const vw = viewport?.clientWidth || window.innerWidth;
+  const vh = viewport?.clientHeight || window.innerHeight;
 
   if (vw <= 0 || vh <= 0) {
-    return { direction: 'horizontal', side: 'after' }
+    return { direction: 'horizontal', side: 'after' };
   }
 
-  const { panes } = computeTiling(root, vw, vh)
-  const pane = panes.find((p) => p.id === focused)
+  const { panes } = computeTiling(root, vw, vh);
+  const pane = panes.find((p) => p.id === focused);
   if (!pane) {
-    return { direction: 'horizontal', side: 'after' }
+    return { direction: 'horizontal', side: 'after' };
   }
 
   if (pane.w >= pane.h) {
     // Wider than tall → split right (new tile after focused)
-    return { direction: 'horizontal', side: 'after' }
+    return { direction: 'horizontal', side: 'after' };
   }
   // Taller than wide → split down (new tile after focused)
-  return { direction: 'vertical', side: 'after' }
+  return { direction: 'vertical', side: 'after' };
 }
 
 function doSplit(store: Store): string | null {
-  const root = store.get(layoutAtom)
+  const root = store.get(layoutAtom);
   if (!root) {
     // Empty layout: create first tile.
-    const focused = store.get(focusedIdAtom)
-    const { next, focus } = splitAndFocus(root, focused, 'horizontal', 'after')
-    store.set(layoutAtom, next)
-    return focus
+    const focused = store.get(focusedIdAtom);
+    const { next, focus } = splitAndFocus(root, focused, 'horizontal', 'after');
+    store.set(layoutAtom, next);
+    return focus;
   }
-  const { direction, side } = resolveSplit(store)
-  const focused = store.get(focusedIdAtom)
-  const { next, focus } = splitAndFocus(root, focused, direction, side)
-  store.set(layoutAtom, next)
-  return focus
+  const { direction, side } = resolveSplit(store);
+  const focused = store.get(focusedIdAtom);
+  const { next, focus } = splitAndFocus(root, focused, direction, side);
+  store.set(layoutAtom, next);
+  return focus;
 }
 
-function setTypeAndFocus(store: Store, leafId: string, tileType: string, params?: Record<string, string>): void {
-  const root = store.get(layoutAtom)
-  if (!root) return
-  store.set(layoutAtom, setLeafType(root, leafId, tileType, undefined, params))
-  store.set(focusedIdAtom, leafId)
+function setTypeAndFocus(
+  store: Store,
+  leafId: string,
+  tileType: string,
+  params?: Record<string, string>,
+): void {
+  const root = store.get(layoutAtom);
+  if (!root) return;
+  store.set(layoutAtom, setLeafType(root, leafId, tileType, undefined, params));
+  store.set(focusedIdAtom, leafId);
   // For terminal tiles, initialize font in paneData using the global preset.
   if (tileType === 'term') {
-    const spaces = store.get(spacesAtom)
-    const idx = store.get(activeSpaceAtom)
-    const space = spaces[idx]
+    const spaces = store.get(spacesAtom);
+    const idx = store.get(activeSpaceAtom);
+    const space = spaces[idx];
     if (space) {
-      const preset = store.get(fontDefaultAtom)
-      store.set(spacesAtom, spaces.map((s, i) => i === idx ? setPaneData(s, leafId, 'fontSize', preset) : s))
+      const preset = store.get(fontDefaultAtom);
+      store.set(
+        spacesAtom,
+        spaces.map((s, i) => (i === idx ? setPaneData(s, leafId, 'fontSize', preset) : s)),
+      );
     }
   }
 }
@@ -83,39 +98,39 @@ function setTypeAndFocus(store: Store, leafId: string, tileType: string, params?
  * Open a file browser tile navigated to the given directory path.
  */
 export function openFileBrowser(path: string, store: Store): string | null {
-  const leafId = doSplit(store)
-  if (!leafId) return null
-  setTypeAndFocus(store, leafId, 'filebrowser')
+  const leafId = doSplit(store);
+  if (!leafId) return null;
+  setTypeAndFocus(store, leafId, 'filebrowser');
   // Set initialPath directly on the leaf node — no separate atom needed.
-  const root = store.get(layoutAtom)
-  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path))
-  return leafId
+  const root = store.get(layoutAtom);
+  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path));
+  return leafId;
 }
 
 /**
  * Open a viewer tile showing the given file path.
  */
 export function openViewer(path: string, store: Store): string | null {
-  const leafId = doSplit(store)
-  if (!leafId) return null
-  setTypeAndFocus(store, leafId, 'fileviewer')
+  const leafId = doSplit(store);
+  if (!leafId) return null;
+  setTypeAndFocus(store, leafId, 'fileviewer');
   // Set initialPath directly on the leaf node — no separate atom needed.
-  const root = store.get(layoutAtom)
-  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path))
-  return leafId
+  const root = store.get(layoutAtom);
+  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path));
+  return leafId;
 }
 
 /** First leaf in the layout with the given tileType, if any. */
 function findLeafOfType(root: LayoutNode | null, tileType: string): LayoutNode | null {
-  if (!root) return null
+  if (!root) return null;
   if (root.type === 'leaf') {
-    return root.tileType === tileType ? root : null
+    return root.tileType === tileType ? root : null;
   }
   for (const child of root.children) {
-    const found = findLeafOfType(child.node, tileType)
-    if (found) return found
+    const found = findLeafOfType(child.node, tileType);
+    if (found) return found;
   }
-  return null
+  return null;
 }
 
 /**
@@ -123,62 +138,62 @@ function findLeafOfType(root: LayoutNode | null, tileType: string): LayoutNode |
  * If a forward tile already exists, focus it instead of duplicating.
  */
 export function openForward(store: Store): string | null {
-  const spaces = store.get(spacesAtom)
-  const idx = store.get(activeSpaceAtom)
-  const root = spaces[idx]?.layout ?? null
+  const spaces = store.get(spacesAtom);
+  const idx = store.get(activeSpaceAtom);
+  const root = spaces[idx]?.layout ?? null;
 
-  const existing = findLeafOfType(root, 'forward')
+  const existing = findLeafOfType(root, 'forward');
   if (existing) {
-    store.set(focusedIdAtom, existing.id)
+    store.set(focusedIdAtom, existing.id);
     // Keep layout stable; just bring the existing tile into focus.
-    const viewport = document.querySelector('[data-tiling-viewport]')
-    const el = viewport?.querySelector(`iframe[data-pane="${existing.id}"]`)
-    ;(el as HTMLElement | null)?.focus()
-    return existing.id
+    const viewport = document.querySelector('[data-tiling-viewport]');
+    const el = viewport?.querySelector(`iframe[data-pane="${existing.id}"]`);
+    (el as HTMLElement | null)?.focus();
+    return existing.id;
   }
 
-  const leafId = doSplit(store)
-  if (!leafId) return null
-  setTypeAndFocus(store, leafId, 'forward')
-  return leafId
+  const leafId = doSplit(store);
+  if (!leafId) return null;
+  setTypeAndFocus(store, leafId, 'forward');
+  return leafId;
 }
 
 /**
  * Open a git graph tile navigated to the given repository path.
  */
 export function openGitGraph(path: string, store: Store): string | null {
-  const leafId = doSplit(store)
-  if (!leafId) return null
-  setTypeAndFocus(store, leafId, 'gitgraph')
-  const root = store.get(layoutAtom)
-  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path))
-  return leafId
+  const leafId = doSplit(store);
+  if (!leafId) return null;
+  setTypeAndFocus(store, leafId, 'gitgraph');
+  const root = store.get(layoutAtom);
+  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, path));
+  return leafId;
 }
 
 /**
  * Open a diff tile comparing two files.
  */
 export function openDiff(file1: string, file2: string, store: Store): string | null {
-  const leafId = doSplit(store)
-  if (!leafId) return null
-  setTypeAndFocus(store, leafId, 'diff')
-  const root = store.get(layoutAtom)
-  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, file1))
+  const leafId = doSplit(store);
+  if (!leafId) return null;
+  setTypeAndFocus(store, leafId, 'diff');
+  const root = store.get(layoutAtom);
+  if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, file1));
   // Pass file2 via params so the plugin includes it in the iframe URL.
-  const root2 = store.get(layoutAtom)
+  const root2 = store.get(layoutAtom);
   if (root2) {
     const walk = (node: LayoutNode): LayoutNode => {
       if (node.type === 'leaf' && node.id === leafId) {
-        return { ...node, params: { file2 } }
+        return { ...node, params: { file2 } };
       }
       if (node.type === 'split') {
-        return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+        return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
       }
-      return node
-    }
-    store.set(layoutAtom, walk(root2))
+      return node;
+    };
+    store.set(layoutAtom, walk(root2));
   }
-  return leafId
+  return leafId;
 }
 
 /**
@@ -186,10 +201,10 @@ export function openDiff(file1: string, file2: string, store: Store): string | n
  * ranges. Always a fresh tile — no reuse.
  */
 export function openCode(files: CodeFileSpec[], store: Store): string | null {
-  const leafId = doSplit(store)
-  if (!leafId) return null
-  setTypeAndFocus(store, leafId, 'code', { files: JSON.stringify(files) })
-  return leafId
+  const leafId = doSplit(store);
+  if (!leafId) return null;
+  setTypeAndFocus(store, leafId, 'code', { files: JSON.stringify(files) });
+  return leafId;
 }
 
 /**
@@ -201,63 +216,60 @@ export function resolveAction(
   store: Store,
   autoResolve: AutoResolveSettings,
 ): boolean {
-  const payload = data.payload
+  const payload = data.payload;
   switch (payload.type) {
     case 'gitgraph':
-      if (!autoResolve.gitgraph) return false
-      openGitGraph(payload.path, store)
-      return true
+      if (!autoResolve.gitgraph) return false;
+      openGitGraph(payload.path, store);
+      return true;
     case 'diff':
-      if (!autoResolve.diff) return false
-      openDiff(payload.file1, payload.file2, store)
-      return true
+      if (!autoResolve.diff) return false;
+      openDiff(payload.file1, payload.file2, store);
+      return true;
     case 'dir':
-      if (!autoResolve.filebrowser) return false
-      openFileBrowser(payload.path, store)
-      return true
+      if (!autoResolve.filebrowser) return false;
+      openFileBrowser(payload.path, store);
+      return true;
     case 'file':
-      if (!autoResolve.fileviewer) return false
-      openViewer(payload.path, store)
-      return true
+      if (!autoResolve.fileviewer) return false;
+      openViewer(payload.path, store);
+      return true;
     case 'forward':
-      if (!autoResolve.forward) return false
-      openForward(store)
-      return true
+      if (!autoResolve.forward) return false;
+      openForward(store);
+      return true;
     case 'code':
-      if (!autoResolve.code) return false
-      openCode(payload.files, store)
-      return true
+      if (!autoResolve.code) return false;
+      openCode(payload.files, store);
+      return true;
     default:
-      return false
+      return false;
   }
 }
 
 /**
  * Execute an action for a notification (called from action button click).
  */
-export function executeAction(
-  data: NotificationData,
-  store: Store,
-): void {
-  const payload = data.payload
+export function executeAction(data: NotificationData, store: Store): void {
+  const payload = data.payload;
   switch (payload.type) {
     case 'gitgraph':
-      openGitGraph(payload.path, store)
-      break
+      openGitGraph(payload.path, store);
+      break;
     case 'diff':
-      openDiff(payload.file1, payload.file2, store)
-      break
+      openDiff(payload.file1, payload.file2, store);
+      break;
     case 'dir':
-      openFileBrowser(payload.path, store)
-      break
+      openFileBrowser(payload.path, store);
+      break;
     case 'forward':
-      openForward(store)
-      break
+      openForward(store);
+      break;
     case 'code':
-      openCode(payload.files, store)
-      break
+      openCode(payload.files, store);
+      break;
     case 'file':
-      openViewer(payload.path, store)
-      break
+      openViewer(payload.path, store);
+      break;
   }
 }

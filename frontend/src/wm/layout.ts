@@ -5,82 +5,91 @@
 // (stacked). Each child of a split carries a `size` weight used for flex
 // layout and adjusted by dragging the dividers between siblings.
 
-export type Direction = 'horizontal' | 'vertical'
+export type Direction = 'horizontal' | 'vertical';
 
 /** Which side of the focused pane the new pane lands on. */
-export type SplitSide = 'before' | 'after'
+export type SplitSide = 'before' | 'after';
 
-export type TileType = string
+export type TileType = string;
 
-export type SplitChild = { node: LayoutNode; size: number }
+export type SplitChild = { node: LayoutNode; size: number };
 
-export type SplitNode = { type: 'split'; id: string; direction: Direction; children: SplitChild[] }
+export type SplitNode = { type: 'split'; id: string; direction: Direction; children: SplitChild[] };
 
 export type LayoutNode =
-  | { type: 'leaf'; id: string; tileType?: TileType; initialPath?: string; params?: Record<string, string> }
-  | SplitNode
+  | {
+      type: 'leaf';
+      id: string;
+      tileType?: TileType;
+      initialPath?: string;
+      params?: Record<string, string>;
+    }
+  | SplitNode;
 
 // ── Per-pane plugin data ──────────────────────────────────────────
 
 /** Generic per-pane data bag. Each tile plugin owns its own keys. */
-export type PaneData = Record<string, unknown>
+export type PaneData = Record<string, unknown>;
 
 /** Read typed pane data for a specific pane. Returns undefined when absent. */
-export function getPaneData<T = Record<string, unknown>>(space: Space, paneId: string): T | undefined {
-  return space.paneData?.[paneId] as T | undefined
+export function getPaneData<T = Record<string, unknown>>(
+  space: Space,
+  paneId: string,
+): T | undefined {
+  return space.paneData?.[paneId] as T | undefined;
 }
 
 /** Immutably set a key in a pane's data bag. */
 export function setPaneData(space: Space, paneId: string, key: string, value: unknown): Space {
-  const prev = space.paneData ?? {}
-  const prevPane = (prev[paneId] as PaneData | undefined) ?? {}
+  const prev = space.paneData ?? {};
+  const prevPane = (prev[paneId] as PaneData | undefined) ?? {};
   return {
     ...space,
     paneData: { ...prev, [paneId]: { ...prevPane, [key]: value } },
-  }
+  };
 }
 
 /** Remove paneData entries for pane ids that no longer exist in the layout. */
 export function cleanStalePaneData(space: Space): Space {
-  const paneData = space.paneData
-  if (!paneData) return space
-  const validIds = new Set(leaves(space.layout))
-  let changed = false
-  const next: Record<string, PaneData> = {}
+  const paneData = space.paneData;
+  if (!paneData) return space;
+  const validIds = new Set(leaves(space.layout));
+  let changed = false;
+  const next: Record<string, PaneData> = {};
   for (const [id, data] of Object.entries(paneData)) {
     if (validIds.has(id)) {
-      next[id] = data
+      next[id] = data;
     } else {
-      changed = true
+      changed = true;
     }
   }
-  if (!changed) return space
+  if (!changed) return space;
   return {
     ...space,
     paneData: Object.keys(next).length > 0 ? next : undefined,
-  }
+  };
 }
 
 /** A space is a named group of tiles that occupies the full viewport. */
 export type Space = {
-  id: string
-  name: string
-  layout: LayoutNode | null
+  id: string;
+  name: string;
+  layout: LayoutNode | null;
   /** Per-pane plugin data keyed by pane id. */
-  paneData?: Record<string, PaneData>
-}
+  paneData?: Record<string, PaneData>;
+};
 
-let counter = 0
+let counter = 0;
 
 function newId(): string {
-  counter = (counter + 1) % 1e9
-  return `n${Date.now().toString(36)}${counter.toString(36)}`
+  counter = (counter + 1) % 1e9;
+  return `n${Date.now().toString(36)}${counter.toString(36)}`;
 }
 
 export function createLeaf(id: string = newId(), tileType?: TileType): LayoutNode {
-  const leaf: LayoutNode = { type: 'leaf', id }
-  if (tileType !== undefined) leaf.tileType = tileType
-  return leaf
+  const leaf: LayoutNode = { type: 'leaf', id };
+  if (tileType !== undefined) leaf.tileType = tileType;
+  return leaf;
 }
 
 export function createSplit(direction: Direction, a: LayoutNode, b: LayoutNode): LayoutNode {
@@ -92,7 +101,7 @@ export function createSplit(direction: Direction, a: LayoutNode, b: LayoutNode):
       { node: a, size: 1 },
       { node: b, size: 1 },
     ],
-  }
+  };
 }
 
 /** Immutably set the tileType on a leaf node. */
@@ -105,44 +114,46 @@ export function setLeafType(
 ): LayoutNode {
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf' && node.id === targetId) {
-      const next: LayoutNode = { ...node, tileType }
-      if (initialPath !== undefined) next.initialPath = initialPath
-      if (params !== undefined) next.params = params
-      return next
+      const next: LayoutNode = { ...node, tileType };
+      if (initialPath !== undefined) next.initialPath = initialPath;
+      if (params !== undefined) next.params = params;
+      return next;
     }
     if (node.type === 'split') {
-      return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+      return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
     }
-    return node
-  }
-  return walk(root)
+    return node;
+  };
+  return walk(root);
 }
 
-
-
 /** Immutably set the initialPath on a leaf node (one-shot file path for viewer/filebrowser). */
-export function setLeafInitialPath(root: LayoutNode, targetId: string, initialPath: string): LayoutNode {
+export function setLeafInitialPath(
+  root: LayoutNode,
+  targetId: string,
+  initialPath: string,
+): LayoutNode {
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf' && node.id === targetId) {
-      return { ...node, initialPath }
+      return { ...node, initialPath };
     }
     if (node.type === 'split') {
-      return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
+      return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
     }
-    return node
-  }
-  return walk(root)
+    return node;
+  };
+  return walk(root);
 }
 
 /** Look up a leaf node by id. */
 export function findLeaf(root: LayoutNode | null, id: string): LayoutNode | null {
-  if (!root) return null
-  if (root.type === 'leaf') return root.id === id ? root : null
+  if (!root) return null;
+  if (root.type === 'leaf') return root.id === id ? root : null;
   for (const c of root.children) {
-    const hit = findLeaf(c.node, id)
-    if (hit) return hit
+    const hit = findLeaf(c.node, id);
+    if (hit) return hit;
   }
-  return null
+  return null;
 }
 
 /** Replace the leaf `targetId` with a split containing it plus a new leaf. */
@@ -154,15 +165,15 @@ export function splitAt(
 ): LayoutNode {
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf') {
-      if (node.id !== targetId) return node
-      const peer = createLeaf()
+      if (node.id !== targetId) return node;
+      const peer = createLeaf();
       return side === 'before'
         ? createSplit(direction, peer, node)
-        : createSplit(direction, node, peer)
+        : createSplit(direction, node, peer);
     }
-    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
-  }
-  return walk(root)
+    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
+  };
+  return walk(root);
 }
 
 /** Like splitAt but also returns the id of the newly created leaf. */
@@ -172,44 +183,44 @@ export function splitAtWithId(
   direction: Direction,
   side: SplitSide = 'after',
 ): { next: LayoutNode; newLeafId: string } {
-  let newLeafId = ''
+  let newLeafId = '';
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf') {
-      if (node.id !== targetId) return node
-      const peer = createLeaf()
-      newLeafId = peer.id
+      if (node.id !== targetId) return node;
+      const peer = createLeaf();
+      newLeafId = peer.id;
       return side === 'before'
         ? createSplit(direction, peer, node)
-        : createSplit(direction, node, peer)
+        : createSplit(direction, node, peer);
     }
-    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
-  }
-  return { next: walk(root), newLeafId }
+    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
+  };
+  return { next: walk(root), newLeafId };
 }
 
 /** Remove the leaf `targetId`, collapsing splits that drop below two children. Returns null when empty. */
 export function closeAt(root: LayoutNode, targetId: string): LayoutNode | null {
   const walk = (node: LayoutNode): LayoutNode | null => {
     if (node.type === 'leaf') {
-      return node.id === targetId ? null : node
+      return node.id === targetId ? null : node;
     }
-    const children: SplitChild[] = []
+    const children: SplitChild[] = [];
     for (const c of node.children) {
-      const n = walk(c.node)
-      if (n) children.push({ node: n, size: c.size })
+      const n = walk(c.node);
+      if (n) children.push({ node: n, size: c.size });
     }
-    if (children.length === 0) return null
-    if (children.length === 1) return children[0].node
-    return { type: 'split', id: node.id, direction: node.direction, children }
-  }
-  return walk(root)
+    if (children.length === 0) return null;
+    if (children.length === 1) return children[0].node;
+    return { type: 'split', id: node.id, direction: node.direction, children };
+  };
+  return walk(root);
 }
 
 /** Leaf ids in rendering order (for focus navigation). */
 export function leaves(node: LayoutNode | null): string[] {
-  if (!node) return []
-  if (node.type === 'leaf') return [node.id]
-  return node.children.flatMap((c) => leaves(c.node))
+  if (!node) return [];
+  if (node.type === 'leaf') return [node.id];
+  return node.children.flatMap((c) => leaves(c.node));
 }
 
 /**
@@ -225,27 +236,27 @@ export function splitAndFocus(
   side: SplitSide = 'after',
 ): { next: LayoutNode; focus: string } {
   if (!root) {
-    const leaf = createLeaf()
-    return { next: leaf, focus: leaf.id }
+    const leaf = createLeaf();
+    return { next: leaf, focus: leaf.id };
   }
-  const ids = leaves(root)
-  const target = focusedId && ids.includes(focusedId) ? focusedId : ids[0]
-  if (!target) return { next: root, focus: focusedId }
-  const { next, newLeafId } = splitAtWithId(root, target, direction, side)
-  return { next, focus: newLeafId }
+  const ids = leaves(root);
+  const target = focusedId && ids.includes(focusedId) ? focusedId : ids[0];
+  if (!target) return { next: root, focus: focusedId };
+  const { next, newLeafId } = splitAtWithId(root, target, direction, side);
+  return { next, focus: newLeafId };
 }
 
 /** Focus a sibling of `currentId`, wrapping around; -1 / +1 offset. */
 export function focusByOffset(root: LayoutNode | null, currentId: string, offset: number): string {
-  const ids = leaves(root)
-  if (ids.length === 0) return ''
-  const idx = ids.indexOf(currentId)
-  if (idx === -1) return ids[0]
-  return ids[(idx + offset + ids.length) % ids.length]
+  const ids = leaves(root);
+  if (ids.length === 0) return '';
+  const idx = ids.indexOf(currentId);
+  if (idx === -1) return ids[0];
+  return ids[(idx + offset + ids.length) % ids.length];
 }
 
 /** Direction to move a tile in. */
-export type MoveDir = 'left' | 'right' | 'up' | 'down'
+export type MoveDir = 'left' | 'right' | 'up' | 'down';
 
 /**
  * Swap the positions of two leaves anywhere in the tree, keeping the size
@@ -255,19 +266,19 @@ export type MoveDir = 'left' | 'right' | 'up' | 'down'
  */
 export function swapLeaves(root: LayoutNode, a: string, b: string): LayoutNode {
   // Collect full leaf data for both targets so we can swap everything.
-  const leafA = findLeaf(root, a)
-  const leafB = findLeaf(root, b)
-  if (!leafA || !leafB || leafA.type !== 'leaf' || leafB.type !== 'leaf') return root
+  const leafA = findLeaf(root, a);
+  const leafB = findLeaf(root, b);
+  if (!leafA || !leafB || leafA.type !== 'leaf' || leafB.type !== 'leaf') return root;
 
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf') {
-      if (node.id === a) return { ...leafB, id: a }
-      if (node.id === b) return { ...leafA, id: b }
-      return node
+      if (node.id === a) return { ...leafB, id: a };
+      if (node.id === b) return { ...leafA, id: b };
+      return node;
     }
-    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) }
-  }
-  return walk(root)
+    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
+  };
+  return walk(root);
 }
 
 /**
@@ -276,45 +287,43 @@ export function swapLeaves(root: LayoutNode, a: string, b: string): LayoutNode {
  * axis, with the smallest gap. Returns null when no neighbor exists (the
  * tile is already at that edge), which callers treat as a no-op.
  */
-export function findNeighborRect(
-  panes: PaneLayout[],
-  id: string,
-  dir: MoveDir,
-): PaneLayout | null {
-  const self = panes.find((p) => p.id === id)
-  if (!self) return null
+export function findNeighborRect(panes: PaneLayout[], id: string, dir: MoveDir): PaneLayout | null {
+  const self = panes.find((p) => p.id === id);
+  if (!self) return null;
   // Rounding tolerance: computeTiling rounds shared seams to identical px.
-  const EPS = 1
-  let best: PaneLayout | null = null
-  let bestDist = Infinity
+  const EPS = 1;
+  let best: PaneLayout | null = null;
+  let bestDist = Infinity;
   for (const r of panes) {
-    if (r.id === id) continue
-    let ok = false
-    let dist = 0
+    if (r.id === id) continue;
+    let ok = false;
+    let dist = 0;
     switch (dir) {
       case 'left':
-        ok = r.x + r.w <= self.x + EPS && r.y < self.y + self.h - EPS && r.y + r.h > self.y + EPS
-        dist = self.x - (r.x + r.w)
-        break
+        ok = r.x + r.w <= self.x + EPS && r.y < self.y + self.h - EPS && r.y + r.h > self.y + EPS;
+        dist = self.x - (r.x + r.w);
+        break;
       case 'right':
-        ok = r.x >= self.x + self.w - EPS && r.y < self.y + self.h - EPS && r.y + r.h > self.y + EPS
-        dist = r.x - (self.x + self.w)
-        break
+        ok =
+          r.x >= self.x + self.w - EPS && r.y < self.y + self.h - EPS && r.y + r.h > self.y + EPS;
+        dist = r.x - (self.x + self.w);
+        break;
       case 'up':
-        ok = r.y + r.h <= self.y + EPS && r.x < self.x + self.w - EPS && r.x + r.w > self.x + EPS
-        dist = self.y - (r.y + r.h)
-        break
+        ok = r.y + r.h <= self.y + EPS && r.x < self.x + self.w - EPS && r.x + r.w > self.x + EPS;
+        dist = self.y - (r.y + r.h);
+        break;
       case 'down':
-        ok = r.y >= self.y + self.h - EPS && r.x < self.x + self.w - EPS && r.x + r.w > self.x + EPS
-        dist = r.y - (self.y + self.h)
-        break
+        ok =
+          r.y >= self.y + self.h - EPS && r.x < self.x + self.w - EPS && r.x + r.w > self.x + EPS;
+        dist = r.y - (self.y + self.h);
+        break;
     }
     if (ok && dist < bestDist) {
-      bestDist = dist
-      best = r
+      bestDist = dist;
+      best = r;
     }
   }
-  return best
+  return best;
 }
 
 /** Apply `fn` to the children of the split with the given id. */
@@ -323,41 +332,44 @@ export function updateSplitAt(
   splitId: string,
   fn: (children: SplitChild[]) => SplitChild[],
 ): LayoutNode {
-  if (root.type === 'leaf') return root
-  if (root.id === splitId) return { ...root, children: fn(root.children) }
-  return { ...root, children: root.children.map((c) => ({ ...c, node: updateSplitAt(c.node, splitId, fn) })) }
+  if (root.type === 'leaf') return root;
+  if (root.id === splitId) return { ...root, children: fn(root.children) };
+  return {
+    ...root,
+    children: root.children.map((c) => ({ ...c, node: updateSplitAt(c.node, splitId, fn) })),
+  };
 }
 
 /** Width of the draggable strip between two siblings, in px. */
-export const GUTTER = 8
+export const GUTTER = 8;
 
 /** Pixel-space rectangle relative to the tiling viewport. */
-export type Rect = { x: number; y: number; w: number; h: number }
+export type Rect = { x: number; y: number; w: number; h: number };
 
-export type PaneLayout = Rect & { id: string }
+export type PaneLayout = Rect & { id: string };
 
 export type DividerSpec = {
-  splitId: string
+  splitId: string;
   /** Index of the left/top sibling of this divider inside its split. */
-  index: number
+  index: number;
   /** Main axis of the owning split: 'x' = side-by-side, 'y' = stacked. */
-  axis: 'x' | 'y'
-  rect: Rect
+  axis: 'x' | 'y';
+  rect: Rect;
   /** Full main-axis extent of the owning split in px (for drag deltas). */
-  length: number
-}
+  length: number;
+};
 
 /** Find the split node with the given id anywhere in the tree. */
 export function findSplit(root: LayoutNode | null, id: string): SplitNode | null {
-  if (!root) return null
+  if (!root) return null;
   if (root.type === 'split') {
-    if (root.id === id) return root
+    if (root.id === id) return root;
     for (const c of root.children) {
-      const hit = findSplit(c.node, id)
-      if (hit) return hit
+      const hit = findSplit(c.node, id);
+      if (hit) return hit;
     }
   }
-  return null
+  return null;
 }
 
 /**
@@ -372,11 +384,11 @@ export function computeTiling(
   width: number,
   height: number,
 ): { panes: PaneLayout[]; dividers: DividerSpec[] } {
-  const panes: PaneLayout[] = []
-  const dividers: DividerSpec[] = []
-  if (!root || width <= 0 || height <= 0) return { panes, dividers }
+  const panes: PaneLayout[] = [];
+  const dividers: DividerSpec[] = [];
+  if (!root || width <= 0 || height <= 0) return { panes, dividers };
 
-  const rd = Math.round
+  const rd = Math.round;
   const walk = (node: LayoutNode, x: number, y: number, w: number, h: number) => {
     if (node.type === 'leaf') {
       panes.push({
@@ -385,52 +397,68 @@ export function computeTiling(
         y: rd(y),
         w: rd(x + w) - rd(x),
         h: rd(y + h) - rd(y),
-      })
-      return
+      });
+      return;
     }
 
-    const kids = node.children
-    const n = kids.length
-    if (n === 0) return
+    const kids = node.children;
+    const n = kids.length;
+    if (n === 0) return;
     // 'horizontal' means side-by-side siblings, i.e. the main axis is x.
-    const horizontal = node.direction === 'horizontal'
-    const start = horizontal ? x : y
-    const span = horizontal ? w : h
-    const totalWeight = kids.reduce((acc, k) => acc + k.size, 0)
-    if (totalWeight <= 0) return
+    const horizontal = node.direction === 'horizontal';
+    const start = horizontal ? x : y;
+    const span = horizontal ? w : h;
+    const totalWeight = kids.reduce((acc, k) => acc + k.size, 0);
+    if (totalWeight <= 0) return;
 
-    let used = 0
+    let used = 0;
     kids.forEach((child, i) => {
-      const offset = start + used
+      const offset = start + used;
       const share =
         i === n - 1
           ? start + span - offset
-          : ((span - (n - 1) * GUTTER) * child.size) / totalWeight
+          : ((span - (n - 1) * GUTTER) * child.size) / totalWeight;
 
-      walk(child.node, horizontal ? offset : x, horizontal ? y : offset, horizontal ? share : w, horizontal ? h : share)
+      walk(
+        child.node,
+        horizontal ? offset : x,
+        horizontal ? y : offset,
+        horizontal ? share : w,
+        horizontal ? h : share,
+      );
 
-      used += share + GUTTER
+      used += share + GUTTER;
 
       if (i < n - 1) {
-        const bx = horizontal ? offset + share : x
-        const by = horizontal ? y : offset + share
-        const bw = horizontal ? rd(offset + share + GUTTER) - rd(offset + share) : rd(x + w) - rd(x)
-        const bh = horizontal ? rd(y + h) - rd(y) : rd(offset + share + GUTTER) - rd(offset + share)
-        dividers.push({ splitId: node.id, index: i, axis: horizontal ? 'x' : 'y', rect: { x: rd(bx), y: rd(by), w: bw, h: bh }, length: span })
+        const bx = horizontal ? offset + share : x;
+        const by = horizontal ? y : offset + share;
+        const bw = horizontal
+          ? rd(offset + share + GUTTER) - rd(offset + share)
+          : rd(x + w) - rd(x);
+        const bh = horizontal
+          ? rd(y + h) - rd(y)
+          : rd(offset + share + GUTTER) - rd(offset + share);
+        dividers.push({
+          splitId: node.id,
+          index: i,
+          axis: horizontal ? 'x' : 'y',
+          rect: { x: rd(bx), y: rd(by), w: bw, h: bh },
+          length: span,
+        });
       }
-    })
-  }
-  walk(root, 0, 0, width, height)
-  return { panes, dividers }
+    });
+  };
+  walk(root, 0, 0, width, height);
+  return { panes, dividers };
 }
 
 // ── Space helpers ──────────────────────────────────────────────────
 
-let spaceCounter = 0
+let spaceCounter = 0;
 
 function newSpaceId(): string {
-  spaceCounter = (spaceCounter + 1) % 1e9
-  return `s${Date.now().toString(36)}${spaceCounter.toString(36)}`
+  spaceCounter = (spaceCounter + 1) % 1e9;
+  return `s${Date.now().toString(36)}${spaceCounter.toString(36)}`;
 }
 
 /** Create a new space with an optional name and a single empty leaf. */
@@ -439,21 +467,21 @@ export function createSpace(name?: string): Space {
     id: newSpaceId(),
     name: name ?? 'Space',
     layout: createLeaf(),
-  }
+  };
 }
 
 /** Append a new space; returns { spaces, index } with the new space active. */
 export function addSpace(spaces: Space[]): { spaces: Space[]; index: number } {
-  const next = [...spaces, createSpace()]
-  return { spaces: next, index: next.length - 1 }
+  const next = [...spaces, createSpace()];
+  return { spaces: next, index: next.length - 1 };
 }
 
 /** Remove a space at `idx` (minimum 1 space kept); returns the adjusted active index. */
 export function removeSpace(spaces: Space[], idx: number): { spaces: Space[]; index: number } {
-  if (spaces.length <= 1) return { spaces, index: 0 }
-  const next = spaces.filter((_, i) => i !== idx)
-  const index = Math.min(idx, next.length - 1)
-  return { spaces: next, index }
+  if (spaces.length <= 1) return { spaces, index: 0 };
+  const next = spaces.filter((_, i) => i !== idx);
+  const index = Math.min(idx, next.length - 1);
+  return { spaces: next, index };
 }
 
 /**
@@ -467,79 +495,91 @@ export function moveLeafBetweenSpaces(
   fromIdx: number,
   toIdx: number,
 ): Space[] {
-  const source = spaces[fromIdx]
-  const target = spaces[toIdx]
-  if (!source || !target) return spaces
-  if (fromIdx === toIdx) return spaces
+  const source = spaces[fromIdx];
+  const target = spaces[toIdx];
+  if (!source || !target) return spaces;
+  if (fromIdx === toIdx) return spaces;
 
   // Find and copy the leaf data.
-  const leaf = findLeaf(source.layout, leafId)
-  if (!leaf || leaf.type !== 'leaf') return spaces
+  const leaf = findLeaf(source.layout, leafId);
+  if (!leaf || leaf.type !== 'leaf') return spaces;
 
   // Remove from source.
-  const newSourceLayout = source.layout ? closeAt(source.layout, leafId) : null
+  const newSourceLayout = source.layout ? closeAt(source.layout, leafId) : null;
 
   // Insert into target: if target is empty, just set the leaf.
   // Otherwise, use smart split (resolveSplit pattern).
-  let newTargetLayout: LayoutNode
+  let newTargetLayout: LayoutNode;
   if (!target.layout) {
-    newTargetLayout = { ...leaf }
+    newTargetLayout = { ...leaf };
   } else {
     // Find the first leaf in target to split from.
-    const targetLeaves = leaves(target.layout)
-    const splitFrom = targetLeaves[0]
+    const targetLeaves = leaves(target.layout);
+    const splitFrom = targetLeaves[0];
     if (!splitFrom) {
-      newTargetLayout = { ...leaf }
+      newTargetLayout = { ...leaf };
     } else {
       // Smart split: if target is wider than tall, split right; else split down.
       // We use a simple heuristic: always split horizontal after.
-      const { next } = splitAtWithId(target.layout, splitFrom, 'horizontal', 'after')
+      const { next } = splitAtWithId(target.layout, splitFrom, 'horizontal', 'after');
       // Replace the new empty leaf with our leaf.
-      const newIds = leaves(next)
-      const emptyLeaf = newIds.find((id) => id !== splitFrom)
+      const newIds = leaves(next);
+      const emptyLeaf = newIds.find((id) => id !== splitFrom);
       if (emptyLeaf) {
-        newTargetLayout = setLeafType(next, emptyLeaf, leaf.tileType ?? '', leaf.initialPath, leaf.params)
+        newTargetLayout = setLeafType(
+          next,
+          emptyLeaf,
+          leaf.tileType ?? '',
+          leaf.initialPath,
+          leaf.params,
+        );
         // Preserve the original leaf id for iframe continuity.
-        newTargetLayout = swapLeafIds(newTargetLayout, emptyLeaf, leafId)
+        newTargetLayout = swapLeafIds(newTargetLayout, emptyLeaf, leafId);
       } else {
-        newTargetLayout = next
+        newTargetLayout = next;
       }
     }
   }
 
   // Copy paneData from source to target.
-  const srcPaneData = source.paneData?.[leafId]
+  const srcPaneData = source.paneData?.[leafId];
 
   return spaces.map((s, i) => {
     if (i === fromIdx) {
       // Remove paneData for the moved leaf from source.
-      const { [leafId]: _, ...restPaneData } = s.paneData ?? {}
-      return { ...s, layout: newSourceLayout, paneData: Object.keys(restPaneData).length > 0 ? restPaneData : undefined }
+      const { [leafId]: _, ...restPaneData } = s.paneData ?? {};
+      return {
+        ...s,
+        layout: newSourceLayout,
+        paneData: Object.keys(restPaneData).length > 0 ? restPaneData : undefined,
+      };
     }
     if (i === toIdx) {
       // Copy paneData to target.
-      const targetPaneData = srcPaneData ? { ...(s.paneData ?? {}), [leafId]: srcPaneData } : s.paneData
-      return { ...s, layout: newTargetLayout, paneData: targetPaneData }
+      const targetPaneData = srcPaneData
+        ? { ...(s.paneData ?? {}), [leafId]: srcPaneData }
+        : s.paneData;
+      return { ...s, layout: newTargetLayout, paneData: targetPaneData };
     }
-    return s
-  })
+    return s;
+  });
 }
 
 /** Swap the id of two leaves in the tree. */
 export function swapLeafIds(root: LayoutNode, idA: string, idB: string): LayoutNode {
   if (root.type === 'leaf') {
-    if (root.id === idA) return { ...root, id: idB }
-    if (root.id === idB) return { ...root, id: idA }
-    return root
+    if (root.id === idA) return { ...root, id: idB };
+    if (root.id === idB) return { ...root, id: idA };
+    return root;
   }
   return {
     ...root,
     children: root.children.map((c) => ({ ...c, node: swapLeafIds(c.node, idA, idB) })),
-  }
+  };
 }
 
 /** Cycle the active index forward/backward with wrapping. */
 export function cycleSpace(spaces: Space[], current: number, delta: number): number {
-  if (spaces.length === 0) return 0
-  return ((current + delta) % spaces.length + spaces.length) % spaces.length
+  if (spaces.length === 0) return 0;
+  return (((current + delta) % spaces.length) + spaces.length) % spaces.length;
 }

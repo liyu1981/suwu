@@ -20,9 +20,21 @@ interface GraphRendererProps {
 const DEFAULT_CONFIG: GraphConfig = {
   style: 'curved',
   colors: [
-    '#0366d6', '#6f42c1', '#e36209', '#00875a', '#5067d6',
-    '#f97583', '#79b8ff', '#b392f0', '#f9826c', '#85e89d',
-    '#56d4dd', '#da3633', '#fdd663', '#0457c0', '#6e40c9',
+    '#0366d6',
+    '#6f42c1',
+    '#e36209',
+    '#00875a',
+    '#5067d6',
+    '#f97583',
+    '#79b8ff',
+    '#b392f0',
+    '#f9826c',
+    '#85e89d',
+    '#56d4dd',
+    '#da3633',
+    '#fdd663',
+    '#0457c0',
+    '#6e40c9',
   ],
   grid: {
     x: 24,
@@ -61,11 +73,7 @@ export function GraphRenderer({
   }
 
   return (
-    <svg
-      className="h-full w-full"
-      width={layout.width}
-      height={layout.height}
-    >
+    <svg className="h-full w-full" width={layout.width} height={layout.height}>
       {/* Branch lines */}
       {layout.edges.map((edge, i) => (
         <GraphEdge
@@ -164,9 +172,12 @@ function GraphVertex({ node, commit, onClick, onHover }: GraphVertexProps) {
 
   useEffect(() => {
     // Stagger animation based on node id
-    const timer = setTimeout(() => {
-      requestAnimationFrame(() => setAnimate(true));
-    }, Math.min(node.id * 10, 300));
+    const timer = setTimeout(
+      () => {
+        requestAnimationFrame(() => setAnimate(true));
+      },
+      Math.min(node.id * 10, 300),
+    );
     return () => clearTimeout(timer);
   }, [node.id]);
 

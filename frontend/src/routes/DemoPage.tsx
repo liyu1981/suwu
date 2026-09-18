@@ -1,5 +1,5 @@
-import TilingWM from '../wm/TilingWM'
+import TilingWM from '../wm/TilingWM';
 
 export default function DemoPage() {
-  return <TilingWM />
+  return <TilingWM />;
 }

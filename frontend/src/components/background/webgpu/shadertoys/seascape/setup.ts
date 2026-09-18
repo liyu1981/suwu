@@ -1,14 +1,14 @@
-import { registerBackground } from '../../../registry'
-import { WEBGPU_ENGINE } from '../../../constants'
-import type { BackgroundContext, BackgroundHandle, BackgroundParam } from '../../../types'
+import { registerBackground } from '../../../registry';
+import { WEBGPU_ENGINE } from '../../../constants';
+import type { BackgroundContext, BackgroundHandle, BackgroundParam } from '../../../types';
 
 // Cap the traced resolution. The sea is cheap for a raymarcher, but the canvas
 // can be many megapixels at DPR 2; the blit pass upscales the capped target.
-const MAX_MEGAPIXELS = 1.3
+const MAX_MEGAPIXELS = 1.3;
 
 // Time-scale that a UI speed of 1.0× maps to. The Shadertoy original is brisk
 // for an always-on backdrop, so Suwu runs it at a quarter speed.
-const SPEED_BASE = 0.25
+const SPEED_BASE = 0.25;
 
 /** User-facing parameters for the Seascape background. */
 const SEASCAPE_PARAMS: readonly BackgroundParam[] = [
@@ -23,17 +23,17 @@ const SEASCAPE_PARAMS: readonly BackgroundParam[] = [
     step: 0.05,
     format: (value) => `${value.toFixed(2)}×`,
   },
-]
+];
 
 interface SeascapeParams {
   /** UI multiplier on the base animation clock; 1 is the default, 0 freezes it. */
-  speed: number
+  speed: number;
 }
 
 /** Read the typed Seascape params out of the opaque subsystem params bag. */
 function resolveSeascapeParams(params?: Record<string, unknown>): SeascapeParams {
-  const speed = params?.speed
-  return { speed: typeof speed === 'number' && Number.isFinite(speed) ? speed : 1 }
+  const speed = params?.speed;
+  return { speed: typeof speed === 'number' && Number.isFinite(speed) ? speed : 1 };
 }
 
 /**
@@ -50,7 +50,7 @@ async function start(
   ctx: BackgroundContext,
   params?: Record<string, unknown>,
 ): Promise<BackgroundHandle> {
-  const { speed } = resolveSeascapeParams(params)
+  const { speed } = resolveSeascapeParams(params);
   const [
     { fragmentScene, startGpuBackground },
     { default: seascapeShader },
@@ -59,7 +59,7 @@ async function start(
     import('../../webgpu-render-engine'),
     import('./shaders/seascape.wgsl'),
     import('./shaders/blit.wgsl'),
-  ])
+  ]);
 
   return startGpuBackground(
     'seascape',
@@ -87,7 +87,7 @@ async function start(
     ctx,
     params,
     { clearColor: [0, 0, 0, 1] },
-  )
+  );
 }
 
 registerBackground({
@@ -101,4 +101,4 @@ registerBackground({
   },
   params: SEASCAPE_PARAMS,
   gpu: async () => ({ start }),
-})
+});

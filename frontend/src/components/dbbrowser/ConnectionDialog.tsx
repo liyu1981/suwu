@@ -1,125 +1,127 @@
-import { useState, useCallback } from 'react'
-import { useTranslation } from 'react-i18next'
-import type { DriverType, SavedConnection } from '../../store/dbbrowser'
+import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { DriverType, SavedConnection } from '../../store/dbbrowser';
 
 interface ConnectionDialogProps {
-  savedConnections: SavedConnection[]
+  savedConnections: SavedConnection[];
   onConnect: (params: {
-    driver: DriverType
-    host?: string
-    port?: number
-    database: string
-    user?: string
-    password?: string
-    sqlitePath?: string
-    sslMode?: string
-  }) => Promise<{ success: boolean; error?: string }>
-  onDelete: (id: string) => void
+    driver: DriverType;
+    host?: string;
+    port?: number;
+    database: string;
+    user?: string;
+    password?: string;
+    sqlitePath?: string;
+    sslMode?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  onDelete: (id: string) => void;
 }
 
-const DRIVERS: DriverType[] = ['sqlite', 'mysql', 'postgres']
+const DRIVERS: DriverType[] = ['sqlite', 'mysql', 'postgres'];
 
 const DRIVER_DEFAULTS: Record<DriverType, { port: number; sslMode: string }> = {
   sqlite: { port: 0, sslMode: '' },
   mysql: { port: 3306, sslMode: 'disable' },
   postgres: { port: 5432, sslMode: 'disable' },
-}
+};
 
 const DRIVER_ACCENT: Record<DriverType, string> = {
   sqlite: 'bg-sky-400',
   mysql: 'bg-orange-400',
   postgres: 'bg-cyan-400',
-}
+};
 
 export default function ConnectionDialog({
   savedConnections,
   onConnect,
   onDelete,
 }: ConnectionDialogProps) {
-  const { t } = useTranslation()
-  const [driver, setDriver] = useState<DriverType>('sqlite')
-  const [host, setHost] = useState('localhost')
-  const [port, setPort] = useState('')
-  const [database, setDatabase] = useState('')
-  const [user, setUser] = useState('')
-  const [password, setPassword] = useState('')
-  const [sqlitePath, setSqlitePath] = useState('')
-  const [sslMode, setSslMode] = useState('disable')
-  const [connecting, setConnecting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { t } = useTranslation();
+  const [driver, setDriver] = useState<DriverType>('sqlite');
+  const [host, setHost] = useState('localhost');
+  const [port, setPort] = useState('');
+  const [database, setDatabase] = useState('');
+  const [user, setUser] = useState('');
+  const [password, setPassword] = useState('');
+  const [sqlitePath, setSqlitePath] = useState('');
+  const [sslMode, setSslMode] = useState('disable');
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDriverChange = useCallback((newDriver: DriverType) => {
-    setDriver(newDriver)
-    setPort('')
-    setError(null)
+    setDriver(newDriver);
+    setPort('');
+    setError(null);
     if (newDriver === 'sqlite') {
-      setHost('')
-      setUser('')
-      setPassword('')
+      setHost('');
+      setUser('');
+      setPassword('');
     } else {
-      setHost('localhost')
-      setSqlitePath('')
+      setHost('localhost');
+      setSqlitePath('');
     }
-  }, [])
+  }, []);
 
   const handleConnect = useCallback(async () => {
-    setError(null)
-    setConnecting(true)
+    setError(null);
+    setConnecting(true);
 
     const params: {
-      driver: DriverType
-      host?: string
-      port?: number
-      database: string
-      user?: string
-      password?: string
-      sqlitePath?: string
-      sslMode?: string
+      driver: DriverType;
+      host?: string;
+      port?: number;
+      database: string;
+      user?: string;
+      password?: string;
+      sqlitePath?: string;
+      sslMode?: string;
     } = {
       driver,
       database: driver === 'sqlite' ? sqlitePath : database,
       sslMode,
-    }
+    };
 
     if (driver === 'sqlite') {
-      params.sqlitePath = sqlitePath
+      params.sqlitePath = sqlitePath;
     } else {
-      params.host = host || undefined
-      params.port = port ? Number.parseInt(port, 10) : undefined
-      params.user = user || undefined
-      params.password = password || undefined
+      params.host = host || undefined;
+      params.port = port ? Number.parseInt(port, 10) : undefined;
+      params.user = user || undefined;
+      params.password = password || undefined;
     }
 
-    const result = await onConnect(params)
-    setConnecting(false)
+    const result = await onConnect(params);
+    setConnecting(false);
 
     if (!result.success && result.error) {
-      setError(result.error)
+      setError(result.error);
     }
-  }, [driver, host, port, database, user, password, sqlitePath, sslMode, onConnect])
+  }, [driver, host, port, database, user, password, sqlitePath, sslMode, onConnect]);
 
   const handleLoadSaved = useCallback((conn: SavedConnection) => {
-    setDriver(conn.driver)
-    setHost(conn.host || 'localhost')
-    setPort(conn.port ? String(conn.port) : '')
-    setDatabase(conn.database || '')
-    setUser(conn.user || '')
-    setSqlitePath(conn.sqlitePath || (conn.driver === 'sqlite' ? conn.database : '') || '')
-    setSslMode(conn.sslMode || 'disable')
-    setError(null)
-  }, [])
+    setDriver(conn.driver);
+    setHost(conn.host || 'localhost');
+    setPort(conn.port ? String(conn.port) : '');
+    setDatabase(conn.database || '');
+    setUser(conn.user || '');
+    setSqlitePath(conn.sqlitePath || (conn.driver === 'sqlite' ? conn.database : '') || '');
+    setSslMode(conn.sslMode || 'disable');
+    setError(null);
+  }, []);
 
   const inputClass =
-    'w-full rounded-md bg-white/[0.06] border border-white/[0.10] px-2.5 py-1.5 text-sm text-white/90 placeholder-white/30 outline-none transition-all focus:border-cyan-500/40 focus:bg-white/[0.10] focus:ring-1 focus:ring-cyan-500/20'
+    'w-full rounded-md bg-white/[0.06] border border-white/[0.10] px-2.5 py-1.5 text-sm text-white/90 placeholder-white/30 outline-none transition-all focus:border-cyan-500/40 focus:bg-white/[0.10] focus:ring-1 focus:ring-cyan-500/20';
 
-  const isSqlite = driver === 'sqlite'
-  const recentForDriver = savedConnections.filter((c) => c.driver === driver)
+  const isSqlite = driver === 'sqlite';
+  const recentForDriver = savedConnections.filter((c) => c.driver === driver);
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-white/[0.10] bg-white/[0.02]">
       {/* Header */}
       <div className="flex shrink-0 items-center border-b border-white/[0.06] px-3 py-2">
-        <span className="text-base font-semibold text-white/70">{t('dbbrowser.newConnection')}</span>
+        <span className="text-base font-semibold text-white/70">
+          {t('dbbrowser.newConnection')}
+        </span>
       </div>
 
       {/* Body: vertical tabs + content */}
@@ -127,7 +129,7 @@ export default function ConnectionDialog({
         {/* Vertical driver tabs */}
         <div className="flex w-32 shrink-0 flex-col gap-1 border-r border-white/[0.06] p-2">
           {DRIVERS.map((d) => {
-            const active = driver === d
+            const active = driver === d;
             return (
               <button
                 key={d}
@@ -149,7 +151,7 @@ export default function ConnectionDialog({
                   <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-cyan-400" />
                 )}
               </button>
-            )
+            );
           })}
         </div>
 
@@ -322,5 +324,5 @@ export default function ConnectionDialog({
         </div>
       </div>
     </div>
-  )
+  );
 }

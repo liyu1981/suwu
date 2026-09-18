@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FileViewer } from '@file-viewer/react'
-import standardPreset from '@file-viewer/preset-standard'
-import { authFetch } from '../lib/api'
-import { CommonTileContainer } from '../components/CommonTileContainer'
-import { RefreshIcon } from '../components/icons'
-import { setPageTransparent } from '../lib/constants'
-import { useAutoRefreshDropdown, AutoRefreshDropdown, AutoRefreshTrigger } from '../components/AutoRefreshDropdown'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FileViewer } from '@file-viewer/react';
+import standardPreset from '@file-viewer/preset-standard';
+import { authFetch } from '../lib/api';
+import { CommonTileContainer } from '../components/CommonTileContainer';
+import { RefreshIcon } from '../components/icons';
+import { setPageTransparent } from '../lib/constants';
+import {
+  useAutoRefreshDropdown,
+  AutoRefreshDropdown,
+  AutoRefreshTrigger,
+} from '../components/AutoRefreshDropdown';
 
 /**
  * Full-space file viewer page loaded inside each file viewer pane's iframe.
@@ -16,112 +20,119 @@ import { useAutoRefreshDropdown, AutoRefreshDropdown, AutoRefreshTrigger } from 
  * Blob URL to the viewer component, since it cannot send custom headers.
  */
 export default function FileViewerPage() {
-  const paneRef = useRef<string | null>(null)
-  const [fileUrl, setFileUrl] = useState<string | null>(null)
-  const [filePath, setFilePath] = useState<string | null>(null)
-  const [fileName, setFileName] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [renderError, setRenderError] = useState<string | null>(null)
-  const [autoRefresh, setAutoRefresh] = useState(0)
-  const dropdownState = useAutoRefreshDropdown()
-  const abortRef = useRef<AbortController | null>(null)
+  const paneRef = useRef<string | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [filePath, setFilePath] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(0);
+  const dropdownState = useAutoRefreshDropdown();
+  const abortRef = useRef<AbortController | null>(null);
 
-  const viewerOptions = useMemo(() => ({
-    preset: standardPreset,
-    rendererMode: 'replace' as const,
-    theme: 'dark' as const,
-    toolbar: { position: 'bottom-right' as const },
-  }), [])
+  const viewerOptions = useMemo(
+    () => ({
+      preset: standardPreset,
+      rendererMode: 'replace' as const,
+      theme: 'dark' as const,
+      toolbar: { position: 'bottom-right' as const },
+    }),
+    [],
+  );
 
   const handleStateChange = useCallback((state: { error: unknown | null }) => {
     if (state.error) {
-      setRenderError(state.error instanceof Error ? state.error.message : String(state.error))
+      setRenderError(state.error instanceof Error ? state.error.message : String(state.error));
     }
-  }, [])
+  }, []);
 
   // Fetch file content
   const fetchFile = useCallback(async (path: string) => {
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const res = await authFetch(`/api/file?path=${encodeURIComponent(path)}`, {
         cache: 'no-store',
         signal: controller.signal,
-      })
+      });
       if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.error || `HTTP ${res.status}`)
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `HTTP ${res.status}`);
       }
-      const blob = await res.blob()
-      const name = path.split('/').pop() || 'file'
-      setFilePath(path)
-      setFileName(name)
-      setFileUrl(URL.createObjectURL(blob))
-      setError(null)
+      const blob = await res.blob();
+      const name = path.split('/').pop() || 'file';
+      setFilePath(path);
+      setFileName(name);
+      setFileUrl(URL.createObjectURL(blob));
+      setError(null);
     } catch (e: unknown) {
-      if (e instanceof DOMException && e.name === 'AbortError') return
-      setError(e instanceof Error ? e.message : 'Failed to load file')
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      setError(e instanceof Error ? e.message : 'Failed to load file');
     }
-  }, [])
+  }, []);
 
   // Initial load from URL params
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    paneRef.current = params.get('pane')
-    const path = params.get('path')
-    if (!path) return
+    const params = new URLSearchParams(window.location.search);
+    paneRef.current = params.get('pane');
+    const path = params.get('path');
+    if (!path) return;
 
-    fetchFile(path)
-    return () => abortRef.current?.abort()
-  }, [fetchFile])
+    fetchFile(path);
+    return () => abortRef.current?.abort();
+  }, [fetchFile]);
 
   // Make background transparent so the tiling WM background shows through.
   useEffect(() => {
-    setPageTransparent()
-  }, [])
+    setPageTransparent();
+  }, []);
 
   // Catch unhandled promise rejections from renderers (e.g. image decode failures).
   useEffect(() => {
     const onRejection = (e: PromiseRejectionEvent) => {
-      const msg = e.reason instanceof Error ? e.reason.message : String(e.reason ?? 'Render failed')
-      setRenderError(msg)
-      e.preventDefault()
-    }
-    window.addEventListener('unhandledrejection', onRejection)
-    return () => window.removeEventListener('unhandledrejection', onRejection)
-  }, [])
+      const msg =
+        e.reason instanceof Error ? e.reason.message : String(e.reason ?? 'Render failed');
+      setRenderError(msg);
+      e.preventDefault();
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => window.removeEventListener('unhandledrejection', onRejection);
+  }, []);
 
   // Listen for path updates from the parent (when tile is reused with a new file).
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const d = e.data as { type?: string; path?: string } | undefined
+      const d = e.data as { type?: string; path?: string } | undefined;
       if (d?.type === 'tile-path-update' && typeof d.path === 'string') {
-        fetchFile(d.path)
+        fetchFile(d.path);
       }
-    }
-    window.addEventListener('message', onMsg)
-    return () => window.removeEventListener('message', onMsg)
-  }, [fetchFile])
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [fetchFile]);
 
   // Auto-refresh timer
   useEffect(() => {
-    if (autoRefresh <= 0 || !filePath) return
+    if (autoRefresh <= 0 || !filePath) return;
     const timer = setInterval(() => {
-      fetchFile(filePath)
-    }, autoRefresh)
-    return () => clearInterval(timer)
-  }, [autoRefresh, filePath, fetchFile])
+      fetchFile(filePath);
+    }, autoRefresh);
+    return () => clearInterval(timer);
+  }, [autoRefresh, filePath, fetchFile]);
 
   const handleRefresh = useCallback(() => {
-    if (filePath) fetchFile(filePath)
-  }, [filePath, fetchFile])
+    if (filePath) fetchFile(filePath);
+  }, [filePath, fetchFile]);
 
-  const handleIntervalSelect = useCallback((ms: number) => {
-    setAutoRefresh(ms)
-    dropdownState.close()
-  }, [dropdownState])
+  const handleIntervalSelect = useCallback(
+    (ms: number) => {
+      setAutoRefresh(ms);
+      dropdownState.close();
+    },
+    [dropdownState],
+  );
 
   if (error) {
     return (
@@ -129,9 +140,16 @@ export default function FileViewerPage() {
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
           <span className="text-[11px] text-red-400/70">{error}</span>
         </div>
-        {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
+        {dropdownState.showDropdown && (
+          <AutoRefreshDropdown
+            value={autoRefresh}
+            onChange={handleIntervalSelect}
+            dropdownRef={dropdownState.dropdownRef}
+            dropdownPos={dropdownState.dropdownPos}
+          />
+        )}
       </CommonTileContainer>
-    )
+    );
   }
 
   if (!fileUrl) {
@@ -140,9 +158,16 @@ export default function FileViewerPage() {
         <div className="flex h-screen w-screen items-center justify-center bg-transparent">
           <span className="text-[11px] text-white/30">Loading...</span>
         </div>
-        {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
+        {dropdownState.showDropdown && (
+          <AutoRefreshDropdown
+            value={autoRefresh}
+            onChange={handleIntervalSelect}
+            dropdownRef={dropdownState.dropdownRef}
+            dropdownPos={dropdownState.dropdownPos}
+          />
+        )}
       </CommonTileContainer>
-    )
+    );
   }
 
   const header = filePath ? (
@@ -159,10 +184,16 @@ export default function FileViewerPage() {
         <RefreshIcon />
       </button>
       {/* Auto-refresh dropdown trigger */}
-      <AutoRefreshTrigger btnRef={dropdownState.btnRef} isActive={autoRefresh > 0} onClick={dropdownState.toggle} />
-      <span className="truncate text-xs text-white/50" title={filePath}>{filePath}</span>
+      <AutoRefreshTrigger
+        btnRef={dropdownState.btnRef}
+        isActive={autoRefresh > 0}
+        onClick={dropdownState.toggle}
+      />
+      <span className="truncate text-xs text-white/50" title={filePath}>
+        {filePath}
+      </span>
     </div>
-  ) : null
+  ) : null;
 
   if (renderError) {
     return (
@@ -170,7 +201,15 @@ export default function FileViewerPage() {
         <div className="flex h-screen w-screen flex-col bg-transparent">
           {header}
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-            <svg className="h-10 w-10 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              className="h-10 w-10 text-white/20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="12" cy="12" r="10" />
               <path d="M15 9l-6 6M9 9l6 6" />
             </svg>
@@ -178,9 +217,16 @@ export default function FileViewerPage() {
             <span className="text-[10px] text-white/25">{fileName}</span>
           </div>
         </div>
-        {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
+        {dropdownState.showDropdown && (
+          <AutoRefreshDropdown
+            value={autoRefresh}
+            onChange={handleIntervalSelect}
+            dropdownRef={dropdownState.dropdownRef}
+            dropdownPos={dropdownState.dropdownPos}
+          />
+        )}
       </CommonTileContainer>
-    )
+    );
   }
 
   return (
@@ -196,7 +242,14 @@ export default function FileViewerPage() {
           />
         </div>
       </div>
-      {dropdownState.showDropdown && <AutoRefreshDropdown value={autoRefresh} onChange={handleIntervalSelect} dropdownRef={dropdownState.dropdownRef} dropdownPos={dropdownState.dropdownPos} />}
+      {dropdownState.showDropdown && (
+        <AutoRefreshDropdown
+          value={autoRefresh}
+          onChange={handleIntervalSelect}
+          dropdownRef={dropdownState.dropdownRef}
+          dropdownPos={dropdownState.dropdownPos}
+        />
+      )}
     </CommonTileContainer>
-  )
+  );
 }

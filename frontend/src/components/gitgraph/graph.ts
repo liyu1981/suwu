@@ -100,16 +100,29 @@ class Branch {
     }
   }
 
-  public getColour() { return this.colour; }
-  public getEnd() { return this.end; }
-  public setEnd(end: number) { this.end = end; }
-  public getLines() { return this.lines; }
-  public getNumUncommitted() { return this.numUncommitted; }
+  public getColour() {
+    return this.colour;
+  }
+  public getEnd() {
+    return this.end;
+  }
+  public setEnd(end: number) {
+    this.end = end;
+  }
+  public getLines() {
+    return this.lines;
+  }
+  public getNumUncommitted() {
+    return this.numUncommitted;
+  }
 
   /**
    * Generate SVG paths for this branch
    */
-  public generatePaths(config: GraphConfig, expandAt: number): { path: string; isCommitted: boolean }[] {
+  public generatePaths(
+    config: GraphConfig,
+    expandAt: number,
+  ): { path: string; isCommitted: boolean }[] {
     const lines: PlacedLine[] = [];
     const d = config.grid.y * (config.style === 'angular' ? 0.38 : 0.8);
 
@@ -130,17 +143,37 @@ class Branch {
           if (x1 === x2) {
             y2 += config.grid.expandY;
           } else if (line.lockedFirst) {
-            lines.push({ p1: { x: x1, y: y1 }, p2: { x: x2, y: y2 }, isCommitted: i >= this.numUncommitted, lockedFirst: line.lockedFirst });
-            lines.push({ p1: { x: x2, y: y1 + config.grid.y }, p2: { x: x2, y: y2 + config.grid.expandY }, isCommitted: i >= this.numUncommitted, lockedFirst: line.lockedFirst });
+            lines.push({
+              p1: { x: x1, y: y1 },
+              p2: { x: x2, y: y2 },
+              isCommitted: i >= this.numUncommitted,
+              lockedFirst: line.lockedFirst,
+            });
+            lines.push({
+              p1: { x: x2, y: y1 + config.grid.y },
+              p2: { x: x2, y: y2 + config.grid.expandY },
+              isCommitted: i >= this.numUncommitted,
+              lockedFirst: line.lockedFirst,
+            });
             continue;
           } else {
-            lines.push({ p1: { x: x1, y: y1 }, p2: { x: x1, y: y2 - config.grid.y + config.grid.expandY }, isCommitted: i >= this.numUncommitted, lockedFirst: line.lockedFirst });
+            lines.push({
+              p1: { x: x1, y: y1 },
+              p2: { x: x1, y: y2 - config.grid.y + config.grid.expandY },
+              isCommitted: i >= this.numUncommitted,
+              lockedFirst: line.lockedFirst,
+            });
             y1 += config.grid.expandY;
             y2 += config.grid.expandY;
           }
         }
       }
-      lines.push({ p1: { x: x1, y: y1 }, p2: { x: x2, y: y2 }, isCommitted: i >= this.numUncommitted, lockedFirst: line.lockedFirst });
+      lines.push({
+        p1: { x: x1, y: y1 },
+        p2: { x: x2, y: y2 },
+        isCommitted: i >= this.numUncommitted,
+        lockedFirst: line.lockedFirst,
+      });
     }
 
     // Simplify consecutive straight lines
@@ -148,7 +181,13 @@ class Branch {
     while (i < lines.length - 1) {
       const line = lines[i];
       const nextLine = lines[i + 1];
-      if (line.p1.x === line.p2.x && line.p2.x === nextLine.p1.x && nextLine.p1.x === nextLine.p2.x && line.p2.y === nextLine.p1.y && line.isCommitted === nextLine.isCommitted) {
+      if (
+        line.p1.x === line.p2.x &&
+        line.p2.x === nextLine.p1.x &&
+        nextLine.p1.x === nextLine.p2.x &&
+        line.p2.y === nextLine.p1.y &&
+        line.isCommitted === nextLine.isCommitted
+      ) {
         lines[i] = { ...line, p2: nextLine.p2 };
         lines.splice(i + 1, 1);
       } else {
@@ -184,7 +223,7 @@ class Branch {
       } else {
         // Horizontal transition
         if (config.style === 'angular') {
-          curPath += `L${(line.lockedFirst ? x2.toFixed(0) : x1.toFixed(0))},${(line.lockedFirst ? (y2 - d).toFixed(1) : (y1 + d).toFixed(1))}L${x2.toFixed(0)},${y2.toFixed(1)}`;
+          curPath += `L${line.lockedFirst ? x2.toFixed(0) : x1.toFixed(0)},${line.lockedFirst ? (y2 - d).toFixed(1) : (y1 + d).toFixed(1)}L${x2.toFixed(0)},${y2.toFixed(1)}`;
         } else {
           curPath += `C${x1.toFixed(0)},${(y1 + d).toFixed(1)} ${x2.toFixed(0)},${(y2 - d).toFixed(1)} ${x2.toFixed(0)},${y2.toFixed(1)}`;
         }
@@ -192,7 +231,10 @@ class Branch {
     }
 
     if (curPath !== '') {
-      paths.push({ path: curPath, isCommitted: lines.length > 0 ? lines[lines.length - 1].isCommitted : true });
+      paths.push({
+        path: curPath,
+        isCommitted: lines.length > 0 ? lines[lines.length - 1].isCommitted : true,
+      });
     }
 
     return paths;
@@ -219,18 +261,32 @@ class Vertex {
     this.isStash = isStash;
   }
 
-  public addChild(vertex: Vertex) { this.children.push(vertex); }
-  public getChildren(): Vertex[] { return this.children; }
-  public addParent(vertex: Vertex) { this.parents.push(vertex); }
-  public getParents(): Vertex[] { return this.parents; }
-  public hasParents() { return this.parents.length > 0; }
+  public addChild(vertex: Vertex) {
+    this.children.push(vertex);
+  }
+  public getChildren(): Vertex[] {
+    return this.children;
+  }
+  public addParent(vertex: Vertex) {
+    this.parents.push(vertex);
+  }
+  public getParents(): Vertex[] {
+    return this.parents;
+  }
+  public hasParents() {
+    return this.parents.length > 0;
+  }
 
   public getNextParent(): Vertex | null {
     return this.nextParent < this.parents.length ? this.parents[this.nextParent] : null;
   }
 
-  public registerParentProcessed() { this.nextParent++; }
-  public isMerge() { return this.parents.length > 1; }
+  public registerParentProcessed() {
+    this.nextParent++;
+  }
+  public isMerge() {
+    return this.parents.length > 1;
+  }
 
   public addToBranch(branch: Branch, x: number) {
     if (this.onBranch === null) {
@@ -239,12 +295,22 @@ class Vertex {
     }
   }
 
-  public isNotOnBranch() { return this.onBranch === null; }
-  public isOnThisBranch(branch: Branch) { return this.onBranch === branch; }
-  public getBranch() { return this.onBranch; }
+  public isNotOnBranch() {
+    return this.onBranch === null;
+  }
+  public isOnThisBranch(branch: Branch) {
+    return this.onBranch === branch;
+  }
+  public getBranch() {
+    return this.onBranch;
+  }
 
-  public getPoint(): Point { return { x: this.x, y: this.id }; }
-  public getNextPoint(): Point { return { x: this.nextX, y: this.id }; }
+  public getPoint(): Point {
+    return { x: this.x, y: this.id };
+  }
+  public getNextPoint(): Point {
+    return { x: this.nextX, y: this.id };
+  }
 
   public getPointConnectingTo(vertex: Vertex | null, onBranch: Branch): Point | null {
     for (let i = 0; i < this.connections.length; i++) {
@@ -262,11 +328,21 @@ class Vertex {
     }
   }
 
-  public getColour() { return this.onBranch !== null ? this.onBranch.getColour() : 0; }
-  public getIsCommitted() { return this.isCommitted; }
-  public setNotCommitted() { this.isCommitted = false; }
-  public setCurrent() { this.isCurrent = true; }
-  public isCurrentVertex() { return this.isCurrent; }
+  public getColour() {
+    return this.onBranch !== null ? this.onBranch.getColour() : 0;
+  }
+  public getIsCommitted() {
+    return this.isCommitted;
+  }
+  public setNotCommitted() {
+    this.isCommitted = false;
+  }
+  public setCurrent() {
+    this.isCurrent = true;
+  }
+  public isCurrentVertex() {
+    return this.isCurrent;
+  }
 }
 
 /* Graph Class */
@@ -293,7 +369,7 @@ export class Graph {
     commits: GitCommit[],
     commitHead: string | null,
     commitLookup: { [hash: string]: number },
-    onlyFollowFirstParent: boolean
+    onlyFollowFirstParent: boolean,
   ) {
     this.commits = commits;
     this.commitLookup = commitLookup;
@@ -330,7 +406,10 @@ export class Graph {
     }
 
     // Mark current HEAD
-    if (commits[0].hash === 'UNCOMMITTED' && this.config.uncommittedChanges === 'OpenCircleAtTheUncommittedChanges') {
+    if (
+      commits[0].hash === 'UNCOMMITTED' &&
+      this.config.uncommittedChanges === 'OpenCircleAtTheUncommittedChanges'
+    ) {
       this.vertices[0].setCurrent();
     } else if (commitHead !== null && typeof commitLookup[commitHead] === 'number') {
       this.vertices[commitLookup[commitHead]].setCurrent();
@@ -351,7 +430,6 @@ export class Graph {
    * Generate graph layout data
    */
   public generateLayout(expandedCommitIndex: number = -1): GraphLayout {
-
     // Generate edges
     const edges: GraphEdge[] = [];
     for (const branch of this.branches) {
@@ -375,9 +453,7 @@ export class Graph {
 
       const point = vertex.getPoint();
       const laneColor = this.config.colors[vertex.getColour() % this.config.colors.length];
-      const color = vertex.getIsCommitted()
-        ? laneColor
-        : '#808080';
+      const color = vertex.getIsCommitted() ? laneColor : '#808080';
 
       // Map each branch label at this commit to its lane color
       for (const head of this.commits[vertex.id]?.heads ?? []) {
@@ -388,7 +464,12 @@ export class Graph {
         id: vertex.id,
         hash: this.commits[vertex.id]?.hash || '',
         x: point.x * this.config.grid.x + this.config.grid.offsetX,
-        y: point.y * this.config.grid.y + this.config.grid.offsetY + (expandedCommitIndex > -1 && vertex.id > expandedCommitIndex ? this.config.grid.expandY : 0),
+        y:
+          point.y * this.config.grid.y +
+          this.config.grid.offsetY +
+          (expandedCommitIndex > -1 && vertex.id > expandedCommitIndex
+            ? this.config.grid.expandY
+            : 0),
         color,
         isCurrent: vertex.isCurrentVertex(),
         isStash: vertex.isStash,
@@ -422,7 +503,9 @@ export class Graph {
     };
 
     rec(this.vertices[vertexId]);
-    return Object.keys(visited).map((key) => visited[key]).sort((a, b) => a - b);
+    return Object.keys(visited)
+      .map((key) => visited[key])
+      .sort((a, b) => a - b);
   }
 
   /**
@@ -441,7 +524,11 @@ export class Graph {
     }
 
     // Mute commits not ancestors of HEAD
-    if (this.muteConfig.commitsNotAncestorsOfHead && currentHash !== null && typeof this.commitLookup[currentHash] === 'number') {
+    if (
+      this.muteConfig.commitsNotAncestorsOfHead &&
+      currentHash !== null &&
+      typeof this.commitLookup[currentHash] === 'number'
+    ) {
       const ancestor: boolean[] = new Array(this.commits.length).fill(false);
 
       const rec = (vertex: Vertex) => {
@@ -474,7 +561,12 @@ export class Graph {
   }
 
   private getHeight(expandedCommit: number): number {
-    return this.vertices.length * this.config.grid.y + this.config.grid.offsetY - this.config.grid.y / 2 + (expandedCommit > -1 ? this.config.grid.expandY : 0);
+    return (
+      this.vertices.length * this.config.grid.y +
+      this.config.grid.offsetY -
+      this.config.grid.y / 2 +
+      (expandedCommit > -1 ? this.config.grid.expandY : 0)
+    );
   }
 
   private determinePath(startAt: number) {
@@ -483,7 +575,13 @@ export class Graph {
     let parentVertex = vertex.getNextParent();
     let lastPoint = vertex.isNotOnBranch() ? vertex.getNextPoint() : vertex.getPoint();
 
-    if (parentVertex !== null && parentVertex.id !== NULL_VERTEX_ID && vertex.isMerge() && !vertex.isNotOnBranch() && !parentVertex.isNotOnBranch()) {
+    if (
+      parentVertex !== null &&
+      parentVertex.id !== NULL_VERTEX_ID &&
+      vertex.isMerge() &&
+      !vertex.isNotOnBranch() &&
+      !parentVertex.isNotOnBranch()
+    ) {
       // Merge between two vertices already on branches
       let foundPointToParent = false;
       const parentBranch = parentVertex.getBranch()!;
@@ -498,7 +596,12 @@ export class Graph {
           curPoint = curVertex.getNextPoint();
         }
 
-        parentBranch.addLine(lastPoint, curPoint, vertex.getIsCommitted(), !foundPointToParent && curVertex !== parentVertex ? lastPoint.x < curPoint.x : true);
+        parentBranch.addLine(
+          lastPoint,
+          curPoint,
+          vertex.getIsCommitted(),
+          !foundPointToParent && curVertex !== parentVertex ? lastPoint.x < curPoint.x : true,
+        );
         curVertex.registerUnavailablePoint(curPoint.x, parentVertex, parentBranch);
         lastPoint = curPoint;
 
@@ -515,7 +618,10 @@ export class Graph {
 
       for (i = startAt + 1; i < this.vertices.length; i++) {
         const curVertex = this.vertices[i];
-        const curPoint = parentVertex === curVertex && !parentVertex.isNotOnBranch() ? curVertex.getPoint() : curVertex.getNextPoint();
+        const curPoint =
+          parentVertex === curVertex && !parentVertex.isNotOnBranch()
+            ? curVertex.getPoint()
+            : curVertex.getNextPoint();
 
         branch.addLine(lastPoint, curPoint, vertex.getIsCommitted(), lastPoint.x < curPoint.x);
         curVertex.registerUnavailablePoint(curPoint.x, parentVertex, branch);
@@ -534,7 +640,11 @@ export class Graph {
         }
       }
 
-      if (i === this.vertices.length && parentVertex !== null && parentVertex.id === NULL_VERTEX_ID) {
+      if (
+        i === this.vertices.length &&
+        parentVertex !== null &&
+        parentVertex.id === NULL_VERTEX_ID
+      ) {
         vertex.registerParentProcessed();
       }
 
@@ -566,7 +676,7 @@ export function createGraphLayout(
     commitHead?: string | null;
     onlyFollowFirstParent?: boolean;
     expandedCommitIndex?: number;
-  } = {}
+  } = {},
 ): GraphLayout {
   const graph = new Graph(config, muteConfig);
 
@@ -580,7 +690,7 @@ export function createGraphLayout(
     commits,
     options.commitHead ?? null,
     commitLookup,
-    options.onlyFollowFirstParent ?? false
+    options.onlyFollowFirstParent ?? false,
   );
 
   return graph.generateLayout(options.expandedCommitIndex ?? -1);

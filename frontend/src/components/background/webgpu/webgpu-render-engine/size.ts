@@ -11,16 +11,12 @@
  * Canvas size clamped to `megapixels`, preserving aspect ratio. `Infinity`
  * (the default for a background with no budget) returns the full backing size.
  */
-export function cappedSize(
-  width: number,
-  height: number,
-  megapixels: number,
-): [number, number] {
-  const pixels = width * height
-  const budget = megapixels * 1_000_000
+export function cappedSize(width: number, height: number, megapixels: number): [number, number] {
+  const pixels = width * height;
+  const budget = megapixels * 1_000_000;
   if (!(pixels > budget) || !Number.isFinite(budget)) {
-    return [Math.max(2, width), Math.max(2, height)]
+    return [Math.max(2, width), Math.max(2, height)];
   }
-  const scale = Math.sqrt(pixels / budget)
-  return [Math.max(2, Math.round(width / scale)), Math.max(2, Math.round(height / scale))]
+  const scale = Math.sqrt(pixels / budget);
+  return [Math.max(2, Math.round(width / scale)), Math.max(2, Math.round(height / scale))];
 }

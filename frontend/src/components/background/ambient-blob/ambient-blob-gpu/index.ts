@@ -1,1 +1,1 @@
-export { startAmbientBlobGpu as start } from './renderer'
+export { startAmbientBlobGpu as start } from './renderer';

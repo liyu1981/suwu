@@ -1,5 +1,5 @@
-import { registerBackground } from '../registry'
-import { VIDEO_PARAMS } from './params'
+import { registerBackground } from '../registry';
+import { VIDEO_PARAMS } from './params';
 
 /**
  * Video — plays a short, muted MP4 or WebM clip as the app-shell background.
@@ -15,4 +15,4 @@ registerBackground({
   label: 'Video',
   params: VIDEO_PARAMS,
   cpu: () => import('./video-cpu'),
-})
+});

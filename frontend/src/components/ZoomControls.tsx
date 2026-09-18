@@ -1,5 +1,5 @@
-import { useEffect, type CSSProperties } from 'react'
-import { ZOOM_STEP, clampZoom } from '../store/zoom'
+import { useEffect, type CSSProperties } from 'react';
+import { ZOOM_STEP, clampZoom } from '../store/zoom';
 
 /**
  * Apply the zoom level to the iframe's <html> element (CSS zoom).
@@ -7,11 +7,11 @@ import { ZOOM_STEP, clampZoom } from '../store/zoom'
  */
 export function useHtmlZoom(zoom: number): void {
   useEffect(() => {
-    document.documentElement.style.zoom = String(zoom)
+    document.documentElement.style.zoom = String(zoom);
     return () => {
-      document.documentElement.style.zoom = ''
-    }
-  }, [zoom])
+      document.documentElement.style.zoom = '';
+    };
+  }, [zoom]);
 }
 
 /**
@@ -26,20 +26,20 @@ export function tileZoomStyle(zoom: number): CSSProperties {
     width: `calc(100vw / ${zoom})`,
     height: `calc(100vh / ${zoom})`,
     overflow: 'hidden',
-  }
+  };
 }
 
 const toolBtn =
-  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white active:scale-90'
+  'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white active:scale-90';
 
-const fontLabel = 'text-[9px] font-semibold leading-none'
+const fontLabel = 'text-[9px] font-semibold leading-none';
 
 /**
  * Compact A- / % / A+ zoom controls. The percentage is clickable and resets
  * the zoom to 100%. Mirrors the terminal toolbar's font size buttons.
  */
 export function ZoomControls({ zoom, onChange }: { zoom: number; onChange: (z: number) => void }) {
-  const pct = Math.round(zoom * 100)
+  const pct = Math.round(zoom * 100);
 
   return (
     <div className="flex items-center gap-0.5">
@@ -74,5 +74,5 @@ export function ZoomControls({ zoom, onChange }: { zoom: number; onChange: (z: n
         <span className={fontLabel}>A+</span>
       </button>
     </div>
-  )
+  );
 }

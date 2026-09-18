@@ -1,37 +1,37 @@
-import { useState, useCallback, useRef } from 'react'
-import { useAtomValue } from 'jotai'
-import { useTranslation } from 'react-i18next'
-import { CommonTileContainer } from '../CommonTileContainer'
-import { dbbrowserZoomAtom } from '../../store/zoom'
-import { useDBSession } from './hooks/useDBSession'
-import { useDBQuery } from './hooks/useDBQuery'
-import ConnectionDialog from './ConnectionDialog'
-import SQLEditor from './SQLEditor'
-import DataTable from './DataTable'
-import SchemaSidebar from './SchemaSidebar'
-import StatusBar from './StatusBar'
+import { useState, useCallback, useRef } from 'react';
+import { useAtomValue } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import { CommonTileContainer } from '../CommonTileContainer';
+import { dbbrowserZoomAtom } from '../../store/zoom';
+import { useDBSession } from './hooks/useDBSession';
+import { useDBQuery } from './hooks/useDBQuery';
+import ConnectionDialog from './ConnectionDialog';
+import SQLEditor from './SQLEditor';
+import DataTable from './DataTable';
+import SchemaSidebar from './SchemaSidebar';
+import StatusBar from './StatusBar';
 
 const btnPrimary =
-  'rounded-lg bg-cyan-500/25 px-3 py-1.5 text-xs font-medium text-cyan-300 transition-all hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30'
+  'rounded-lg bg-cyan-500/25 px-3 py-1.5 text-xs font-medium text-cyan-300 transition-all hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30';
 
 /** localStorage key + bounds (px) for the resizable schema sidebar. */
-const SCHEMA_WIDTH_KEY = 'suwu_db_schema_width'
-const SCHEMA_DEFAULT_WIDTH = 192
-const SCHEMA_MIN_WIDTH = 160
-const SCHEMA_MIN_CONTENT = 200
+const SCHEMA_WIDTH_KEY = 'suwu_db_schema_width';
+const SCHEMA_DEFAULT_WIDTH = 192;
+const SCHEMA_MIN_WIDTH = 160;
+const SCHEMA_MIN_CONTENT = 200;
 
 function loadSchemaWidth(): number {
   try {
-    const raw = Number(localStorage.getItem(SCHEMA_WIDTH_KEY))
-    if (Number.isFinite(raw) && raw >= SCHEMA_MIN_WIDTH) return raw
+    const raw = Number(localStorage.getItem(SCHEMA_WIDTH_KEY));
+    if (Number.isFinite(raw) && raw >= SCHEMA_MIN_WIDTH) return raw;
   } catch {
     // ignore
   }
-  return SCHEMA_DEFAULT_WIDTH
+  return SCHEMA_DEFAULT_WIDTH;
 }
 
 export default function DBBrowserPanel() {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
   const {
     connection,
     schema,
@@ -40,72 +40,72 @@ export default function DBBrowserPanel() {
     disconnect,
     refreshSchema,
     deleteConnection,
-  } = useDBSession()
-  const { query, execute } = useDBQuery()
+  } = useDBSession();
+  const { query, execute } = useDBQuery();
 
-  const [sql, setSql] = useState('')
+  const [sql, setSql] = useState('');
 
-  const zoom = useAtomValue(dbbrowserZoomAtom)
-  const splitRef = useRef<HTMLDivElement>(null)
-  const [schemaWidth, setSchemaWidth] = useState(loadSchemaWidth)
-  const schemaWidthRef = useRef(schemaWidth)
+  const zoom = useAtomValue(dbbrowserZoomAtom);
+  const splitRef = useRef<HTMLDivElement>(null);
+  const [schemaWidth, setSchemaWidth] = useState(loadSchemaWidth);
+  const schemaWidthRef = useRef(schemaWidth);
 
   const startSchemaResize = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      e.preventDefault()
-      e.stopPropagation()
+      e.preventDefault();
+      e.stopPropagation();
 
       // `zoom` scales the whole document, so pointer deltas are in zoomed px.
-      const scale = zoom || 1
-      const startX = e.clientX
-      const startWidth = schemaWidthRef.current
-      const target = e.currentTarget
-      target.setPointerCapture(e.pointerId)
+      const scale = zoom || 1;
+      const startX = e.clientX;
+      const startWidth = schemaWidthRef.current;
+      const target = e.currentTarget;
+      target.setPointerCapture(e.pointerId);
 
       const onMove = (ev: PointerEvent) => {
         const containerW = splitRef.current
           ? splitRef.current.getBoundingClientRect().width / scale
-          : startWidth + SCHEMA_MIN_CONTENT
-        const maxWidth = Math.max(SCHEMA_MIN_WIDTH, containerW - SCHEMA_MIN_CONTENT)
+          : startWidth + SCHEMA_MIN_CONTENT;
+        const maxWidth = Math.max(SCHEMA_MIN_WIDTH, containerW - SCHEMA_MIN_CONTENT);
         const next = Math.min(
           Math.max(startWidth + (ev.clientX - startX) / scale, SCHEMA_MIN_WIDTH),
           maxWidth,
-        )
-        schemaWidthRef.current = next
-        setSchemaWidth(next)
-      }
+        );
+        schemaWidthRef.current = next;
+        setSchemaWidth(next);
+      };
       const onUp = () => {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
         try {
-          localStorage.setItem(SCHEMA_WIDTH_KEY, String(schemaWidthRef.current))
+          localStorage.setItem(SCHEMA_WIDTH_KEY, String(schemaWidthRef.current));
         } catch {
           // ignore
         }
-      }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
     },
     [zoom],
-  )
+  );
 
   const handleExecute = useCallback(() => {
     if (sql.trim()) {
-      execute(sql)
+      execute(sql);
     }
-  }, [sql, execute])
+  }, [sql, execute]);
 
   const handleInsertSQL = useCallback((newSql: string) => {
     setSql((prev) => {
       // If there's existing text, append on new line
       if (prev.trim()) {
-        return `${prev}\n${newSql}`
+        return `${prev}\n${newSql}`;
       }
-      return newSql
-    })
-  }, [])
+      return newSql;
+    });
+  }, []);
 
-  const connected = !!connection
+  const connected = !!connection;
 
   return (
     <CommonTileContainer zoomAtom={dbbrowserZoomAtom} noPadding>
@@ -178,11 +178,7 @@ export default function DBBrowserPanel() {
                   </button>
                 </div>
                 <div className="min-h-0 flex-1">
-                  <SQLEditor
-                    value={sql}
-                    onChange={setSql}
-                    onExecute={handleExecute}
-                  />
+                  <SQLEditor value={sql} onChange={setSql} onExecute={handleExecute} />
                 </div>
               </div>
 
@@ -219,5 +215,5 @@ export default function DBBrowserPanel() {
         <StatusBar query={query} connected={connected} onDisconnect={disconnect} />
       </div>
     </CommonTileContainer>
-  )
+  );
 }

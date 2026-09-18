@@ -1,6 +1,6 @@
-import { registerBackground } from '../registry'
-import { AMBIENT_BLOB_DEFAULTS } from './params'
-import type { BackgroundParam } from '../types'
+import { registerBackground } from '../registry';
+import { AMBIENT_BLOB_DEFAULTS } from './params';
+import type { BackgroundParam } from '../types';
 
 /** Palette choice — the one thing the ambient blob exposes to System Settings. */
 const AMBIENT_BLOB_PARAMS: readonly BackgroundParam[] = [
@@ -15,7 +15,7 @@ const AMBIENT_BLOB_PARAMS: readonly BackgroundParam[] = [
       { value: 'dark', label: 'Dark' },
     ],
   },
-]
+];
 
 /**
  * The ambient blob field — the default Suwu app-shell background.
@@ -30,4 +30,4 @@ registerBackground({
   params: AMBIENT_BLOB_PARAMS,
   cpu: () => import('./ambient-blob-cpu'),
   gpu: () => import('./ambient-blob-gpu'),
-})
+});

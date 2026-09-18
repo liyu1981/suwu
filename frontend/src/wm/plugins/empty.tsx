@@ -1,22 +1,28 @@
-import { useEffect, useRef } from 'react'
-import { useSetAtom } from 'jotai'
-import { focusedIdAtom } from '../atoms'
-import i18n from '../../i18n'
-import { registerTilePlugin, type TileRenderContext } from '../tilePlugins'
+import { useEffect, useRef } from 'react';
+import { useSetAtom } from 'jotai';
+import { focusedIdAtom } from '../atoms';
+import i18n from '../../i18n';
+import { registerTilePlugin, type TileRenderContext } from '../tilePlugins';
 
-function EmptyTile({ paneId, onOpenPicker }: { paneId: string; onOpenPicker?: (id: string) => void }) {
-  const setFocused = useSetAtom(focusedIdAtom)
-  const ref = useRef<HTMLDivElement>(null)
+function EmptyTile({
+  paneId,
+  onOpenPicker,
+}: {
+  paneId: string;
+  onOpenPicker?: (id: string) => void;
+}) {
+  const setFocused = useSetAtom(focusedIdAtom);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    const el = ref.current;
+    if (!el) return;
     const timer = setTimeout(() => {
-      el.focus()
-      setFocused(paneId)
-    }, 50)
-    return () => clearTimeout(timer)
-  }, [paneId, setFocused])
+      el.focus();
+      setFocused(paneId);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [paneId, setFocused]);
 
   return (
     <div
@@ -32,14 +38,18 @@ function EmptyTile({ paneId, onOpenPicker }: { paneId: string; onOpenPicker?: (i
         {i18n.t('wm.openApp')}
       </button>
     </div>
-  )
+  );
 }
 
 registerTilePlugin({
   id: 'empty',
-  get label() { return i18n.t('plugin.empty') },
-  get description() { return i18n.t('plugin.emptyDesc') },
+  get label() {
+    return i18n.t('plugin.empty');
+  },
+  get description() {
+    return i18n.t('plugin.emptyDesc');
+  },
   render: (paneId, context?: TileRenderContext) => (
     <EmptyTile paneId={paneId} onOpenPicker={context?.onOpenPicker} />
   ),
-})
+});

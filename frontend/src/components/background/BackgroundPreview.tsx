@@ -1,24 +1,24 @@
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
-import { useAtomValue } from 'jotai'
-import { useTranslation } from 'react-i18next'
-import { fitPreviewBox } from './preview-size'
-import { getBackground } from './registry'
-import { resolveBackgroundParams } from './params'
-import { useBackground } from './useBackground'
-import { backgroundAtom, backgroundParamsAtom } from '../../store/settings'
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { useAtomValue } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import { fitPreviewBox } from './preview-size';
+import { getBackground } from './registry';
+import { resolveBackgroundParams } from './params';
+import { useBackground } from './useBackground';
+import { backgroundAtom, backgroundParamsAtom } from '../../store/settings';
 
 /** Cheap logical render size: the box is a few hundred px wide. */
-const PREVIEW_DPR: readonly [number, number] = [1, 1.5]
-const PREVIEW_FPS = 24
-const DEFAULT_MAX_HEIGHT = 180
+const PREVIEW_DPR: readonly [number, number] = [1, 1.5];
+const PREVIEW_FPS = 24;
+const DEFAULT_MAX_HEIGHT = 180;
 /** How long a GPU-only background may stay blank before we explain why. */
-const UNAVAILABLE_DELAY_MS = 800
+const UNAVAILABLE_DELAY_MS = 800;
 
 export interface BackgroundPreviewProps {
   /** Registered background id. Defaults to the selected background. */
-  background?: string
+  background?: string;
   /** Cap on the preview's rendered height, in CSS pixels. Defaults to 180. */
-  maxHeight?: number
+  maxHeight?: number;
 }
 
 /** Current window aspect ratio (height / width), kept in sync on resize. */
@@ -27,36 +27,36 @@ function useWindowAspect(): number {
     typeof window === 'undefined' || window.innerWidth === 0
       ? 9 / 16
       : window.innerHeight / window.innerWidth,
-  )
+  );
   useEffect(() => {
     const update = () =>
-      setAspect(window.innerWidth === 0 ? 9 / 16 : window.innerHeight / window.innerWidth)
-    window.addEventListener('resize', update)
-    window.addEventListener('orientationchange', update)
+      setAspect(window.innerWidth === 0 ? 9 / 16 : window.innerHeight / window.innerWidth);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
     return () => {
-      window.removeEventListener('resize', update)
-      window.removeEventListener('orientationchange', update)
-    }
-  }, [])
-  return aspect
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+  return aspect;
 }
 
 /** Width of an element's content box, tracked with a resize observer. */
 function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
-  const ref = useRef<T | null>(null)
-  const [width, setWidth] = useState(0)
+  const ref = useRef<T | null>(null);
+  const [width, setWidth] = useState(0);
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    setWidth(el.clientWidth)
+    const el = ref.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
     const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (entry) setWidth(entry.contentRect.width)
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-  return [ref, width]
+      const entry = entries[0];
+      if (entry) setWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width];
 }
 
 /**
@@ -77,43 +77,43 @@ export function BackgroundPreview({
   background,
   maxHeight = DEFAULT_MAX_HEIGHT,
 }: BackgroundPreviewProps) {
-  const { t } = useTranslation()
-  const selectedId = useAtomValue(backgroundAtom)
-  const paramOverrides = useAtomValue(backgroundParamsAtom)
-  const id = background ?? selectedId
+  const { t } = useTranslation();
+  const selectedId = useAtomValue(backgroundAtom);
+  const paramOverrides = useAtomValue(backgroundParamsAtom);
+  const id = background ?? selectedId;
 
-  const definition = useMemo(() => getBackground(id), [id])
-  const overrides = paramOverrides[id]
+  const definition = useMemo(() => getBackground(id), [id]);
+  const overrides = paramOverrides[id];
   const params = useMemo(
     () => (definition ? resolveBackgroundParams(definition, overrides) : undefined),
     [definition, overrides],
-  )
-  const paramsKey = useMemo(() => (params ? JSON.stringify(params) : ''), [params])
+  );
+  const paramsKey = useMemo(() => (params ? JSON.stringify(params) : ''), [params]);
 
   const { canvasRef, canvasKey, backend } = useBackground({
     id,
     params,
     dpr: PREVIEW_DPR,
     fps: PREVIEW_FPS,
-  })
+  });
 
-  const [boxRef, containerWidth] = useElementWidth<HTMLDivElement>()
-  const aspect = useWindowAspect()
+  const [boxRef, containerWidth] = useElementWidth<HTMLDivElement>();
+  const aspect = useWindowAspect();
   const box = useMemo(
     () => fitPreviewBox(containerWidth, maxHeight, aspect),
     [containerWidth, maxHeight, aspect],
-  )
+  );
 
   // GPU-only backgrounds render nothing without WebGPU, but `useBackground`
   // reports no backend until one starts — so wait a beat before blaming the
   // browser.
-  const [unavailable, setUnavailable] = useState(false)
+  const [unavailable, setUnavailable] = useState(false);
   useEffect(() => {
-    setUnavailable(false)
-    if (backend !== null) return
-    const timer = setTimeout(() => setUnavailable(true), UNAVAILABLE_DELAY_MS)
-    return () => clearTimeout(timer)
-  }, [backend, id, paramsKey])
+    setUnavailable(false);
+    if (backend !== null) return;
+    const timer = setTimeout(() => setUnavailable(true), UNAVAILABLE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [backend, id, paramsKey]);
 
   return (
     <div ref={boxRef} className="w-full">
@@ -135,5 +135,5 @@ export function BackgroundPreview({
         )}
       </div>
     </div>
-  )
+  );
 }

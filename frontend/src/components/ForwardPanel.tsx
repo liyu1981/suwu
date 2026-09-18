@@ -1,165 +1,170 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { CommonTileContainer } from './CommonTileContainer'
-import { RefreshIcon } from './icons'
-import { forwardZoomAtom } from '../store/zoom'
-import { isLocalHost } from '../lib/format'
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { CommonTileContainer } from './CommonTileContainer';
+import { RefreshIcon } from './icons';
+import { forwardZoomAtom } from '../store/zoom';
+import { isLocalHost } from '../lib/format';
 
-import { authFetch } from '../lib/api'
-import { useAutoRefreshDropdown, AutoRefreshDropdown, AutoRefreshTrigger } from './AutoRefreshDropdown'
+import { authFetch } from '../lib/api';
+import {
+  useAutoRefreshDropdown,
+  AutoRefreshDropdown,
+  AutoRefreshTrigger,
+} from './AutoRefreshDropdown';
 
 interface ForwardStatus {
-  id: string
-  externalPort: number
-  internalHost: string
-  internalPort: number
-  protocol: string
-  status: string
-  error?: string
-  activeConns: number
-  totalConns: number
-  startedAt?: string
+  id: string;
+  externalPort: number;
+  internalHost: string;
+  internalPort: number;
+  protocol: string;
+  status: string;
+  error?: string;
+  activeConns: number;
+  totalConns: number;
+  startedAt?: string;
 }
 
 const STATUS_COLORS = {
   running: 'bg-green-500',
   stopped: 'bg-gray-400',
   error: 'bg-red-500',
-} as const
+} as const;
 
 const inputClass =
-  'rounded-lg bg-white/[0.08] border border-white/[0.12] px-2.5 py-1.5 text-sm text-white/90 placeholder-white/35 outline-none transition-all duration-150 focus:bg-white/[0.14] focus:ring-1'
+  'rounded-lg bg-white/[0.08] border border-white/[0.12] px-2.5 py-1.5 text-sm text-white/90 placeholder-white/35 outline-none transition-all duration-150 focus:bg-white/[0.14] focus:ring-1';
 
-const inputValid = 'focus:border-green-500/40 focus:ring-green-500/20'
-const inputInvalid = 'border-red-500/40 focus:border-red-500/40 focus:ring-red-500/20'
+const inputValid = 'focus:border-green-500/40 focus:ring-green-500/20';
+const inputInvalid = 'border-red-500/40 focus:border-red-500/40 focus:ring-red-500/20';
 
 const btnPrimary =
-  'shrink-0 rounded-lg bg-cyan-500/25 px-3.5 py-1.5 text-xs font-medium text-cyan-300 transition-all duration-150 hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed'
+  'shrink-0 rounded-lg bg-cyan-500/25 px-3.5 py-1.5 text-xs font-medium text-cyan-300 transition-all duration-150 hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed';
 
 async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
-  const res = await authFetch(path, init)
+  const res = await authFetch(path, init);
   if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(body || `HTTP ${res.status}`)
+    const body = await res.text().catch(() => '');
+    throw new Error(body || `HTTP ${res.status}`);
   }
-  return res.json()
+  return res.json();
 }
 
 const btnDanger =
-  'rounded-lg bg-red-500/15 px-2 py-1 text-xs font-medium text-red-400/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-400 active:scale-[0.97]'
+  'rounded-lg bg-red-500/15 px-2 py-1 text-xs font-medium text-red-400/80 transition-all duration-150 hover:bg-red-500/25 hover:text-red-400 active:scale-[0.97]';
 
 function formatUptime(startedAt: string): string {
-  const start = new Date(startedAt).getTime()
-  const now = Date.now()
-  const diff = Math.floor((now - start) / 1000)
-  const h = Math.floor(diff / 3600)
-  const m = Math.floor((diff % 3600) / 60)
-  const s = diff % 60
-  if (h > 0) return `${h}h ${m}m`
-  if (m > 0) return `${m}m ${s}s`
-  return `${s}s`
+  const start = new Date(startedAt).getTime();
+  const now = Date.now();
+  const diff = Math.floor((now - start) / 1000);
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function validatePort(value: string, occupied: number[]): { valid: boolean; error?: string } {
-  if (value === '') return { valid: true }
-  const n = parseInt(value, 10)
-  if (isNaN(n)) return { valid: false, error: 'Invalid' }
-  if (n < 1024) return { valid: false, error: '< 1024' }
-  if (n > 65535) return { valid: false, error: '> 65535' }
-  if (occupied.includes(n)) return { valid: false, error: 'Occupied' }
-  return { valid: true }
+  if (value === '') return { valid: true };
+  const n = parseInt(value, 10);
+  if (isNaN(n)) return { valid: false, error: 'Invalid' };
+  if (n < 1024) return { valid: false, error: '< 1024' };
+  if (n > 65535) return { valid: false, error: '> 65535' };
+  if (occupied.includes(n)) return { valid: false, error: 'Occupied' };
+  return { valid: true };
 }
 
 export default function ForwardPanel() {
-  const { t } = useTranslation()
-  const [forwards, setForwards] = useState<ForwardStatus[]>([])
-  const [loading, setLoading] = useState(true)
-  const [extPort, setExtPort] = useState('')
-  const [intHost, setIntHost] = useState('localhost')
-  const [intPort, setIntPort] = useState('')
-  const [protocol, setProtocol] = useState<'tcp' | 'udp'>('tcp')
-  const [creating, setCreating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [serverPorts, setServerPorts] = useState<number[]>([])
-  const [intPortOpen, setIntPortOpen] = useState<boolean | null>(null)
-  const checkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { t } = useTranslation();
+  const [forwards, setForwards] = useState<ForwardStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [extPort, setExtPort] = useState('');
+  const [intHost, setIntHost] = useState('localhost');
+  const [intPort, setIntPort] = useState('');
+  const [protocol, setProtocol] = useState<'tcp' | 'udp'>('tcp');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [serverPorts, setServerPorts] = useState<number[]>([]);
+  const [intPortOpen, setIntPortOpen] = useState<boolean | null>(null);
+  const checkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-refresh (file-viewer style: interval dropdown)
-  const [autoRefresh, setAutoRefresh] = useState(0)
-  const dropdown = useAutoRefreshDropdown()
+  const [autoRefresh, setAutoRefresh] = useState(0);
+  const dropdown = useAutoRefreshDropdown();
 
   const fetchStatus = useCallback(async () => {
     try {
-      const data = await apiFetch('/api/forward/status')
-      setForwards(Array.isArray(data) ? data : [])
+      const data = await apiFetch('/api/forward/status');
+      setForwards(Array.isArray(data) ? data : []);
     } catch {
       // silent
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   const fetchServerPorts = useCallback(async () => {
     try {
-      const data = await apiFetch('/api/forward/server-ports') as { ports: number[] }
-      setServerPorts(data.ports ?? [])
+      const data = (await apiFetch('/api/forward/server-ports')) as { ports: number[] };
+      setServerPorts(data.ports ?? []);
     } catch {
       // silent
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchStatus()
-    fetchServerPorts()
-  }, [fetchStatus, fetchServerPorts])
+    fetchStatus();
+    fetchServerPorts();
+  }, [fetchStatus, fetchServerPorts]);
 
   // Status polling — controlled by the auto-refresh interval dropdown
   // (Off = manual refresh only, otherwise poll at the chosen interval).
   useEffect(() => {
-    if (autoRefresh <= 0) return
+    if (autoRefresh <= 0) return;
     const timer = setInterval(() => {
-      fetchStatus()
-      fetchServerPorts()
-    }, autoRefresh)
-    return () => clearInterval(timer)
-  }, [autoRefresh, fetchStatus, fetchServerPorts])
+      fetchStatus();
+      fetchServerPorts();
+    }, autoRefresh);
+    return () => clearInterval(timer);
+  }, [autoRefresh, fetchStatus, fetchServerPorts]);
 
   // Debounced check for internal port openness
   useEffect(() => {
     if (checkTimerRef.current) {
-      clearTimeout(checkTimerRef.current)
+      clearTimeout(checkTimerRef.current);
     }
 
-    const n = parseInt(intPort, 10)
+    const n = parseInt(intPort, 10);
     if (isNaN(n) || n < 1 || n > 65535 || !isLocalHost(intHost)) {
-      setIntPortOpen(null)
-      return
+      setIntPortOpen(null);
+      return;
     }
 
-    setIntPortOpen(null) // reset while checking
+    setIntPortOpen(null); // reset while checking
     checkTimerRef.current = setTimeout(() => {
-      setIntPortOpen(serverPorts.includes(n))
-    }, 300)
+      setIntPortOpen(serverPorts.includes(n));
+    }, 300);
 
     return () => {
-      if (checkTimerRef.current) clearTimeout(checkTimerRef.current)
-    }
-  }, [intPort, intHost, serverPorts])
+      if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+    };
+  }, [intPort, intHost, serverPorts]);
 
-  const extPortValidation = validatePort(extPort, serverPorts)
-  const intPortValidation = validatePort(intPort, [])
-  const canCreate = extPort !== '' && intPort !== '' && extPortValidation.valid && intPortValidation.valid
+  const extPortValidation = validatePort(extPort, serverPorts);
+  const intPortValidation = validatePort(intPort, []);
+  const canCreate =
+    extPort !== '' && intPort !== '' && extPortValidation.valid && intPortValidation.valid;
 
   const handleCreate = useCallback(async () => {
-    const ep = parseInt(extPort, 10)
-    const ip = parseInt(intPort, 10)
+    const ep = parseInt(extPort, 10);
+    const ip = parseInt(intPort, 10);
     if (!canCreate) {
-      setError(t('forward.portRequired'))
-      return
+      setError(t('forward.portRequired'));
+      return;
     }
 
-    setCreating(true)
-    setError(null)
+    setCreating(true);
+    setError(null);
     try {
       await apiFetch('/api/forward/start', {
         method: 'POST',
@@ -170,17 +175,17 @@ export default function ForwardPanel() {
           internalPort: ip,
           protocol,
         }),
-      })
-      setExtPort('')
-      setIntPort('')
-      await fetchStatus()
-      await fetchServerPorts()
+      });
+      setExtPort('');
+      setIntPort('');
+      await fetchStatus();
+      await fetchServerPorts();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to create')
+      setError(e instanceof Error ? e.message : 'Failed to create');
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }, [extPort, intHost, intPort, protocol, canCreate, t, fetchStatus, fetchServerPorts])
+  }, [extPort, intHost, intPort, protocol, canCreate, t, fetchStatus, fetchServerPorts]);
 
   const handleRemove = useCallback(
     async (id: string) => {
@@ -189,28 +194,31 @@ export default function ForwardPanel() {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
-        })
-        await fetchStatus()
-        await fetchServerPorts()
+        });
+        await fetchStatus();
+        await fetchServerPorts();
       } catch {
         // silent
       }
     },
     [fetchStatus, fetchServerPorts],
-  )
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && canCreate) {
-        handleCreate()
+        handleCreate();
       }
     },
     [handleCreate, canCreate],
-  )
+  );
 
-  const extPortMsg = extPort !== '' && !extPortValidation.valid ? extPortValidation.error : undefined
-  const intPortMsg = intPort !== '' && !intPortValidation.valid ? intPortValidation.error : undefined
-  const showIntPortWarning = intPort !== '' && intPortValidation.valid && isLocalHost(intHost) && intPortOpen === false
+  const extPortMsg =
+    extPort !== '' && !extPortValidation.valid ? extPortValidation.error : undefined;
+  const intPortMsg =
+    intPort !== '' && !intPortValidation.valid ? intPortValidation.error : undefined;
+  const showIntPortWarning =
+    intPort !== '' && intPortValidation.valid && isLocalHost(intHost) && intPortOpen === false;
 
   return (
     <CommonTileContainer zoomAtom={forwardZoomAtom} noPadding>
@@ -220,23 +228,42 @@ export default function ForwardPanel() {
           {/* Refresh button (left) */}
           <button
             type="button"
-            onClick={() => { fetchStatus(); fetchServerPorts() }}
+            onClick={() => {
+              fetchStatus();
+              fetchServerPorts();
+            }}
             className={`grid h-5 w-5 place-items-center rounded-md transition-all duration-150 hover:bg-white/[0.08] active:scale-90 ${
-              autoRefresh > 0 ? 'text-green-400 hover:text-green-300' : 'text-white/30 hover:text-white/60'
+              autoRefresh > 0
+                ? 'text-green-400 hover:text-green-300'
+                : 'text-white/30 hover:text-white/60'
             }`}
             title={t('forward.refreshPorts')}
           >
             <RefreshIcon className="h-3 w-3" />
           </button>
           {/* Auto-refresh dropdown trigger */}
-          <AutoRefreshTrigger btnRef={dropdown.btnRef} isActive={autoRefresh > 0} onClick={dropdown.toggle} />
-          <span className="ml-1.5 text-base font-semibold tracking-wide text-white/60">{t('forward.title')}</span>
+          <AutoRefreshTrigger
+            btnRef={dropdown.btnRef}
+            isActive={autoRefresh > 0}
+            onClick={dropdown.toggle}
+          />
+          <span className="ml-1.5 text-base font-semibold tracking-wide text-white/60">
+            {t('forward.title')}
+          </span>
           <div className="flex-1" />
         </div>
 
         {/* Auto-refresh dropdown */}
         {dropdown.showDropdown && (
-          <AutoRefreshDropdown value={autoRefresh} onChange={(ms) => { setAutoRefresh(ms); dropdown.close() }} dropdownRef={dropdown.dropdownRef} dropdownPos={dropdown.dropdownPos} />
+          <AutoRefreshDropdown
+            value={autoRefresh}
+            onChange={(ms) => {
+              setAutoRefresh(ms);
+              dropdown.close();
+            }}
+            dropdownRef={dropdown.dropdownRef}
+            dropdownPos={dropdown.dropdownPos}
+          />
         )}
 
         {/* Config row — glass material with better spacing */}
@@ -317,8 +344,14 @@ export default function ForwardPanel() {
         {/* Validation messages — subtle material strip */}
         {(extPortMsg || intPortMsg || showIntPortWarning || error) && (
           <div className="flex shrink-0 flex-wrap gap-3 border-x border-x-white/[0.10] border-b border-b-white/[0.08] bg-white/[0.05] px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            {extPortMsg && <span className="text-[11px] font-medium text-red-400">{t('forward.portOccupied')}</span>}
-            {intPortMsg && <span className="text-[11px] font-medium text-red-400">Int: {intPortMsg}</span>}
+            {extPortMsg && (
+              <span className="text-[11px] font-medium text-red-400">
+                {t('forward.portOccupied')}
+              </span>
+            )}
+            {intPortMsg && (
+              <span className="text-[11px] font-medium text-red-400">Int: {intPortMsg}</span>
+            )}
             {showIntPortWarning && (
               <span className="text-[11px] font-medium text-amber-400">
                 ⚠ Port {intPort} is not open on {intHost || 'localhost'}
@@ -331,11 +364,21 @@ export default function ForwardPanel() {
         {/* Active mappings list */}
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           {loading && (
-            <div className="flex items-center justify-center py-12 text-[11px] text-white/40">Loading...</div>
+            <div className="flex items-center justify-center py-12 text-[11px] text-white/40">
+              Loading...
+            </div>
           )}
           {!loading && forwards.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-[11px] text-white/40">
-              <svg className="mb-2 h-6 w-6 text-white/25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                className="mb-2 h-6 w-6 text-white/25"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
                 <line x1="19" y1="8" x2="19" y2="14" />
@@ -351,7 +394,9 @@ export default function ForwardPanel() {
             >
               {/* Status dot with glow */}
               <div className="relative shrink-0">
-                <div className={`h-2 w-2 rounded-full ${STATUS_COLORS[f.status as keyof typeof STATUS_COLORS] ?? STATUS_COLORS.stopped}`} />
+                <div
+                  className={`h-2 w-2 rounded-full ${STATUS_COLORS[f.status as keyof typeof STATUS_COLORS] ?? STATUS_COLORS.stopped}`}
+                />
                 {f.status === 'running' && (
                   <div className="absolute inset-0 h-2 w-2 animate-pulse rounded-full bg-green-500/40" />
                 )}
@@ -360,14 +405,18 @@ export default function ForwardPanel() {
               {/* Mapping info */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-mono tabular-nums text-white/80">{f.externalPort}</span>
+                  <span className="text-sm font-mono tabular-nums text-white/80">
+                    {f.externalPort}
+                  </span>
                   <span className="text-[10px] text-white/40">→</span>
                   <span className="text-sm font-mono tabular-nums text-white/80">
                     {f.internalHost}:{f.internalPort}
                   </span>
                   <span
                     className={`rounded-md px-1.5 py-0.5 text-xs font-semibold tracking-wide ${
-                      f.protocol === 'tcp' ? 'bg-cyan-500/15 text-cyan-400' : 'bg-violet-500/15 text-violet-400'
+                      f.protocol === 'tcp'
+                        ? 'bg-cyan-500/15 text-cyan-400'
+                        : 'bg-violet-500/15 text-violet-400'
                     }`}
                   >
                     {f.protocol.toUpperCase()}
@@ -396,5 +445,5 @@ export default function ForwardPanel() {
         </div>
       </div>
     </CommonTileContainer>
-  )
+  );
 }

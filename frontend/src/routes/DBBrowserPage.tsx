@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
-import DBBrowserPanel from '../components/dbbrowser/DBBrowserPanel'
-import { setPageTransparent } from '../lib/constants'
+import { useEffect } from 'react';
+import DBBrowserPanel from '../components/dbbrowser/DBBrowserPanel';
+import { setPageTransparent } from '../lib/constants';
 
 /**
  * Full-space database browser page loaded inside each tiling pane's iframe.
@@ -8,7 +8,7 @@ import { setPageTransparent } from '../lib/constants'
  */
 export default function DBBrowserPage() {
   useEffect(() => {
-    setPageTransparent()
-  }, [])
-  return <DBBrowserPanel />
+    setPageTransparent();
+  }, []);
+  return <DBBrowserPanel />;
 }

@@ -1,47 +1,45 @@
-import { useRef, useCallback } from 'react'
-import Editor, { type OnMount } from '@monaco-editor/react'
-import { MONACO_THEME, ensureMonacoTheme } from '../codeexplorer/monacoSetup'
+import { useRef, useCallback } from 'react';
+import Editor, { type OnMount } from '@monaco-editor/react';
+import { MONACO_THEME, ensureMonacoTheme } from '../codeexplorer/monacoSetup';
 
 interface SQLEditorProps {
-  value: string
-  onChange: (value: string) => void
-  onExecute: () => void
-  readOnly?: boolean
+  value: string;
+  onChange: (value: string) => void;
+  onExecute: () => void;
+  readOnly?: boolean;
 }
 
 export default function SQLEditor({ value, onChange, onExecute, readOnly }: SQLEditorProps) {
-  const editorRef = useRef<unknown>(null)
+  const editorRef = useRef<unknown>(null);
 
   const handleMount: OnMount = useCallback(
     (editor, monaco) => {
-      editorRef.current = editor
+      editorRef.current = editor;
 
-      ensureMonacoTheme(monaco)
+      ensureMonacoTheme(monaco);
 
       // Add keyboard shortcut: Ctrl+Enter / Cmd+Enter to execute
       editor.addAction({
         id: 'execute-sql',
         label: 'Execute SQL',
-        keybindings: [
-          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-        ],
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
         run: () => {
-          onExecute()
+          onExecute();
         },
-      })
+      });
 
       // Focus the editor
-      editor.focus()
+      editor.focus();
     },
     [onExecute],
-  )
+  );
 
   const handleChange = useCallback(
     (val: string | undefined) => {
-      onChange(val ?? '')
+      onChange(val ?? '');
     },
     [onChange],
-  )
+  );
 
   return (
     <div className="h-full w-full overflow-hidden rounded-lg border border-white/[0.10] bg-white/[0.02]">
@@ -89,5 +87,5 @@ export default function SQLEditor({ value, onChange, onExecute, readOnly }: SQLE
         }
       />
     </div>
-  )
+  );
 }

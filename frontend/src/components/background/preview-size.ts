@@ -10,18 +10,18 @@ export function fitPreviewBox(
   maxHeight: number,
   aspect: number,
 ): { width: number; height: number } {
-  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 9 / 16
-  const available = Math.floor(containerWidth)
+  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 9 / 16;
+  const available = Math.floor(containerWidth);
   if (available <= 0 || !Number.isFinite(maxHeight) || maxHeight <= 0) {
-    return { width: 0, height: 0 }
+    return { width: 0, height: 0 };
   }
 
-  const heightAtFullWidth = available * safeAspect
+  const heightAtFullWidth = available * safeAspect;
   if (heightAtFullWidth <= maxHeight) {
-    return { width: available, height: Math.max(1, Math.round(heightAtFullWidth)) }
+    return { width: available, height: Math.max(1, Math.round(heightAtFullWidth)) };
   }
   return {
     width: Math.max(1, Math.round(maxHeight / safeAspect)),
     height: Math.max(1, Math.round(maxHeight)),
-  }
+  };
 }

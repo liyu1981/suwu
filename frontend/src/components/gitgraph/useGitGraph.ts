@@ -65,9 +65,21 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
     // vscode-git-graph colors are GitHub-light and too dim here). Adjacent
     // slots alternate warm/cool hues to keep neighbouring lanes distinct.
     colors: [
-      '#58a6ff', '#f778ba', '#7ee787', '#e3b341', '#bc8cff',
-      '#ffa657', '#56d4dd', '#f85149', '#a3e635', '#d2a8ff',
-      '#ffa198', '#79c0ff', '#ffdf5d', '#3fb950', '#f0abfc',
+      '#58a6ff',
+      '#f778ba',
+      '#7ee787',
+      '#e3b341',
+      '#bc8cff',
+      '#ffa657',
+      '#56d4dd',
+      '#f85149',
+      '#a3e635',
+      '#d2a8ff',
+      '#ffa198',
+      '#79c0ff',
+      '#ffdf5d',
+      '#3fb950',
+      '#f0abfc',
     ],
     grid: {
       x: 24,
@@ -110,7 +122,8 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
 
       const response = await authFetch(`/api/git/commits?${params}`);
 
-      let data: { commits?: GitCommit[] | null; head?: string | null; error?: string } | null = null;
+      let data: { commits?: GitCommit[] | null; head?: string | null; error?: string } | null =
+        null;
       try {
         data = await response.json();
       } catch {
@@ -152,7 +165,8 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
 
       const response = await authFetch(`/api/git/commits?${params}`);
 
-      let data: { commits?: GitCommit[] | null; head?: string | null; error?: string } | null = null;
+      let data: { commits?: GitCommit[] | null; head?: string | null; error?: string } | null =
+        null;
       try {
         data = await response.json();
       } catch {
@@ -173,7 +187,17 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
     } finally {
       setLoadingMore(false);
     }
-  }, [repoPath, branch, maxCount, enabled, loadingMore, hasMore, commits.length, base, allBranches]);
+  }, [
+    repoPath,
+    branch,
+    maxCount,
+    enabled,
+    loadingMore,
+    hasMore,
+    commits.length,
+    base,
+    allBranches,
+  ]);
 
   useEffect(() => {
     fetchCommits();
@@ -192,13 +216,14 @@ export function useGitGraph(options: UseGitGraphOptions = {}): UseGitGraphReturn
   }, [fetchCommits]);
 
   // Generate graph layout
-  const graphLayout = commits.length > 0
-    ? createGraphLayout(commits, finalConfig, finalMuteConfig, {
-        commitHead,
-        onlyFollowFirstParent: followFirstParent,
-        expandedCommitIndex: expandedCommitIndex ?? -1,
-      })
-    : null;
+  const graphLayout =
+    commits.length > 0
+      ? createGraphLayout(commits, finalConfig, finalMuteConfig, {
+          commitHead,
+          onlyFollowFirstParent: followFirstParent,
+          expandedCommitIndex: expandedCommitIndex ?? -1,
+        })
+      : null;
 
   return {
     commits,

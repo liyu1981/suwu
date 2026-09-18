@@ -1,16 +1,16 @@
-import { registerBackground } from '../../../registry'
-import { WEBGPU_ENGINE } from '../../../constants'
-import type { BackgroundContext, BackgroundHandle, BackgroundParam } from '../../../types'
+import { registerBackground } from '../../../registry';
+import { WEBGPU_ENGINE } from '../../../constants';
+import type { BackgroundContext, BackgroundHandle, BackgroundParam } from '../../../types';
 
 // Reduced motion: settle the reprojection, then show one static frame.
-const SETTLE_FRAMES = 16
+const SETTLE_FRAMES = 16;
 
 /**
  * Render-resolution presets. The scene is expensive (a 400-step terrain march
  * into 9-octave fbm plus tree and cloud marches), so it renders into a smaller
  * offscreen target and is upscaled; higher detail means more scene pixels.
  */
-type RainforestDetail = 'low' | 'medium' | 'high' | 'ultra' | 'native'
+type RainforestDetail = 'low' | 'medium' | 'high' | 'ultra' | 'native';
 
 /** Scene render budget, in megapixels (`Infinity` = the full canvas backing). */
 const RAINFOREST_DETAIL_BUDGETS: Record<RainforestDetail, number> = {
@@ -19,7 +19,7 @@ const RAINFOREST_DETAIL_BUDGETS: Record<RainforestDetail, number> = {
   high: 2.5,
   ultra: 5.0,
   native: Number.POSITIVE_INFINITY,
-}
+};
 
 /** User-facing parameters for the Rainforest background. */
 const RAINFOREST_PARAMS: readonly BackgroundParam[] = [
@@ -48,13 +48,13 @@ const RAINFOREST_PARAMS: readonly BackgroundParam[] = [
       { value: 'native', label: 'Native (canvas)' },
     ],
   },
-]
+];
 
 interface RainforestParams {
   /** Multiplier on the animation clock; 1 is the original speed, 0 freezes it. */
-  speed: number
+  speed: number;
   /** Offscreen render budget / sharpness. */
-  detail: RainforestDetail
+  detail: RainforestDetail;
 }
 
 function isDetail(value: unknown): value is RainforestDetail {
@@ -64,17 +64,17 @@ function isDetail(value: unknown): value is RainforestDetail {
     value === 'high' ||
     value === 'ultra' ||
     value === 'native'
-  )
+  );
 }
 
 /** Read the typed Rainforest params out of the opaque subsystem params bag. */
 function resolveRainforestParams(params?: Record<string, unknown>): RainforestParams {
-  const speed = params?.speed
-  const detail = params?.detail
+  const speed = params?.speed;
+  const detail = params?.detail;
   return {
     speed: typeof speed === 'number' && Number.isFinite(speed) ? speed : 1,
     detail: isDetail(detail) ? detail : 'high',
-  }
+  };
 }
 
 /**
@@ -96,8 +96,8 @@ async function start(
   ctx: BackgroundContext,
   params?: Record<string, unknown>,
 ): Promise<BackgroundHandle> {
-  const { speed, detail } = resolveRainforestParams(params)
-  const megapixels = RAINFOREST_DETAIL_BUDGETS[detail]
+  const { speed, detail } = resolveRainforestParams(params);
+  const megapixels = RAINFOREST_DETAIL_BUDGETS[detail];
   const [
     { fragmentScene, startGpuBackground },
     { default: rainforestShader },
@@ -106,7 +106,7 @@ async function start(
     import('../../webgpu-render-engine'),
     import('./shaders/rainforest.wgsl'),
     import('./shaders/display.wgsl'),
-  ])
+  ]);
 
   return startGpuBackground(
     'rainforest',
@@ -141,7 +141,7 @@ async function start(
     ctx,
     params,
     { clearColor: [0, 0, 0, 1] },
-  )
+  );
 }
 
 registerBackground({
@@ -155,4 +155,4 @@ registerBackground({
   },
   params: RAINFOREST_PARAMS,
   gpu: async () => ({ start }),
-})
+});

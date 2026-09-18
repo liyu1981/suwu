@@ -1,22 +1,24 @@
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const kbd =
-  'inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/15 bg-white/10 px-1.5 font-mono text-[10px] leading-none text-popover-foreground'
-const rowLabel = 'text-xs text-popover-foreground'
-const rowKeys = 'flex items-center justify-end gap-1'
+  'inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/15 bg-white/10 px-1.5 font-mono text-[10px] leading-none text-popover-foreground';
+const rowLabel = 'text-xs text-popover-foreground';
+const rowKeys = 'flex items-center justify-end gap-1';
 
 /** One shortcut row: action label on the left, key caps on the right. */
 function Row(props: { label: string; keys: string[][] }) {
-  const { label, keys } = props
-  const { t } = useTranslation()
+  const { label, keys } = props;
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between gap-4 py-1.5">
       <span className={rowLabel}>{label}</span>
       <span className={rowKeys}>
         {keys.map((combo, i) => (
           <span key={i} className={rowKeys}>
-            {i > 0 && <span className="px-0.5 text-[10px] text-muted-foreground">{t('shortcuts.or')}</span>}
+            {i > 0 && (
+              <span className="px-0.5 text-[10px] text-muted-foreground">{t('shortcuts.or')}</span>
+            )}
             {combo.map((k) => (
               <kbd key={k} className={kbd}>
                 {k}
@@ -26,21 +28,21 @@ function Row(props: { label: string; keys: string[][] }) {
         ))}
       </span>
     </div>
-  )
+  );
 }
 
-const sectionTitle = 'mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground'
-const sectionBox = 'mt-1 divide-y divide-white/5'
+const sectionTitle = 'mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground';
+const sectionBox = 'mt-1 divide-y divide-white/5';
 
 interface ShortcutItem {
-  label: string
-  keys: string[][]
-  search?: string
+  label: string;
+  keys: string[][];
+  search?: string;
 }
 
 interface ShortcutSection {
-  title: string
-  items: ShortcutItem[]
+  title: string;
+  items: ShortcutItem[];
 }
 
 /**
@@ -49,64 +51,80 @@ interface ShortcutSection {
  * menu list; bindings apply to the focused tile.
  */
 export default function ShortcutsView() {
-  const { t } = useTranslation()
-  const [query, setQuery] = useState('')
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
 
-  const allSections: ShortcutSection[] = useMemo(() => [
-    {
-      title: t('shortcuts.tiles'),
-      items: [
-        { label: t('shortcuts.splitRight'), keys: [['Alt', '⏎']] },
-        { label: t('shortcuts.splitBelow'), keys: [['Alt', '⇧', '⏎']] },
-        { label: t('shortcuts.closeTile'), keys: [['Alt', 'Q']] },
-        { label: t('shortcuts.swapTile'), keys: [['Alt', 'S']] },
-      ],
-    },
-    {
-      title: t('shortcuts.focus'),
-      items: [
-        { label: t('shortcuts.focusLeft'), keys: [['Alt', '←']], search: 'focus left' },
-        { label: t('shortcuts.focusRight'), keys: [['Alt', '→']], search: 'focus right' },
-        { label: t('shortcuts.focusUp'), keys: [['Alt', '↑']], search: 'focus up' },
-        { label: t('shortcuts.focusDown'), keys: [['Alt', '↓']], search: 'focus down' },
-      ],
-    },
-    {
-      title: t('shortcuts.movement'),
-      items: [
-        { label: t('shortcuts.moveLeft'), keys: [['Alt', '⇧', '←']], search: 'move left swap' },
-        { label: t('shortcuts.moveRight'), keys: [['Alt', '⇧', '→']], search: 'move right swap' },
-        { label: t('shortcuts.moveUp'), keys: [['Alt', '⇧', '↑']], search: 'move up swap' },
-        { label: t('shortcuts.moveDown'), keys: [['Alt', '⇧', '↓']], search: 'move down swap' },
-      ],
-    },
-    {
-      title: t('shortcuts.clipboard'),
-      items: [
-        { label: t('shortcuts.copySelection'), keys: [['Ctrl', '⇧', 'C'], ['⌘', 'C']] },
-        { label: t('shortcuts.paste'), keys: [['Ctrl', 'V'], ['Ctrl', '⇧', 'V'], ['⌘', 'V']] },
-      ],
-    },
-    {
-      title: t('shortcuts.help'),
-      items: [
-        { label: t('shortcuts.openList'), keys: [['Alt', '⇧', '/']] },
-        { label: t('shortcuts.openMenu'), keys: [['Alt', '/']] },
-      ],
-    },
-    {
-      title: t('shortcuts.spaces'),
-      items: [
-        { label: t('shortcuts.switchSpaceN'), keys: [['Ctrl', '1–9']], search: 'space switch' },
-        { label: t('shortcuts.nextSpace'), keys: [['Ctrl', 'Tab']], search: 'space next' },
-        { label: t('shortcuts.prevSpace'), keys: [['Ctrl', '⇧', 'Tab']], search: 'space prev' },
-      ],
-    },
-  ], [t])
+  const allSections: ShortcutSection[] = useMemo(
+    () => [
+      {
+        title: t('shortcuts.tiles'),
+        items: [
+          { label: t('shortcuts.splitRight'), keys: [['Alt', '⏎']] },
+          { label: t('shortcuts.splitBelow'), keys: [['Alt', '⇧', '⏎']] },
+          { label: t('shortcuts.closeTile'), keys: [['Alt', 'Q']] },
+          { label: t('shortcuts.swapTile'), keys: [['Alt', 'S']] },
+        ],
+      },
+      {
+        title: t('shortcuts.focus'),
+        items: [
+          { label: t('shortcuts.focusLeft'), keys: [['Alt', '←']], search: 'focus left' },
+          { label: t('shortcuts.focusRight'), keys: [['Alt', '→']], search: 'focus right' },
+          { label: t('shortcuts.focusUp'), keys: [['Alt', '↑']], search: 'focus up' },
+          { label: t('shortcuts.focusDown'), keys: [['Alt', '↓']], search: 'focus down' },
+        ],
+      },
+      {
+        title: t('shortcuts.movement'),
+        items: [
+          { label: t('shortcuts.moveLeft'), keys: [['Alt', '⇧', '←']], search: 'move left swap' },
+          { label: t('shortcuts.moveRight'), keys: [['Alt', '⇧', '→']], search: 'move right swap' },
+          { label: t('shortcuts.moveUp'), keys: [['Alt', '⇧', '↑']], search: 'move up swap' },
+          { label: t('shortcuts.moveDown'), keys: [['Alt', '⇧', '↓']], search: 'move down swap' },
+        ],
+      },
+      {
+        title: t('shortcuts.clipboard'),
+        items: [
+          {
+            label: t('shortcuts.copySelection'),
+            keys: [
+              ['Ctrl', '⇧', 'C'],
+              ['⌘', 'C'],
+            ],
+          },
+          {
+            label: t('shortcuts.paste'),
+            keys: [
+              ['Ctrl', 'V'],
+              ['Ctrl', '⇧', 'V'],
+              ['⌘', 'V'],
+            ],
+          },
+        ],
+      },
+      {
+        title: t('shortcuts.help'),
+        items: [
+          { label: t('shortcuts.openList'), keys: [['Alt', '⇧', '/']] },
+          { label: t('shortcuts.openMenu'), keys: [['Alt', '/']] },
+        ],
+      },
+      {
+        title: t('shortcuts.spaces'),
+        items: [
+          { label: t('shortcuts.switchSpaceN'), keys: [['Ctrl', '1–9']], search: 'space switch' },
+          { label: t('shortcuts.nextSpace'), keys: [['Ctrl', 'Tab']], search: 'space next' },
+          { label: t('shortcuts.prevSpace'), keys: [['Ctrl', '⇧', 'Tab']], search: 'space prev' },
+        ],
+      },
+    ],
+    [t],
+  );
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return allSections
-    const q = query.toLowerCase()
+    if (!query.trim()) return allSections;
+    const q = query.toLowerCase();
     return allSections
       .map((s) => ({
         ...s,
@@ -117,14 +135,12 @@ export default function ShortcutsView() {
             r.keys.some((combo) => combo.some((k) => k.toLowerCase().includes(q))),
         ),
       }))
-      .filter((s) => s.items.length > 0)
-  }, [query, allSections])
+      .filter((s) => s.items.length > 0);
+  }, [query, allSections]);
 
   return (
     <>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        {t('shortcuts.description')}
-      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{t('shortcuts.description')}</p>
 
       <div className="relative mt-3">
         <input
@@ -162,5 +178,5 @@ export default function ShortcutsView() {
         </div>
       )}
     </>
-  )
+  );
 }

@@ -1,9 +1,9 @@
-import { Dialog as DialogPrimitive } from 'radix-ui'
+import { Dialog as DialogPrimitive } from 'radix-ui';
 
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
 
 /**
@@ -21,7 +21,7 @@ function DialogOverlay({
       className={cn('fixed inset-0 z-50 bg-black/45 backdrop-blur-xs', className)}
       {...props}
     />
-  )
+  );
 }
 
 /**
@@ -51,20 +51,17 @@ function DialogContent({
         {children}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
-  )
+  );
 }
 
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn(
-        'text-base font-semibold tracking-tight text-popover-foreground',
-        className,
-      )}
+      className={cn('text-base font-semibold tracking-tight text-popover-foreground', className)}
       {...props}
     />
-  )
+  );
 }
 
-export { Dialog, DialogContent, DialogTitle }
+export { Dialog, DialogContent, DialogTitle };

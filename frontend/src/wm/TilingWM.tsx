@@ -1,9 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai'
-import { useTranslation } from 'react-i18next'
-import { focusedIdAtom, layoutAtom, menuOpenAtom, menuViewAtom, spacesAtom, activeSpaceAtom, swapModeAtom, focusAtom, FOCUS_SPACE_NAME } from './atoms'
-import { fontDefaultAtom } from '../store/fonts'
-import { clamp } from '../lib/utils'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import {
+  focusedIdAtom,
+  layoutAtom,
+  menuOpenAtom,
+  menuViewAtom,
+  spacesAtom,
+  activeSpaceAtom,
+  swapModeAtom,
+  focusAtom,
+  FOCUS_SPACE_NAME,
+} from './atoms';
+import { fontDefaultAtom } from '../store/fonts';
+import { clamp } from '../lib/utils';
 import {
   closeAt,
   cleanStalePaneData,
@@ -29,56 +47,69 @@ import {
   type DividerSpec,
   type LayoutNode,
   type MoveDir,
-} from './layout'
-import { applyWmAction, wmAction } from './shortcuts'
-import { openViewer, openFileBrowser } from '../lib/actionResolver'
-import { authFetch } from '../lib/api'
-import { TileTools } from './TileTools'
-import { usePaneGhosts } from './hooks/usePaneGhosts'
-import { getTilePlugin, getAllTilePlugins } from './tilePlugins'
-import { appMenuAtom, getVisibleApps, type AppMenuState } from '../store/appMenu'
-import { getAppIconClasses, getAppIconLetter } from './appIcons'
-import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
-import { SESSION_STATE_KEY, MAX_SERVER_SESSIONS, type TileSessionMap, type SessionStore } from './sessionState'
-import { PTY_STATE_KEY } from '../components/hooks/usePtySession'
+} from './layout';
+import { applyWmAction, wmAction } from './shortcuts';
+import { openViewer, openFileBrowser } from '../lib/actionResolver';
+import { authFetch } from '../lib/api';
+import { TileTools } from './TileTools';
+import { usePaneGhosts } from './hooks/usePaneGhosts';
+import { getTilePlugin, getAllTilePlugins } from './tilePlugins';
+import { appMenuAtom, getVisibleApps, type AppMenuState } from '../store/appMenu';
+import { getAppIconClasses, getAppIconLetter } from './appIcons';
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
+import {
+  SESSION_STATE_KEY,
+  MAX_SERVER_SESSIONS,
+  type TileSessionMap,
+  type SessionStore,
+} from './sessionState';
+import { PTY_STATE_KEY } from '../components/hooks/usePtySession';
 
 // Register built-in tile plugins (side-effect imports).
-import './plugins/term'
-import './plugins/viewer'
-import './plugins/filebrowser'
-import './plugins/empty'
-import './plugins/forward'
-import './plugins/dropbox'
-import './plugins/gitgraph'
-import './plugins/diff'
-import './plugins/xdisplay'
-import './plugins/dbbrowser'
-import './plugins/code'
-
-
+import './plugins/term';
+import './plugins/viewer';
+import './plugins/filebrowser';
+import './plugins/empty';
+import './plugins/forward';
+import './plugins/dropbox';
+import './plugins/gitgraph';
+import './plugins/diff';
+import './plugins/xdisplay';
+import './plugins/dbbrowser';
+import './plugins/code';
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +
   'outline-none transition-colors ' +
   'hover:bg-white/10 hover:text-popover-foreground active:bg-white/15 active:text-popover-foreground ' +
-  'focus-visible:bg-white/10 focus-visible:text-popover-foreground'
+  'focus-visible:bg-white/10 focus-visible:text-popover-foreground';
 
 function AppIcon({ id, label, pluginId }: { id: string; label?: string; pluginId?: string }) {
-  const classes = getAppIconClasses(id, pluginId)
-  const letter = getAppIconLetter(id, label ?? id, pluginId)
+  const classes = getAppIconClasses(id, pluginId);
+  const letter = getAppIconLetter(id, label ?? id, pluginId);
   return (
-    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${classes.bg} ${classes.text}`}>
+    <div
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] text-xs font-bold ${classes.bg} ${classes.text}`}
+    >
       {letter}
     </div>
-  )
+  );
 }
 
 function ChevronIcon() {
   return (
-    <svg className="h-3.5 w-3.5 shrink-0 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="h-3.5 w-3.5 shrink-0 opacity-40"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="m9 6 6 6-6 6" />
     </svg>
-  )
+  );
 }
 
 /** iOS-settings-style dialog for choosing which application to open in a tile. */
@@ -88,69 +119,85 @@ function TileTypePicker({
   onSelect,
   onClose,
 }: {
-  paneId: string
-  setLayout: (fn: (prev: LayoutNode | null) => LayoutNode | null) => void
-  onSelect: (tileType: string) => void
-  onClose: () => void
+  paneId: string;
+  setLayout: (fn: (prev: LayoutNode | null) => LayoutNode | null) => void;
+  onSelect: (tileType: string) => void;
+  onClose: () => void;
 }) {
-  const { t } = useTranslation()
-  const plugins = getAllTilePlugins()
-  const [menuItems] = useAtom(appMenuAtom)
-  const navRef = useRef<HTMLElement>(null)
-  const [homeDir, setHomeDir] = useState<string | null>(null)
+  const { t } = useTranslation();
+  const plugins = getAllTilePlugins();
+  const [menuItems] = useAtom(appMenuAtom);
+  const navRef = useRef<HTMLElement>(null);
+  const [homeDir, setHomeDir] = useState<string | null>(null);
 
   // Get visible apps in user-defined order.
-  const appState: AppMenuState = (!menuItems || typeof menuItems !== 'object' || Array.isArray(menuItems)) ? { hiddenApps: [], customApps: [] } : menuItems as AppMenuState
-  const visibleApps = getVisibleApps(plugins, appState)
+  const appState: AppMenuState =
+    !menuItems || typeof menuItems !== 'object' || Array.isArray(menuItems)
+      ? { hiddenApps: [], customApps: [] }
+      : (menuItems as AppMenuState);
+  const visibleApps = getVisibleApps(plugins, appState);
 
   useEffect(() => {
-    navRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
-  }, [])
+    navRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+  }, []);
 
   useEffect(() => {
-    const controller = new AbortController()
+    const controller = new AbortController();
     authFetch('/api/home', { cache: 'no-store', signal: controller.signal })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.path) setHomeDir(data.path) })
-      .catch(() => {})
-    return () => controller.abort()
-  }, [])
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.path) setHomeDir(data.path);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   const selectPlugin = (tileType: string, params?: Record<string, string>) => {
-    const initialPath = (tileType === 'filebrowser' || tileType === 'fileviewer') ? homeDir ?? undefined : undefined
-    setLayout((prev) => prev ? setLeafType(prev, paneId, tileType, initialPath, params) : prev)
-    onSelect(tileType)
-    onClose()
-  }
+    const initialPath =
+      tileType === 'filebrowser' || tileType === 'fileviewer' ? (homeDir ?? undefined) : undefined;
+    setLayout((prev) => (prev ? setLeafType(prev, paneId, tileType, initialPath, params) : prev));
+    onSelect(tileType);
+    onClose();
+  };
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
-    const rows = Array.from(navRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])
-    if (rows.length === 0) return
-    const current = rows.indexOf(document.activeElement as HTMLButtonElement)
-    let next: number
+    const rows = Array.from(navRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+    if (rows.length === 0) return;
+    const current = rows.indexOf(document.activeElement as HTMLButtonElement);
+    let next: number;
     switch (e.key) {
       case 'ArrowDown':
-        next = current < 0 ? 0 : (current + 1) % rows.length
-        break
+        next = current < 0 ? 0 : (current + 1) % rows.length;
+        break;
       case 'ArrowUp':
-        next = current < 0 ? rows.length - 1 : (current - 1 + rows.length) % rows.length
-        break
+        next = current < 0 ? rows.length - 1 : (current - 1 + rows.length) % rows.length;
+        break;
       case 'Home':
-        next = 0
-        break
+        next = 0;
+        break;
       case 'End':
-        next = rows.length - 1
-        break
+        next = rows.length - 1;
+        break;
       default:
-        return
+        return;
     }
-    e.preventDefault()
-    rows[next].focus()
-  }
+    e.preventDefault();
+    rows[next].focus();
+  };
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="w-[min(92vw,28rem)]" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        className="w-[min(92vw,28rem)]"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose();
+        }}
+      >
         <DialogTitle>{t('wm.openApp')}</DialogTitle>
         <p className="mt-1 text-xs text-muted-foreground">{t('wm.chooseApp')}</p>
         <nav ref={navRef} aria-label="Applications" onKeyDown={onKeyDown} className="mt-3">
@@ -162,7 +209,7 @@ function TileTypePicker({
             )}
             {visibleApps.map((item) => {
               if (item.kind === 'plugin') {
-                const p = item.plugin
+                const p = item.plugin;
                 return (
                   <button
                     key={p.id}
@@ -179,9 +226,9 @@ function TileTypePicker({
                     </div>
                     <ChevronIcon />
                   </button>
-                )
+                );
               }
-              const c = item.config
+              const c = item.config;
               return (
                 <button
                   key={c.id}
@@ -198,13 +245,13 @@ function TileTypePicker({
                   </div>
                   <ChevronIcon />
                 </button>
-              )
+              );
             })}
           </div>
         </nav>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 /**
@@ -219,265 +266,279 @@ function TileTypePicker({
  * or reparented, so its PTY session survives layout changes.
  */
 export default function TilingWM() {
-  const { t } = useTranslation()
-  const store = useStore()
-  const layout = useAtomValue(layoutAtom)
-  const spaces = useAtomValue(spacesAtom)
-  const activeSpace = useAtomValue(activeSpaceAtom)
-  const focused = useAtomValue(focusedIdAtom)
-  const setFocused = useSetAtom(focusedIdAtom)
-  const setLayout = useSetAtom(layoutAtom)
+  const { t } = useTranslation();
+  const store = useStore();
+  const layout = useAtomValue(layoutAtom);
+  const spaces = useAtomValue(spacesAtom);
+  const activeSpace = useAtomValue(activeSpaceAtom);
+  const focused = useAtomValue(focusedIdAtom);
+  const setFocused = useSetAtom(focusedIdAtom);
+  const setLayout = useSetAtom(layoutAtom);
   // fontDefaultAtom is the "default for new terminals" preset, not a
   // runtime override. Each tile's actual font lives in space.paneData.
-  const fontPreset = useAtomValue(fontDefaultAtom)
+  const fontPreset = useAtomValue(fontDefaultAtom);
 
   // Server start timestamp — identifies this server instance.
-  const [serverStartedAt, setServerStartedAt] = useState<string>('')
+  const [serverStartedAt, setServerStartedAt] = useState<string>('');
 
   // Per-tile session state for the current server instance.
-  const [sessionState, setSessionState] = useState<TileSessionMap>({})
+  const [sessionState, setSessionState] = useState<TileSessionMap>({});
 
   // Latest session state for message handlers. The listener below is not
   // re-subscribed on every state change, so a plain closure would serve stale
   // state when a tile asks for its session after the WM recreated its iframe.
-  const sessionStateRef = useRef(sessionState)
-  sessionStateRef.current = sessionState
+  const sessionStateRef = useRef(sessionState);
+  sessionStateRef.current = sessionState;
 
   // Load from localStorage: use the latest timestamp if available,
   // otherwise query server for startedAt.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(SESSION_STATE_KEY)
+      const raw = localStorage.getItem(SESSION_STATE_KEY);
       if (raw) {
-        const store: SessionStore = JSON.parse(raw)
-        const keys = Object.keys(store)
+        const store: SessionStore = JSON.parse(raw);
+        const keys = Object.keys(store);
         if (keys.length > 0) {
-          keys.sort()
-          const latest = keys[keys.length - 1]
-          setServerStartedAt(latest)
-          setSessionState(store[latest])
-          return
+          keys.sort();
+          const latest = keys[keys.length - 1];
+          setServerStartedAt(latest);
+          setSessionState(store[latest]);
+          return;
         }
       }
     } catch {
       // ignore
     }
     authFetch('/api/server-info', { cache: 'no-store' })
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.startedAt) {
-          setServerStartedAt(data.startedAt)
+          setServerStartedAt(data.startedAt);
         }
       })
-      .catch(() => {})
-  }, [])
+      .catch(() => {});
+  }, []);
 
   // Notify child iframes when startedAt changes.
   useEffect(() => {
-    if (!serverStartedAt) return
+    if (!serverStartedAt) return;
     document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]').forEach((iframe) => {
-      iframe.contentWindow?.postMessage({ type: 'server-started-at', startedAt: serverStartedAt }, '*')
-    })
+      iframe.contentWindow?.postMessage(
+        { type: 'server-started-at', startedAt: serverStartedAt },
+        '*',
+      );
+    });
     // When startedAt changes (server restarted), load the new server's state
     // (which is likely empty) so tiles don't try to restore stale state.
     try {
-      const raw = localStorage.getItem(SESSION_STATE_KEY)
+      const raw = localStorage.getItem(SESSION_STATE_KEY);
       if (raw) {
-        const store: SessionStore = JSON.parse(raw)
-        const newState = store[serverStartedAt] ?? {}
-        setSessionState(newState)
+        const store: SessionStore = JSON.parse(raw);
+        const newState = store[serverStartedAt] ?? {};
+        setSessionState(newState);
       } else {
-        setSessionState({})
+        setSessionState({});
       }
     } catch {
-      setSessionState({})
+      setSessionState({});
     }
-  }, [serverStartedAt])
+  }, [serverStartedAt]);
 
   // Load saved state for this server instance once startedAt is known.
   useEffect(() => {
-    if (!serverStartedAt) return
+    if (!serverStartedAt) return;
     try {
-      const raw = localStorage.getItem(SESSION_STATE_KEY)
-      if (!raw) return
-      const store: SessionStore = JSON.parse(raw)
-      const saved = store[serverStartedAt]
+      const raw = localStorage.getItem(SESSION_STATE_KEY);
+      if (!raw) return;
+      const store: SessionStore = JSON.parse(raw);
+      const saved = store[serverStartedAt];
       if (saved) {
-        setSessionState(saved)
+        setSessionState(saved);
       }
     } catch {
       // ignore
     }
-  }, [serverStartedAt])
+  }, [serverStartedAt]);
 
   // Listen for tile-state-update messages from iframes and persist to localStorage.
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const d = e.data as { type?: string; paneId?: string; state?: Record<string, unknown> } | undefined
+      const d = e.data as
+        | { type?: string; paneId?: string; state?: Record<string, unknown> }
+        | undefined;
       if (d?.type === 'tile-state-update' && typeof d.paneId === 'string' && d.state) {
-        const leaf = layout ? findLeaf(layout, d.paneId) : null
-        const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
-        if (!tileType) return
+        const leaf = layout ? findLeaf(layout, d.paneId) : null;
+        const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
+        if (!tileType) return;
         setSessionState((prev) => {
-          const old = prev[d.paneId!]
-          if (old && JSON.stringify(old.state) === JSON.stringify(d.state)) return prev
-          return { ...prev, [d.paneId!]: { tileType, state: d.state! } }
-        })
+          const old = prev[d.paneId!];
+          if (old && JSON.stringify(old.state) === JSON.stringify(d.state)) return prev;
+          return { ...prev, [d.paneId!]: { tileType, state: d.state! } };
+        });
       }
       // Child iframe asking for its saved state on mount. Restores a tile after
       // the WM recreated its iframe (focus mode, space switch), where the
       // one-off server-started-at broadcast already fired before the new
       // iframe loaded.
       if (d?.type === 'request-session-state' && typeof d.paneId === 'string') {
-        const entry = sessionStateRef.current[d.paneId]
-        e.source?.postMessage({ type: 'tile-session-state', paneId: d.paneId, state: entry?.state ?? null })
+        const entry = sessionStateRef.current[d.paneId];
+        e.source?.postMessage({
+          type: 'tile-session-state',
+          paneId: d.paneId,
+          state: entry?.state ?? null,
+        });
       }
       // Child iframe requesting its font size (sent on mount to fix
       // the race where the parent's postMessage arrives before the
       // child's listener is registered).
       if (d?.type === 'request-font-size' && typeof d.paneId === 'string') {
-        const activeSpaces = store.get(spacesAtom)
-        const activeIdx = store.get(activeSpaceAtom)
-        const activeSpace = activeSpaces[activeIdx]
-        const pane = activeSpace ? getPaneData<{ fontSize?: number; fontDefault?: number }>(activeSpace, d.paneId) : undefined
-        const fontSize = pane?.fontSize ?? fontPreset
-        const fontDefault = pane?.fontDefault ?? fontPreset
-        e.source?.postMessage({ type: 'tile-font-size', fontSize, fontDefault })
+        const activeSpaces = store.get(spacesAtom);
+        const activeIdx = store.get(activeSpaceAtom);
+        const activeSpace = activeSpaces[activeIdx];
+        const pane = activeSpace
+          ? getPaneData<{ fontSize?: number; fontDefault?: number }>(activeSpace, d.paneId)
+          : undefined;
+        const fontSize = pane?.fontSize ?? fontPreset;
+        const fontDefault = pane?.fontDefault ?? fontPreset;
+        e.source?.postMessage({ type: 'tile-font-size', fontSize, fontDefault });
       }
-    }
-    window.addEventListener('message', onMsg)
-    return () => window.removeEventListener('message', onMsg)
-  }, [layout, fontPreset, store])
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [layout, fontPreset, store]);
 
   // Debounced write of session state to localStorage (only if changed).
   // Re-queries server startedAt before writing to handle server restarts.
   useEffect(() => {
-    if (!serverStartedAt) return
+    if (!serverStartedAt) return;
     const t = setTimeout(async () => {
       try {
         // Re-query server startedAt to detect restarts.
-        const res = await authFetch('/api/server-info', { cache: 'no-store' })
-        let currentStartedAt = serverStartedAt
+        const res = await authFetch('/api/server-info', { cache: 'no-store' });
+        let currentStartedAt = serverStartedAt;
         if (res.ok) {
-          const info = await res.json()
+          const info = await res.json();
           if (info?.startedAt && info.startedAt !== serverStartedAt) {
-            currentStartedAt = info.startedAt
-            setServerStartedAt(currentStartedAt)
+            currentStartedAt = info.startedAt;
+            setServerStartedAt(currentStartedAt);
             // Notify children of new startedAt.
             document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]').forEach((iframe) => {
-              iframe.contentWindow?.postMessage({ type: 'server-started-at', startedAt: currentStartedAt }, '*')
-            })
+              iframe.contentWindow?.postMessage(
+                { type: 'server-started-at', startedAt: currentStartedAt },
+                '*',
+              );
+            });
           }
         }
 
-        const raw = localStorage.getItem(SESSION_STATE_KEY)
-        const store: SessionStore = raw ? JSON.parse(raw) : {}
-        const current = JSON.stringify(store[currentStartedAt] ?? {})
-        const next = JSON.stringify(sessionState)
-        if (current === next) return
-        store[currentStartedAt] = sessionState
+        const raw = localStorage.getItem(SESSION_STATE_KEY);
+        const store: SessionStore = raw ? JSON.parse(raw) : {};
+        const current = JSON.stringify(store[currentStartedAt] ?? {});
+        const next = JSON.stringify(sessionState);
+        if (current === next) return;
+        store[currentStartedAt] = sessionState;
         // Prune: keep at most MAX_SERVER_SESSIONS entries (FIFO by key).
-        const keys = Object.keys(store)
+        const keys = Object.keys(store);
         if (keys.length > MAX_SERVER_SESSIONS) {
-          keys.sort()
+          keys.sort();
           for (let i = 0; i < keys.length - MAX_SERVER_SESSIONS; i++) {
-            delete store[keys[i]]
+            delete store[keys[i]];
           }
         }
-        localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(store))
+        localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(store));
       } catch {
         // localStorage full or unavailable — silently ignore.
       }
-    }, 500)
-    return () => clearTimeout(t)
-  }, [sessionState, serverStartedAt])
+    }, 500);
+    return () => clearTimeout(t);
+  }, [sessionState, serverStartedAt]);
 
   // Cleanup: remove session entries for tiles that no longer exist in any space.
   useEffect(() => {
-    if (!spaces.length) return
-    const ids = new Set(spaces.flatMap((s) => leaves(s.layout)))
+    if (!spaces.length) return;
+    const ids = new Set(spaces.flatMap((s) => leaves(s.layout)));
     setSessionState((prev) => {
-      let changed = false
-      const next = { ...prev }
+      let changed = false;
+      const next = { ...prev };
       for (const key of Object.keys(next)) {
         if (!ids.has(key)) {
-          delete next[key]
-          changed = true
+          delete next[key];
+          changed = true;
         }
       }
-      return changed ? next : prev
-    })
-  }, [spaces])
+      return changed ? next : prev;
+    });
+  }, [spaces]);
 
   // Cleanup: remove paneData entries for tiles that no longer exist.
   useEffect(() => {
-    if (!spaces.length) return
-    const next = spaces.map(cleanStalePaneData)
+    if (!spaces.length) return;
+    const next = spaces.map(cleanStalePaneData);
     // Only update if something was actually removed.
     if (next.some((s, i) => s !== spaces[i])) {
-      store.set(spacesAtom, next)
+      store.set(spacesAtom, next);
     }
-  }, [spaces, store])
+  }, [spaces, store]);
 
   // Cleanup: remove stale PTY session states for tiles that no longer exist.
   useEffect(() => {
-    if (!spaces.length) return
+    if (!spaces.length) return;
     try {
-      const ids = new Set(spaces.flatMap((s) => leaves(s.layout)))
-      const raw = localStorage.getItem(PTY_STATE_KEY)
-      if (!raw) return
-      const all: Record<string, unknown> = JSON.parse(raw)
-      const keys = Object.keys(all)
-      const stale = keys.filter((k) => !ids.has(k))
-      if (stale.length === 0) return
-      for (const k of stale) delete all[k]
-      localStorage.setItem(PTY_STATE_KEY, JSON.stringify(all))
+      const ids = new Set(spaces.flatMap((s) => leaves(s.layout)));
+      const raw = localStorage.getItem(PTY_STATE_KEY);
+      if (!raw) return;
+      const all: Record<string, unknown> = JSON.parse(raw);
+      const keys = Object.keys(all);
+      const stale = keys.filter((k) => !ids.has(k));
+      if (stale.length === 0) return;
+      for (const k of stale) delete all[k];
+      localStorage.setItem(PTY_STATE_KEY, JSON.stringify(all));
     } catch {
       // ignore
     }
-  }, [spaces])
+  }, [spaces]);
 
   // One-time migration: merge old per-tile `suwu-session-state:*` keys into
   // the single `suwu-session-states` JSON object, then remove the old keys.
   useEffect(() => {
     try {
-      const PREFIX = 'suwu-session-state:'
-      const toRemove: string[] = []
-      const merged: Record<string, unknown> = {}
+      const PREFIX = 'suwu-session-state:';
+      const toRemove: string[] = [];
+      const merged: Record<string, unknown> = {};
       for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
+        const key = localStorage.key(i);
         if (key && key.startsWith(PREFIX)) {
-          const paneId = key.slice(PREFIX.length)
-          merged[paneId] = JSON.parse(localStorage.getItem(key) ?? '{}')
-          toRemove.push(key)
+          const paneId = key.slice(PREFIX.length);
+          merged[paneId] = JSON.parse(localStorage.getItem(key) ?? '{}');
+          toRemove.push(key);
         }
       }
-      if (toRemove.length === 0) return
+      if (toRemove.length === 0) return;
       // Merge into existing single-object store.
-      const raw = localStorage.getItem(PTY_STATE_KEY)
-      const existing: Record<string, unknown> = raw ? JSON.parse(raw) : {}
-      Object.assign(existing, merged)
-      localStorage.setItem(PTY_STATE_KEY, JSON.stringify(existing))
-      for (const k of toRemove) localStorage.removeItem(k)
+      const raw = localStorage.getItem(PTY_STATE_KEY);
+      const existing: Record<string, unknown> = raw ? JSON.parse(raw) : {};
+      Object.assign(existing, merged);
+      localStorage.setItem(PTY_STATE_KEY, JSON.stringify(existing));
+      for (const k of toRemove) localStorage.removeItem(k);
     } catch {
       // ignore
     }
-  }, [])
+  }, []);
 
   // Split the focused tile (or create the first one on an empty layout).
   const split = useCallback(
     (dir: Direction) => {
-      const { next, focus } = splitAndFocus(store.get(layoutAtom), store.get(focusedIdAtom), dir)
-      store.set(layoutAtom, next)
-      store.set(focusedIdAtom, focus)
+      const { next, focus } = splitAndFocus(store.get(layoutAtom), store.get(focusedIdAtom), dir);
+      store.set(layoutAtom, next);
+      store.set(focusedIdAtom, focus);
     },
     [store],
-  )
+  );
 
   // Close a specific tile (hover ✕); Alt+Q closes the focused one.
   const closeTile = useCallback(
     (id: string) => {
-      const focus = store.get(focusAtom)
+      const focus = store.get(focusAtom);
 
       // Closing the tile while it is in focus mode must also leave focus mode:
       // restore the source space (the pre-focus layout with this tile removed)
@@ -485,184 +546,195 @@ export default function TilingWM() {
       // from the focus space, stranding the user in an empty focus space while
       // the source space is never restored.
       if (focus && focus.paneId === id) {
-        const sp = store.get(spacesAtom)
-        const nextSpaces = sp.filter((_, i) => i !== 0)
-        const sourceIdx = Math.max(0, Math.min(focus.sourceSpaceIndex - 1, nextSpaces.length - 1))
-        const sourceLayout = focus.sourceLayoutSnapshot ? closeAt(focus.sourceLayoutSnapshot, id) : null
-        nextSpaces[sourceIdx] = { ...nextSpaces[sourceIdx], layout: sourceLayout }
-        store.set(spacesAtom, nextSpaces)
-        store.set(activeSpaceAtom, sourceIdx)
-        store.set(focusedIdAtom, leaves(sourceLayout)[0] ?? '')
-        store.set(focusAtom, null)
+        const sp = store.get(spacesAtom);
+        const nextSpaces = sp.filter((_, i) => i !== 0);
+        const sourceIdx = Math.max(0, Math.min(focus.sourceSpaceIndex - 1, nextSpaces.length - 1));
+        const sourceLayout = focus.sourceLayoutSnapshot
+          ? closeAt(focus.sourceLayoutSnapshot, id)
+          : null;
+        nextSpaces[sourceIdx] = { ...nextSpaces[sourceIdx], layout: sourceLayout };
+        store.set(spacesAtom, nextSpaces);
+        store.set(activeSpaceAtom, sourceIdx);
+        store.set(focusedIdAtom, leaves(sourceLayout)[0] ?? '');
+        store.set(focusAtom, null);
         // Skip the picker-open effect for the focus shift caused by this close.
-        closeRefCount.current++
-        return
+        closeRefCount.current++;
+        return;
       }
 
-      const cur = store.get(layoutAtom)
-      if (!cur) return
-      const next = closeAt(cur, id)
-      store.set(layoutAtom, next)
-      store.set(focusedIdAtom, leaves(next)[0] ?? '')
+      const cur = store.get(layoutAtom);
+      if (!cur) return;
+      const next = closeAt(cur, id);
+      store.set(layoutAtom, next);
+      store.set(focusedIdAtom, leaves(next)[0] ?? '');
       // Skip the picker-open effect for the focus shift caused by this close.
-      closeRefCount.current++
+      closeRefCount.current++;
     },
     [store],
-  )
+  );
 
   const close = useCallback(() => {
-    const f = store.get(focusedIdAtom)
-    if (f) closeTile(f)
-  }, [store, closeTile])
+    const f = store.get(focusedIdAtom);
+    if (f) closeTile(f);
+  }, [store, closeTile]);
 
   const focusOffset = useCallback(
     (off: number) => {
-      const cur = store.get(layoutAtom)
-      const f = store.get(focusedIdAtom)
-      const next = focusByOffset(cur, f, off)
-      store.set(focusedIdAtom, next)
-      if (next) document.querySelector<HTMLElement>(`iframe[data-pane="${next}"]`)?.focus()
+      const cur = store.get(layoutAtom);
+      const f = store.get(focusedIdAtom);
+      const next = focusByOffset(cur, f, off);
+      store.set(focusedIdAtom, next);
+      if (next) document.querySelector<HTMLElement>(`iframe[data-pane="${next}"]`)?.focus();
     },
     [store],
-  )
+  );
 
   // Measure the tiling viewport so pane rects can be laid out in px.
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState({ w: 0, h: 0 })
-  const [dragging, setDragging] = useState(false)
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [dragging, setDragging] = useState(false);
   useEffect(() => {
-    const el = viewportRef.current
-    if (!el) return
-    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight })
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+    const el = viewportRef.current;
+    if (!el) return;
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const focusDirection = useCallback(
     (dir: MoveDir) => {
-      const cur = store.get(layoutAtom)
-      const f = store.get(focusedIdAtom)
-      if (!cur || !f || size.w <= 0 || size.h <= 0) return
-      const { panes } = computeTiling(cur, size.w, size.h)
-      const neighbor = findNeighborRect(panes, f, dir)
-      if (!neighbor) return
-      store.set(focusedIdAtom, neighbor.id)
-      document.querySelector<HTMLElement>(`iframe[data-pane="${neighbor.id}"]`)?.focus()
+      const cur = store.get(layoutAtom);
+      const f = store.get(focusedIdAtom);
+      if (!cur || !f || size.w <= 0 || size.h <= 0) return;
+      const { panes } = computeTiling(cur, size.w, size.h);
+      const neighbor = findNeighborRect(panes, f, dir);
+      if (!neighbor) return;
+      store.set(focusedIdAtom, neighbor.id);
+      document.querySelector<HTMLElement>(`iframe[data-pane="${neighbor.id}"]`)?.focus();
     },
     [store, size],
-  )
+  );
 
   const move = useCallback(
     (id: string, dir: MoveDir) => {
-      const cur = store.get(layoutAtom)
-      if (!cur || size.w <= 0 || size.h <= 0) return
-      const { panes } = computeTiling(cur, size.w, size.h)
-      const neighbor = findNeighborRect(panes, id, dir)
-      if (!neighbor) return
-      store.set(layoutAtom, swapLeaves(cur, id, neighbor.id))
-      store.set(focusedIdAtom, id)
+      const cur = store.get(layoutAtom);
+      if (!cur || size.w <= 0 || size.h <= 0) return;
+      const { panes } = computeTiling(cur, size.w, size.h);
+      const neighbor = findNeighborRect(panes, id, dir);
+      if (!neighbor) return;
+      store.set(layoutAtom, swapLeaves(cur, id, neighbor.id));
+      store.set(focusedIdAtom, id);
     },
     [store, size],
-  )
+  );
 
   const moveFocused = useCallback(
     (dir: MoveDir) => {
-      const f = store.get(focusedIdAtom)
-      if (f) move(f, dir)
+      const f = store.get(focusedIdAtom);
+      if (f) move(f, dir);
     },
     [store, move],
-  )
+  );
 
   // Swap mode: enter, complete, cancel.
-  const swapSource = useAtomValue(swapModeAtom)
-  const setSwapSource = useSetAtom(swapModeAtom)
+  const swapSource = useAtomValue(swapModeAtom);
+  const setSwapSource = useSetAtom(swapModeAtom);
 
   const startSwap = useCallback(
     (id: string) => {
-      setSwapHighlightIdx(0)
-      setSwapSource(id)
+      setSwapHighlightIdx(0);
+      setSwapSource(id);
     },
     [setSwapSource],
-  )
+  );
 
   const completeSwap = useCallback(
     (targetId: string) => {
-      const src = store.get(swapModeAtom)
+      const src = store.get(swapModeAtom);
       if (!src || src === targetId) {
-        setSwapSource(null)
-        return
+        setSwapSource(null);
+        return;
       }
-      const cur = store.get(layoutAtom)
-      if (!cur) return
-      store.set(layoutAtom, swapLeaves(cur, src, targetId))
-      store.set(focusedIdAtom, src)
-      setSwapSource(null)
+      const cur = store.get(layoutAtom);
+      if (!cur) return;
+      store.set(layoutAtom, swapLeaves(cur, src, targetId));
+      store.set(focusedIdAtom, src);
+      setSwapSource(null);
     },
     [store, setSwapSource],
-  )
+  );
 
   const cancelSwap = useCallback(() => {
-    setSwapSource(null)
-  }, [setSwapSource])
+    setSwapSource(null);
+  }, [setSwapSource]);
 
   const enterSwap = useCallback(() => {
-    const f = store.get(focusedIdAtom)
-    if (f) startSwap(f)
-  }, [store, startSwap])
+    const f = store.get(focusedIdAtom);
+    if (f) startSwap(f);
+  }, [store, startSwap]);
 
   // Move a tile to another space.
   const moveTileToSpace = useCallback(
     (paneId: string, targetIdx: number) => {
-      const sp = store.get(spacesAtom)
-      const curIdx = store.get(activeSpaceAtom)
-      if (curIdx === targetIdx) return
-      const next = moveLeafBetweenSpaces(sp, paneId, curIdx, targetIdx)
-      store.set(spacesAtom, next)
-      store.set(activeSpaceAtom, targetIdx)
-      store.set(focusedIdAtom, paneId)
+      const sp = store.get(spacesAtom);
+      const curIdx = store.get(activeSpaceAtom);
+      if (curIdx === targetIdx) return;
+      const next = moveLeafBetweenSpaces(sp, paneId, curIdx, targetIdx);
+      store.set(spacesAtom, next);
+      store.set(activeSpaceAtom, targetIdx);
+      store.set(focusedIdAtom, paneId);
     },
     [store],
-  )
+  );
 
   // ── Focus mode ──────────────────────────────────────────────────
-  const focusState = useAtomValue(focusAtom)
-  const setFocusState = useSetAtom(focusAtom)
+  const focusState = useAtomValue(focusAtom);
+  const setFocusState = useSetAtom(focusAtom);
 
   const toggleFocus = useCallback(
     (paneId?: string) => {
-      const id = paneId ?? store.get(focusedIdAtom)
-      if (!id) return
+      const id = paneId ?? store.get(focusedIdAtom);
+      if (!id) return;
 
-      const current = store.get(focusAtom)
+      const current = store.get(focusAtom);
       if (current) {
         // Exit focus: restore source space.
-        const sp = store.get(spacesAtom)
-        const srcIdx = current.sourceSpaceIndex
-        const srcSpace = sp[srcIdx]
-        if (!srcSpace) { setFocusState(null); return }
+        const sp = store.get(spacesAtom);
+        const srcIdx = current.sourceSpaceIndex;
+        const srcSpace = sp[srcIdx];
+        if (!srcSpace) {
+          setFocusState(null);
+          return;
+        }
 
         // Restore source layout and re-insert the leaf.
-        let restoredLayout = current.sourceLayoutSnapshot
+        let restoredLayout = current.sourceLayoutSnapshot;
         if (restoredLayout) {
           // Find a leaf in restored layout to split from.
-          const restoredLeaves = leaves(restoredLayout)
+          const restoredLeaves = leaves(restoredLayout);
           if (restoredLeaves.length > 0) {
             // Check if the leaf already exists in restored layout.
-            const existingLeaf = findLeaf(restoredLayout, current.paneId)
+            const existingLeaf = findLeaf(restoredLayout, current.paneId);
             if (!existingLeaf) {
               // Re-insert using smart split.
-              const splitFrom = restoredLeaves[0]
-              const { next } = splitAtWithId(restoredLayout, splitFrom, 'horizontal', 'after')
-              const newIds = leaves(next)
-              const emptyLeaf = newIds.find((nid) => nid !== splitFrom)
+              const splitFrom = restoredLeaves[0];
+              const { next } = splitAtWithId(restoredLayout, splitFrom, 'horizontal', 'after');
+              const newIds = leaves(next);
+              const emptyLeaf = newIds.find((nid) => nid !== splitFrom);
               if (emptyLeaf) {
-                const originalLeaf = findLeaf(sp[0]?.layout, current.paneId)
+                const originalLeaf = findLeaf(sp[0]?.layout, current.paneId);
                 if (originalLeaf?.type === 'leaf') {
-                  let swapped = swapLeafIds(next, emptyLeaf, current.paneId)
-                  swapped = setLeafType(swapped, current.paneId, originalLeaf.tileType ?? '', originalLeaf.initialPath, originalLeaf.params)
-                  restoredLayout = swapped
+                  let swapped = swapLeafIds(next, emptyLeaf, current.paneId);
+                  swapped = setLeafType(
+                    swapped,
+                    current.paneId,
+                    originalLeaf.tileType ?? '',
+                    originalLeaf.initialPath,
+                    originalLeaf.params,
+                  );
+                  restoredLayout = swapped;
                 }
               }
             }
@@ -670,357 +742,400 @@ export default function TilingWM() {
         }
 
         // Update spaces: remove focus space (index 0), restore source.
-        const nextSpaces = sp.filter((_, i) => i !== 0).map((s, i) => {
-          // srcIdx was adjusted +1 when focus space was inserted, so original = srcIdx - 1.
-          const originalIdx = srcIdx - 1
-          if (i === originalIdx) return { ...s, layout: restoredLayout }
-          return s
-        })
-        store.set(spacesAtom, nextSpaces)
+        const nextSpaces = sp
+          .filter((_, i) => i !== 0)
+          .map((s, i) => {
+            // srcIdx was adjusted +1 when focus space was inserted, so original = srcIdx - 1.
+            const originalIdx = srcIdx - 1;
+            if (i === originalIdx) return { ...s, layout: restoredLayout };
+            return s;
+          });
+        store.set(spacesAtom, nextSpaces);
         // activeSpace: original index = srcIdx - 1 (since focus space at 0 is removed).
-        store.set(activeSpaceAtom, Math.max(0, srcIdx - 1))
-        store.set(focusedIdAtom, current.paneId)
-        setFocusState(null)
+        store.set(activeSpaceAtom, Math.max(0, srcIdx - 1));
+        store.set(focusedIdAtom, current.paneId);
+        setFocusState(null);
       } else {
         // Enter focus: move tile to focus space (index 0).
-        const sp = store.get(spacesAtom)
-        const curIdx = store.get(activeSpaceAtom)
-        const curSpace = sp[curIdx]
-        if (!curSpace?.layout) return
+        const sp = store.get(spacesAtom);
+        const curIdx = store.get(activeSpaceAtom);
+        const curSpace = sp[curIdx];
+        if (!curSpace?.layout) return;
 
-        const leaf = findLeaf(curSpace.layout, id)
-        if (!leaf || leaf.type !== 'leaf') return
+        const leaf = findLeaf(curSpace.layout, id);
+        if (!leaf || leaf.type !== 'leaf') return;
 
         // Snapshot source layout for restore.
-        const sourceSnapshot = curSpace.layout
+        const sourceSnapshot = curSpace.layout;
 
         // Remove from current space.
-        const newCurLayout = closeAt(curSpace.layout, id)
+        const newCurLayout = closeAt(curSpace.layout, id);
 
         // Ensure focus space exists at index 0.
-        let nextSpaces = [...sp]
+        let nextSpaces = [...sp];
         if (nextSpaces[0]?.name !== FOCUS_SPACE_NAME) {
-          const focusSpace = createSpace(FOCUS_SPACE_NAME)
-          focusSpace.layout = null
-          nextSpaces = [focusSpace, ...nextSpaces]
+          const focusSpace = createSpace(FOCUS_SPACE_NAME);
+          focusSpace.layout = null;
+          nextSpaces = [focusSpace, ...nextSpaces];
           // Adjust indices: source was at curIdx, now at curIdx + 1.
         }
-        const adjustedIdx = nextSpaces[0]?.name === FOCUS_SPACE_NAME ? curIdx + 1 : curIdx
+        const adjustedIdx = nextSpaces[0]?.name === FOCUS_SPACE_NAME ? curIdx + 1 : curIdx;
 
         // Set focus space layout to just the focused leaf (full viewport).
-        const focusLeaf = { ...leaf }
-        nextSpaces[0] = { ...nextSpaces[0], layout: focusLeaf }
+        const focusLeaf = { ...leaf };
+        nextSpaces[0] = { ...nextSpaces[0], layout: focusLeaf };
 
         // Update source space.
         if (newCurLayout) {
-          nextSpaces[adjustedIdx] = { ...nextSpaces[adjustedIdx], layout: newCurLayout }
+          nextSpaces[adjustedIdx] = { ...nextSpaces[adjustedIdx], layout: newCurLayout };
         } else {
           // Source space is now empty — add a placeholder leaf.
-          nextSpaces[adjustedIdx] = { ...nextSpaces[adjustedIdx], layout: createLeaf() }
+          nextSpaces[adjustedIdx] = { ...nextSpaces[adjustedIdx], layout: createLeaf() };
         }
 
-        store.set(spacesAtom, nextSpaces)
-        store.set(activeSpaceAtom, 0)
-        store.set(focusedIdAtom, id)
+        store.set(spacesAtom, nextSpaces);
+        store.set(activeSpaceAtom, 0);
+        store.set(focusedIdAtom, id);
         setFocusState({
           paneId: id,
           sourceSpaceIndex: adjustedIdx,
           sourceLayoutSnapshot: sourceSnapshot,
-        })
+        });
       }
     },
     [store, setFocusState],
-  )
+  );
 
   const openMenu = useCallback(() => {
-    store.set(menuViewAtom, 'menu')
-    store.set(menuOpenAtom, true)
-  }, [store])
+    store.set(menuViewAtom, 'menu');
+    store.set(menuOpenAtom, true);
+  }, [store]);
   const openShortcuts = useCallback(() => {
-    store.set(menuViewAtom, 'shortcuts')
-    store.set(menuOpenAtom, true)
-  }, [store])
+    store.set(menuViewAtom, 'shortcuts');
+    store.set(menuOpenAtom, true);
+  }, [store]);
 
   // Per-tile font size setter: updates paneData for the active space.
   const setTileFontSize = useCallback(
     (id: string, fontSize: number) => {
-      const spaces = store.get(spacesAtom)
-      const idx = store.get(activeSpaceAtom)
-      const space = spaces[idx]
-      if (!space) return
-      store.set(spacesAtom, spaces.map((s, i) => i === idx ? setPaneData(s, id, 'fontSize', fontSize) : s))
+      const spaces = store.get(spacesAtom);
+      const idx = store.get(activeSpaceAtom);
+      const space = spaces[idx];
+      if (!space) return;
+      store.set(
+        spacesAtom,
+        spaces.map((s, i) => (i === idx ? setPaneData(s, id, 'fontSize', fontSize) : s)),
+      );
     },
     [store],
-  )
+  );
 
   // Send font size to each iframe whenever the layout or paneData changes.
   // Font is stored in space.paneData[paneId], falling back to fontPreset
   // (the "new terminal default" from settings) for tiles with no explicit
   // font set.
   useEffect(() => {
-    if (!layout) return
-    const activeSpaceData = spaces[activeSpace]
-    const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]')
+    if (!layout) return;
+    const activeSpaceData = spaces[activeSpace];
+    const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]');
     for (const iframe of iframes) {
-      const paneId = iframe.getAttribute('data-pane')
-      if (!paneId) continue
-      const leaf = findLeaf(layout, paneId)
-      if (leaf?.type !== 'leaf') continue
-      const pane = activeSpaceData ? getPaneData<{ fontSize?: number; fontDefault?: number }>(activeSpaceData, paneId) : undefined
-      const fontSize = pane?.fontSize ?? fontPreset
-      const fontDefault = pane?.fontDefault ?? fontPreset
-      iframe.contentWindow?.postMessage({ type: 'tile-font-size', fontSize, fontDefault }, '*')
+      const paneId = iframe.getAttribute('data-pane');
+      if (!paneId) continue;
+      const leaf = findLeaf(layout, paneId);
+      if (leaf?.type !== 'leaf') continue;
+      const pane = activeSpaceData
+        ? getPaneData<{ fontSize?: number; fontDefault?: number }>(activeSpaceData, paneId)
+        : undefined;
+      const fontSize = pane?.fontSize ?? fontPreset;
+      const fontDefault = pane?.fontDefault ?? fontPreset;
+      iframe.contentWindow?.postMessage({ type: 'tile-font-size', fontSize, fontDefault }, '*');
     }
-  }, [layout, fontPreset, spaces, activeSpace])
+  }, [layout, fontPreset, spaces, activeSpace]);
 
   // Keep a valid focused leaf (initial state, after close, after storage load).
   useEffect(() => {
-    const ids = leaves(layout)
-    if (ids.length === 0) return
-    if (!focused || !ids.includes(focused)) setFocused(ids[0])
-  }, [layout, focused, setFocused])
+    const ids = leaves(layout);
+    if (ids.length === 0) return;
+    if (!focused || !ids.includes(focused)) setFocused(ids[0]);
+  }, [layout, focused, setFocused]);
 
   // When switching spaces, ensure focused id is valid in the new space.
   useEffect(() => {
-    const ids = leaves(layout)
-    if (ids.length === 0) return
-    if (focused && !ids.includes(focused)) setFocused(ids[0])
-  }, [activeSpace])
+    const ids = leaves(layout);
+    if (ids.length === 0) return;
+    if (focused && !ids.includes(focused)) setFocused(ids[0]);
+  }, [activeSpace]);
 
   // Exit focus mode when switching spaces (e.g., clicking a space button).
   // We handle this by watching activeSpace changes and clearing focus state.
-  const prevActiveSpaceRef = useRef(activeSpace)
+  const prevActiveSpaceRef = useRef(activeSpace);
   useEffect(() => {
-    const current = store.get(focusAtom)
+    const current = store.get(focusAtom);
     if (current && activeSpace !== 0 && prevActiveSpaceRef.current === 0) {
       // User switched spaces while in focus mode — exit focus.
-      const sp = store.get(spacesAtom)
-      const srcIdx = current.sourceSpaceIndex
+      const sp = store.get(spacesAtom);
+      const srcIdx = current.sourceSpaceIndex;
 
       // Remove focus space (index 0) and restore source layout.
-      const nextSpaces = sp.filter((_, i) => i !== 0).map((s, i) => {
-        const originalIdx = srcIdx - 1
-        if (i === originalIdx) return { ...s, layout: current.sourceLayoutSnapshot }
-        return s
-      })
-      store.set(spacesAtom, nextSpaces)
+      const nextSpaces = sp
+        .filter((_, i) => i !== 0)
+        .map((s, i) => {
+          const originalIdx = srcIdx - 1;
+          if (i === originalIdx) return { ...s, layout: current.sourceLayoutSnapshot };
+          return s;
+        });
+      store.set(spacesAtom, nextSpaces);
       // Set active space: user clicked on a space, so use the target space index.
       // The target is at the original index minus 1 (focus space removed).
-      const targetIdx = Math.min(activeSpace - 1, nextSpaces.length - 1)
-      store.set(activeSpaceAtom, Math.max(0, targetIdx))
-      store.set(focusedIdAtom, current.paneId)
-      setFocusState(null)
+      const targetIdx = Math.min(activeSpace - 1, nextSpaces.length - 1);
+      store.set(activeSpaceAtom, Math.max(0, targetIdx));
+      store.set(focusedIdAtom, current.paneId);
+      setFocusState(null);
     }
-    prevActiveSpaceRef.current = activeSpace
-  }, [activeSpace, store, setFocusState])
+    prevActiveSpaceRef.current = activeSpace;
+  }, [activeSpace, store, setFocusState]);
 
   const wmHandlers = useMemo(
-    () => ({ split, close, focusOffset, focusDirection, moveFocused, enterSwap, toggleFocus, openMenu, openShortcuts }),
-    [split, close, focusOffset, focusDirection, moveFocused, enterSwap, toggleFocus, openMenu, openShortcuts],
-  )
+    () => ({
+      split,
+      close,
+      focusOffset,
+      focusDirection,
+      moveFocused,
+      enterSwap,
+      toggleFocus,
+      openMenu,
+      openShortcuts,
+    }),
+    [
+      split,
+      close,
+      focusOffset,
+      focusDirection,
+      moveFocused,
+      enterSwap,
+      toggleFocus,
+      openMenu,
+      openShortcuts,
+    ],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const a = wmAction(e)
-      if (!a) return
-      e.preventDefault()
-      applyWmAction(a, wmHandlers)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [wmHandlers])
+      const a = wmAction(e);
+      if (!a) return;
+      e.preventDefault();
+      applyWmAction(a, wmHandlers);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [wmHandlers]);
 
   // Space switching: Ctrl+1-9, Ctrl+Tab, Ctrl+Shift+Tab.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!e.ctrlKey || e.altKey || e.metaKey) return
-      const sp = store.get(spacesAtom)
-      const cur = store.get(activeSpaceAtom)
+      if (!e.ctrlKey || e.altKey || e.metaKey) return;
+      const sp = store.get(spacesAtom);
+      const cur = store.get(activeSpaceAtom);
 
       // Ctrl+1..9 → switch to space N
       if (!e.shiftKey && e.key >= '1' && e.key <= '9') {
-        const idx = parseInt(e.key, 10) - 1
+        const idx = parseInt(e.key, 10) - 1;
         if (idx < sp.length) {
-          e.preventDefault()
-          store.set(activeSpaceAtom, idx)
-          store.set(focusedIdAtom, '')
+          e.preventDefault();
+          store.set(activeSpaceAtom, idx);
+          store.set(focusedIdAtom, '');
         }
-        return
+        return;
       }
 
       // Ctrl+Tab → next space
       if (e.key === 'Tab' && !e.shiftKey) {
-        e.preventDefault()
-        store.set(activeSpaceAtom, cycleSpace(sp, cur, 1))
-        store.set(focusedIdAtom, '')
-        return
+        e.preventDefault();
+        store.set(activeSpaceAtom, cycleSpace(sp, cur, 1));
+        store.set(focusedIdAtom, '');
+        return;
       }
 
       // Ctrl+Shift+Tab → prev space
       if (e.key === 'Tab' && e.shiftKey) {
-        e.preventDefault()
-        store.set(activeSpaceAtom, cycleSpace(sp, cur, -1))
-        store.set(focusedIdAtom, '')
-        return
+        e.preventDefault();
+        store.set(activeSpaceAtom, cycleSpace(sp, cur, -1));
+        store.set(focusedIdAtom, '');
+        return;
       }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [store])
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [store]);
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const d = e.data as { type?: string; pane?: unknown; path?: string; tileType?: string; sourcePane?: string; action?: ReturnType<typeof wmAction> } | undefined
+      const d = e.data as
+        | {
+            type?: string;
+            pane?: unknown;
+            path?: string;
+            tileType?: string;
+            sourcePane?: string;
+            action?: ReturnType<typeof wmAction>;
+          }
+        | undefined;
       if (d?.type === 'pane-focus') {
-        if (typeof d.pane === 'string') store.set(focusedIdAtom, d.pane)
-        return
+        if (typeof d.pane === 'string') store.set(focusedIdAtom, d.pane);
+        return;
       }
       if (d?.type === 'wm-close-pane' && typeof d.pane === 'string') {
-        closeTile(d.pane)
-        return
+        closeTile(d.pane);
+        return;
       }
       if (d?.type === 'wm-open-file' && typeof d.path === 'string') {
         // Reuse the actionResolver approach: split from the source pane,
         // set type and initialPath directly on the store.
-        if (d.sourcePane) store.set(focusedIdAtom, d.sourcePane)
+        if (d.sourcePane) store.set(focusedIdAtom, d.sourcePane);
         if (d.tileType === 'fileviewer') {
-          openViewer(d.path, store)
+          openViewer(d.path, store);
         } else if (d.tileType === 'filebrowser') {
-          openFileBrowser(d.path, store)
+          openFileBrowser(d.path, store);
         }
-        return
+        return;
       }
-      const a = d?.type === 'wm-shortcut' ? d.action : undefined
-      if (!a) return
-      applyWmAction(a, wmHandlers)
-    }
-    window.addEventListener('message', onMsg)
-    return () => window.removeEventListener('message', onMsg)
-  }, [store, wmHandlers])
+      const a = d?.type === 'wm-shortcut' ? d.action : undefined;
+      if (!a) return;
+      applyWmAction(a, wmHandlers);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [store, wmHandlers]);
 
   useEffect(() => {
     const onFocus = () => {
-      const el = document.activeElement as HTMLElement | null
+      const el = document.activeElement as HTMLElement | null;
       if (el?.tagName === 'IFRAME') {
-        const id = el.getAttribute('data-pane')
-        if (id) store.set(focusedIdAtom, id)
+        const id = el.getAttribute('data-pane');
+        if (id) store.set(focusedIdAtom, id);
       }
-    }
-    window.addEventListener('focusin', onFocus)
-    return () => window.removeEventListener('focusin', onFocus)
-  }, [store])
+    };
+    window.addEventListener('focusin', onFocus);
+    return () => window.removeEventListener('focusin', onFocus);
+  }, [store]);
 
-  const { panes } = useMemo(
-    () => computeTiling(layout, size.w, size.h),
-    [layout, size.w, size.h],
-  )
+  const { panes } = useMemo(() => computeTiling(layout, size.w, size.h), [layout, size.w, size.h]);
 
   // Compute tiling for all spaces (for rendering non-active spaces).
   const spaceTilings = useMemo(
     () => spaces.map((s) => computeTiling(s.layout, size.w, size.h)),
     [spaces, size.w, size.h],
-  )
+  );
 
   const canMove = useCallback(
     (id: string, dir: MoveDir) => findNeighborRect(panes, id, dir) !== null,
     [panes],
-  )
+  );
 
-  const { ghosts, removeGhost } = usePaneGhosts(panes)
+  const { ghosts, removeGhost } = usePaneGhosts(panes);
 
   const startDividerDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>, seg: DividerSpec) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setDragging(true)
+      e.preventDefault();
+      e.stopPropagation();
+      setDragging(true);
 
-      const root = store.get(layoutAtom)
-      const sp = findSplit(root, seg.splitId)
-      const a = sp?.children[seg.index]?.size ?? 0
-      const b = sp?.children[seg.index + 1]?.size ?? 0
-      const totalFlex = a + b
-      if (!(totalFlex > 0) || !(seg.length > 0)) return
+      const root = store.get(layoutAtom);
+      const sp = findSplit(root, seg.splitId);
+      const a = sp?.children[seg.index]?.size ?? 0;
+      const b = sp?.children[seg.index + 1]?.size ?? 0;
+      const totalFlex = a + b;
+      if (!(totalFlex > 0) || !(seg.length > 0)) return;
 
-      const target = e.currentTarget
-      target.setPointerCapture(e.pointerId)
-      const startPx = seg.axis === 'x' ? e.clientX : e.clientY
-      const min = Math.min(0.15, totalFlex / 4)
+      const target = e.currentTarget;
+      target.setPointerCapture(e.pointerId);
+      const startPx = seg.axis === 'x' ? e.clientX : e.clientY;
+      const min = Math.min(0.15, totalFlex / 4);
 
       const onMove = (ev: PointerEvent) => {
-        const delta = (seg.axis === 'x' ? ev.clientX : ev.clientY) - startPx
-        const na = clamp(a + (delta / seg.length) * totalFlex, min, totalFlex - min)
+        const delta = (seg.axis === 'x' ? ev.clientX : ev.clientY) - startPx;
+        const na = clamp(a + (delta / seg.length) * totalFlex, min, totalFlex - min);
         setLayout((layout) =>
           layout
             ? updateSplitAt(layout, seg.splitId, (children) =>
                 children.map((c, i) =>
-                  i === seg.index ? { ...c, size: na } : i === seg.index + 1 ? { ...c, size: totalFlex - na } : c,
+                  i === seg.index
+                    ? { ...c, size: na }
+                    : i === seg.index + 1
+                      ? { ...c, size: totalFlex - na }
+                      : c,
                 ),
               )
             : layout,
-        )
-      }
+        );
+      };
       const onUp = () => {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        setDragging(false)
-      }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        setDragging(false);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
     },
     [store, setLayout],
-  )
+  );
 
   // State for the type-selection picker (one at a time).
-  const [pickerPaneId, setPickerPaneId] = useState<string | null>(null)
-  const closeRefCount = useRef(0)
+  const [pickerPaneId, setPickerPaneId] = useState<string | null>(null);
+  const closeRefCount = useRef(0);
 
   // When a pane is focused and has no type, open the picker — but not right
   // after a tile was closed (close shifts focus, which would re-trigger the
   // picker for the next empty leaf).
   useEffect(() => {
-    if (!focused || !layout) return
+    if (!focused || !layout) return;
     if (closeRefCount.current > 0) {
-      closeRefCount.current--
-      return
+      closeRefCount.current--;
+      return;
     }
-    const leaf = findLeaf(layout, focused)
+    const leaf = findLeaf(layout, focused);
     if (leaf && leaf.type === 'leaf' && !leaf.tileType) {
-      setPickerPaneId(focused)
+      setPickerPaneId(focused);
     }
-  }, [focused, layout])
+  }, [focused, layout]);
 
   // Keyboard navigation during swap mode.
-  const [swapHighlightIdx, setSwapHighlightIdx] = useState(0)
+  const [swapHighlightIdx, setSwapHighlightIdx] = useState(0);
   const selectablePanes = useMemo(
     () => (swapSource ? panes.filter((p) => p.id !== swapSource) : []),
     [panes, swapSource],
-  )
-  const swapOverlayRef = useRef<HTMLDivElement>(null)
+  );
+  const swapOverlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!swapSource) return
+    if (!swapSource) return;
     // Pull focus out of any iframe so keyboard events reach the window.
-    swapOverlayRef.current?.focus()
+    swapOverlayRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
+      e.preventDefault();
+      e.stopPropagation();
       if (e.key === 'Escape') {
-        cancelSwap()
+        cancelSwap();
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        setSwapHighlightIdx((i) => (i + 1) % selectablePanes.length)
+        setSwapHighlightIdx((i) => (i + 1) % selectablePanes.length);
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        setSwapHighlightIdx((i) => (i - 1 + selectablePanes.length) % selectablePanes.length)
+        setSwapHighlightIdx((i) => (i - 1 + selectablePanes.length) % selectablePanes.length);
       } else if (e.key === 'Enter') {
-        const target = selectablePanes[swapHighlightIdx]
-        if (target) completeSwap(target.id)
+        const target = selectablePanes[swapHighlightIdx];
+        if (target) completeSwap(target.id);
       }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [swapSource, selectablePanes, swapHighlightIdx, cancelSwap, completeSwap])
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [swapSource, selectablePanes, swapHighlightIdx, cancelSwap, completeSwap]);
 
   return (
-    <div ref={viewportRef} data-tiling-viewport className={`relative h-full w-full overflow-hidden ${dragging ? 'wm-dragging' : ''}`}>
+    <div
+      ref={viewportRef}
+      data-tiling-viewport
+      className={`relative h-full w-full overflow-hidden ${dragging ? 'wm-dragging' : ''}`}
+    >
       {ghosts.map((g) => (
         <div
           key={g.key}
@@ -1030,8 +1145,8 @@ export default function TilingWM() {
         />
       ))}
       {spaces.map((space, si) => {
-        const til = spaceTilings[si]
-        const isActive = si === activeSpace
+        const til = spaceTilings[si];
+        const isActive = si === activeSpace;
         return (
           <div
             key={space.id}
@@ -1044,10 +1159,10 @@ export default function TilingWM() {
                   type="button"
                   onClick={() => {
                     // Create a single empty leaf, then open the picker for it.
-                    const id = createLeaf().id
-                    store.set(layoutAtom, createLeaf(id))
-                    store.set(focusedIdAtom, id)
-                    setPickerPaneId(id)
+                    const id = createLeaf().id;
+                    store.set(layoutAtom, createLeaf(id));
+                    store.set(focusedIdAtom, id);
+                    setPickerPaneId(id);
                   }}
                   className="glass-control rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 glass-btn transition hover:text-white"
                 >
@@ -1056,14 +1171,14 @@ export default function TilingWM() {
               </div>
             )}
             {til.panes.map(({ id, x, y, w, h }) => {
-              const leaf = space.layout ? findLeaf(space.layout, id) : null
-              const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
-              const pane = getPaneData<{ fontSize?: number; fontDefault?: number }>(space, id)
-              const fontSize = pane?.fontSize ?? fontPreset
-              const fontDefault = pane?.fontDefault ?? fontPreset
-              const plugin = tileType ? getTilePlugin(tileType) : undefined
-              const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined
-              const params = leaf?.type === 'leaf' ? leaf.params : undefined
+              const leaf = space.layout ? findLeaf(space.layout, id) : null;
+              const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
+              const pane = getPaneData<{ fontSize?: number; fontDefault?: number }>(space, id);
+              const fontSize = pane?.fontSize ?? fontPreset;
+              const fontDefault = pane?.fontDefault ?? fontPreset;
+              const plugin = tileType ? getTilePlugin(tileType) : undefined;
+              const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined;
+              const params = leaf?.type === 'leaf' ? leaf.params : undefined;
 
               return (
                 <div
@@ -1075,11 +1190,16 @@ export default function TilingWM() {
                   }`}
                   style={{ left: x, top: y, width: w, height: h }}
                   onMouseDown={() => {
-                    store.set(activeSpaceAtom, si)
-                    setFocused(id)
+                    store.set(activeSpaceAtom, si);
+                    setFocused(id);
                   }}
                 >
-                  {(plugin ?? getTilePlugin('empty'))?.render(id, { paneId: id, initialPath, onOpenPicker: setPickerPaneId, params })}
+                  {(plugin ?? getTilePlugin('empty'))?.render(id, {
+                    paneId: id,
+                    initialPath,
+                    onOpenPicker: setPickerPaneId,
+                    params,
+                  })}
                   {isActive && (
                     <TileTools
                       paneId={id}
@@ -1094,20 +1214,26 @@ export default function TilingWM() {
                       isFocused={focusState?.paneId === id}
                       onToggleFocus={() => toggleFocus(id)}
                       spaces={spaces.map((s, i) => {
-                        const tileIds = leaves(s.layout)
+                        const tileIds = leaves(s.layout);
                         const tileLabels = tileIds.map((id) => {
-                          const leaf = findLeaf(s.layout, id)
-                          const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined
-                          return tileType ? getTilePlugin(tileType)?.label ?? tileType : 'Empty'
-                        })
-                        return { index: i, name: s.name, label: String(i), tileCount: tileIds.length, tileLabels }
+                          const leaf = findLeaf(s.layout, id);
+                          const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
+                          return tileType ? (getTilePlugin(tileType)?.label ?? tileType) : 'Empty';
+                        });
+                        return {
+                          index: i,
+                          name: s.name,
+                          label: String(i),
+                          tileCount: tileIds.length,
+                          tileLabels,
+                        };
                       })}
                       activeSpaceIndex={activeSpace}
                       onMoveToSpace={moveTileToSpace}
                     />
                   )}
                 </div>
-              )
+              );
             })}
             {til.dividers.map((seg) => (
               <div
@@ -1124,43 +1250,47 @@ export default function TilingWM() {
               />
             ))}
           </div>
-        )
+        );
       })}
       {/* Swap mode overlay */}
-      {swapSource && panes.map(({ id, x, y, w, h }) => {
-        if (id === swapSource) return null
-        const isHighlighted = selectablePanes[swapHighlightIdx]?.id === id
-        return (
-          <div
-            key={`swap-${id}`}
-            className={`absolute z-30 cursor-pointer transition-colors ${
-              isHighlighted
-                ? 'bg-sky-400/20 border border-sky-400/60'
-                : 'bg-sky-500/10 border border-sky-400/30 hover:bg-sky-400/15'
-            }`}
-            style={{ left: x, top: y, width: w, height: h }}
-            onClick={() => completeSwap(id)}
-            onMouseEnter={() => setSwapHighlightIdx(selectablePanes.findIndex((p) => p.id === id))}
-          >
-            <div className="flex h-full items-center justify-center">
-              <span className="rounded bg-black/60 px-2 py-1 text-[11px] text-white/70">
-                {t('wm.swapWithThisTile')}
-              </span>
+      {swapSource &&
+        panes.map(({ id, x, y, w, h }) => {
+          if (id === swapSource) return null;
+          const isHighlighted = selectablePanes[swapHighlightIdx]?.id === id;
+          return (
+            <div
+              key={`swap-${id}`}
+              className={`absolute z-30 cursor-pointer transition-colors ${
+                isHighlighted
+                  ? 'bg-sky-400/20 border border-sky-400/60'
+                  : 'bg-sky-500/10 border border-sky-400/30 hover:bg-sky-400/15'
+              }`}
+              style={{ left: x, top: y, width: w, height: h }}
+              onClick={() => completeSwap(id)}
+              onMouseEnter={() =>
+                setSwapHighlightIdx(selectablePanes.findIndex((p) => p.id === id))
+              }
+            >
+              <div className="flex h-full items-center justify-center">
+                <span className="rounded bg-black/60 px-2 py-1 text-[11px] text-white/70">
+                  {t('wm.swapWithThisTile')}
+                </span>
+              </div>
             </div>
-          </div>
-        )
-      })}
-      {swapSource && (() => {
-        const src = panes.find((p) => p.id === swapSource)
-        if (!src) return null
-        return (
-          <div
-            key="swap-source-glow"
-            className="pointer-events-none absolute z-30 rounded-[6px] border border-amber-400/60 shadow-[0_0_12px_rgb(251_191_36/0.25)]"
-            style={{ left: src.x, top: src.y, width: src.w, height: src.h }}
-          />
-        )
-      })()}
+          );
+        })}
+      {swapSource &&
+        (() => {
+          const src = panes.find((p) => p.id === swapSource);
+          if (!src) return null;
+          return (
+            <div
+              key="swap-source-glow"
+              className="pointer-events-none absolute z-30 rounded-[6px] border border-amber-400/60 shadow-[0_0_12px_rgb(251_191_36/0.25)]"
+              style={{ left: src.x, top: src.y, width: src.w, height: src.h }}
+            />
+          );
+        })()}
       {swapSource && (
         <div
           key="swap-scrim"
@@ -1175,14 +1305,19 @@ export default function TilingWM() {
           paneId={pickerPaneId}
           setLayout={setLayout}
           onSelect={(tileType) => {
-            if (tileType !== 'term') return
-            const spaces = store.get(spacesAtom)
-            const idx = store.get(activeSpaceAtom)
-            const space = spaces[idx]
+            if (tileType !== 'term') return;
+            const spaces = store.get(spacesAtom);
+            const idx = store.get(activeSpaceAtom);
+            const space = spaces[idx];
             if (space) {
-              const existing = getPaneData<{ fontSize?: number }>(space, pickerPaneId)
+              const existing = getPaneData<{ fontSize?: number }>(space, pickerPaneId);
               if (!existing?.fontSize) {
-                store.set(spacesAtom, spaces.map((s, i) => i === idx ? setPaneData(s, pickerPaneId, 'fontSize', fontPreset) : s))
+                store.set(
+                  spacesAtom,
+                  spaces.map((s, i) =>
+                    i === idx ? setPaneData(s, pickerPaneId, 'fontSize', fontPreset) : s,
+                  ),
+                );
               }
             }
           }}
@@ -1190,5 +1325,5 @@ export default function TilingWM() {
         />
       )}
     </div>
-  )
+  );
 }

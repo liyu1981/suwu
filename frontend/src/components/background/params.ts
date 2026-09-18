@@ -1,8 +1,4 @@
-import type {
-  BackgroundDefinition,
-  BackgroundParam,
-  BackgroundParamValue,
-} from './types'
+import type { BackgroundDefinition, BackgroundParam, BackgroundParamValue } from './types';
 
 /**
  * Defaults for every parameter a background declares.
@@ -13,11 +9,11 @@ import type {
 export function defaultBackgroundParams(
   definition: BackgroundDefinition,
 ): Record<string, BackgroundParamValue> {
-  const out: Record<string, BackgroundParamValue> = {}
+  const out: Record<string, BackgroundParamValue> = {};
   for (const param of definition.params ?? []) {
-    out[param.key] = param.default
+    out[param.key] = param.default;
   }
-  return out
+  return out;
 }
 
 /**
@@ -32,40 +28,35 @@ export function resolveBackgroundParams(
   definition: BackgroundDefinition,
   overrides?: Record<string, BackgroundParamValue>,
 ): Record<string, BackgroundParamValue> {
-  const out = defaultBackgroundParams(definition)
-  if (!overrides) return out
+  const out = defaultBackgroundParams(definition);
+  if (!overrides) return out;
   for (const param of definition.params ?? []) {
-    const value = overrides[param.key]
-    if (value !== undefined) out[param.key] = coerceParam(param, value)
+    const value = overrides[param.key];
+    if (value !== undefined) out[param.key] = coerceParam(param, value);
   }
-  return out
+  return out;
 }
 
 /** Validates one stored value against its schema, falling back to the default. */
-function coerceParam(
-  param: BackgroundParam,
-  value: BackgroundParamValue,
-): BackgroundParamValue {
+function coerceParam(param: BackgroundParam, value: BackgroundParamValue): BackgroundParamValue {
   switch (param.kind) {
     case 'number': {
-      if (typeof value !== 'number' || !Number.isFinite(value)) return param.default
-      return Math.min(param.max, Math.max(param.min, value))
+      if (typeof value !== 'number' || !Number.isFinite(value)) return param.default;
+      return Math.min(param.max, Math.max(param.min, value));
     }
     case 'boolean':
-      return typeof value === 'boolean' ? value : param.default
+      return typeof value === 'boolean' ? value : param.default;
     case 'select':
       return typeof value === 'string' && param.options.some((o) => o.value === value)
         ? value
-        : param.default
+        : param.default;
     case 'text':
-      return typeof value === 'string'
-        ? value.slice(0, param.maxLength ?? 2048)
-        : param.default
+      return typeof value === 'string' ? value.slice(0, param.maxLength ?? 2048) : param.default;
     case 'fileList':
-      return typeof value === 'string' ? value : param.default
+      return typeof value === 'string' ? value : param.default;
     case 'color':
       return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)
         ? value.toLowerCase()
-        : param.default
+        : param.default;
   }
 }

@@ -1,31 +1,31 @@
-import type { BackgroundParam } from '../types'
-import { VIDEO_CROSSFADE_SECONDS } from './video-cpu/loop'
-import { clearVideoFile, listVideoFiles, storeVideoFile } from './video-cpu/storage'
+import type { BackgroundParam } from '../types';
+import { VIDEO_CROSSFADE_SECONDS } from './video-cpu/loop';
+import { clearVideoFile, listVideoFiles, storeVideoFile } from './video-cpu/storage';
 
-export type VideoFit = 'cover' | 'stretch'
+export type VideoFit = 'cover' | 'stretch';
 
-export const VIDEO_DEFAULT_SOURCE = ''
-export const VIDEO_DEFAULT_FIT: VideoFit = 'cover'
-export const VIDEO_DEFAULT_SPEED = 1
+export const VIDEO_DEFAULT_SOURCE = '';
+export const VIDEO_DEFAULT_FIT: VideoFit = 'cover';
+export const VIDEO_DEFAULT_SPEED = 1;
 // Default mask matches the translucent `.apple-panel` background (white 10%).
-export const VIDEO_DEFAULT_MASK_COLOR = '#ffffff'
-export const VIDEO_DEFAULT_MASK_OPACITY = 0.1
+export const VIDEO_DEFAULT_MASK_COLOR = '#ffffff';
+export const VIDEO_DEFAULT_MASK_OPACITY = 0.1;
 
 /** Clips longer than this are flagged as too long for a background. */
-export const VIDEO_MAX_DURATION_SECONDS = 30
+export const VIDEO_MAX_DURATION_SECONDS = 30;
 
 /** User-facing parameters for the Video background. */
 export interface VideoParams {
   /** Stored id of the selected clip; the bytes live in OPFS. */
-  source: string
-  fit: VideoFit
-  speed: number
+  source: string;
+  fit: VideoFit;
+  speed: number;
   /** Crossfade the clip's tail into its start to hide the loop jump. */
-  crossfade: boolean
+  crossfade: boolean;
   /** Colour of the tint drawn over the video. */
-  maskColor: string
+  maskColor: string;
   /** Opacity of the tint, 0 (off) to 1. */
-  maskOpacity: number
+  maskOpacity: number;
 }
 
 export const VIDEO_PARAMS: readonly BackgroundParam[] = [
@@ -84,20 +84,20 @@ export const VIDEO_PARAMS: readonly BackgroundParam[] = [
     step: 0.01,
     format: (value) => `${Math.round(value * 100)}%`,
   },
-]
+];
 
 function isFit(value: unknown): value is VideoFit {
-  return value === 'cover' || value === 'stretch'
+  return value === 'cover' || value === 'stretch';
 }
 
 /** Read the typed Video params out of the opaque subsystem params bag. */
 export function resolveVideoParams(params?: Record<string, unknown>): VideoParams {
-  const source = params?.source
-  const fit = params?.fit
-  const speed = params?.speed
-  const crossfade = params?.crossfade
-  const maskColor = params?.maskColor
-  const maskOpacity = params?.maskOpacity
+  const source = params?.source;
+  const fit = params?.fit;
+  const speed = params?.speed;
+  const crossfade = params?.crossfade;
+  const maskColor = params?.maskColor;
+  const maskOpacity = params?.maskOpacity;
   return {
     source: typeof source === 'string' ? source : VIDEO_DEFAULT_SOURCE,
     fit: isFit(fit) ? fit : VIDEO_DEFAULT_FIT,
@@ -114,5 +114,5 @@ export function resolveVideoParams(params?: Record<string, unknown>): VideoParam
       typeof maskOpacity === 'number' && Number.isFinite(maskOpacity)
         ? Math.min(1, Math.max(0, maskOpacity))
         : VIDEO_DEFAULT_MASK_OPACITY,
-  }
+  };
 }

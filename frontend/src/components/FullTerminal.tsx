@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useAtomValue } from 'jotai'
-import { useTranslation } from 'react-i18next'
-import { fontFamilyAtom, termThemeAtom, themeToXtermTheme } from '../store/appearance'
-import { connectionMessageAtom, connectionStatusAtom } from '../store/connection'
-import { FONT_DEFAULT, lineHeightAtom } from '../store/fonts'
-import { useTerminal } from './hooks/useTerminal'
-import { usePtySession } from './hooks/usePtySession'
-import { useTermCopy } from './hooks/useTermCopy'
-import { useBell } from './hooks/useBell'
-import { CommonTileContainer } from './CommonTileContainer'
-import { CloseIcon, CopyIcon } from './icons'
-import { Toast } from './Toast'
-import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAtomValue } from 'jotai';
+import { useTranslation } from 'react-i18next';
+import { fontFamilyAtom, termThemeAtom, themeToXtermTheme } from '../store/appearance';
+import { connectionMessageAtom, connectionStatusAtom } from '../store/connection';
+import { FONT_DEFAULT, lineHeightAtom } from '../store/fonts';
+import { useTerminal } from './hooks/useTerminal';
+import { usePtySession } from './hooks/usePtySession';
+import { useTermCopy } from './hooks/useTermCopy';
+import { useBell } from './hooks/useBell';
+import { CommonTileContainer } from './CommonTileContainer';
+import { CloseIcon, CopyIcon } from './icons';
+import { Toast } from './Toast';
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
 const STATUS_DOT = {
   connecting: 'bg-amber-400 animate-pulse',
   connected: 'bg-green-500',
   disconnected: 'bg-red-500',
-} as const
+} as const;
 
 /**
  * An xterm terminal that fills the entire viewport. This is the page each
@@ -25,16 +25,16 @@ const STATUS_DOT = {
  * WebSocket PTY session on the server.
  */
 export default function FullTerminal() {
-  const { t } = useTranslation()
-  const status = useAtomValue(connectionStatusAtom)
-  const message = useAtomValue(connectionMessageAtom)
-  const fontFamily = useAtomValue(fontFamilyAtom)
-  const theme = useAtomValue(termThemeAtom)
-  const lineHeight = useAtomValue(lineHeightAtom)
+  const { t } = useTranslation();
+  const status = useAtomValue(connectionStatusAtom);
+  const message = useAtomValue(connectionMessageAtom);
+  const fontFamily = useAtomValue(fontFamilyAtom);
+  const theme = useAtomValue(termThemeAtom);
+  const lineHeight = useAtomValue(lineHeightAtom);
 
   // Font size comes exclusively from the parent via postMessage (tile-font-size).
   // Use a placeholder until the message arrives.
-  const [tileFontSize, setTileFontSize] = useState(FONT_DEFAULT)
+  const [tileFontSize, setTileFontSize] = useState(FONT_DEFAULT);
 
   const { containerRef, term, setFontSize, setFontFamily, setLineHeight, setTheme } = useTerminal(
     {
@@ -50,71 +50,80 @@ export default function FullTerminal() {
       theme: { ...themeToXtermTheme(theme), background: '#00000000' },
     },
     { cols: 80, rows: 24 },
-  )
+  );
 
   // ── Selection mode ──
-  const [selectionMode, setSelectionMode] = useState(false)
-  const toggleSelectionMode = useCallback(() => setSelectionMode((v) => !v), [])
+  const [selectionMode, setSelectionMode] = useState(false);
+  const toggleSelectionMode = useCallback(() => setSelectionMode((v) => !v), []);
 
   // ── Selection cache (only meaningful in selection mode) ──
-  const [cachedText, setCachedText] = useState('')
-  const [cachedLength, setCachedLength] = useState(0)
-  const [showCacheDialog, setShowCacheDialog] = useState(false)
+  const [cachedText, setCachedText] = useState('');
+  const [cachedLength, setCachedLength] = useState(0);
+  const [showCacheDialog, setShowCacheDialog] = useState(false);
   // Ref so the dialog copy handler always reads the latest cache.
-  const cachedTextRef = useRef('')
+  const cachedTextRef = useRef('');
   const onCacheUpdate = useCallback((text: string, length: number) => {
-    setCachedText(text)
-    setCachedLength(length)
-    cachedTextRef.current = text
-  }, [])
+    setCachedText(text);
+    setCachedLength(length);
+    cachedTextRef.current = text;
+  }, []);
 
   // ── Copy toast ──
-  const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const showToast = useCallback((msg: string) => {
-    setToastMsg(null) // reset to re-key the component
-    requestAnimationFrame(() => setToastMsg(msg))
-  }, [])
+    setToastMsg(null); // reset to re-key the component
+    requestAnimationFrame(() => setToastMsg(msg));
+  }, []);
 
   // Copy cached text, exit selection mode, show toast.
   const copyCacheAndExit = useCallback(() => {
-    const text = cachedTextRef.current
-    if (!text) return
+    const text = cachedTextRef.current;
+    if (!text) return;
     void navigator.clipboard.writeText(text).then(() => {
-      showToast(t('terminal.copied'))
-      setCachedText('')
-      setCachedLength(0)
-      cachedTextRef.current = ''
-      setSelectionMode(false)
-      setShowCacheDialog(false)
-    })
-  }, [showToast, t])
+      showToast(t('terminal.copied'));
+      setCachedText('');
+      setCachedLength(0);
+      cachedTextRef.current = '';
+      setSelectionMode(false);
+      setShowCacheDialog(false);
+    });
+  }, [showToast, t]);
 
   // The pane ID is the server-owned terminal session ID. The browser xterm
   // is disposable and never restores cwd, foreground process, or screen state
   // from localStorage.
-  const paneId = useMemo(() => new URLSearchParams(window.location.search).get('pane') ?? undefined, [])
+  const paneId = useMemo(
+    () => new URLSearchParams(window.location.search).get('pane') ?? undefined,
+    [],
+  );
 
-  usePtySession(term, paneId)
-  useTermCopy(term, selectionMode, toggleSelectionMode, () => showToast(t('terminal.copied')), onCacheUpdate)
-  useBell(term, containerRef)
+  usePtySession(term, paneId);
+  useTermCopy(
+    term,
+    selectionMode,
+    toggleSelectionMode,
+    () => showToast(t('terminal.copied')),
+    onCacheUpdate,
+  );
+  useBell(term, containerRef);
 
   // Focus the terminal when this iframe gains focus.
   useEffect(() => {
-    const onFocus = () => term?.focus()
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [term])
+    const onFocus = () => term?.focus();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [term]);
 
   // Apply shared appearance settings from parent (font family, line height, theme).
   useEffect(() => {
-    setFontFamily(fontFamily)
-  }, [fontFamily, setFontFamily])
+    setFontFamily(fontFamily);
+  }, [fontFamily, setFontFamily]);
   useEffect(() => {
-    setLineHeight(lineHeight)
-  }, [lineHeight, setLineHeight])
+    setLineHeight(lineHeight);
+  }, [lineHeight, setLineHeight]);
   useEffect(() => {
-    setTheme({ ...themeToXtermTheme(theme), background: '#00000000' })
-  }, [theme, setTheme])
+    setTheme({ ...themeToXtermTheme(theme), background: '#00000000' });
+  }, [theme, setTheme]);
 
   // Font size is received from the parent via postMessage. The parent
   // derives it from space.paneData and sends it on mount + every layout
@@ -122,20 +131,20 @@ export default function FullTerminal() {
   // (FONT_DEFAULT).
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      const d = e.data as { type?: string; fontSize?: number } | undefined
+      const d = e.data as { type?: string; fontSize?: number } | undefined;
       if (d?.type === 'tile-font-size' && typeof d.fontSize === 'number') {
-        setTileFontSize(d.fontSize)
+        setTileFontSize(d.fontSize);
       }
-    }
-    window.addEventListener('message', onMsg)
+    };
+    window.addEventListener('message', onMsg);
     // Request font size from parent — fixes the race where the parent
     // sends postMessage before this iframe's listener is registered.
-    window.parent?.postMessage({ type: 'request-font-size', paneId: paneId ?? '' }, '*')
-    return () => window.removeEventListener('message', onMsg)
-  }, [paneId])
+    window.parent?.postMessage({ type: 'request-font-size', paneId: paneId ?? '' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, [paneId]);
   useEffect(() => {
-    setFontSize(tileFontSize)
-  }, [tileFontSize, setFontSize])
+    setFontSize(tileFontSize);
+  }, [tileFontSize, setFontSize]);
 
   return (
     <CommonTileContainer paneId={paneId}>
@@ -156,11 +165,17 @@ export default function FullTerminal() {
           }`}
           title={message}
         >
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${selectionMode ? 'bg-sky-400' : STATUS_DOT[status]}`} />
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${selectionMode ? 'bg-sky-400' : STATUS_DOT[status]}`}
+          />
           {selectionMode ? (
             <span className="truncate">{t('terminal.selectionMode')}</span>
           ) : (
-            <span className="truncate">{status === 'connected' ? t('terminal.connected') : message || t(`terminal.${status}`)}</span>
+            <span className="truncate">
+              {status === 'connected'
+                ? t('terminal.connected')
+                : message || t(`terminal.${status}`)}
+            </span>
           )}
           {/* Clickable char-count badge — only in selection mode */}
           {selectionMode && (
@@ -179,13 +194,11 @@ export default function FullTerminal() {
             type="button"
             onClick={toggleSelectionMode}
             className="shrink-0 rounded p-0.5 hover:bg-white/10"
-            title={selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')}
+            title={
+              selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')
+            }
           >
-            {selectionMode ? (
-              <CloseIcon className="h-3 w-3" />
-            ) : (
-              <CopyIcon className="h-3 w-3" />
-            )}
+            {selectionMode ? <CloseIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
           </button>
         </footer>
         {/* Toast overlay for copy confirmation */}
@@ -220,5 +233,5 @@ export default function FullTerminal() {
         </DialogContent>
       </Dialog>
     </CommonTileContainer>
-  )
+  );
 }

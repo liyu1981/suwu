@@ -1,1 +1,1 @@
-export { startVideo as start } from './renderer'
+export { startVideo as start } from './renderer';

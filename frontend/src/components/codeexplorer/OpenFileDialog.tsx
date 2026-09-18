@@ -1,101 +1,114 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { FileIcon, FolderIcon } from '../icons'
-import { authFetch } from '../../lib/api'
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { FileIcon, FolderIcon } from '../icons';
+import { authFetch } from '../../lib/api';
 
 interface OpenFileDialogProps {
-  onClose: () => void
-  onOpenFile: (path: string) => void
-  onNewFile: (path: string) => void
+  onClose: () => void;
+  onOpenFile: (path: string) => void;
+  onNewFile: (path: string) => void;
   /** Folder to start in (e.g. the active file's directory). Falls back to home. */
-  defaultDir?: string | null
+  defaultDir?: string | null;
 }
 
 interface DirEntry {
-  name: string
-  isDir: boolean
+  name: string;
+  isDir: boolean;
 }
 
 function joinPath(dir: string, name: string): string {
-  if (dir === '/' || dir === '') return `/${name}`
-  return `${dir.replace(/\/+$/, '')}/${name}`
+  if (dir === '/' || dir === '') return `/${name}`;
+  return `${dir.replace(/\/+$/, '')}/${name}`;
 }
 
 function parentPath(dir: string): string {
-  if (dir === '/' || dir === '') return '/'
-  const trimmed = dir.replace(/\/+$/, '')
-  const idx = trimmed.lastIndexOf('/')
-  if (idx <= 0) return '/'
-  return trimmed.slice(0, idx)
+  if (dir === '/' || dir === '') return '/';
+  const trimmed = dir.replace(/\/+$/, '');
+  const idx = trimmed.lastIndexOf('/');
+  if (idx <= 0) return '/';
+  return trimmed.slice(0, idx);
 }
 
 /** Directory + file browser for opening an existing file or creating a new one. */
-export function OpenFileDialog({ onClose, onOpenFile, onNewFile, defaultDir }: OpenFileDialogProps) {
-  const { t } = useTranslation()
-  const [currentDir, setCurrentDir] = useState(defaultDir || '/')
-  const [pathInput, setPathInput] = useState(defaultDir || '/')
-  const [entries, setEntries] = useState<DirEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [newName, setNewName] = useState('')
-  const [refreshKey, setRefreshKey] = useState(0)
-  const abortRef = useRef<AbortController | null>(null)
+export function OpenFileDialog({
+  onClose,
+  onOpenFile,
+  onNewFile,
+  defaultDir,
+}: OpenFileDialogProps) {
+  const { t } = useTranslation();
+  const [currentDir, setCurrentDir] = useState(defaultDir || '/');
+  const [pathInput, setPathInput] = useState(defaultDir || '/');
+  const [entries, setEntries] = useState<DirEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (defaultDir) return
+    if (defaultDir) return;
     authFetch('/api/home', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.path) {
-          setCurrentDir(data.path)
-          setPathInput(data.path)
+          setCurrentDir(data.path);
+          setPathInput(data.path);
         }
       })
-      .catch(() => {})
-  }, [defaultDir])
+      .catch(() => {});
+  }, [defaultDir]);
 
   useEffect(() => {
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
-    setLoading(true)
-    setError(null)
-    authFetch(`/api/files?path=${encodeURIComponent(currentDir)}`, { cache: 'no-store', signal: controller.signal })
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setError(null);
+    authFetch(`/api/files?path=${encodeURIComponent(currentDir)}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        const list: DirEntry[] = Array.isArray(data?.entries) ? data.entries : []
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const list: DirEntry[] = Array.isArray(data?.entries) ? data.entries : [];
         setEntries(
           list
             .filter((entry) => entry.name !== '.')
-            .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1)),
-        )
-        setLoading(false)
+            .sort((a, b) =>
+              a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1,
+            ),
+        );
+        setLoading(false);
       })
       .catch((err) => {
-        if (controller.signal.aborted) return
-        setEntries([])
-        setError(err instanceof Error ? err.message : 'Cannot read folder')
-        setLoading(false)
-      })
-    return () => controller.abort()
-  }, [currentDir, refreshKey])
+        if (controller.signal.aborted) return;
+        setEntries([]);
+        setError(err instanceof Error ? err.message : 'Cannot read folder');
+        setLoading(false);
+      });
+    return () => controller.abort();
+  }, [currentDir, refreshKey]);
 
   const navigate = useCallback((path: string) => {
-    setCurrentDir(path)
-    setPathInput(path)
-    setNewName('')
-  }, [])
+    setCurrentDir(path);
+    setPathInput(path);
+    setNewName('');
+  }, []);
 
   const createFile = useCallback(() => {
-    const name = newName.trim()
-    if (!name || name.includes('/')) return
-    onNewFile(joinPath(currentDir, name))
-    onClose()
-  }, [currentDir, newName, onClose, onNewFile])
+    const name = newName.trim();
+    if (!name || name.includes('/')) return;
+    onNewFile(joinPath(currentDir, name));
+    onClose();
+  }, [currentDir, newName, onClose, onNewFile]);
 
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div
+      className="absolute inset-0 z-20 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
       <div
         className="glass-control menu-glass flex h-[75%] w-[min(92%,44rem)] flex-col gap-2 rounded-lg p-3"
         onClick={(e) => e.stopPropagation()}
@@ -108,7 +121,14 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile, defaultDir }: O
             aria-label={t('codeExplorer.cancel')}
             className="grid h-6 w-6 place-items-center rounded text-white/50 transition hover:bg-white/10 hover:text-white"
           >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+            <svg
+              className="h-3.5 w-3.5"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+            >
               <path d="M4 4l8 8M12 4l-8 8" />
             </svg>
           </button>
@@ -131,7 +151,15 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile, defaultDir }: O
             aria-label={t('codeExplorer.refresh')}
             className="grid h-7 w-7 shrink-0 place-items-center rounded text-white/60 transition hover:bg-white/10 hover:text-white"
           >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              className="h-3.5 w-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
               <path d="M3 3v5h5" />
               <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
@@ -142,7 +170,7 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile, defaultDir }: O
             value={pathInput}
             onChange={(e) => setPathInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') navigate(pathInput.trim() || '/')
+              if (e.key === 'Enter') navigate(pathInput.trim() || '/');
             }}
             spellCheck={false}
             className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white/80 outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-white/10"
@@ -165,7 +193,11 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile, defaultDir }: O
                 <button
                   key={entry.name}
                   type="button"
-                  onClick={() => (entry.isDir ? navigate(joinPath(currentDir, entry.name)) : (onOpenFile(joinPath(currentDir, entry.name)), onClose()))}
+                  onClick={() =>
+                    entry.isDir
+                      ? navigate(joinPath(currentDir, entry.name))
+                      : (onOpenFile(joinPath(currentDir, entry.name)), onClose())
+                  }
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-white/70 transition hover:bg-white/10 hover:text-white"
                 >
                   {entry.isDir ? (
@@ -185,7 +217,7 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile, defaultDir }: O
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') createFile()
+              if (e.key === 'Enter') createFile();
             }}
             spellCheck={false}
             className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white/80 outline-none placeholder:text-white/30 focus:border-white/25 focus:bg-white/10"
@@ -202,5 +234,5 @@ export function OpenFileDialog({ onClose, onOpenFile, onNewFile, defaultDir }: O
         </div>
       </div>
     </div>
-  )
+  );
 }

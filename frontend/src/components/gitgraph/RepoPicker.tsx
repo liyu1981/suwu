@@ -3,126 +3,128 @@
  * Reuses the existing /api/files endpoint (same as the file browser).
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { authFetch } from '../../lib/api'
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { authFetch } from '../../lib/api';
 
 interface DirEntry {
-  name: string
-  isDir: boolean
+  name: string;
+  isDir: boolean;
 }
 
 interface RepoPickerProps {
   /** Called when the user commits to a folder. */
-  onSelect: (path: string) => void
+  onSelect: (path: string) => void;
   /** Optional error message to surface above the picker (e.g. invalid repo). */
-  error?: string | null
+  error?: string | null;
 }
 
 function fetchDirs(dirPath: string, signal?: AbortSignal): Promise<DirEntry[]> {
   return authFetch(`/api/files?path=${encodeURIComponent(dirPath)}`, {
     cache: 'no-store',
     signal,
-  })
-    .then(async (res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      const entries: DirEntry[] = Array.isArray(data?.entries) ? data.entries : []
-      return entries
-        .filter((e: DirEntry) => e.isDir && e.name !== '.')
-        .sort((a: DirEntry, b: DirEntry) => a.name.localeCompare(b.name))
-    })
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const entries: DirEntry[] = Array.isArray(data?.entries) ? data.entries : [];
+    return entries
+      .filter((e: DirEntry) => e.isDir && e.name !== '.')
+      .sort((a: DirEntry, b: DirEntry) => a.name.localeCompare(b.name));
+  });
 }
 
 function joinPath(dir: string, name: string): string {
-  if (dir === '/' || dir === '') return '/' + name
-  return dir.replace(/\/+$/, '') + '/' + name
+  if (dir === '/' || dir === '') return '/' + name;
+  return dir.replace(/\/+$/, '') + '/' + name;
 }
 
 function parentPath(dir: string): string {
-  if (dir === '/' || dir === '') return '/'
-  const trimmed = dir.replace(/\/+$/, '')
-  const idx = trimmed.lastIndexOf('/')
-  if (idx <= 0) return '/'
-  return trimmed.slice(0, idx)
+  if (dir === '/' || dir === '') return '/';
+  const trimmed = dir.replace(/\/+$/, '');
+  const idx = trimmed.lastIndexOf('/');
+  if (idx <= 0) return '/';
+  return trimmed.slice(0, idx);
 }
 
 export function RepoPicker({ onSelect, error }: RepoPickerProps) {
-  const [currentPath, setCurrentPath] = useState('/')
-  const [dirs, setDirs] = useState<DirEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [browseError, setBrowseError] = useState<string | null>(null)
-  const [manualPath, setManualPath] = useState('')
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
-  const abortRef = useRef<AbortController | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const suggestionsRef = useRef<HTMLDivElement>(null)
+  const [currentPath, setCurrentPath] = useState('/');
+  const [dirs, setDirs] = useState<DirEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const [manualPath, setManualPath] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const abortRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     authFetch('/api/home', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.path) {
-          setCurrentPath(data.path)
-          setManualPath(data.path)
+          setCurrentPath(data.path);
+          setManualPath(data.path);
         }
       })
-      .catch(() => {})
-  }, [])
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
-    abortRef.current?.abort()
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    setLoading(true)
-    setBrowseError(null)
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    setBrowseError(null);
     fetchDirs(currentPath, ctrl.signal)
       .then((entries) => {
-        if (ctrl.signal.aborted) return
-        setDirs(entries)
-        setLoading(false)
+        if (ctrl.signal.aborted) return;
+        setDirs(entries);
+        setLoading(false);
       })
       .catch((err) => {
-        if (ctrl.signal.aborted) return
-        setDirs([])
-        setBrowseError(err instanceof Error ? err.message : 'Cannot read folder')
-        setLoading(false)
-      })
-    return () => ctrl.abort()
-  }, [currentPath, refreshKey])
+        if (ctrl.signal.aborted) return;
+        setDirs([]);
+        setBrowseError(err instanceof Error ? err.message : 'Cannot read folder');
+        setLoading(false);
+      });
+    return () => ctrl.abort();
+  }, [currentPath, refreshKey]);
 
-  const open = useCallback((name: string) => {
-    setCurrentPath(joinPath(currentPath, name))
-    setManualPath(joinPath(currentPath, name))
-  }, [currentPath])
+  const open = useCallback(
+    (name: string) => {
+      setCurrentPath(joinPath(currentPath, name));
+      setManualPath(joinPath(currentPath, name));
+    },
+    [currentPath],
+  );
 
   const goUp = useCallback(() => {
-    setCurrentPath(parentPath(currentPath))
-    setManualPath(parentPath(currentPath))
-  }, [currentPath])
+    setCurrentPath(parentPath(currentPath));
+    setManualPath(parentPath(currentPath));
+  }, [currentPath]);
 
   const navigateManual = useCallback(() => {
-    const p = manualPath.trim()
-    if (p === '') return
-    setCurrentPath(p)
-  }, [manualPath])
+    const p = manualPath.trim();
+    if (p === '') return;
+    setCurrentPath(p);
+  }, [manualPath]);
 
   const submitManual = useCallback(() => {
-    const p = manualPath.trim()
-    if (p === '') return
-    setCurrentPath(p)
-    onSelect(p)
-  }, [manualPath, onSelect])
+    const p = manualPath.trim();
+    if (p === '') return;
+    setCurrentPath(p);
+    onSelect(p);
+  }, [manualPath, onSelect]);
 
   // Compute suggestions based on current input and dirs
   const suggestions = manualPath.trim()
     ? dirs.filter((d) => {
-        const inputPart = manualPath.split('/').pop() ?? ''
-        if (inputPart === '') return false
-        return d.name.toLowerCase().includes(inputPart.toLowerCase())
+        const inputPart = manualPath.split('/').pop() ?? '';
+        if (inputPart === '') return false;
+        return d.name.toLowerCase().includes(inputPart.toLowerCase());
       })
-    : []
+    : [];
 
   return (
     <div className="flex flex-col gap-2 overflow-y-auto scrollbar-thin" style={{ height: '100%' }}>
@@ -130,7 +132,7 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-300">
           <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
+            <path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047zM8 5.5a.75.75 0 0 0-.75.75v3a.75.75 0 1 0 1.5 0v-3A.75.75 0 0 0 8 5.5zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
           </svg>
           <span className="text-[11px] leading-snug">{error}</span>
         </div>
@@ -138,57 +140,80 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
 
       {/* Merged toolbar: up + refresh + path input + open */}
       <div className="relative flex items-center gap-1.5">
-        <button type="button" onClick={goUp} title="Up" className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white">
+        <button
+          type="button"
+          onClick={goUp}
+          title="Up"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white"
+        >
           <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M7.78 3.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06L9 5.56v7.69a.75.75 0 0 1-1.5 0V5.56L5.03 8.53a.75.75 0 0 1-1.06-1.06l3.81-3.75z"/>
+            <path d="M7.78 3.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06L9 5.56v7.69a.75.75 0 0 1-1.5 0V5.56L5.03 8.53a.75.75 0 0 1-1.06-1.06l3.81-3.75z" />
           </svg>
         </button>
-        <button type="button" onClick={() => setRefreshKey((k) => k + 1)} title="Refresh" className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white">
-          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+        <button
+          type="button"
+          onClick={() => setRefreshKey((k) => k + 1)}
+          title="Refresh"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded text-slate-300 transition hover:bg-white/10 hover:text-white"
+        >
+          <svg
+            className="h-3.5 w-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 16h5v5" />
+          </svg>
         </button>
         <div className="relative min-w-0 flex-1">
           <input
             ref={inputRef}
             value={manualPath}
             onChange={(e) => {
-              setManualPath(e.target.value)
-              setShowSuggestions(true)
-              setSelectedIndex(-1)
+              setManualPath(e.target.value);
+              setShowSuggestions(true);
+              setSelectedIndex(-1);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-                  const selected = suggestions[selectedIndex]
-                  const trimmed = manualPath.replace(/\/+$/, '')
-                  const lastSeg = trimmed.split('/').pop() ?? ''
-                  let newPath: string
+                  const selected = suggestions[selectedIndex];
+                  const trimmed = manualPath.replace(/\/+$/, '');
+                  const lastSeg = trimmed.split('/').pop() ?? '';
+                  let newPath: string;
                   if (lastSeg === selected.name) {
-                    newPath = trimmed || '/'
+                    newPath = trimmed || '/';
                   } else {
-                    const parentDir = manualPath.substring(0, manualPath.lastIndexOf('/') + 1)
-                    newPath = parentDir + selected.name
+                    const parentDir = manualPath.substring(0, manualPath.lastIndexOf('/') + 1);
+                    newPath = parentDir + selected.name;
                   }
-                  setManualPath(newPath)
-                  setCurrentPath(newPath)
-                  setShowSuggestions(false)
-                  setSelectedIndex(-1)
+                  setManualPath(newPath);
+                  setCurrentPath(newPath);
+                  setShowSuggestions(false);
+                  setSelectedIndex(-1);
                 } else {
-                  navigateManual()
+                  navigateManual();
                 }
               } else if (e.key === 'ArrowDown') {
-                e.preventDefault()
-                setSelectedIndex((i) => (i < suggestions.length - 1 ? i + 1 : 0))
+                e.preventDefault();
+                setSelectedIndex((i) => (i < suggestions.length - 1 ? i + 1 : 0));
               } else if (e.key === 'ArrowUp') {
-                e.preventDefault()
-                setSelectedIndex((i) => (i > 0 ? i - 1 : suggestions.length - 1))
+                e.preventDefault();
+                setSelectedIndex((i) => (i > 0 ? i - 1 : suggestions.length - 1));
               } else if (e.key === 'Escape') {
-                setShowSuggestions(false)
-                setSelectedIndex(-1)
+                setShowSuggestions(false);
+                setSelectedIndex(-1);
               }
             }}
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => {
-              setTimeout(() => setShowSuggestions(false), 150)
+              setTimeout(() => setShowSuggestions(false), 150);
             }}
             placeholder="/path/to/repo"
             spellCheck={false}
@@ -205,21 +230,27 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
                   key={d.name}
                   type="button"
                   onMouseDown={(e) => {
-                    e.preventDefault()
-                    const parentDir = manualPath.substring(0, manualPath.lastIndexOf('/') + 1)
-                    const newPath = parentDir + d.name
-                    setManualPath(newPath)
-                    setCurrentPath(newPath)
-                    setShowSuggestions(false)
-                    setSelectedIndex(-1)
+                    e.preventDefault();
+                    const parentDir = manualPath.substring(0, manualPath.lastIndexOf('/') + 1);
+                    const newPath = parentDir + d.name;
+                    setManualPath(newPath);
+                    setCurrentPath(newPath);
+                    setShowSuggestions(false);
+                    setSelectedIndex(-1);
                   }}
                   onMouseEnter={() => setSelectedIndex(i)}
                   className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left transition ${
-                    i === selectedIndex ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'
+                    i === selectedIndex
+                      ? 'bg-white/10 text-white'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
                   }`}
                 >
-                  <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400/80" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/>
+                  <svg
+                    className="h-3.5 w-3.5 shrink-0 text-yellow-400/80"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                  >
+                    <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z" />
                   </svg>
                   <span className="min-w-0 flex-1 truncate">{d.name}</span>
                 </button>
@@ -251,7 +282,13 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
         ) : browseError ? (
           <div className="p-4 text-[11px] text-red-300">
             {browseError}
-            <button type="button" onClick={goUp} className="ml-2 text-white/60 underline hover:text-white">Go up</button>
+            <button
+              type="button"
+              onClick={goUp}
+              className="ml-2 text-white/60 underline hover:text-white"
+            >
+              Go up
+            </button>
           </div>
         ) : dirs.length === 0 ? (
           <div className="p-4 text-[11px] text-white/40">No subfolders here.</div>
@@ -265,8 +302,12 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
                 onClick={() => open(d.name)}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left text-white/70 transition hover:bg-white/10 hover:text-white"
               >
-                <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400/80" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z"/>
+                <svg
+                  className="h-3.5 w-3.5 shrink-0 text-yellow-400/80"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                >
+                  <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z" />
                 </svg>
                 <span className="min-w-0 flex-1 truncate">{d.name}</span>
                 <ChevronRightIcon />
@@ -276,15 +317,15 @@ export function RepoPicker({ onSelect, error }: RepoPickerProps) {
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function ChevronRightIcon() {
   return (
     <svg className="h-3 w-3 shrink-0 text-white/30" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M6.22 3.72a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z"/>
+      <path d="M6.22 3.72a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z" />
     </svg>
-  )
+  );
 }
 
-export default RepoPicker
+export default RepoPicker;

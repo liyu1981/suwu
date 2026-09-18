@@ -1,36 +1,34 @@
-import { useState, useCallback, useEffect, Fragment } from 'react'
+import { useState, useCallback, useEffect, Fragment } from 'react';
 
-export type DialogInputType = 'text' | 'checkbox' | 'select' | 'radio'
+export type DialogInputType = 'text' | 'checkbox' | 'select' | 'radio';
 
 export interface DialogInput {
-  type: DialogInputType
-  name: string
-  defaultValue?: string
-  options?: { label: string; value: string }[]
-  checked?: boolean
-  info?: string
+  type: DialogInputType;
+  name: string;
+  defaultValue?: string;
+  options?: { label: string; value: string }[];
+  checked?: boolean;
+  info?: string;
 }
 
 interface ActionDialogProps {
-  title: string
-  message: string
-  inputs?: DialogInput[]
-  actionLabel?: string
-  onAction: (values: Record<string, string | boolean>) => void
-  onCancel: () => void
+  title: string;
+  message: string;
+  inputs?: DialogInput[];
+  actionLabel?: string;
+  onAction: (values: Record<string, string | boolean>) => void;
+  onCancel: () => void;
 }
 
 const inputCls =
-  'w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-sm text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20'
+  'w-full rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-sm text-white outline-none transition-all duration-150 focus:border-sky-400/40 focus:bg-white/[0.08] focus:ring-1 focus:ring-sky-400/20';
 
 /** Render the dialog's limited <b> markup without injecting HTML. */
 function renderMessage(message: string) {
   return message.split(/(<b>[\s\S]*?<\/b>)/g).map((part, index) => {
-    const bold = part.match(/^<b>([\s\S]*?)<\/b>$/)
-    return bold
-      ? <strong key={index}>{bold[1]}</strong>
-      : <Fragment key={index}>{part}</Fragment>
-  })
+    const bold = part.match(/^<b>([\s\S]*?)<\/b>$/);
+    return bold ? <strong key={index}>{bold[1]}</strong> : <Fragment key={index}>{part}</Fragment>;
+  });
 }
 
 /**
@@ -38,30 +36,37 @@ function renderMessage(message: string) {
  * apple design language — rounded-2xl, menu-glass, backdrop-blur-2xl,
  * active:scale-[0.98] on buttons, smooth transitions.
  */
-export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confirm', onAction, onCancel }: ActionDialogProps) {
+export function ActionDialog({
+  title,
+  message,
+  inputs = [],
+  actionLabel = 'Confirm',
+  onAction,
+  onCancel,
+}: ActionDialogProps) {
   const [values, setValues] = useState<Record<string, string | boolean>>(() => {
-    const init: Record<string, string | boolean> = {}
+    const init: Record<string, string | boolean> = {};
     for (const input of inputs) {
-      init[input.name] = input.defaultValue ?? input.checked ?? (input.options?.[0]?.value ?? '')
+      init[input.name] = input.defaultValue ?? input.checked ?? input.options?.[0]?.value ?? '';
     }
-    return init
-  })
+    return init;
+  });
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel()
+      if (e.key === 'Escape') onCancel();
       if (e.key === 'Enter' && !e.shiftKey && !(e.target instanceof HTMLTextAreaElement)) {
-        e.preventDefault()
-        onAction(values)
+        e.preventDefault();
+        onAction(values);
       }
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [onAction, onCancel, values])
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onAction, onCancel, values]);
 
   const set = useCallback((name: string, value: string | boolean) => {
-    setValues((prev) => ({ ...prev, [name]: value }))
-  }, [])
+    setValues((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
   return (
     <div
@@ -76,9 +81,7 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
         <h3 className="mb-1 text-base font-semibold tracking-tight text-white/90">{title}</h3>
 
         {/* Message */}
-        <p className="mb-4 text-sm leading-relaxed text-white/55">
-          {renderMessage(message)}
-        </p>
+        <p className="mb-4 text-sm leading-relaxed text-white/55">{renderMessage(message)}</p>
 
         {/* Inputs */}
         {inputs.length > 0 && (
@@ -88,7 +91,9 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                 {input.type === 'text' && (
                   <div>
                     {input.name && (
-                      <label className="mb-1 block text-xs font-medium text-white/45">{input.name}</label>
+                      <label className="mb-1 block text-xs font-medium text-white/45">
+                        {input.name}
+                      </label>
                     )}
                     <input
                       type="text"
@@ -108,14 +113,18 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                       onChange={(e) => set(input.name, e.target.checked)}
                       className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 accent-green-500 transition"
                     />
-                    <span className="text-xs text-white/65 transition-colors group-hover:text-white/80">{input.name}</span>
+                    <span className="text-xs text-white/65 transition-colors group-hover:text-white/80">
+                      {input.name}
+                    </span>
                   </label>
                 )}
 
                 {input.type === 'select' && input.options && (
                   <div>
                     {input.name && (
-                      <label className="mb-1 block text-xs font-medium text-white/45">{input.name}</label>
+                      <label className="mb-1 block text-xs font-medium text-white/45">
+                        {input.name}
+                      </label>
                     )}
                     <select
                       value={String(values[input.name] ?? '')}
@@ -123,7 +132,9 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                       className={inputCls}
                     >
                       {input.options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -132,10 +143,15 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                 {input.type === 'radio' && input.options && (
                   <div className="space-y-2">
                     {input.name && (
-                      <label className="block text-xs font-medium text-white/45">{input.name}</label>
+                      <label className="block text-xs font-medium text-white/45">
+                        {input.name}
+                      </label>
                     )}
                     {input.options.map((opt) => (
-                      <label key={opt.value} className="flex items-center gap-2.5 cursor-pointer group">
+                      <label
+                        key={opt.value}
+                        className="flex items-center gap-2.5 cursor-pointer group"
+                      >
                         <input
                           type="radio"
                           name={input.name}
@@ -144,7 +160,9 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
                           onChange={() => set(input.name, opt.value)}
                           className="h-3.5 w-3.5 border-white/20 bg-white/5 accent-green-500 transition"
                         />
-                        <span className="text-xs text-white/65 transition-colors group-hover:text-white/80">{opt.label}</span>
+                        <span className="text-xs text-white/65 transition-colors group-hover:text-white/80">
+                          {opt.label}
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -177,5 +195,5 @@ export function ActionDialog({ title, message, inputs = [], actionLabel = 'Confi
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,54 +1,57 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useAtomValue } from 'jotai'
-import { useTileSessionState } from '../CommonTileContainer'
-import { OpenFileDialog } from './OpenFileDialog'
-import { SearchOccurrencesDialog } from './SearchOccurrencesDialog'
-import { useOccurrenceSearch } from './useOccurrenceSearch'
-import { StatusBar } from './StatusBar'
-import { TabBar } from './TabBar'
-import { parseFileSpecs } from './spec'
-import { useCodeExplorer } from './useCodeExplorer'
-import { fileBrowserBgAtom } from '../../store/appearance'
-import type { CodeFileSpec } from '../../store/notifications'
-import type { CodeExplorerSessionState } from '../../wm/sessionState'
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAtomValue } from 'jotai';
+import { useTileSessionState } from '../CommonTileContainer';
+import { OpenFileDialog } from './OpenFileDialog';
+import { SearchOccurrencesDialog } from './SearchOccurrencesDialog';
+import { useOccurrenceSearch } from './useOccurrenceSearch';
+import { StatusBar } from './StatusBar';
+import { TabBar } from './TabBar';
+import { parseFileSpecs } from './spec';
+import { useCodeExplorer } from './useCodeExplorer';
+import { fileBrowserBgAtom } from '../../store/appearance';
+import type { CodeFileSpec } from '../../store/notifications';
+import type { CodeExplorerSessionState } from '../../wm/sessionState';
 
 /** Multi-tab Monaco editor with optional gutter marks and explicit saving. */
 export function CodeExplorer() {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
   const initialSpecs = useMemo<CodeFileSpec[]>(
     () => parseFileSpecs(new URLSearchParams(window.location.search).get('files')),
     [],
-  )
-  const saved = useTileSessionState<CodeExplorerSessionState>()
+  );
+  const saved = useTileSessionState<CodeExplorerSessionState>();
   const restoreSpecs = useMemo<CodeFileSpec[]>(
     () => (saved?.tabs ?? []).map((tab) => ({ path: tab.path, ranges: tab.ranges })),
     [saved],
-  )
+  );
 
-  const explorer = useCodeExplorer(initialSpecs, restoreSpecs)
-  const search = useOccurrenceSearch(explorer.searchSelection)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const background = useAtomValue(fileBrowserBgAtom)
+  const explorer = useCodeExplorer(initialSpecs, restoreSpecs);
+  const search = useOccurrenceSearch(explorer.searchSelection);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const background = useAtomValue(fileBrowserBgAtom);
 
   useEffect(() => {
-    if (explorer.openSignal > 0) setDialogOpen(true)
-  }, [explorer.openSignal])
+    if (explorer.openSignal > 0) setDialogOpen(true);
+  }, [explorer.openSignal]);
 
-  const activeTab = explorer.tabs.find((tab) => tab.id === explorer.activeId) ?? null
-  const activeError = explorer.activeId ? explorer.errors[explorer.activeId] : undefined
-  const anyDirty = Object.values(explorer.dirty).some(Boolean)
+  const activeTab = explorer.tabs.find((tab) => tab.id === explorer.activeId) ?? null;
+  const activeError = explorer.activeId ? explorer.errors[explorer.activeId] : undefined;
+  const anyDirty = Object.values(explorer.dirty).some(Boolean);
 
   // Start the open/new-file dialog in the active file's folder.
   const activeDir = useMemo(() => {
-    const path = activeTab?.path
-    if (!path) return null
-    const idx = path.lastIndexOf('/')
-    return idx <= 0 ? '/' : path.slice(0, idx)
-  }, [activeTab?.path])
+    const path = activeTab?.path;
+    if (!path) return null;
+    const idx = path.lastIndexOf('/');
+    return idx <= 0 ? '/' : path.slice(0, idx);
+  }, [activeTab?.path]);
 
   return (
-    <div className="relative flex h-screen w-screen flex-col overflow-hidden" style={{ backgroundColor: background }}>
+    <div
+      className="relative flex h-screen w-screen flex-col overflow-hidden"
+      style={{ backgroundColor: background }}
+    >
       <TabBar
         tabs={explorer.tabs}
         activeId={explorer.activeId}
@@ -91,13 +94,21 @@ export function CodeExplorer() {
 
       {search.hasSearch && (
         <div className="flex shrink-0 justify-end border-t border-white/5 px-2 py-1">
-          <button type="button" onClick={search.reopen} className="glass-btn rounded px-2 py-1 text-xs text-white/70">
+          <button
+            type="button"
+            onClick={search.reopen}
+            className="glass-btn rounded px-2 py-1 text-xs text-white/70"
+          >
             {t('codeExplorer.search.showResults')}
           </button>
         </div>
       )}
 
-      <SearchOccurrencesDialog search={search} onNavigate={explorer.openLocation} onRestoreFocus={explorer.focusEditor} />
+      <SearchOccurrencesDialog
+        search={search}
+        onNavigate={explorer.openLocation}
+        onRestoreFocus={explorer.focusEditor}
+      />
 
       <StatusBar
         path={activeTab?.path ?? null}
@@ -121,5 +132,5 @@ export function CodeExplorer() {
         />
       )}
     </div>
-  )
+  );
 }

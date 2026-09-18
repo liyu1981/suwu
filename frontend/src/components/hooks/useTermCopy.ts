@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import type { Terminal } from "@xterm/xterm";
+import { useEffect, useRef } from 'react';
+import type { Terminal } from '@xterm/xterm';
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -24,7 +24,7 @@ async function pasteText(term: Terminal) {
 }
 
 const isMac =
-  typeof navigator !== "undefined" &&
+  typeof navigator !== 'undefined' &&
   /Mac|iPod|iPhone|iPad/.test(navigator.platform ?? navigator.userAgent);
 
 /**
@@ -67,9 +67,15 @@ export function useTermCopy(
   const onToggleRef = useRef(onToggleSelectionMode);
   const onCopyRef = useRef(onCopy);
   const onCacheUpdateRef = useRef(onCacheUpdate);
-  useEffect(() => { onToggleRef.current = onToggleSelectionMode; }, [onToggleSelectionMode]);
-  useEffect(() => { onCopyRef.current = onCopy; }, [onCopy]);
-  useEffect(() => { onCacheUpdateRef.current = onCacheUpdate; }, [onCacheUpdate]);
+  useEffect(() => {
+    onToggleRef.current = onToggleSelectionMode;
+  }, [onToggleSelectionMode]);
+  useEffect(() => {
+    onCopyRef.current = onCopy;
+  }, [onCopy]);
+  useEffect(() => {
+    onCacheUpdateRef.current = onCacheUpdate;
+  }, [onCacheUpdate]);
 
   useEffect(() => {
     if (!term) return;
@@ -77,9 +83,9 @@ export function useTermCopy(
     // ── Selection-mode cache ──
     // While in selection mode we accumulate the latest selected text here
     // instead of auto-copying. The cache is cleared when selection mode exits.
-    let cachedText = "";
+    let cachedText = '';
 
-    let last = "";
+    let last = '';
     let timer: number | undefined;
     const onSelectionChange = term.onSelectionChange(() => {
       if (selectionMode) {
@@ -110,22 +116,22 @@ export function useTermCopy(
         const key = e.key.toLowerCase();
 
         // Alt+C exits selection mode (no copy).
-        if (e.altKey && !meta && key === "c") {
+        if (e.altKey && !meta && key === 'c') {
           e.preventDefault();
-          cachedText = "";
-          onCacheUpdateRef.current?.("", 0);
+          cachedText = '';
+          onCacheUpdateRef.current?.('', 0);
           onToggleRef.current();
           return false;
         }
 
         // Ctrl/Cmd+C copies the cached selection and exits selection mode.
-        if (meta && key === "c") {
+        if (meta && key === 'c') {
           e.preventDefault();
           if (cachedText) {
             void copyText(cachedText).then(() => onCopyRef.current?.());
           }
-          cachedText = "";
-          onCacheUpdateRef.current?.("", 0);
+          cachedText = '';
+          onCacheUpdateRef.current?.('', 0);
           onToggleRef.current();
           return false;
         }
@@ -137,7 +143,7 @@ export function useTermCopy(
       // ── Normal mode ──
 
       // Alt+C toggles into selection mode.
-      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "c") {
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'c') {
         e.preventDefault();
         onToggleRef.current();
         return false;
@@ -147,7 +153,7 @@ export function useTermCopy(
       if (!meta || e.altKey) return true;
       const key = e.key.toLowerCase();
 
-      if (key === "c") {
+      if (key === 'c') {
         const sel = term.getSelection();
         if (!sel) return true;
         e.preventDefault();
@@ -158,7 +164,7 @@ export function useTermCopy(
       // Bare Ctrl+V: paste instead of sending ^V to the shell (non-mac).
       // Ctrl+Shift+V falls through to the native paste-as-plain-text path,
       // which xterm handles via the `paste` DOM event.
-      if (key === "v" && !isMac && e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      if (key === 'v' && !isMac && e.ctrlKey && !e.metaKey && !e.shiftKey) {
         e.preventDefault();
         void pasteText(term);
         return false;

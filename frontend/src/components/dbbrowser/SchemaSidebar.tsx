@@ -1,13 +1,13 @@
-import { useState, useCallback } from 'react'
-import { useTranslation } from 'react-i18next'
-import type { TableInfo, ColumnInfo } from '../../store/dbbrowser'
-import { authFetch } from '../../lib/api'
+import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TableInfo, ColumnInfo } from '../../store/dbbrowser';
+import { authFetch } from '../../lib/api';
 
 interface SchemaSidebarProps {
-  tables: TableInfo[]
-  sessionId: string
-  onInsertSQL: (sql: string) => void
-  onRefresh?: () => void
+  tables: TableInfo[];
+  sessionId: string;
+  onInsertSQL: (sql: string) => void;
+  onRefresh?: () => void;
 }
 
 export default function SchemaSidebar({
@@ -16,64 +16,62 @@ export default function SchemaSidebar({
   onInsertSQL,
   onRefresh,
 }: SchemaSidebarProps) {
-  const { t } = useTranslation()
-  const [expandedTable, setExpandedTable] = useState<string | null>(null)
-  const [columns, setColumns] = useState<Record<string, ColumnInfo[]>>({})
-  const [loadingColumns, setLoadingColumns] = useState<string | null>(null)
+  const { t } = useTranslation();
+  const [expandedTable, setExpandedTable] = useState<string | null>(null);
+  const [columns, setColumns] = useState<Record<string, ColumnInfo[]>>({});
+  const [loadingColumns, setLoadingColumns] = useState<string | null>(null);
 
   const handleExpandTable = useCallback(
     async (tableName: string) => {
       if (expandedTable === tableName) {
-        setExpandedTable(null)
-        return
+        setExpandedTable(null);
+        return;
       }
 
-      setExpandedTable(tableName)
+      setExpandedTable(tableName);
 
       // Load columns if not already cached
       if (!columns[tableName]) {
-        setLoadingColumns(tableName)
+        setLoadingColumns(tableName);
         try {
-          const res = await authFetch(
-            `/api/db/describe?session=${sessionId}&table=${tableName}`,
-          )
+          const res = await authFetch(`/api/db/describe?session=${sessionId}&table=${tableName}`);
           if (res.ok) {
-            const cols = (await res.json()) as ColumnInfo[]
-            setColumns((prev) => ({ ...prev, [tableName]: cols }))
+            const cols = (await res.json()) as ColumnInfo[];
+            setColumns((prev) => ({ ...prev, [tableName]: cols }));
           }
         } catch {
           // silent
         } finally {
-          setLoadingColumns(null)
+          setLoadingColumns(null);
         }
       }
     },
     [expandedTable, columns, sessionId],
-  )
+  );
 
   const handleSelectAll = useCallback(
     (tableName: string) => {
-      onInsertSQL(`SELECT * FROM ${tableName} LIMIT 100`)
+      onInsertSQL(`SELECT * FROM ${tableName} LIMIT 100`);
     },
     [onInsertSQL],
-  )
+  );
 
   const handleInsertColumn = useCallback(
     (columnName: string) => {
-      onInsertSQL(columnName)
+      onInsertSQL(columnName);
     },
     [onInsertSQL],
-  )
+  );
 
   const handleCount = useCallback(
     (tableName: string) => {
-      onInsertSQL(`SELECT COUNT(*) AS count FROM ${tableName}`)
+      onInsertSQL(`SELECT COUNT(*) AS count FROM ${tableName}`);
     },
     [onInsertSQL],
-  )
+  );
 
-  const tables_ = tables.filter((t) => t.type === 'table')
-  const views = tables.filter((t) => t.type === 'view')
+  const tables_ = tables.filter((t) => t.type === 'table');
+  const views = tables.filter((t) => t.type === 'view');
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-white/[0.10] bg-white/[0.02]">
@@ -151,18 +149,18 @@ export default function SchemaSidebar({
         )}
       </div>
     </div>
-  )
+  );
 }
 
 interface TableItemProps {
-  table: TableInfo
-  isExpanded: boolean
-  columns?: ColumnInfo[]
-  isLoadingColumns: boolean
-  onExpand: () => void
-  onSelectAll: () => void
-  onCount: () => void
-  onInsertColumn: (columnName: string) => void
+  table: TableInfo;
+  isExpanded: boolean;
+  columns?: ColumnInfo[];
+  isLoadingColumns: boolean;
+  onExpand: () => void;
+  onSelectAll: () => void;
+  onCount: () => void;
+  onInsertColumn: (columnName: string) => void;
 }
 
 function TableItem({
@@ -186,7 +184,11 @@ function TableItem({
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs"
         >
           <span className="text-white/30">{isExpanded ? '▼' : '▶'}</span>
-          <svg className="h-3 w-3 shrink-0 text-amber-400/60" viewBox="0 0 16 16" fill="currentColor">
+          <svg
+            className="h-3 w-3 shrink-0 text-amber-400/60"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+          >
             <path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9z" />
           </svg>
           <span className="truncate text-white/70">{table.name}</span>
@@ -226,9 +228,7 @@ function TableItem({
               onClick={() => onInsertColumn(col.name)}
               title={`Insert ${col.name}`}
             >
-              {col.isPrimaryKey && (
-                <span className="text-amber-400/80">🔑</span>
-              )}
+              {col.isPrimaryKey && <span className="text-amber-400/80">🔑</span>}
               <span className="truncate text-white/60">{col.name}</span>
               <span className="text-white/25">{col.dataType}</span>
             </button>
@@ -239,5 +239,5 @@ function TableItem({
         </div>
       )}
     </div>
-  )
+  );
 }

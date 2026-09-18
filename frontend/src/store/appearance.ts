@@ -1,5 +1,5 @@
-import { atomWithStorage } from 'jotai/utils'
-import type { ITheme } from '@xterm/xterm'
+import { atomWithStorage } from 'jotai/utils';
+import type { ITheme } from '@xterm/xterm';
 
 /** Curated monospace stacks offered in Settings (each ends in a mono fallback). */
 export const FONT_FAMILIES = [
@@ -10,10 +10,10 @@ export const FONT_FAMILIES = [
   { label: 'Cascadia Code', value: `'Cascadia Code', 'Courier New', monospace` },
   { label: 'Fira Code', value: `'Fira Code', 'Courier New', monospace` },
   { label: 'Courier New', value: `'Courier New', monospace` },
-] as const
+] as const;
 
 /** Default terminal font family stack. */
-export const FONT_FAMILY_DEFAULT = FONT_FAMILIES[0].value
+export const FONT_FAMILY_DEFAULT = FONT_FAMILIES[0].value;
 
 /**
  * Full terminal theme — maps to xterm.js ITheme plus a background with alpha
@@ -26,33 +26,33 @@ export const FONT_FAMILY_DEFAULT = FONT_FAMILIES[0].value
 export interface TerminalTheme {
   // ── Core ──────────────────────────────────────────────────────────
   /** #RRGGBBAA — pane wrapper background; xterm grid stays transparent. */
-  background: string
-  foreground: string
-  cursor: string
+  background: string;
+  foreground: string;
+  cursor: string;
   /** Accent color for block cursors (fg color inside the block). */
-  cursorAccent: string
+  cursorAccent: string;
 
   // ── Selection ─────────────────────────────────────────────────────
-  selectionBackground: string
-  selectionForeground: string
+  selectionBackground: string;
+  selectionForeground: string;
 
   // ── ANSI 16-color palette ─────────────────────────────────────────
-  black: string
-  red: string
-  green: string
-  yellow: string
-  blue: string
-  magenta: string
-  cyan: string
-  white: string
-  brightBlack: string
-  brightRed: string
-  brightGreen: string
-  brightYellow: string
-  brightBlue: string
-  brightMagenta: string
-  brightCyan: string
-  brightWhite: string
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
 }
 
 /** Defaults matching the Suwu preset (#1e1e1e at 80% opacity, neutral grays). */
@@ -81,7 +81,7 @@ export const TERMINAL_THEME_DEFAULT: TerminalTheme = {
   brightMagenta: '#c586c0',
   brightCyan: '#4ec9b0',
   brightWhite: '#ffffff',
-}
+};
 
 /**
  * Converts a TerminalTheme to an xterm.js ITheme.
@@ -115,7 +115,7 @@ export function themeToXtermTheme(t: TerminalTheme): ITheme {
     brightMagenta: t.brightMagenta,
     brightCyan: t.brightCyan,
     brightWhite: t.brightWhite,
-  }
+  };
 }
 
 /**
@@ -124,18 +124,24 @@ export function themeToXtermTheme(t: TerminalTheme): ITheme {
  * storage events keep them in sync whenever any writer changes them (same
  * pattern as fontSizeAtom in store/fonts).
  */
-export const fontFamilyAtom = atomWithStorage<string>('suwu.term-font-family', FONT_FAMILY_DEFAULT)
+export const fontFamilyAtom = atomWithStorage<string>('suwu.term-font-family', FONT_FAMILY_DEFAULT);
 
-export const termThemeAtom = atomWithStorage<TerminalTheme>('suwu.term-theme', TERMINAL_THEME_DEFAULT)
+export const termThemeAtom = atomWithStorage<TerminalTheme>(
+  'suwu.term-theme',
+  TERMINAL_THEME_DEFAULT,
+);
 
 /** Default file browser background (#1e1e1e at 80% opacity, matching terminal). */
-export const FILE_BROWSER_BG_DEFAULT = '#1e1e1ecc'
+export const FILE_BROWSER_BG_DEFAULT = '#1e1e1ecc';
 
 /**
  * File browser background color, shared across every /filebrowser pane iframe.
  * Uses the same atomWithStorage + localStorage sync pattern as terminal theme.
  */
-export const fileBrowserBgAtom = atomWithStorage<string>('suwu.filebrowser-bg', FILE_BROWSER_BG_DEFAULT)
+export const fileBrowserBgAtom = atomWithStorage<string>(
+  'suwu.filebrowser-bg',
+  FILE_BROWSER_BG_DEFAULT,
+);
 
 // ── Diff view settings ──────────────────────────────────────────────
 
@@ -147,8 +153,11 @@ export const DIFF_FONT_FAMILIES = [
   { label: 'SF Mono', value: `'SF Mono', ui-monospace, Menlo, monospace` },
   { label: 'Fira Code', value: `'Fira Code', 'Courier New', monospace` },
   { label: 'Courier New', value: `'Courier New', monospace` },
-] as const
+] as const;
 
-export const DIFF_FONT_FAMILY_DEFAULT = DIFF_FONT_FAMILIES[0].value
+export const DIFF_FONT_FAMILY_DEFAULT = DIFF_FONT_FAMILIES[0].value;
 
-export const diffFontFamilyAtom = atomWithStorage<string>('suwu.diff-font-family', DIFF_FONT_FAMILY_DEFAULT)
+export const diffFontFamilyAtom = atomWithStorage<string>(
+  'suwu.diff-font-family',
+  DIFF_FONT_FAMILY_DEFAULT,
+);

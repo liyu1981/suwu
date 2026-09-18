@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { DiffTab } from './comparison'
+import { WORKTREE_REF, type DiffTab } from './comparison'
 
 export function GitGraphTabs({ tabs, active, onSelect, onClose }: {
   tabs: DiffTab[]; active: string; onSelect: (id: string) => void; onClose: (id: string) => void
@@ -9,7 +9,8 @@ export function GitGraphTabs({ tabs, active, onSelect, onClose }: {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { ref.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [active])
   if (!tabs.length) return null
-  const all = [{ id: 'commits', label: t('gitCompare.commits') }, ...tabs.map(tab => ({ id: tab.id, label: `${tab.base === 'EMPTY' ? t('gitCompare.emptyTree') : tab.base.slice(0, 7)} → ${tab.target.slice(0, 7)}` }))]
+  const label = (ref: string) => ref === 'EMPTY' ? t('gitCompare.emptyTree') : ref === WORKTREE_REF ? t('gitCompare.worktree') : ref.slice(0, 7)
+  const all = [{ id: 'commits', label: t('gitCompare.commits') }, ...tabs.map(tab => ({ id: tab.id, label: `${label(tab.base)} → ${label(tab.target)}` }))]
   return (
     <div ref={ref} role="tablist" aria-label={t('gitCompare.tabs')} className="flex shrink-0 overflow-x-auto border-b border-white/10 glass-control scrollbar-thin"
       onKeyDown={e => {

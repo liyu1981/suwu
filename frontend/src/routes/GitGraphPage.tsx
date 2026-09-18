@@ -32,7 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { GitGraphTabs } from '../components/gitgraph/GitGraphTabs';
 import { CompareCommitDialog } from '../components/gitgraph/CompareCommitDialog';
 import { CommitDiffTab } from '../components/gitgraph/CommitDiffTab';
-import { comparisonId, type DiffTab } from '../components/gitgraph/comparison';
+import { comparisonId, WORKTREE_REF, type DiffTab } from '../components/gitgraph/comparison';
 
 interface GitGraphSessionState {
   repoPath?: string;
@@ -213,14 +213,29 @@ function GitGraphContent() {
   const [contextMenu, setContextMenu] = useState<{ items: ContextMenuItem[][]; pos: { x: number; y: number } } | null>(null);
   const [dialog, setDialog] = useState<{ title: string; message: string; inputs?: DialogInput[]; actionLabel?: string; onAction: (v: Record<string, string | boolean>) => void } | null>(null);
 
+  // Open a commit in the side-by-side viewer. Uncommitted changes are not a
+  // commit, so they open directly against HEAD (their parent) instead of the
+  // compare dialog — and only that comparison is offered for them.
+  const openCommitDiff = useCallback((commit: GitCommit, focusFile?: string) => {
+    if (commit.hash === 'UNCOMMITTED') {
+      addDiffTab(activePath, commitHead ?? 'HEAD', WORKTREE_REF, focusFile);
+      return;
+    }
+    setCompareDialog({ commit, mode: 'parent', repoPath: activePath, focusFile });
+  }, [addDiffTab, activePath, commitHead]);
+
   const showCommitContextMenu = useCallback((e: React.MouseEvent, commit: GitCommit) => {
     e.preventDefault();
     e.stopPropagation();
     const zoom = parseFloat(document.documentElement.style.zoom) || 1;
 
-    // Special context menu for uncommitted changes
+    // Special context menu for uncommitted changes: the diff viewer is limited
+    // to the comparison against HEAD; working-tree actions come second.
     if (commit.hash === 'UNCOMMITTED') {
       const items: ContextMenuItem[][] = [
+        [
+          { label: t('gitCompare.againstHead'), onClick: () => openCommitDiff(commit) },
+        ],
         [
           { label: 'Stash Uncommitted...', onClick: () => setDialog({ title: 'Stash Changes', message: 'Stash all uncommitted changes?', inputs: [{ type: 'text', name: 'Message', defaultValue: '' }], actionLabel: 'Stash', onAction: (v) => { gitAction('stash', { message: String(v['Message']), includeUntracked: 'true' }); refresh(); } }) },
           { label: 'Reset All...', onClick: () => setDialog({ title: 'Reset Working Directory', message: 'Discard ALL uncommitted changes? This cannot be undone.', actionLabel: 'Reset', onAction: () => { gitAction('reset-hard', {}); refresh(); } }) },
@@ -257,7 +272,7 @@ function GitGraphContent() {
       ],
     ];
     setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
-  }, [gitAction, refresh, activePath, t]);
+  }, [gitAction, refresh, activePath, t, openCommitDiff]);
 
   const showBranchContextMenu = useCallback((e: React.MouseEvent, branchName: string) => {
     e.preventDefault();
@@ -508,7 +523,7 @@ function GitGraphContent() {
                 {commits.map((commit, index) => (
                   <div key={commit.hash} data-commit-idx={index} style={{ minHeight: ROW_HEIGHT }}>
                     <CommitRow commit={commit} branchColors={graphLayout?.branchColors} isExpanded={expandedIndex === index} onClick={() => handleCommitClick(commit, index)} onContextMenu={showCommitContextMenu} onBranchContextMenu={showBranchContextMenu} onTagContextMenu={showTagContextMenu} onStashContextMenu={showStashContextMenu} />
-                    {expandedIndex === index && repoPath && <ExpandedCommitRow repoPath={activePath} hash={commit.hash} height={DETAILS_HEIGHT} onParentClick={handleParentClick} onOpenDiff={commit.hash === 'UNCOMMITTED' ? undefined : (focusFile) => setCompareDialog({ commit, mode: 'parent', repoPath: activePath, focusFile })} />}
+                    {expandedIndex === index && repoPath && <ExpandedCommitRow repoPath={activePath} hash={commit.hash} height={DETAILS_HEIGHT} onParentClick={handleParentClick} onOpenDiff={(focusFile) => openCommitDiff(commit, focusFile)} />}
                   </div>
                 ))}
                 {loadingMore && (

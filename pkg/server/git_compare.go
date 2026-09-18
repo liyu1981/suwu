@@ -19,6 +19,11 @@ import (
 
 const compareLimit = 4 << 20
 
+// worktreeRef is the pseudo-revision for uncommitted changes. It is not a
+// commit, so `loadComparison` resolves it to a `git diff <base>` against the
+// working tree instead of going through `resolveCompareCommit`.
+const worktreeRef = "WORKTREE"
+
 var errCompareLimit = errors.New("comparison exceeds the output limit")
 
 // Bound stdout while it is produced, not after allocating the entire patch.
@@ -147,7 +152,11 @@ func parseCompareFiles(raw, stats []byte) ([]compareFile, error) {
 func compareDiff(ctx context.Context, repo, base, target string, options []string, paths ...string) ([]byte, error) {
 	args := []string{"--glob-pathspecs", "diff", "--no-ext-diff", "--no-textconv", "--no-color", "--no-abbrev", "--find-renames", "-l1000"}
 	args = append(args, options...)
-	args = append(args, base, target, "--")
+	args = append(args, base)
+	// An empty target compares the base to the working tree (uncommitted changes).
+	if target != "" {
+		args = append(args, target)
+	}
 	if len(paths) == 0 {
 		args = append(args, ":(top,glob)**")
 	} else {
@@ -161,6 +170,9 @@ func compareDiff(ctx context.Context, repo, base, target string, options []strin
 	return compareGit(ctx, repo, append([]string{"--no-literal-pathspecs"}, args...)...)
 }
 func loadComparison(ctx context.Context, repo, baseRef, targetRef string, parent int) (*gitComparison, error) {
+	if targetRef == worktreeRef {
+		return loadWorktreeComparison(ctx, repo, baseRef)
+	}
 	target, err := resolveCompareCommit(ctx, repo, targetRef)
 	if err != nil {
 		return nil, err
@@ -216,6 +228,47 @@ func loadComparison(ctx context.Context, repo, baseRef, targetRef string, parent
 		c.Dels += f.Dels
 	}
 	return c, nil
+}
+
+// loadWorktreeComparison diffs the base commit against the working tree
+// (uncommitted changes). `git diff <base>` with no second revision is the same
+// comparison the inline UNCOMMITTED view uses, so untracked files are excluded
+// here too.
+func loadWorktreeComparison(ctx context.Context, repo, baseRef string) (*gitComparison, error) {
+	if baseRef == "" {
+		baseRef = "HEAD"
+	}
+	base, err := resolveCompareCommit(ctx, repo, baseRef)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := compareDiff(ctx, repo, base, "", []string{"--raw", "-z"})
+	if err != nil {
+		return nil, err
+	}
+	stats, err := compareDiff(ctx, repo, base, "", []string{"--numstat", "-z"})
+	if err != nil {
+		return nil, err
+	}
+	files, err := parseCompareFiles(raw, stats)
+	if err != nil {
+		return nil, err
+	}
+	c := &gitComparison{Base: base, Target: worktreeRef, Parents: []string{}, Files: files}
+	for _, f := range files {
+		c.Adds += f.Adds
+		c.Dels += f.Dels
+	}
+	return c, nil
+}
+
+// gitTarget maps a comparison's target to a git revision. The worktree
+// pseudo-revision becomes an empty second revision: `git diff <base>`.
+func gitTarget(c *gitComparison) string {
+	if c.Target == worktreeRef {
+		return ""
+	}
+	return c.Target
 }
 
 type compareLine struct {
@@ -332,7 +385,7 @@ func (s *Server) handleGitCompare(w http.ResponseWriter, r *http.Request) {
 			}
 			base = strings.TrimSpace(string(out))
 		}
-		raw, e := compareDiff(r.Context(), repo, base, c.Target, []string{"--patch", "-U3"}, file.OldPath, file.NewPath)
+		raw, e := compareDiff(r.Context(), repo, base, gitTarget(c), []string{"--patch", "-U3"}, file.OldPath, file.NewPath)
 		if errors.Is(e, errCompareLimit) {
 			patch.Limited = true
 		} else if e != nil {

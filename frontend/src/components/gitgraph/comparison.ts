@@ -1,5 +1,11 @@
 import { authFetch } from '../../lib/api'
 
+/**
+ * Pseudo-revision for uncommitted changes. The server diffs the working tree
+ * against the comparison's base (HEAD) instead of resolving a commit.
+ */
+export const WORKTREE_REF = 'WORKTREE'
+
 export interface ComparisonFile {
   id: string
   oldPath: string

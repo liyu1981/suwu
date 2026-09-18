@@ -105,6 +105,51 @@ func TestGitCompareEndpoint(t *testing.T) {
 	}
 }
 
+func TestGitCompareWorktreeEndpoint(t *testing.T) {
+	repo, git, put := compareTestRepo(t)
+	put("file.txt", "one\ntwo\n")
+	git("add", ".")
+	git("commit", "-m", "first")
+	head := git("rev-parse", "HEAD")
+	put("file.txt", "one\nchanged\n")
+	put("new.txt", "untracked\n")
+
+	s := New(&auth.Config{Token: "test-token", AllowedHosts: []string{"localhost"}}, nil, nil, nil, nil, "")
+	request := func(path string, q url.Values, out any) {
+		t.Helper()
+		r := httptest.NewRequest(http.MethodGet, "http://localhost"+path+"?"+q.Encode(), nil)
+		r.Header.Set("Authorization", "Bearer test-token")
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+		if w.Code != 200 {
+			t.Fatalf("HTTP %d: %s", w.Code, w.Body.String())
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), out); err != nil {
+			t.Fatal(err)
+		}
+	}
+	q := url.Values{"path": {repo}, "base": {head}, "target": {worktreeRef}}
+	var c gitComparison
+	request("/api/git/compare", q, &c)
+	// The tracked modification is reported; the untracked file is excluded,
+	// matching the inline UNCOMMITTED diff (`git diff HEAD`).
+	if c.Base != head || c.Target != worktreeRef || len(c.Parents) != 0 {
+		t.Fatalf("worktree comparison: %+v", c)
+	}
+	if len(c.Files) != 1 || c.Adds != 1 || c.Dels != 1 {
+		t.Fatalf("worktree files: %+v", c.Files)
+	}
+	if c.Files[0].NewPath != "file.txt" || c.Files[0].Status != "M" {
+		t.Fatalf("worktree file: %+v", c.Files[0])
+	}
+	q.Set("file", c.Files[0].ID)
+	var p comparePatch
+	request("/api/git/compare/file", q, &p)
+	if len(p.Hunks) != 1 {
+		t.Fatalf("worktree patch: %+v", p)
+	}
+}
+
 func TestGitCompareRenamesAndMetadata(t *testing.T) {
 	repo, git, put := compareTestRepo(t)
 	old := "odd\tname\nold.txt"

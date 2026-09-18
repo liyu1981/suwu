@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ComparisonFile, DiffTab, FilePatch } from './comparison'
+import { WORKTREE_REF, type ComparisonFile, type DiffTab, type FilePatch } from './comparison'
 import { useGitComparison } from './useGitComparison'
 import { SplitDiffView } from './SplitDiffView'
 
@@ -114,6 +114,7 @@ export function CommitDiffTab({ tab, active, onSwap, onParent }: {
   const [filter, setFilter] = useState('')
   const [focus, setFocus] = useState({ id: '', version: 0 })
   const scrollRoot = useRef<HTMLDivElement>(null)
+  const refLabel = (ref: string) => ref === 'EMPTY' ? t('gitCompare.emptyTree') : ref === WORKTREE_REF ? t('gitCompare.worktree') : ref.slice(0, 7)
   const filteredFiles = useMemo(() => data?.files.filter(f => `${f.oldPath} ${f.newPath}`.toLowerCase().includes(filter.toLowerCase())) ?? [], [data, filter])
   const fileTree = useMemo(() => buildTree(filteredFiles), [filteredFiles])
   useEffect(() => {
@@ -124,8 +125,8 @@ export function CommitDiffTab({ tab, active, onSwap, onParent }: {
   return <div className="@container flex min-h-0 flex-1 flex-col overflow-hidden bg-black/20">
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2 text-xs">
       <button type="button" className="rounded bg-white/5 px-2 py-1 hover:bg-white/10" aria-expanded={sidebar} onClick={() => setSidebar(v => !v)}>{t('gitCompare.files')}</button>
-      <span className="font-mono" title={tab.base}>{tab.base === 'EMPTY' ? t('gitCompare.emptyTree') : tab.base.slice(0, 7)}</span><span>→</span><span className="font-mono" title={tab.target}>{tab.target.slice(0, 7)}</span>
-      {tab.base !== 'EMPTY' && <button type="button" className="rounded bg-white/5 px-2 py-1 hover:bg-white/10" onClick={onSwap}>{t('gitCompare.swap')}</button>}
+      <span className="font-mono" title={tab.base}>{refLabel(tab.base)}</span><span>→</span><span className="font-mono" title={tab.target}>{refLabel(tab.target)}</span>
+      {tab.base !== 'EMPTY' && tab.target !== WORKTREE_REF && <button type="button" className="rounded bg-white/5 px-2 py-1 hover:bg-white/10" onClick={onSwap}>{t('gitCompare.swap')}</button>}
       {data && data.parents.length > 1 && <label className="flex items-center gap-1">{t('gitCompare.parent')}<select aria-label={t('gitCompare.parent')} value={data.parents.includes(tab.base) ? tab.base : ''} onChange={e => onParent(e.target.value)} className="max-w-32 rounded bg-slate-900 p-1 text-xs">
         {!data.parents.includes(tab.base) && <option value="" disabled>{t('gitCompare.custom')}</option>}
         {data.parents.map((hash, i) => <option key={hash} value={hash}>{i + 1}: {hash.slice(0, 7)}</option>)}

@@ -1,5 +1,7 @@
-import { init, surface } from 'vgpu'
-import type { Gpu, Surface } from 'vgpu'
+import { frame } from 'vgpu'
+import type { Frame } from 'vgpu'
+import { startGpuBackground } from '../../webgpu-render-engine'
+import type { GpuScene } from '../../webgpu-render-engine'
 import { installStirInput, type StirInput } from './pointer-input'
 import {
   createFluid,
@@ -33,99 +35,75 @@ function fixedStepCount(accumulator: number, elapsed: number): FixedStep {
 /**
  * Interactive Fluid (GPU only) — a GPU fluid solver driven by the pointer.
  *
- * Ported from the vgpu "Interactive Fluid" example. It has no CPU backend: on a
- * browser without WebGPU the selector renders nothing.
+ * Ported from the vgpu "Interactive Fluid" example. The engine owns the frame
+ * loop; this scene turns each tick's elapsed time into 0–2 fixed simulation
+ * steps (so the solver is stable regardless of the shared `fps`), then presents
+ * the dye field. On a browser without WebGPU the selector renders nothing.
  */
-export async function startInteractiveFluid(ctx: BackgroundContext): Promise<BackgroundHandle> {
-  const gpu: Gpu = await init({ powerPreference: 'low-power' })
+export function startInteractiveFluid(
+  ctx: BackgroundContext,
+  params?: Record<string, unknown>,
+): Promise<BackgroundHandle> {
+  return startGpuBackground(
+    'interactive-fluid',
+    (init) => {
+      let fluid: Fluid | undefined
+      let input: StirInput | undefined
+      let accumulator = 0
+      let previous = performance.now()
+      let failed = false
 
-  let disposed = false
-  let input: StirInput | undefined
-  let fluid!: Fluid
-  let canvasSurface!: Surface
-  let animationFrame = 0
-  let accumulator = 0
-  let previous = 0
-
-  const teardown = (): void => {
-    if (disposed) return
-    disposed = true
-    if (animationFrame) cancelAnimationFrame(animationFrame)
-    input?.dispose()
-    gpu.dispose()
-  }
-
-  try {
-    canvasSurface = surface(gpu, ctx.canvas, { dpr: ctx.dpr })
-    fluid = createFluid(gpu)
-    if (!ctx.reducedMotion) input = installStirInput(ctx.canvas)
-    await prepareFluid(fluid, canvasSurface)
-  } catch (error) {
-    teardown()
-    throw error
-  }
-
-  const fail = (error: unknown): void => {
-    if (disposed) return
-    console.warn('[interactive-fluid] runtime error', error)
-    teardown()
-    ctx.onFatal(error)
-  }
-
-  const unsubscribeResize = canvasSurface.onResize(() => {
-    if (disposed || !fluid || !canvasSurface) return
-    try {
-      resizeFluid(fluid, canvasSurface)
-      if (ctx.reducedMotion) {
-        cancelAnimationFrame(animationFrame)
-        animationFrame = requestAnimationFrame(() => {
-          if (!disposed && fluid && canvasSurface) renderFluid(fluid, canvasSurface)
-        })
+      const present = (current: Frame): void => {
+        if (fluid) renderFluid(fluid, init.surface, current)
       }
-    } catch (error) {
-      fail(error)
-    }
-  })
 
-  const tick = (now: number): void => {
-    if (disposed) return
-    if (!document.hidden && fluid && canvasSurface) {
-      try {
-        const fixed = fixedStepCount(accumulator, (now - previous) / 1000)
-        accumulator = fixed.accumulator
-        for (let i = 0; i < fixed.steps; i++) {
-          stepFluid(fluid, input)
+      const guard = (body: (fluid: Fluid) => void): void => {
+        if (failed || !fluid) return
+        try {
+          body(fluid)
+        } catch (error) {
+          failed = true
+          console.warn('[interactive-fluid] runtime error', error)
+          ctx.onFatal(error)
         }
-        renderFluid(fluid, canvasSurface)
-      } catch (error) {
-        fail(error)
-        return
       }
-    }
-    // Always reset the clock while hidden so visibility changes never catch up.
-    previous = now
-    animationFrame = requestAnimationFrame(tick)
-  }
 
-  if (ctx.reducedMotion) {
-    try {
-      for (let i = 0; i < SETTLE_STEPS; i++) {
-        stepFluid(fluid)
+      const scene: GpuScene = {
+        async prepare() {
+          fluid = createFluid(init.gpu)
+          if (!ctx.reducedMotion) input = installStirInput(init.surface.canvas as HTMLCanvasElement)
+          await prepareFluid(fluid, init.surface)
+        },
+        resize() {
+          if (fluid) resizeFluid(fluid, init.surface)
+        },
+        render(current) {
+          guard((field) => {
+            const now = performance.now()
+            const fixed = fixedStepCount(accumulator, (now - previous) / 1000)
+            accumulator = fixed.accumulator
+            previous = now
+            for (let i = 0; i < fixed.steps; i++) stepFluid(field, input)
+            present(current)
+          })
+        },
+        settle() {
+          guard((field) => {
+            for (let i = 0; i < SETTLE_STEPS; i++) stepFluid(field)
+            frame(init.gpu, present)
+          })
+        },
+        present() {
+          guard(() => frame(init.gpu, present))
+        },
+        destroy() {
+          input?.dispose()
+          input = undefined
+        },
       }
-      renderFluid(fluid, canvasSurface)
-    } catch (error) {
-      fail(error)
-    }
-  } else {
-    previous = performance.now()
-    animationFrame = requestAnimationFrame(tick)
-  }
-
-  return {
-    backend: 'gpu',
-    dispose() {
-      unsubscribeResize()
-      teardown()
+      return scene
     },
-  }
+    ctx,
+    params,
+  )
 }

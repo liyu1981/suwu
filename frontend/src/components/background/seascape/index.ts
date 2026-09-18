@@ -1,4 +1,5 @@
 import { registerBackground } from '../registry'
+import { WEBGPU_ENGINE } from '../constants'
 import { SEASCAPE_PARAMS } from './params'
 
 /**
@@ -11,6 +12,7 @@ import { SEASCAPE_PARAMS } from './params'
 registerBackground({
   id: 'seascape',
   label: 'Seascape',
+  engine: WEBGPU_ENGINE,
   params: SEASCAPE_PARAMS,
   gpu: () => import('./seascape-gpu'),
 })

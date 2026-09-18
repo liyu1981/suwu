@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { Tabs as TabsPrimitive } from 'radix-ui'
 import { maxEntriesAtom } from '../../store/notifications'
-import { autoResolveAtom, backgroundAtom, backgroundParamsAtom } from '../../store/settings'
+import { autoResolveAtom, backgroundAtom, backgroundParamsAtom, webgpuBackgroundAtom } from '../../store/settings'
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select'
 import { Combobox } from '../ui/combobox'
-import { BackgroundPreview, getBackground, listBackgrounds, resolveBackgroundParams } from '../background'
+import { BackgroundPreview, DEFAULT_BACKGROUND_ID, getBackground, listBackgrounds, resolveBackgroundParams, WEBGPU_ENGINE } from '../background'
 import type {
   BackgroundBooleanParam,
   BackgroundColorParam,
@@ -471,24 +471,53 @@ export default function SettingsView() {
   const [autoResolve, setAutoResolve] = useAtom(autoResolveAtom)
   const [background, setBackground] = useAtom(backgroundAtom)
   const [backgroundParams, setBackgroundParams] = useAtom(backgroundParamsAtom)
+  const [webgpuBackground, setWebgpuBackground] = useAtom(webgpuBackgroundAtom)
 
-  const backgroundItems = listBackgrounds().map((definition) => ({
-    label: definition.cpu
-      ? definition.label
-      : `${definition.label} · ${t('settings.backgroundGpuOnly')}`,
-    value: definition.id,
-  }))
+  const definitions = listBackgrounds()
+  const engineDefinitions = definitions.filter((d) => d.engine === WEBGPU_ENGINE)
+  const otherDefinitions = definitions.filter((d) => d.engine !== WEBGPU_ENGINE)
 
-  const definition = getBackground(background)
+  // A stale stored id falls back to the default, matching the shell.
+  const definition = getBackground(background) ?? getBackground(DEFAULT_BACKGROUND_ID)
+  const activeId = definition?.id ?? DEFAULT_BACKGROUND_ID
+  const inWebgpu = definition?.engine === WEBGPU_ENGINE
+
+  // The primary selector picks a background family; "WebGPU" reveals a second
+  // selector for the engine-backed backgrounds that are currently registered.
+  const familyItems = [
+    ...otherDefinitions.map((d) => ({ label: d.label, value: d.id })),
+    { label: t('settings.backgroundWebgpu'), value: WEBGPU_ENGINE },
+  ]
+  const engineItems = engineDefinitions.map((d) => ({ label: d.label, value: d.id }))
+
+  const selectFamily = (value: string) => {
+    if (value !== WEBGPU_ENGINE) {
+      setBackground(value)
+      return
+    }
+    // Enter the WebGPU group: restore the last engine background, else the first.
+    const remembered = engineDefinitions.find((d) => d.id === webgpuBackground)?.id
+    const next = remembered ?? engineDefinitions[0]?.id
+    if (next) {
+      setBackground(next)
+      setWebgpuBackground(next)
+    }
+  }
+
+  const selectEngineBackground = (id: string) => {
+    setBackground(id)
+    setWebgpuBackground(id)
+  }
+
   const paramDefs = definition?.params ?? []
   const resolvedParams = definition
-    ? resolveBackgroundParams(definition, backgroundParams[background])
+    ? resolveBackgroundParams(definition, backgroundParams[activeId])
     : {}
 
   const setParam = (key: string, value: BackgroundParamValue) => {
     setBackgroundParams((prev) => ({
       ...prev,
-      [background]: { ...prev[background], [key]: value },
+      [activeId]: { ...prev[activeId], [key]: value },
     }))
   }
 
@@ -547,17 +576,29 @@ export default function SettingsView() {
               <span className={sectionLabel}>{t('settings.background')}</span>
             </div>
             <div className="mt-2">
-              <BackgroundPreview />
+              <BackgroundPreview background={activeId} />
             </div>
             <div className="mt-2">
               <Combobox
-                items={backgroundItems}
-                value={background}
-                onChange={setBackground}
+                items={familyItems}
+                value={inWebgpu ? WEBGPU_ENGINE : activeId}
+                onChange={selectFamily}
                 placeholder={t('settings.background')}
               />
             </div>
-            <p className={sectionHint}>{t('settings.backgroundHint')}</p>
+            {inWebgpu && (
+              <div className="mt-2">
+                <Combobox
+                  items={engineItems}
+                  value={activeId}
+                  onChange={selectEngineBackground}
+                  placeholder={t('settings.backgroundWebgpu')}
+                />
+              </div>
+            )}
+            <p className={sectionHint}>
+              {inWebgpu ? t('settings.backgroundWebgpuHint') : t('settings.backgroundHint')}
+            </p>
             {paramDefs.length > 0 && (
               <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3">
                 {paramDefs.map((param) => (

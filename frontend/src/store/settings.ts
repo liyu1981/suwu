@@ -39,3 +39,10 @@ export const backgroundAtom = atomWithStorage<string>('suwu:background', DEFAULT
 export const backgroundParamsAtom = atomWithStorage<
   Record<string, Record<string, BackgroundParamValue>>
 >('suwu:background-params', {})
+
+/**
+ * The WebGPU background the user last selected. System Settings restores it when
+ * the user re-enters the WebGPU group, so switching to a classic background and
+ * back does not forget the choice. Empty until the user picks one.
+ */
+export const webgpuBackgroundAtom = atomWithStorage<string>('suwu:webgpu-background', '')

@@ -17,6 +17,7 @@ components/background/
   BackgroundPreview.tsx       # small in-dialog preview (same hook, own canvas)
   canvas-size.ts              # CPU backends size from the canvas layout box
   preview-size.ts             # fitPreviewBox(): aspect-preserving preview box math
+  webgpu-render-engine/       # shared host + declarative pipeline for GPU-only families
 
   ambient-blob/               # one background family
     index.ts                  # definition + registry entry (backend-agnostic)
@@ -28,7 +29,7 @@ components/background/
   interactive-fluid/          # another family (GPU only)
     index.ts                  # definition + registry entry
     interactive-fluid-gpu/    # vgpu fluid solver + .wgsl shaders
-      renderer.ts             # rAF loop, fixed timestep, resize + reduced motion
+      renderer.ts             # GpuScene: engine-driven loop, fixed-step simulation
       pointer-input.ts        # window-level pointer tracking ("stir")
       simulation.ts           # multi-pass compute solver (advect/curl/…/display)
       shaders/*.wgsl
@@ -36,7 +37,7 @@ components/background/
   matrix-rain/                # another family (GPU only)
     index.ts                  # definition + registry entry
     matrix-rain-gpu/          # procedural "digital rain" effect
-      renderer.ts             # vgpu storage upload + effect + frameLoop
+      renderer.ts             # fragmentScene: glyph storage asset + rain/CRT passes
       glyph-atlas.ts          # canvas-rasterised 1-bit glyph atlas
       shaders/*.wgsl
 
@@ -44,7 +45,7 @@ components/background/
     index.ts                  # definition + params schema (animation speed)
     params.ts                 # typed params + resolveAtmosphericLandscapeParams()
     atmospheric-landscape-gpu/
-      renderer.ts             # ping-pong accumulation + ray-march + tone pass
+      renderer.ts             # fragmentScene: ping-pong accum + noise-volume asset
       noise-volume.ts         # deterministic 64³ RGBA8 value-noise volume
       shaders/*.wgsl
 
@@ -52,14 +53,14 @@ components/background/
     index.ts                  # definition + params schema (animation speed)
     params.ts                 # typed params + resolveSeascapeParams()
     seascape-gpu/
-      renderer.ts             # capped ray-march target + blit + frameLoop
+      renderer.ts             # fragmentScene: capped scene target + blit
       shaders/*.wgsl
 
   rainforest/                 # another family (GPU only)
     index.ts                  # definition + params schema (animation speed)
     params.ts                 # typed params + resolveRainforestParams()
     rainforest-gpu/
-      renderer.ts             # ping-pong reprojection (camera matrix in texels) + blit
+      renderer.ts             # fragmentScene: ping-pong reprojection + detail budget
       shaders/*.wgsl
 
   video/                      # another family (canvas-2D, WebCodecs)
@@ -100,15 +101,16 @@ import { BackgroundPreview } from '../components/background'
 ```
 
 It reuses `useBackground` (so a selection or param change restarts the backend)
-but, unlike `AmbientBackground`, ignores the `?bg-id` / `suwu.bg-id` debug
-override — the preview must show exactly what the user picked.
+and always shows exactly the selected background.
 
 ## Adding a background
 
 1. Create `<name>/` with any shared params/types and a definition module that
    calls `registerBackground({ id, label, params, cpu, gpu })`. `cpu` and `gpu`
    are dynamic imports of the backend folders; both are optional (declare only
-   the backends you have). `params` is optional — see below.
+   the backends you have). `params` is optional — see below. A GPU-only
+   background built on the shared engine also declares
+   `engine: WEBGPU_ENGINE` so System Settings lists it under the WebGPU group.
 2. Create `<name>/<name>-cpu/` and/or `<name>/<name>-gpu/`, each exporting
    `start` with the `BackgroundStarter` signature. The resolved params bag is
    the second argument.
@@ -193,6 +195,34 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
   `outgoing·(1−p) + incoming·p`), hiding the jump at the loop point; it is off
   by default and skipped for clips shorter than 4s.
 
+### WebGPU render engine
+
+The five GPU-only families (`interactive-fluid`, `matrix-rain`,
+`atmospheric-landscape`, `seascape`, `rainforest`) share
+`webgpu-render-engine/`:
+
+- `startGpuBackground()` owns the lifecycle they used to repeat: device +
+  surface creation, device-lost reporting through `ctx.onFatal`, error logging,
+  the resize → deferred-redraw wiring, the frame loop (driven by the shared
+  `ctx.fps`), reduced-motion settling, and an idempotent teardown.
+- `fragmentScene()` builds the common "effect → offscreen target (single or
+  ping-pong) → post pass" pipeline from a descriptor: targets, assets, extra
+  samplers, pass order, and per-frame `bindings`. `matrix-rain`, `seascape`,
+  `atmospheric-landscape` and `rainforest` are little more than that descriptor
+  plus their `.wgsl`; the shaders and their uniform structs are untouched.
+- `interactive-fluid` uses the same host but supplies a hand-written `GpuScene`,
+  because it owns a fixed-step compute simulation.
+- `time.ts` is one shared epoch for every GPU background (the Shadertoy `iTime`
+  model): restarting a backend on a parameter change never snaps the animation
+  back to `t = 0`. `size.ts` caps a render budget in megapixels.
+
+`ambient-blob` (the CPU-fallback baseline) and `video` (CPU only) are not part
+of the engine. Engine-backed backgrounds declare `engine: WEBGPU_ENGINE`, and
+System Settings groups them under one **WebGPU** selector with a second selector
+for the currently registered engine backgrounds. Backgrounds are still declared
+with `registerBackground({ id, label, params, gpu })`; the engine is an
+implementation detail behind each family's `start`.
+
 > **Licensing note.** `rainforest` is an Inigo Quilez (iq) work whose original
 > license forbids use in a product, altered or not. It is included with express
 > permission from the author. Treat that permission as a dependency of shipping
@@ -202,11 +232,10 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
 
 - Backend: `?bg=gpu`, `?bg=cpu`, `?bg=auto`, or
   `localStorage.setItem('suwu.bg', 'cpu')`.
-- Background id: `?bg-id=interactive-fluid`, or
-  `localStorage.setItem('suwu.bg-id', 'interactive-fluid')`.
 
-Query params win over localStorage. Both are useful where WebGPU is
-unavailable, or to preview a non-default background.
+Useful where WebGPU is unavailable: `?bg=cpu` exercises the CPU fallback and
+`?bg=gpu` exercises (or visibly fails) the GPU path. The background itself is
+chosen in System Settings.
 
 ## Testing
 

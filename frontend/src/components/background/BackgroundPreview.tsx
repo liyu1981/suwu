@@ -70,8 +70,8 @@ function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number]
  * `canvas-size.ts`). Selecting a background or editing a param restarts the
  * backend through the shared `useBackground` lifecycle.
  *
- * Unlike `AmbientBackground` this ignores the `?bg-id` / `suwu.bg-id` debug
- * override: the preview must show exactly what the user selected.
+ * The preview shows exactly the selected background; there is no debug override
+ * forcing a different one (the shell no longer has one either).
  */
 export function BackgroundPreview({
   background,

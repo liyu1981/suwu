@@ -1,4 +1,5 @@
 import { registerBackground } from '../registry'
+import { WEBGPU_ENGINE } from '../constants'
 import { RAINFOREST_PARAMS } from './params'
 
 /**
@@ -14,6 +15,7 @@ import { RAINFOREST_PARAMS } from './params'
 registerBackground({
   id: 'rainforest',
   label: 'Rainforest',
+  engine: WEBGPU_ENGINE,
   params: RAINFOREST_PARAMS,
   gpu: () => import('./rainforest-gpu'),
 })

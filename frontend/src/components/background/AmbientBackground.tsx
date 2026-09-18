@@ -7,23 +7,9 @@ import { useBackground } from './useBackground'
 import { backgroundParamsAtom } from '../../store/settings'
 import type { BackendKind } from './types'
 
-const DEBUG_ID_KEY = 'suwu.bg-id'
-
-/** Debug override: `?bg-id=<id>`, then localStorage, then undefined. */
-function debugBackgroundId(): string | undefined {
-  if (typeof window === 'undefined') return undefined
-  const fromQuery = new URLSearchParams(window.location.search).get('bg-id')
-  if (fromQuery) return fromQuery
-  try {
-    return window.localStorage.getItem(DEBUG_ID_KEY) ?? undefined
-  } catch {
-    return undefined
-  }
-}
-
-/** Debug override, then the chosen id, then default — falling back if unregistered. */
+/** The chosen id, then the default — falling back if the chosen id is stale. */
 function resolveBackgroundId(preferred?: string): string {
-  const candidate = debugBackgroundId() ?? preferred ?? DEFAULT_BACKGROUND_ID
+  const candidate = preferred ?? DEFAULT_BACKGROUND_ID
   return getBackground(candidate) ? candidate : DEFAULT_BACKGROUND_ID
 }
 

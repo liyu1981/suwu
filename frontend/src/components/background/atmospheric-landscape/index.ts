@@ -1,4 +1,5 @@
 import { registerBackground } from '../registry'
+import { WEBGPU_ENGINE } from '../constants'
 import { ATMOSPHERIC_LANDSCAPE_PARAMS } from './params'
 
 /**
@@ -14,6 +15,7 @@ import { ATMOSPHERIC_LANDSCAPE_PARAMS } from './params'
 registerBackground({
   id: 'atmospheric-landscape',
   label: 'Atmospheric Landscape',
+  engine: WEBGPU_ENGINE,
   params: ATMOSPHERIC_LANDSCAPE_PARAMS,
   gpu: () => import('./atmospheric-landscape-gpu'),
 })

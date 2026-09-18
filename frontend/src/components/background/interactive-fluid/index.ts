@@ -1,4 +1,5 @@
 import { registerBackground } from '../registry'
+import { WEBGPU_ENGINE } from '../constants'
 
 /**
  * Interactive Fluid — a pointer-driven GPU fluid solver (ported from the vgpu
@@ -8,5 +9,6 @@ import { registerBackground } from '../registry'
 registerBackground({
   id: 'interactive-fluid',
   label: 'Interactive Fluid',
+  engine: WEBGPU_ENGINE,
   gpu: () => import('./interactive-fluid-gpu'),
 })

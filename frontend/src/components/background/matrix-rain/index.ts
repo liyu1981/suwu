@@ -1,4 +1,5 @@
 import { registerBackground } from '../registry'
+import { WEBGPU_ENGINE } from '../constants'
 
 /**
  * Matrix Rain — falling green glyph columns on black (the classic Matrix
@@ -8,5 +9,6 @@ import { registerBackground } from '../registry'
 registerBackground({
   id: 'matrix-rain',
   label: 'Matrix Rain',
+  engine: WEBGPU_ENGINE,
   gpu: () => import('./matrix-rain-gpu'),
 })

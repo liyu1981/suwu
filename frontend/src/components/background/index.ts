@@ -10,7 +10,7 @@ import './video'
 export { AmbientBackground, type AmbientBackgroundProps } from './AmbientBackground'
 export { BackgroundPreview, type BackgroundPreviewProps } from './BackgroundPreview'
 export { fitPreviewBox } from './preview-size'
-export { DEFAULT_BACKGROUND_ID } from './constants'
+export { DEFAULT_BACKGROUND_ID, WEBGPU_ENGINE } from './constants'
 export { startBackground, type StartBackgroundOptions } from './select'
 export { getBackground, listBackgrounds, registerBackground } from './registry'
 export {
@@ -23,6 +23,7 @@ export type {
   BackgroundColorParam,
   BackgroundContext,
   BackgroundDefinition,
+  BackgroundEngine,
   BackgroundFileListParam,
   BackgroundHandle,
   BackgroundModule,

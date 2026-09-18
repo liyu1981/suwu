@@ -1,6 +1,12 @@
 /** Which rendering backend a background is using. */
 export type BackendKind = 'gpu' | 'cpu'
 
+/**
+ * A shared GPU render engine a background can be built on. Backgrounds that
+ * declare one are grouped under a single selector in System Settings.
+ */
+export type BackgroundEngine = 'webgpu-render-engine'
+
 /** Runtime context handed to a background backend. */
 export interface BackgroundContext {
   /** The canvas element to render into. */
@@ -145,6 +151,12 @@ export type BackgroundParam =
 export interface BackgroundDefinition {
   readonly id: string
   readonly label: string
+  /**
+   * The shared render engine this background is built on, when it has one. The
+   * engine owns the device/surface lifecycle and the frame loop; System Settings
+   * groups engine-backed backgrounds under one selector.
+   */
+  readonly engine?: BackgroundEngine
   /**
    * User-adjustable parameters, rendered in System Settings and persisted per
    * background. Omit for a background with nothing to tune.

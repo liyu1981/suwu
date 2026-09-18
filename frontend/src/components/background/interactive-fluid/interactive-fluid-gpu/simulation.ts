@@ -1,5 +1,5 @@
-import type { Gpu, Target } from 'vgpu'
-import { compute, effect, frame, pingPongStorage, storage } from 'vgpu'
+import type { Frame, Gpu, Target } from 'vgpu'
+import { compute, effect, pingPongStorage, storage } from 'vgpu'
 import type { StirInput } from './pointer-input'
 import advectVelocityWgsl from './shaders/advect-velocity.wgsl'
 import curlWgsl from './shaders/curl.wgsl'
@@ -145,11 +145,9 @@ export function stepFluid(fluid: Fluid, input?: StirInput): void {
   input?.consumeStep()
 }
 
-export function renderFluid(fluid: Fluid, output: Target): void {
+export function renderFluid(fluid: Fluid, output: Target, current: Frame): void {
   fluid.passes.display.set({ dye: fluid.dye.read })
-  frame(fluid.gpu, (currentFrame) => {
-    currentFrame.pass(output, fluid.passes.display)
-  })
+  current.pass(output, fluid.passes.display)
 }
 
 function inputUniforms(fluid: Fluid, input?: StirInput) {

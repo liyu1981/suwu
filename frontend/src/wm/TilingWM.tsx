@@ -237,6 +237,12 @@ export default function TilingWM() {
   // Per-tile session state for the current server instance.
   const [sessionState, setSessionState] = useState<TileSessionMap>({})
 
+  // Latest session state for message handlers. The listener below is not
+  // re-subscribed on every state change, so a plain closure would serve stale
+  // state when a tile asks for its session after the WM recreated its iframe.
+  const sessionStateRef = useRef(sessionState)
+  sessionStateRef.current = sessionState
+
   // Load from localStorage: use the latest timestamp if available,
   // otherwise query server for startedAt.
   useEffect(() => {
@@ -317,6 +323,14 @@ export default function TilingWM() {
           if (old && JSON.stringify(old.state) === JSON.stringify(d.state)) return prev
           return { ...prev, [d.paneId!]: { tileType, state: d.state! } }
         })
+      }
+      // Child iframe asking for its saved state on mount. Restores a tile after
+      // the WM recreated its iframe (focus mode, space switch), where the
+      // one-off server-started-at broadcast already fired before the new
+      // iframe loaded.
+      if (d?.type === 'request-session-state' && typeof d.paneId === 'string') {
+        const entry = sessionStateRef.current[d.paneId]
+        e.source?.postMessage({ type: 'tile-session-state', paneId: d.paneId, state: entry?.state ?? null })
       }
       // Child iframe requesting its font size (sent on mount to fix
       // the race where the parent's postMessage arrives before the

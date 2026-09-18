@@ -94,6 +94,11 @@ registerBackground({
   id: 'seascape',
   label: 'Seascape',
   engine: WEBGPU_ENGINE,
+  credit: {
+    author: 'Alexander Alekseev aka TDM',
+    url: 'https://www.shadertoy.com/view/Ms2SD1',
+    license: 'CC BY-NC-SA 3.0',
+  },
   params: SEASCAPE_PARAMS,
   gpu: async () => ({ start }),
 })

@@ -599,6 +599,23 @@ export default function SettingsView() {
             <p className={sectionHint}>
               {inWebgpu ? t('settings.backgroundWebgpuHint') : t('settings.backgroundHint')}
             </p>
+            {definition?.credit && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                <span>{t('settings.backgroundCredit')}:</span>
+                <span className="text-popover-foreground">{definition.credit.author}</span>
+                {definition.credit.url && (
+                  <a
+                    href={definition.credit.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-sky-400/80 underline decoration-sky-400/30 underline-offset-2 transition-colors hover:text-sky-300"
+                  >
+                    {definition.credit.url.replace(/^https?:\/\//, '')}
+                  </a>
+                )}
+                {definition.credit.license && <span>· {definition.credit.license}</span>}
+              </p>
+            )}
             {paramDefs.length > 0 && (
               <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3">
                 {paramDefs.map((param) => (

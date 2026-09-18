@@ -453,5 +453,9 @@ registerBackground({
   id: 'interactive-fluid',
   label: 'Interactive Fluid',
   engine: WEBGPU_ENGINE,
+  credit: {
+    author: 'vgpu (Interactive Fluid example)',
+    url: 'https://vgpu.sh',
+  },
   gpu: async () => ({ start }),
 })

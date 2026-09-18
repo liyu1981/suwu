@@ -148,6 +148,11 @@ registerBackground({
   id: 'rainforest',
   label: 'Rainforest',
   engine: WEBGPU_ENGINE,
+  credit: {
+    author: 'Inigo Quilez (iq)',
+    url: 'https://www.shadertoy.com/view/4ttSWf',
+    license: 'used with permission',
+  },
   params: RAINFOREST_PARAMS,
   gpu: async () => ({ start }),
 })

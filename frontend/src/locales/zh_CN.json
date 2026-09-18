@@ -71,6 +71,7 @@
     "backgroundHint": "选择应用外壳的动态背景。",
     "backgroundWebgpu": "WebGPU",
     "backgroundWebgpuHint": "由共享 WebGPU 渲染引擎绘制的背景。需要浏览器支持 WebGPU。",
+    "backgroundCredit": "来源",
     "backgroundPreviewNeedsWebGPU": "预览需要 WebGPU",
     "lineHeight": "行高",
     "lineHeightHint": "立即应用到所有终端窗口。当前默认值为 {{default}}；保存可将此值设为默认。",

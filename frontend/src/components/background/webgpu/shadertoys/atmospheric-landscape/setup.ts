@@ -167,6 +167,7 @@ registerBackground({
   id: 'atmospheric-landscape',
   label: 'Atmospheric Landscape',
   engine: WEBGPU_ENGINE,
+  credit: { author: 'TekF', url: 'https://www.shadertoy.com/view/slVfD1' },
   params: ATMOSPHERIC_LANDSCAPE_PARAMS,
   gpu: async () => ({ start }),
 })

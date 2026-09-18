@@ -72,6 +72,7 @@
     "backgroundHint": "Choose the ambient background for the app shell.",
     "backgroundWebgpu": "WebGPU",
     "backgroundWebgpuHint": "Backgrounds drawn by the shared WebGPU render engine. Requires a browser with WebGPU support.",
+    "backgroundCredit": "Credit",
     "backgroundPreviewNeedsWebGPU": "Preview needs WebGPU",
     "lineHeight": "Line height",
     "lineHeightHint": "Applied instantly to all terminal panes. Currently the default is {{default}}; save to make this the default too.",

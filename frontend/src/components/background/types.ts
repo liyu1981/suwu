@@ -7,6 +7,19 @@ export type BackendKind = 'gpu' | 'cpu'
  */
 export type BackgroundEngine = 'webgpu-render-engine'
 
+/**
+ * Attribution for a background ported from an external work. System Settings
+ * renders one credit line for it.
+ */
+export interface BackgroundCredit {
+  /** Author or source name, e.g. "Alexander Alekseev aka TDM". */
+  readonly author: string
+  /** Original source URL, shown as a link. */
+  readonly url?: string
+  /** Optional license or permission note, e.g. "CC BY-NC-SA 3.0". */
+  readonly license?: string
+}
+
 /** Runtime context handed to a background backend. */
 export interface BackgroundContext {
   /** The canvas element to render into. */
@@ -157,6 +170,8 @@ export interface BackgroundDefinition {
    * groups engine-backed backgrounds under one selector.
    */
   readonly engine?: BackgroundEngine
+  /** Attribution shown in System Settings, for a background ported from an external work. */
+  readonly credit?: BackgroundCredit
   /**
    * User-adjustable parameters, rendered in System Settings and persisted per
    * background. Omit for a background with nothing to tune.

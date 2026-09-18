@@ -44,13 +44,12 @@ components/background/
       assets.ts               # storage / texture3d upload helpers
       time.ts, size.ts        # shared epoch; megapixel budget math
     shadertoys/
-      seascape/               # one shadertoy = one setup.ts + its .wgsl
-        setup.ts              # params + definition + scene
-        shaders/*.wgsl
       atmospheric-landscape/  # setup.ts merges params + noise-volume builder + scene
-      rainforest/             # setup.ts merges params + scene
-      matrix-rain/            # setup.ts merges params + glyph-atlas builder + scene
+      cosmos-in-crystal/      # setup.ts merges params + scene (nayk, shadertoy MXccR4)
       interactive-fluid/      # setup.ts merges params + pointer input + solver + scene
+      matrix-rain/            # setup.ts merges params + glyph-atlas builder + scene
+      rainforest/             # setup.ts merges params + scene
+      seascape/               # setup.ts merges params + scene
 ```
 
 A classic family keeps its nested `<name>-cpu` / `<name>-gpu` backends so their
@@ -152,6 +151,21 @@ registerBackground({
 The parameter schema is the single source of truth for defaults, UI and
 validation; a backend never keeps its own copy.
 
+### Credits
+
+A background ported from an external work declares a `credit`. System Settings
+renders one line under the background preview:
+
+```ts
+credit: { author: 'nayk', url: 'https://www.shadertoy.com/view/MXccR4' },
+```
+
+`author` is shown as-is, `url` as a link, and the optional `license` as a
+trailing note (e.g. Seascape's `CC BY-NC-SA 3.0`, or Rainforest's
+`used with permission`). Extract the line from the shader header into the
+`registerBackground` call in `setup.ts`; leave it off for original work
+(`matrix-rain`).
+
 ## Backends
 
 ### Sizing
@@ -188,7 +202,7 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
 
 ### WebGPU render engine
 
-The five engine-backed backgrounds (`webgpu/shadertoys/…`) share
+The engine-backed backgrounds (`webgpu/shadertoys/…`) share
 `webgpu/webgpu-render-engine/`:
 
 - `startGpuBackground()` owns the lifecycle they used to repeat: device +

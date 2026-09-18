@@ -18,6 +18,7 @@ export type {
   BackgroundBooleanParam,
   BackgroundColorParam,
   BackgroundContext,
+  BackgroundCredit,
   BackgroundDefinition,
   BackgroundEngine,
   BackgroundFileListParam,

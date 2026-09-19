@@ -60,6 +60,12 @@
     "termTab": "终端",
     "notificationsTab": "通知",
     "appearanceTab": "外观",
+    "spacesTab": "空间",
+    "spacesIdleTitle": "空闲时隐藏空间",
+    "spacesIdleHint": "一段时间无操作后淡出平铺空间，如同屏幕保护。移动指针或按下任意键即可恢复。随时可用 Alt+L 手动切换。",
+    "spacesIdleAfter": "空闲时间",
+    "spacesIdleValue": "{{minutes}} 分钟",
+    "spacesIdleAfterHint": "在隐藏空间前，等待多久没有指针或键盘操作（1–240 分钟）。",
     "fileBrowserTab": "文件浏览器",
     "fontSize": "字体大小",
     "fontFamily": "字体",
@@ -143,7 +149,8 @@
     "spaces": "空间",
     "switchSpaceN": "切换到空间 N",
     "nextSpace": "下一个空间",
-    "prevSpace": "上一个空间"
+    "prevSpace": "上一个空间",
+    "toggleSpaces": "隐藏 / 显示空间"
   },
   "about": {
     "version": "版本 {{version}}",
@@ -318,6 +325,9 @@
   "codeExplorer": {
     "search": {
       "title": "查找出现位置",
+      "open": "在目录中搜索文件",
+      "query": "搜索文本",
+      "files": "包含匹配的文件",
       "fileDirectory": "在文件所在目录中查找出现位置",
       "customDirectory": "在自定义目录中查找出现位置…",
       "directory": "目录（绝对路径）",

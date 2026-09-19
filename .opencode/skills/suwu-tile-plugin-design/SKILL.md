@@ -352,7 +352,7 @@ Same-origin `window.postMessage`, discriminated by a `type` field.
 | iframe → parent | `wm-shortcut` | `{ action }` | relay a WM shortcut |
 | iframe → parent | `wm-open-file` | `{ path, tileType, sourcePane }` | open a file in a new tile |
 | iframe → parent | `wm-close-pane` | `{ pane }` | close this tile |
-| parent → iframe (plugin-defined) | e.g. `gitgraph-refresh`, `diff-refresh`, `code-save`, `code-open` | — | toolbar-triggered actions |
+| parent → iframe (plugin-defined) | e.g. `gitgraph-refresh`, `diff-refresh`, `code-save`, `code-open`, `code-search` | — | toolbar-triggered actions |
 
 Conventions: always `window.parent?.postMessage({ type: '…', … }, '*')` from a
 child; the parent listens on `window.addEventListener('message', …)`. Namespace

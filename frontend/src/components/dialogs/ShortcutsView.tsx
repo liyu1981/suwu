@@ -116,6 +116,11 @@ export default function ShortcutsView() {
           { label: t('shortcuts.switchSpaceN'), keys: [['Ctrl', '1–9']], search: 'space switch' },
           { label: t('shortcuts.nextSpace'), keys: [['Ctrl', 'Tab']], search: 'space next' },
           { label: t('shortcuts.prevSpace'), keys: [['Ctrl', '⇧', 'Tab']], search: 'space prev' },
+          {
+            label: t('shortcuts.toggleSpaces'),
+            keys: [['Alt', 'L']],
+            search: 'spaces hide show idle',
+          },
         ],
       },
     ],

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { SearchIcon } from '../icons';
 import type { CodeTab } from './useCodeExplorer';
 
 interface TabBarProps {
@@ -8,23 +9,41 @@ interface TabBarProps {
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onOpen: () => void;
+  onSearch: () => void;
 }
 
 const iconBtn =
   'grid h-6 w-6 shrink-0 place-items-center rounded text-white/50 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent';
 
-/** Tab strip with the new-file button on the left. */
-export function TabBar({ tabs, activeId, dirty, onSelect, onClose, onOpen }: TabBarProps) {
+/** Tab strip with the search and new-file buttons on the left. */
+export function TabBar({
+  tabs,
+  activeId,
+  dirty,
+  onSelect,
+  onClose,
+  onOpen,
+  onSearch,
+}: TabBarProps) {
   const { t } = useTranslation();
 
   return (
     <div className="flex h-9 shrink-0 items-center gap-1 border-b border-white/5 bg-black/20 pr-1">
       <button
         type="button"
+        onClick={onSearch}
+        aria-label={t('codeExplorer.search.open')}
+        title={t('codeExplorer.search.open')}
+        className={`${iconBtn} ml-1`}
+      >
+        <SearchIcon className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
         onClick={onOpen}
         aria-label={t('codeExplorer.openFile')}
         title={t('codeExplorer.openFile')}
-        className={`${iconBtn} ml-1`}
+        className={iconBtn}
       >
         <svg
           className="h-3.5 w-3.5"

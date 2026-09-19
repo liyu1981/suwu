@@ -57,9 +57,23 @@ export function useOccurrenceSearch(selection: SearchSelection | null) {
     setOpen(false);
   }, []);
 
+  // Open the dialog without a selection, e.g. from the toolbar search button.
+  // The directory is prefilled and the user types the query themselves.
+  const openSearch = useCallback((dir: string, ext: string) => {
+    controller.current?.abort();
+    setOpen(true);
+    setQuery('');
+    setDirectory(dir);
+    setExtension(ext);
+    setResult(null);
+    setError(null);
+    setLoading(false);
+  }, []);
+
   return {
     open,
     query,
+    setQuery,
     directory,
     setDirectory,
     extension,
@@ -68,7 +82,8 @@ export function useOccurrenceSearch(selection: SearchSelection | null) {
     loading,
     error,
     close,
-    hasSearch: selection !== null,
+    openSearch,
+    hasSearch: selection !== null || result !== null,
     reopen: () => setOpen(true),
     run: () => void search(query, directory, extension),
   };

@@ -46,3 +46,23 @@ export const backgroundParamsAtom = atomWithStorage<
  * back does not forget the choice. Empty until the user picks one.
  */
 export const webgpuBackgroundAtom = atomWithStorage<string>('suwu:webgpu-background', '');
+
+/**
+ * Idle auto-hide for the tiling spaces, configured in System Settings. When
+ * enabled, spaces hide after `minutes` without pointer or keyboard activity
+ * and reappear on the next interaction — a screensaver for the work surface.
+ */
+export interface SpacesIdleSettings {
+  enabled: boolean;
+  /** Idle time in minutes before spaces are hidden. */
+  minutes: number;
+}
+
+export const SPACES_IDLE_MIN_MINUTES = 1;
+export const SPACES_IDLE_MAX_MINUTES = 240;
+export const SPACES_IDLE_DEFAULT_MINUTES = 10;
+
+export const spacesIdleAtom = atomWithStorage<SpacesIdleSettings>('suwu:spaces-idle', {
+  enabled: false,
+  minutes: SPACES_IDLE_DEFAULT_MINUTES,
+});

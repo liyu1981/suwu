@@ -9,6 +9,7 @@ import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';
 import { parseFileSpecs } from './spec';
 import { useCodeExplorer } from './useCodeExplorer';
+import { authFetch } from '../../lib/api';
 import { fileBrowserBgAtom } from '../../store/appearance';
 import type { CodeFileSpec } from '../../store/notifications';
 import type { CodeExplorerSessionState } from '../../wm/sessionState';
@@ -16,10 +17,17 @@ import type { CodeExplorerSessionState } from '../../wm/sessionState';
 /** Multi-tab Monaco editor with optional gutter marks and explicit saving. */
 export function CodeExplorer() {
   const { t } = useTranslation();
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const initialSpecs = useMemo<CodeFileSpec[]>(
-    () => parseFileSpecs(new URLSearchParams(window.location.search).get('files')),
-    [],
+    () => parseFileSpecs(urlParams.get('files')),
+    [urlParams],
   );
+  // Tile default directory handed over by `suwu code`: the first file's base
+  // directory, or the working directory for `suwu code .`.
+  const tileDefaultDir = useMemo(() => {
+    const raw = urlParams.get('dir');
+    return raw && raw.startsWith('/') ? raw : null;
+  }, [urlParams]);
   const saved = useTileSessionState<CodeExplorerSessionState>();
   const restoreSpecs = useMemo<CodeFileSpec[]>(
     () => (saved?.tabs ?? []).map((tab) => ({ path: tab.path, ranges: tab.ranges })),
@@ -29,11 +37,23 @@ export function CodeExplorer() {
   const explorer = useCodeExplorer(initialSpecs, restoreSpecs);
   const search = useOccurrenceSearch(explorer.searchSelection);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [homeDir, setHomeDir] = useState<string | null>(null);
   const background = useAtomValue(fileBrowserBgAtom);
 
   useEffect(() => {
     if (explorer.openSignal > 0) setDialogOpen(true);
   }, [explorer.openSignal]);
+
+  // Fall back to the home directory when the tile has no default directory.
+  useEffect(() => {
+    if (tileDefaultDir) return;
+    authFetch('/api/home', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.path) setHomeDir(data.path);
+      })
+      .catch(() => {});
+  }, [tileDefaultDir]);
 
   const activeTab = explorer.tabs.find((tab) => tab.id === explorer.activeId) ?? null;
   const activeError = explorer.activeId ? explorer.errors[explorer.activeId] : undefined;
@@ -47,6 +67,17 @@ export function CodeExplorer() {
     return idx <= 0 ? '/' : path.slice(0, idx);
   }, [activeTab?.path]);
 
+  // Search starts in the active file's directory, then the tile default
+  // directory, then home.
+  const searchDir = activeDir ?? tileDefaultDir ?? homeDir;
+  const openSearch = () => {
+    if (searchDir) search.openSearch(searchDir, '');
+  };
+
+  useEffect(() => {
+    if (explorer.searchSignal > 0) openSearch();
+  }, [explorer.searchSignal]);
+
   return (
     <div
       className="relative flex h-screen w-screen flex-col overflow-hidden"
@@ -59,6 +90,7 @@ export function CodeExplorer() {
         onSelect={explorer.setActive}
         onClose={explorer.closeTab}
         onOpen={() => setDialogOpen(true)}
+        onSearch={openSearch}
       />
 
       {(activeError || activeTab?.readOnly) && (
@@ -125,7 +157,7 @@ export function CodeExplorer() {
 
       {dialogOpen && (
         <OpenFileDialog
-          defaultDir={activeDir}
+          defaultDir={activeDir ?? tileDefaultDir}
           onClose={() => setDialogOpen(false)}
           onOpenFile={(path) => void explorer.openPath(path)}
           onNewFile={explorer.openNewFile}

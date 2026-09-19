@@ -8,6 +8,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { NotificationPanel } from '../components/NotificationPanel';
 import { useNotifications } from './hooks/useNotifications';
 import { useUpdateCheck } from './hooks/useUpdateCheck';
+import { useIdleSpaces } from './hooks/useIdleSpaces';
 import {
   focusedIdAtom,
   layoutAtom,
@@ -15,6 +16,7 @@ import {
   menuViewAtom,
   spacesAtom,
   spacesHiddenAtom,
+  spacesAutoHiddenAtom,
   activeSpaceAtom,
   FOCUS_SPACE_NAME,
 } from '../wm/atoms';
@@ -111,11 +113,19 @@ export default function AppShell() {
   const [spaces] = useAtom(spacesAtom);
   const [activeSpace] = useAtom(activeSpaceAtom);
   const [spacesHidden, setSpacesHidden] = useAtom(spacesHiddenAtom);
+  const [, setSpacesAutoHidden] = useAtom(spacesAutoHiddenAtom);
   const [focusedId] = useAtom(focusedIdAtom);
   const [background] = useAtom(backgroundAtom);
 
   useNotifications();
   useUpdateCheck();
+  useIdleSpaces();
+
+  // Manual hide/show always supersedes an idle auto-hide.
+  const toggleSpaces = useCallback(() => {
+    setSpacesHidden((v) => !v);
+    setSpacesAutoHidden(false);
+  }, [setSpacesHidden, setSpacesAutoHidden]);
 
   // Set page title (CSP blocks inline scripts in index.html).
   useEffect(() => {
@@ -209,7 +219,7 @@ export default function AppShell() {
 
             <button
               type="button"
-              onClick={() => setSpacesHidden((v) => !v)}
+              onClick={toggleSpaces}
               aria-pressed={spacesHidden}
               aria-label={spacesHidden ? t('app.showSpaces') : t('app.hideSpaces')}
               title={spacesHidden ? t('app.showSpaces') : t('app.hideSpaces')}

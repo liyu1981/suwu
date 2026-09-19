@@ -172,6 +172,13 @@ export const menuViewAtom = atom<MenuView>('menu');
  */
 export const spacesHiddenAtom = atom(false);
 
+/**
+ * Whether the current hide was triggered by the idle auto-hide timer rather
+ * than by the user. Ephemeral: activity restores the spaces only when this is
+ * set, so a deliberate hide is never undone by the idle watcher.
+ */
+export const spacesAutoHiddenAtom = atom(false);
+
 /** Swap mode state: null = inactive, otherwise tracks which tile initiated the swap. */
 export const swapModeAtom = atom<string | null>(null);
 

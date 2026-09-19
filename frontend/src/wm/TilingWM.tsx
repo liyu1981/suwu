@@ -15,6 +15,8 @@ import {
   menuOpenAtom,
   menuViewAtom,
   spacesAtom,
+  spacesHiddenAtom,
+  spacesAutoHiddenAtom,
   activeSpaceAtom,
   swapModeAtom,
   focusAtom,
@@ -814,6 +816,11 @@ export default function TilingWM() {
     store.set(menuViewAtom, 'shortcuts');
     store.set(menuOpenAtom, true);
   }, [store]);
+  const toggleSpaces = useCallback(() => {
+    // A manual toggle always supersedes the idle auto-hide.
+    store.set(spacesAutoHiddenAtom, false);
+    store.set(spacesHiddenAtom, !store.get(spacesHiddenAtom));
+  }, [store]);
 
   // Per-tile font size setter: updates paneData for the active space.
   const setTileFontSize = useCallback(
@@ -904,6 +911,7 @@ export default function TilingWM() {
       moveFocused,
       enterSwap,
       toggleFocus,
+      toggleSpaces,
       openMenu,
       openShortcuts,
     }),
@@ -915,6 +923,7 @@ export default function TilingWM() {
       moveFocused,
       enterSwap,
       toggleFocus,
+      toggleSpaces,
       openMenu,
       openShortcuts,
     ],

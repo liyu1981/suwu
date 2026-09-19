@@ -8,6 +8,9 @@ import {
   autoResolveAtom,
   backgroundAtom,
   backgroundParamsAtom,
+  spacesIdleAtom,
+  SPACES_IDLE_MAX_MINUTES,
+  SPACES_IDLE_MIN_MINUTES,
   webgpuBackgroundAtom,
 } from '../../store/settings';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
@@ -491,6 +494,7 @@ export default function SettingsView() {
   const [background, setBackground] = useAtom(backgroundAtom);
   const [backgroundParams, setBackgroundParams] = useAtom(backgroundParamsAtom);
   const [webgpuBackground, setWebgpuBackground] = useAtom(webgpuBackgroundAtom);
+  const [spacesIdle, setSpacesIdle] = useAtom(spacesIdleAtom);
 
   const definitions = listBackgrounds();
   const engineDefinitions = definitions.filter((d) => d.engine === WEBGPU_ENGINE);
@@ -556,6 +560,9 @@ export default function SettingsView() {
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="appearance" className={tabBtn}>
             {t('settings.appearanceTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="spaces" className={tabBtn}>
+            {t('settings.spacesTab')}
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="actions" className={tabBtn}>
             {t('settings.actionsTab')}
@@ -711,6 +718,42 @@ export default function SettingsView() {
                 />
               </div>
             </div>
+          </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="spaces" className="min-w-0 flex-1">
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.spacesIdleTitle')}</span>
+              <Toggle
+                checked={spacesIdle.enabled}
+                onCheckedChange={(v) => setSpacesIdle({ ...spacesIdle, enabled: v })}
+              />
+            </div>
+            <p className={sectionHint}>{t('settings.spacesIdleHint')}</p>
+          </div>
+
+          <div className={`${section} mt-4`}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.spacesIdleAfter')}</span>
+              <span className="font-mono text-xs text-popover-foreground">
+                {t('settings.spacesIdleValue', { minutes: spacesIdle.minutes })}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="range"
+                min={SPACES_IDLE_MIN_MINUTES}
+                max={SPACES_IDLE_MAX_MINUTES}
+                step={1}
+                value={spacesIdle.minutes}
+                disabled={!spacesIdle.enabled}
+                onChange={(e) => setSpacesIdle({ ...spacesIdle, minutes: Number(e.target.value) })}
+                aria-label={t('settings.spacesIdleAfter')}
+                className="h-1 flex-1 cursor-pointer appearance-none rounded bg-white/15 accent-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
+              />
+            </div>
+            <p className={sectionHint}>{t('settings.spacesIdleAfterHint')}</p>
           </div>
         </TabsPrimitive.Content>
 

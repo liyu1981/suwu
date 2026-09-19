@@ -48,6 +48,7 @@ export interface CodeExplorer {
   errors: Record<string, string | undefined>;
   cursor: { line: number; column: number };
   openSignal: number;
+  searchSignal: number;
   searchSelection: SearchSelection | null;
   openLocation: (path: string, location: SearchLocation) => Promise<void>;
   focusEditor: () => void;
@@ -80,6 +81,7 @@ export function useCodeExplorer(
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(0);
   const [openSignal, setOpenSignal] = useState(0);
+  const [searchSignal, setSearchSignal] = useState(0);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const [searchSelection, setSearchSelection] = useState<SearchSelection | null>(null);
   const [navigation, setNavigation] = useState<{
@@ -546,6 +548,7 @@ export function useCodeExplorer(
       const data = e.data as { type?: string } | undefined;
       if (data?.type === 'code-save') void saveRef.current();
       else if (data?.type === 'code-open') setOpenSignal((value) => value + 1);
+      else if (data?.type === 'code-search') setSearchSignal((value) => value + 1);
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
@@ -561,6 +564,7 @@ export function useCodeExplorer(
     errors,
     cursor,
     openSignal,
+    searchSignal,
     requestOpen,
     searchSelection,
     openLocation,

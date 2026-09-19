@@ -17,7 +17,7 @@ export type NotificationPayload =
       targetPort?: number;
       protocol?: string;
     }
-  | { type: 'code'; files: CodeFileSpec[] };
+  | { type: 'code'; files: CodeFileSpec[]; dir?: string };
 
 export interface NotificationData {
   action: string;

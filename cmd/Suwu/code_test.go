@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -61,5 +63,49 @@ func TestCodeSummary(t *testing.T) {
 	}
 	if got, want := codeSummary(files), "a.ts (1), b.md"; got != want {
 		t.Fatalf("codeSummary = %q, want %q", got, want)
+	}
+}
+
+func TestResolveCodeTargetFiles(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	file := filepath.Join(dir, "a.ts")
+	if err := os.WriteFile(file, []byte("one\ntwo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, defaultDir, err := resolveCodeTarget([]string{"a.ts:1-2"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(files) != 1 || files[0].Path != file {
+		t.Fatalf("files = %+v, want one file at %s", files, file)
+	}
+	if defaultDir != dir {
+		t.Fatalf("defaultDir = %q, want %q", defaultDir, dir)
+	}
+}
+
+func TestResolveCodeTargetDot(t *testing.T) {
+	cwd := t.TempDir()
+	t.Chdir(cwd)
+
+	files, defaultDir, err := resolveCodeTarget([]string{"."})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("files = %+v, want none", files)
+	}
+	if defaultDir != cwd {
+		t.Fatalf("defaultDir = %q, want %q", defaultDir, cwd)
+	}
+}
+
+func TestResolveCodeTargetRejectsDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	if _, _, err := resolveCodeTarget([]string{dir}); err == nil {
+		t.Fatal("expected error for a directory argument")
 	}
 }

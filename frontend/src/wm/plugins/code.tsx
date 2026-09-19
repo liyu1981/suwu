@@ -4,7 +4,7 @@
  */
 
 import i18n from '../../i18n';
-import { FolderOpenIcon } from '../../components/icons';
+import { FolderOpenIcon, SearchIcon } from '../../components/icons';
 import { registerTilePlugin, type TileRenderContext, type ToolbarContext } from '../tilePlugins';
 
 const toolBtn =
@@ -42,6 +42,15 @@ function CodeToolbar({ paneId }: ToolbarContext) {
       </button>
       <button
         type="button"
+        onClick={() => post(paneId, 'code-search')}
+        aria-label={i18n.t('codeExplorer.search.open')}
+        title={i18n.t('codeExplorer.search.open')}
+        className={toolBtn}
+      >
+        <SearchIcon className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
         onClick={() => post(paneId, 'code-open')}
         aria-label={i18n.t('codeExplorer.openFile')}
         title={i18n.t('codeExplorer.openFile')}
@@ -67,6 +76,12 @@ registerTilePlugin({
       label: 'Files (JSON)',
       description:
         'Array of { path, ranges: [{ start, end }] } opened as tabs, with gutter marks on the ranges',
+    },
+    {
+      key: 'dir',
+      label: 'Default directory',
+      description:
+        'Absolute directory used when opening or searching files before any tab is active (first file base dir, or cwd for `suwu code .`)',
     },
   ],
   render: (paneId, context?: TileRenderContext) => {

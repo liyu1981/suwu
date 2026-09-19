@@ -198,12 +198,15 @@ export function openDiff(file1: string, file2: string, store: Store): string | n
 
 /**
  * Open the Code Explorer in a new tile with the given files and highlight
- * ranges. Always a fresh tile — no reuse.
+ * ranges. `dir` is the tile's default directory (the first file's base dir,
+ * or the working directory for `suwu code .`). Always a fresh tile — no reuse.
  */
-export function openCode(files: CodeFileSpec[], store: Store): string | null {
+export function openCode(files: CodeFileSpec[], store: Store, dir?: string): string | null {
   const leafId = doSplit(store);
   if (!leafId) return null;
-  setTypeAndFocus(store, leafId, 'code', { files: JSON.stringify(files) });
+  const params: Record<string, string> = { files: JSON.stringify(files) };
+  if (dir) params.dir = dir;
+  setTypeAndFocus(store, leafId, 'code', params);
   return leafId;
 }
 
@@ -240,7 +243,7 @@ export function resolveAction(
       return true;
     case 'code':
       if (!autoResolve.code) return false;
-      openCode(payload.files, store);
+      openCode(payload.files, store, payload.dir);
       return true;
     default:
       return false;
@@ -266,7 +269,7 @@ export function executeAction(data: NotificationData, store: Store): void {
       openForward(store);
       break;
     case 'code':
-      openCode(payload.files, store);
+      openCode(payload.files, store, payload.dir);
       break;
     case 'file':
       openViewer(payload.path, store);

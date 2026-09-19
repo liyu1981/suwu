@@ -22,6 +22,10 @@ type codeAction struct {
 type codePayload struct {
 	Type  string     `json:"type"`
 	Files []codeFile `json:"files"`
+	// Dir is the Code Explorer's default directory: the first file's base
+	// directory for `suwu code <files>`, or the working directory for
+	// `suwu code .`.
+	Dir string `json:"dir,omitempty"`
 }
 
 type codeFile struct {
@@ -102,27 +106,12 @@ func codeMain(args []string) error {
 	}
 
 	if fs.NArg() == 0 {
-		return fmt.Errorf("usage: suwu code [--sock <path>] <path[:start[-end][,start[-end]]...]>...")
+		return fmt.Errorf("usage: suwu code [--sock <path>] <path[:start[-end][,start[-end]]...]>... | .")
 	}
 
-	files := make([]codeFile, 0, fs.NArg())
-	for _, spec := range fs.Args() {
-		rawPath, ranges, err := parseCodeSpec(spec)
-		if err != nil {
-			return fmt.Errorf("%s: %w", spec, err)
-		}
-		absPath, err := filepath.Abs(rawPath)
-		if err != nil {
-			return fmt.Errorf("resolve path %s: %w", rawPath, err)
-		}
-		info, err := os.Stat(absPath)
-		if err != nil {
-			return fmt.Errorf("stat %s: %w", absPath, err)
-		}
-		if info.IsDir() {
-			return fmt.Errorf("%s is a directory", absPath)
-		}
-		files = append(files, codeFile{Path: absPath, Ranges: ranges})
+	files, defaultDir, err := resolveCodeTarget(fs.Args())
+	if err != nil {
+		return err
 	}
 
 	action := codeAction{
@@ -130,6 +119,7 @@ func codeMain(args []string) error {
 		Payload: codePayload{
 			Type:  "code",
 			Files: files,
+			Dir:   defaultDir,
 		},
 	}
 
@@ -143,8 +133,13 @@ func codeMain(args []string) error {
 		return err
 	}
 
+	summary := codeSummary(files)
+	if summary == "" {
+		summary = defaultDir
+	}
+
 	n := notify.Notification{
-		Message: fmt.Sprintf("Code: %s", codeSummary(files)),
+		Message: fmt.Sprintf("Code: %s", summary),
 		Data:    data,
 	}
 	nJSON, err := json.Marshal(n)
@@ -155,8 +150,44 @@ func codeMain(args []string) error {
 	if err := notify.Send(sockPath, string(nJSON)); err != nil {
 		return err
 	}
-	fmt.Printf("Code: %s\n", codeSummary(files))
+	fmt.Printf("Code: %s\n", summary)
 	return nil
+}
+
+// resolveCodeTarget turns CLI specs into the files to open plus the Code
+// Explorer's default directory. A lone "." is the special form that opens the
+// explorer with no files and the current working directory as the default dir.
+func resolveCodeTarget(specs []string) ([]codeFile, string, error) {
+	if len(specs) == 1 && specs[0] == "." {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, "", fmt.Errorf("resolve current directory: %w", err)
+		}
+		return []codeFile{}, cwd, nil
+	}
+
+	files := make([]codeFile, 0, len(specs))
+	for _, spec := range specs {
+		rawPath, ranges, err := parseCodeSpec(spec)
+		if err != nil {
+			return nil, "", fmt.Errorf("%s: %w", spec, err)
+		}
+		absPath, err := filepath.Abs(rawPath)
+		if err != nil {
+			return nil, "", fmt.Errorf("resolve path %s: %w", rawPath, err)
+		}
+		info, err := os.Stat(absPath)
+		if err != nil {
+			return nil, "", fmt.Errorf("stat %s: %w", absPath, err)
+		}
+		if info.IsDir() {
+			return nil, "", fmt.Errorf("%s is a directory", absPath)
+		}
+		files = append(files, codeFile{Path: absPath, Ranges: ranges})
+	}
+
+	// Default dir is the first file's base directory.
+	return files, filepath.Dir(files[0].Path), nil
 }
 
 func codeSummary(files []codeFile) string {

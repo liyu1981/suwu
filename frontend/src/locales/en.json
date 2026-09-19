@@ -61,6 +61,12 @@
     "termTab": "Term",
     "notificationsTab": "Notifications",
     "appearanceTab": "Appearance",
+    "spacesTab": "Spaces",
+    "spacesIdleTitle": "Hide spaces when idle",
+    "spacesIdleHint": "Fade the tiling spaces out after a period without activity, like a screensaver. Move the pointer or press any key to bring them back. Toggle manually with Alt+L at any time.",
+    "spacesIdleAfter": "Idle time",
+    "spacesIdleValue": "{{minutes}} min",
+    "spacesIdleAfterHint": "How long to wait without pointer or keyboard activity before hiding the spaces (1–240 minutes).",
     "fileBrowserTab": "File Browser",
     "fontSize": "Font size",
     "fontFamily": "Font family",
@@ -144,7 +150,8 @@
     "spaces": "Spaces",
     "switchSpaceN": "Switch to space N",
     "nextSpace": "Next space",
-    "prevSpace": "Previous space"
+    "prevSpace": "Previous space",
+    "toggleSpaces": "Hide / show spaces"
   },
   "about": {
     "version": "Version {{version}}",
@@ -320,6 +327,9 @@
   "codeExplorer": {
     "search": {
       "title": "Find Occurrences",
+      "open": "Search files in directory",
+      "query": "Search text",
+      "files": "Files with matches",
       "fileDirectory": "Find Occurrences in File Directory",
       "customDirectory": "Find Occurrences in Custom Directory…",
       "directory": "Directory (absolute path)",

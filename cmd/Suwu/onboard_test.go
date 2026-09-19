@@ -1,12 +1,15 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDevelopmentToolCategoriesAndDefaults(t *testing.T) {
@@ -178,4 +181,127 @@ func fileMode(t *testing.T, path string) os.FileMode {
 		t.Fatal(err)
 	}
 	return info.Mode().Perm()
+}
+
+func TestParseOnboardSections(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want []onboardSection
+	}{
+		{name: "no flags is the full wizard", args: nil, want: nil},
+		{name: "single section", args: []string{"--password"}, want: []onboardSection{sectionPassword}},
+		{name: "tools only", args: []string{"--tools"}, want: []onboardSection{sectionTools}},
+		{
+			name: "server implies TLS",
+			args: []string{"--server"},
+			want: []onboardSection{sectionServer, sectionTLS},
+		},
+		{
+			name: "multiple sections run in canonical order",
+			args: []string{"--tools", "--tls"},
+			want: []onboardSection{sectionTLS, sectionTools},
+		},
+		{
+			name: "all sections",
+			args: []string{"--shell", "--runtime", "--password", "--tls", "--server", "--tools"},
+			want: []onboardSection{
+				sectionServer,
+				sectionPassword,
+				sectionTLS,
+				sectionRuntime,
+				sectionTools,
+				sectionShell,
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseOnboardSections(tc.args)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("sections = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseOnboardSectionsRejectsBadInput(t *testing.T) {
+	if _, err := parseOnboardSections([]string{"password"}); err == nil {
+		t.Fatal("expected an error for a positional argument")
+	}
+	if _, err := parseOnboardSections([]string{"--bogus"}); err == nil {
+		t.Fatal("expected an error for an unknown flag")
+	}
+	if _, err := parseOnboardSections([]string{"--help"}); !errors.Is(err, errOnboardHelp) {
+		t.Fatalf("help error = %v, want errOnboardHelp", err)
+	}
+}
+
+func TestOnboardHasSection(t *testing.T) {
+	if !onboardHasSection(nil, sectionPassword) {
+		t.Fatal("empty selection should include every section (full wizard)")
+	}
+	if onboardHasSection([]onboardSection{sectionTools}, sectionPassword) {
+		t.Fatal("tools-only selection must not include the password section")
+	}
+	if !onboardHasSection([]onboardSection{sectionPassword, sectionTools}, sectionPassword) {
+		t.Fatal("selected section should be reported as included")
+	}
+}
+
+func TestOnboardEnvValuesFiltersBySection(t *testing.T) {
+	plan := onboardPlan{
+		host:       "127.0.0.1",
+		mode:       "https",
+		httpsPort:  8181,
+		httpPort:   8180,
+		extraHosts: "example.com",
+		sessionTTL: 24 * time.Hour,
+		varDir:     "/home/u/.suwu",
+		authHash:   "deadbeef",
+		certFile:   "/cfg/cert.pem",
+		keyFile:    "/cfg/key.pem",
+	}
+
+	full := onboardEnvValues(plan, nil)
+	for _, key := range []string{
+		"HOST", "SERVER_MODE", "HTTPS_PORT", "HTTP_PORT", "EXTRA_HOSTS",
+		"SESSION_TTL", "SUWU_VAR", "AUTH_PASS", "TLS_CERT_FILE", "TLS_KEY_FILE",
+	} {
+		if _, ok := full[key]; !ok {
+			t.Errorf("full selection missing %s", key)
+		}
+	}
+
+	password := onboardEnvValues(plan, []onboardSection{sectionPassword})
+	if len(password) != 1 || password["AUTH_PASS"] != "deadbeef" {
+		t.Fatalf("password-only values = %v, want only AUTH_PASS", password)
+	}
+
+	tools := onboardEnvValues(plan, []onboardSection{sectionTools})
+	if len(tools) != 0 {
+		t.Fatalf("tools-only values = %v, want none", tools)
+	}
+
+	runtimeOnly := onboardEnvValues(plan, []onboardSection{sectionRuntime})
+	if len(runtimeOnly) != 1 || runtimeOnly["SUWU_VAR"] != "/home/u/.suwu" {
+		t.Fatalf("runtime-only values = %v, want only SUWU_VAR", runtimeOnly)
+	}
+
+	httpPlan := plan
+	httpPlan.mode = "http"
+	tlsHTTP := onboardEnvValues(httpPlan, []onboardSection{sectionTLS})
+	if len(tlsHTTP) != 0 {
+		t.Fatalf("TLS values under http mode = %v, want none", tlsHTTP)
+	}
+}
+
+func TestCollectOnboardSectionRejectsUnknown(t *testing.T) {
+	var plan onboardPlan
+	if err := collectOnboardSection(&plan, onboardSection("bogus")); err == nil {
+		t.Fatal("expected an error for an unknown section")
+	}
 }

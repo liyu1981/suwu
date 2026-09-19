@@ -62,6 +62,21 @@ an interactive `suwu onboard` wizard. Onboarding requires an attached
 terminal; it collects the complete setup plan, shows a review, and only then
 writes configuration or installs selected tools.
 
+To change one part of an existing setup without re-running the whole wizard,
+pass a section flag:
+
+```sh
+suwu onboard --password   # reset the connection password
+suwu onboard --server     # bind host, ports, session timeout
+suwu onboard --tls        # TLS certificate
+suwu onboard --runtime    # data directory and systemd service
+suwu onboard --tools      # development tools
+suwu onboard --shell      # shell integration
+```
+
+Section runs prompt only for that part, show the resulting configuration, and
+leave every other setting as it is on disk. Flags can be combined.
+
 ## Requirements
 
 - Go 1.27.1+

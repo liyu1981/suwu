@@ -9,6 +9,7 @@
 //	suwu gencerts       # interactive TLS certificate generation (local CA)
 //	suwu version        # print version and exit
 //	suwu onboard        # interactive setup wizard
+//	suwu onboard --tools # update only one wizard section
 //	suwu daemon {start|stop|restart|status|logs}  # manage background server
 //
 //	SERVER_MODE=http HTTP_PORT=3000 suwu serve   # plain HTTP on a custom port
@@ -83,7 +84,7 @@ func main() {
 			fmt.Printf("suwu %s\n", version.Version)
 			return
 		case "onboard":
-			if err := onboard(); err != nil {
+			if err := onboard(os.Args[2:]); err != nil {
 				log.Fatalf("onboard: %v", err)
 			}
 			return
@@ -174,7 +175,9 @@ Usage:
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
-  suwu onboard             interactive setup wizard: server, security, tools
+  suwu onboard [--server|--password|--tls|--runtime|--tools|--shell]
+                           interactive setup wizard; pass section flags to
+                           update only those parts of the configuration
   suwu daemon {start|stop|restart|status|logs}
                            manage a background daemon (default data: ~/.suwu)
   suwu upgrade [--check] [--force]
@@ -337,19 +340,7 @@ Examples:
   suwu gencerts --out /tmp/certs
 `)
 	case "onboard":
-		fmt.Print(`Usage: suwu onboard
-
-Interactive setup wizard. Requires an attached terminal and collects the
-complete setup plan before making changes. Configures:
-  - Server profile, bind host, ports, and session timeout
-  - Required connection password
-  - TLS certificates for HTTPS modes
-  - Data directory and optional systemd service
-  - Essential and advanced development tools
-  - Optional shell integration
-
-No non-interactive onboarding mode is provided.
-`)
+		printOnboardUsage()
 	case "daemon":
 		fmt.Print(`Usage: suwu daemon <command>
 

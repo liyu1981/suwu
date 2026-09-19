@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -66,6 +68,91 @@ const (
 	profileCustom onboardProfile = "custom"
 )
 
+// onboardSection identifies one independently runnable part of the wizard.
+// `suwu onboard --<section>` prompts for and writes only that part.
+type onboardSection string
+
+const (
+	sectionServer   onboardSection = "server"
+	sectionPassword onboardSection = "password"
+	sectionTLS      onboardSection = "tls"
+	sectionRuntime  onboardSection = "runtime"
+	sectionTools    onboardSection = "tools"
+	sectionShell    onboardSection = "shell"
+)
+
+// onboardSectionOrder is the order sections run in when several are selected.
+var onboardSectionOrder = []onboardSection{
+	sectionServer,
+	sectionPassword,
+	sectionTLS,
+	sectionRuntime,
+	sectionTools,
+	sectionShell,
+}
+
+func onboardSectionLabel(section onboardSection) string {
+	switch section {
+	case sectionServer:
+		return "server settings"
+	case sectionPassword:
+		return "connection password"
+	case sectionTLS:
+		return "TLS certificate"
+	case sectionRuntime:
+		return "data directory and service"
+	case sectionTools:
+		return "development tools"
+	case sectionShell:
+		return "shell integration"
+	default:
+		return string(section)
+	}
+}
+
+// onboardHasSection reports whether a selected-section list includes section.
+// An empty list means the full wizard, so every section is included.
+func onboardHasSection(sections []onboardSection, section onboardSection) bool {
+	if len(sections) == 0 {
+		return true
+	}
+	for _, selected := range sections {
+		if selected == section {
+			return true
+		}
+	}
+	return false
+}
+
+// onboardEnvValues returns the .env keys to write for the selected sections.
+// Unselected sections are omitted, so a section-only run leaves their on-disk
+// values untouched.
+func onboardEnvValues(plan onboardPlan, sections []onboardSection) map[string]string {
+	values := map[string]string{}
+	if onboardHasSection(sections, sectionServer) {
+		values["HOST"] = plan.host
+		values["SERVER_MODE"] = plan.mode
+		values["HTTPS_PORT"] = strconv.Itoa(plan.httpsPort)
+		values["HTTP_PORT"] = strconv.Itoa(plan.httpPort)
+		values["EXTRA_HOSTS"] = plan.extraHosts
+		values["SESSION_TTL"] = plan.sessionTTL.String()
+	}
+	if onboardHasSection(sections, sectionRuntime) {
+		values["SUWU_VAR"] = plan.varDir
+	}
+	if onboardHasSection(sections, sectionPassword) && plan.authHash != "" {
+		values["AUTH_PASS"] = plan.authHash
+	}
+	if onboardHasSection(sections, sectionTLS) && plan.mode != "http" {
+		values["TLS_CERT_FILE"] = plan.certFile
+		values["TLS_KEY_FILE"] = plan.keyFile
+	}
+	return values
+}
+
+// errOnboardHelp signals that the user asked for the onboard usage text.
+var errOnboardHelp = errors.New("onboard help requested")
+
 type onboardPlan struct {
 	home, cfgDir, envPath string
 	profile               onboardProfile
@@ -90,20 +177,106 @@ type onboardPlan struct {
 	legacyKeys            []string
 }
 
-func onboard() error {
+func onboard(args []string) error {
+	sections, err := parseOnboardSections(args)
+	if err != nil {
+		if errors.Is(err, errOnboardHelp) {
+			printOnboardUsage()
+			return nil
+		}
+		return err
+	}
+
 	if err := requireInteractiveOnboarding(); err != nil {
 		return err
 	}
 
+	plan, err := loadOnboardPlan()
+	if err != nil {
+		return err
+	}
+	printOnboardPreflight(plan)
+
+	if len(sections) == 0 {
+		return onboardFull(&plan)
+	}
+	return onboardSections(&plan, sections)
+}
+
+func printOnboardUsage() {
+	fmt.Print(`Usage: suwu onboard [--server] [--password] [--tls] [--runtime] [--tools] [--shell]
+
+Interactive setup wizard. Requires an attached terminal.
+
+Without flags the complete wizard runs. With one or more section flags only
+the selected sections are prompted and written, leaving every other setting
+as it is on disk.
+
+Sections:
+  --server     Deployment profile, bind host, ports, session timeout
+  --password   Connection password (keep, generate or set a new one)
+  --tls        TLS certificate setup
+  --runtime    Data directory and systemd service
+  --tools      Development tools
+  --shell      Shell integration
+`)
+}
+
+// parseOnboardSections maps the section flags to a canonical, deduplicated
+// list. No flags means run the whole wizard.
+func parseOnboardSections(args []string) ([]onboardSection, error) {
+	fs := flag.NewFlagSet("onboard", flag.ContinueOnError)
+	fs.Usage = func() {}
+	server := fs.Bool("server", false, "deployment profile, bind host, ports and session timeout")
+	password := fs.Bool("password", false, "connection password (keep, generate or set)")
+	tls := fs.Bool("tls", false, "TLS certificate setup")
+	runtime := fs.Bool("runtime", false, "data directory and systemd service")
+	tools := fs.Bool("tools", false, "development tools")
+	shell := fs.Bool("shell", false, "shell integration")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil, errOnboardHelp
+		}
+		return nil, err
+	}
+	if fs.NArg() > 0 {
+		return nil, fmt.Errorf("unexpected argument %q; choose a section with --server, --password, --tls, --runtime, --tools or --shell", fs.Arg(0))
+	}
+
+	selected := map[onboardSection]bool{
+		sectionServer:   *server,
+		sectionPassword: *password,
+		sectionTLS:      *tls,
+		sectionRuntime:  *runtime,
+		sectionTools:    *tools,
+		sectionShell:    *shell,
+	}
+	// Server mode and TLS are coupled: switching to HTTPS needs certificates,
+	// so selecting the server section also runs the TLS section.
+	if selected[sectionServer] {
+		selected[sectionTLS] = true
+	}
+	var sections []onboardSection
+	for _, section := range onboardSectionOrder {
+		if selected[section] {
+			sections = append(sections, section)
+		}
+	}
+	return sections, nil
+}
+
+// loadOnboardPlan reads the existing configuration and seeds a plan with it,
+// so a section-only run preserves everything it does not touch.
+func loadOnboardPlan() (onboardPlan, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("resolve home: %w", err)
+		return onboardPlan{}, fmt.Errorf("resolve home: %w", err)
 	}
 	cfgDir := filepath.Join(home, ".config", "suwu")
 	envPath := filepath.Join(cfgDir, ".env")
 	values, err := readOnboardEnv(envPath)
 	if err != nil {
-		return fmt.Errorf("read existing configuration: %w", err)
+		return onboardPlan{}, fmt.Errorf("read existing configuration: %w", err)
 	}
 
 	plan := onboardPlan{
@@ -134,22 +307,25 @@ func onboard() error {
 		plan.mode = "https"
 	}
 	plan.legacyKeys = findLegacyOnboardKeys(values)
+	return plan, nil
+}
 
-	printOnboardPreflight(plan)
-
-	if err := collectOnboardProfile(&plan); err != nil {
+// onboardFull runs the complete wizard: every section is prompted, reviewed
+// as a whole, then applied.
+func onboardFull(plan *onboardPlan) error {
+	if err := collectOnboardProfile(plan); err != nil {
 		return err
 	}
-	if err := collectOnboardServer(&plan); err != nil {
+	if err := collectOnboardServer(plan); err != nil {
 		return err
 	}
-	if err := collectOnboardAuth(&plan); err != nil {
+	if err := collectOnboardAuth(plan); err != nil {
 		return err
 	}
-	if err := collectOnboardTLS(&plan); err != nil {
+	if err := collectOnboardTLS(plan); err != nil {
 		return err
 	}
-	if err := collectOnboardRuntime(&plan); err != nil {
+	if err := collectOnboardRuntime(plan); err != nil {
 		return err
 	}
 	devenv, err := collectDevenvPlan()
@@ -157,11 +333,11 @@ func onboard() error {
 		return err
 	}
 	plan.devenv = devenv
-	if err := collectOnboardShellIntegration(&plan); err != nil {
+	if err := collectOnboardShellIntegration(plan); err != nil {
 		return err
 	}
 
-	confirmed, err := reviewOnboardPlan(&plan)
+	confirmed, err := reviewOnboardPlan(plan)
 	if err != nil {
 		return err
 	}
@@ -170,7 +346,70 @@ func onboard() error {
 		return nil
 	}
 
-	return executeOnboardPlan(plan)
+	return executeOnboardPlan(*plan, nil)
+}
+
+// onboardSections runs only the selected wizard sections. The plan was seeded
+// from the on-disk configuration, so untouched settings are written back
+// unchanged (or not written at all).
+func onboardSections(plan *onboardPlan, sections []onboardSection) error {
+	labels := make([]string, 0, len(sections))
+	for _, section := range sections {
+		labels = append(labels, onboardSectionLabel(section))
+	}
+	fmt.Printf("\n  Updating: %s\n", strings.Join(labels, ", "))
+
+	for _, section := range sections {
+		if err := collectOnboardSection(plan, section); err != nil {
+			return err
+		}
+	}
+
+	printOnboardReview(*plan)
+	var confirmed bool
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title("Apply these changes now?").
+			Affirmative("Apply").
+			Negative("Cancel").
+			Value(&confirmed),
+	)).WithTheme(huh.ThemeCatppuccin())
+	if err := form.Run(); err != nil {
+		return fmt.Errorf("final confirmation: %w", err)
+	}
+	if !confirmed {
+		fmt.Println("\n  Onboarding cancelled. No changes were made.")
+		return nil
+	}
+
+	return executeOnboardPlan(*plan, sections)
+}
+
+// collectOnboardSection runs the prompts for one wizard section.
+func collectOnboardSection(plan *onboardPlan, section onboardSection) error {
+	switch section {
+	case sectionServer:
+		if err := collectOnboardProfile(plan); err != nil {
+			return err
+		}
+		return collectOnboardServer(plan)
+	case sectionPassword:
+		return collectOnboardAuth(plan)
+	case sectionTLS:
+		return collectOnboardTLS(plan)
+	case sectionRuntime:
+		return collectOnboardRuntime(plan)
+	case sectionTools:
+		devenv, err := collectDevenvPlan()
+		if err == nil {
+			plan.devenv = devenv
+		}
+		return err
+	case sectionShell:
+		return collectOnboardShellIntegration(plan)
+	default:
+		return fmt.Errorf("unknown onboarding section %q", section)
+	}
 }
 
 func requireInteractiveOnboarding() error {
@@ -602,41 +841,19 @@ func editOnboardSection(plan *onboardPlan) error {
 		huh.NewSelect[string]().
 			Title("Which section should be edited?").
 			Options(
-				huh.NewOption("Deployment profile and server settings", "server"),
-				huh.NewOption("Authentication", "auth"),
-				huh.NewOption("TLS", "tls"),
-				huh.NewOption("Runtime and service", "runtime"),
-				huh.NewOption("Development tools", "tools"),
-				huh.NewOption("Shell integration", "shell"),
+				huh.NewOption("Deployment profile and server settings", string(sectionServer)),
+				huh.NewOption("Authentication", string(sectionPassword)),
+				huh.NewOption("TLS", string(sectionTLS)),
+				huh.NewOption("Runtime and service", string(sectionRuntime)),
+				huh.NewOption("Development tools", string(sectionTools)),
+				huh.NewOption("Shell integration", string(sectionShell)),
 			).
 			Value(&section),
 	)).WithTheme(huh.ThemeCatppuccin())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("edit section prompt: %w", err)
 	}
-	switch section {
-	case "server":
-		if err := collectOnboardProfile(plan); err != nil {
-			return err
-		}
-		return collectOnboardServer(plan)
-	case "auth":
-		return collectOnboardAuth(plan)
-	case "tls":
-		return collectOnboardTLS(plan)
-	case "runtime":
-		return collectOnboardRuntime(plan)
-	case "tools":
-		devenv, err := collectDevenvPlan()
-		if err == nil {
-			plan.devenv = devenv
-		}
-		return err
-	case "shell":
-		return collectOnboardShellIntegration(plan)
-	default:
-		return fmt.Errorf("unknown onboarding section %q", section)
-	}
+	return collectOnboardSection(plan, onboardSection(section))
 }
 
 func selectedDevenvNames(plan devenvPlan) []string {
@@ -670,7 +887,7 @@ func yesNo(value bool) string {
 	return "no"
 }
 
-func executeOnboardPlan(plan onboardPlan) error {
+func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
 	const total = 7
 	step := 0
 	warnings := []string{}
@@ -712,7 +929,7 @@ func executeOnboardPlan(plan onboardPlan) error {
 		return err
 	}
 
-	if plan.generateTLS {
+	if onboardHasSection(sections, sectionTLS) && plan.generateTLS {
 		if err := runStep("Generating TLS certificate", func() error {
 			hosts := onboardingTLSHosts(plan)
 			fmt.Printf("    hosts: %s\n", strings.Join(hosts, ", "))
@@ -726,85 +943,79 @@ func executeOnboardPlan(plan onboardPlan) error {
 	}
 
 	if err := runStep("Writing server configuration", func() error {
-		values := map[string]string{
-			"HOST":        plan.host,
-			"SERVER_MODE": plan.mode,
-			"HTTPS_PORT":  strconv.Itoa(plan.httpsPort),
-			"HTTP_PORT":   strconv.Itoa(plan.httpPort),
-			"EXTRA_HOSTS": plan.extraHosts,
-			"SESSION_TTL": plan.sessionTTL.String(),
-			"SUWU_VAR":    plan.varDir,
-		}
-		if plan.authHash != "" {
-			values["AUTH_PASS"] = plan.authHash
-		}
-		if plan.mode != "http" {
-			values["TLS_CERT_FILE"] = plan.certFile
-			values["TLS_KEY_FILE"] = plan.keyFile
-		}
+		values := onboardEnvValues(plan, sections)
 		if err := upsertEnv(plan.envPath, values); err != nil {
 			return err
 		}
 		if err := removeLegacyOnboardKeys(plan.envPath); err != nil {
 			return err
 		}
-		os.Setenv("HOST", plan.host)
-		os.Setenv("SERVER_MODE", plan.mode)
-		os.Setenv("HTTPS_PORT", strconv.Itoa(plan.httpsPort))
-		os.Setenv("HTTP_PORT", strconv.Itoa(plan.httpPort))
-		os.Setenv("SUWU_VAR", plan.varDir)
-		if plan.mode != "http" {
-			os.Setenv("TLS_CERT_FILE", plan.certFile)
-			os.Setenv("TLS_KEY_FILE", plan.keyFile)
+		for key, value := range values {
+			os.Setenv(key, value)
 		}
 		return nil
 	}); err != nil {
 		return err
 	}
 
-	if err := runStep("Applying shell integration", func() error {
-		if !plan.shellIntegration {
-			fmt.Println("    skipped by user")
-			return nil
-		}
-		ensureLocalBinInPath(plan.home, true)
-		ensureAsdfDataDir(plan.home, true)
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	if err := runStep("Installing development tools", func() error {
-		if err := installDevenvPlan(plan.devenv); err != nil {
-			warnings = append(warnings, err.Error())
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	if err := runStep("Configuring background service", func() error {
-		if !plan.installService && !plan.startService {
-			fmt.Println("    skipped by user")
-			return nil
-		}
-		if plan.installService {
-			if err := installSystemdService(); err != nil {
-				return err
+	if onboardHasSection(sections, sectionShell) {
+		if err := runStep("Applying shell integration", func() error {
+			if !plan.shellIntegration {
+				fmt.Println("    skipped by user")
+				return nil
 			}
+			ensureLocalBinInPath(plan.home, true)
+			ensureAsdfDataDir(plan.home, true)
+			return nil
+		}); err != nil {
+			return err
 		}
-		if plan.startService {
-			if err := systemctlUser("start", "suwu"); err != nil {
-				return err
+	} else {
+		step++
+		fmt.Printf("\n  [%d/%d] Applying shell integration... skipped\n", step, total)
+	}
+
+	if onboardHasSection(sections, sectionTools) {
+		if err := runStep("Installing development tools", func() error {
+			if err := installDevenvPlan(plan.devenv); err != nil {
+				warnings = append(warnings, err.Error())
 			}
+			return nil
+		}); err != nil {
+			return err
 		}
-		return nil
-	}); err != nil {
-		return err
+	} else {
+		step++
+		fmt.Printf("\n  [%d/%d] Installing development tools... skipped\n", step, total)
+	}
+
+	if onboardHasSection(sections, sectionRuntime) {
+		if err := runStep("Configuring background service", func() error {
+			if !plan.installService && !plan.startService {
+				fmt.Println("    skipped by user")
+				return nil
+			}
+			if plan.installService {
+				if err := installSystemdService(); err != nil {
+					return err
+				}
+			}
+			if plan.startService {
+				if err := systemctlUser("start", "suwu"); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	} else {
+		step++
+		fmt.Printf("\n  [%d/%d] Configuring background service... skipped\n", step, total)
 	}
 
 	if err := runStep("Verifying setup", func() error {
-		return verifyOnboardPlan(plan)
+		return verifyOnboardPlan(plan, sections)
 	}); err != nil {
 		return err
 	}
@@ -865,14 +1076,16 @@ func generateCerts(cfgDir string, hosts []string) error {
 	return nil
 }
 
-func verifyOnboardPlan(plan onboardPlan) error {
-	if plan.authHash == "" && !plan.existingAuth {
-		return fmt.Errorf("no authentication password is configured")
+func verifyOnboardPlan(plan onboardPlan, sections []onboardSection) error {
+	if onboardHasSection(sections, sectionPassword) {
+		if plan.authHash == "" && !plan.existingAuth {
+			return fmt.Errorf("no authentication password is configured")
+		}
 	}
 	if plan.authHash != "" && len(plan.authHash) != sha256.Size*2 {
 		return fmt.Errorf("authentication hash is not a SHA-256 hex value")
 	}
-	if plan.mode != "http" {
+	if onboardHasSection(sections, sectionTLS) && plan.mode != "http" {
 		if !fileExists(plan.certFile) || !fileExists(plan.keyFile) {
 			return fmt.Errorf("TLS certificate pair is incomplete")
 		}
@@ -880,12 +1093,14 @@ func verifyOnboardPlan(plan onboardPlan) error {
 			return fmt.Errorf("TLS certificate and key do not match: %w", err)
 		}
 	}
-	if _, err := os.Stat(plan.varDir); err != nil {
-		return fmt.Errorf("data directory %s: %w", plan.varDir, err)
-	}
-	if plan.startService {
-		if err := systemctlUser("is-active", "--quiet", "suwu"); err != nil {
-			return fmt.Errorf("suwu systemd service is not active: %w", err)
+	if onboardHasSection(sections, sectionRuntime) {
+		if _, err := os.Stat(plan.varDir); err != nil {
+			return fmt.Errorf("data directory %s: %w", plan.varDir, err)
+		}
+		if plan.startService {
+			if err := systemctlUser("is-active", "--quiet", "suwu"); err != nil {
+				return fmt.Errorf("suwu systemd service is not active: %w", err)
+			}
 		}
 	}
 	return nil

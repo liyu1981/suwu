@@ -39,7 +39,10 @@
     "title": "Suwu",
     "openMenu": "打开菜单",
     "hideSpaces": "隐藏空间",
-    "showSpaces": "显示空间"
+    "showSpaces": "显示空间",
+    "logout": "退出登录",
+    "logoutConfirm": "退出登录并返回登录页面？",
+    "cancel": "取消"
   },
   "menu": {
     "shortcuts": "键盘快捷键",
@@ -147,6 +150,8 @@
     "copySelection": "复制选中内容",
     "paste": "粘贴",
     "spaces": "空间",
+    "session": "会话",
+    "logout": "退出登录",
     "switchSpaceN": "切换到空间 N",
     "nextSpace": "下一个空间",
     "prevSpace": "上一个空间",

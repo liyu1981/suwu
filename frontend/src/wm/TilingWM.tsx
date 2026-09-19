@@ -52,7 +52,7 @@ import {
 } from './layout';
 import { applyWmAction, wmAction } from './shortcuts';
 import { openViewer, openFileBrowser } from '../lib/actionResolver';
-import { authFetch } from '../lib/api';
+import { authFetch, logout } from '../lib/api';
 import { TileTools } from './TileTools';
 import { usePaneGhosts } from './hooks/usePaneGhosts';
 import { getTilePlugin, getAllTilePlugins } from './tilePlugins';
@@ -912,6 +912,7 @@ export default function TilingWM() {
       enterSwap,
       toggleFocus,
       toggleSpaces,
+      logout,
       openMenu,
       openShortcuts,
     }),

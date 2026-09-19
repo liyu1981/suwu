@@ -40,7 +40,10 @@
     "title": "Suwu",
     "openMenu": "Open menu",
     "hideSpaces": "Hide spaces",
-    "showSpaces": "Show spaces"
+    "showSpaces": "Show spaces",
+    "logout": "Log out",
+    "logoutConfirm": "Log out and return to the login screen?",
+    "cancel": "Cancel"
   },
   "menu": {
     "shortcuts": "Keyboard shortcuts",
@@ -148,6 +151,8 @@
     "copySelection": "Copy selection",
     "paste": "Paste",
     "spaces": "Spaces",
+    "session": "Session",
+    "logout": "Log out",
     "switchSpaceN": "Switch to space N",
     "nextSpace": "Next space",
     "prevSpace": "Previous space",

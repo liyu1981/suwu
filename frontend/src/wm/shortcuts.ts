@@ -17,6 +17,7 @@ export type WmAction =
   | 'swap'
   | 'focus-toggle'
   | 'toggle-spaces'
+  | 'logout'
   | 'menu'
   | 'shortcuts';
 
@@ -30,6 +31,7 @@ export interface WmActionHandlers {
   enterSwap: () => void;
   toggleFocus: () => void;
   toggleSpaces: () => void;
+  logout: () => void;
   openMenu: () => void;
   openShortcuts: () => void;
 }
@@ -85,6 +87,9 @@ export function applyWmAction(name: WmAction, h: WmActionHandlers): void {
     case 'toggle-spaces':
       h.toggleSpaces();
       break;
+    case 'logout':
+      h.logout();
+      break;
     case 'menu':
       h.openMenu();
       break;
@@ -130,7 +135,8 @@ export function wmAction(e: KeyboardEvent): WmAction | null {
       return 'focus-toggle';
     case 'l':
     case 'L':
-      return 'toggle-spaces';
+      // Alt+Shift+L logs out; Alt+L toggles the spaces.
+      return e.shiftKey ? 'logout' : 'toggle-spaces';
     case '/':
     case '?': // Shift+/ produces '?' on most layouts
       return e.shiftKey ? 'shortcuts' : 'menu';

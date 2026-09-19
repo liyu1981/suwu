@@ -123,6 +123,16 @@ export default function ShortcutsView() {
           },
         ],
       },
+      {
+        title: t('shortcuts.session'),
+        items: [
+          {
+            label: t('shortcuts.logout'),
+            keys: [['Alt', '⇧', 'L']],
+            search: 'logout log out sign out session',
+          },
+        ],
+      },
     ],
     [t],
   );

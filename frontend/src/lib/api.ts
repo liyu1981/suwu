@@ -131,3 +131,12 @@ export async function authFetch(input: URL | RequestInfo, init?: RequestInit): P
   if (response.status === 401) notifyAuthExpired();
   return response;
 }
+
+/**
+ * Logs the user out: drops the Bearer token cookie and the in-memory
+ * credentials, then reloads so the app returns to the login surface.
+ */
+export function logout(): void {
+  notifyAuthExpired();
+  window.location.reload();
+}

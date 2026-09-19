@@ -6,6 +6,7 @@ import { BackgroundCanvas } from '../components/background';
 import SuwuDialog from '../components/dialogs/SuwuDialog';
 import { NotificationBell } from '../components/NotificationBell';
 import { NotificationPanel } from '../components/NotificationPanel';
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 import { useNotifications } from './hooks/useNotifications';
 import { useUpdateCheck } from './hooks/useUpdateCheck';
 import { useIdleSpaces } from './hooks/useIdleSpaces';
@@ -32,6 +33,7 @@ import {
 } from '../wm/layout';
 import { getTilePlugin } from '../wm/tilePlugins';
 import { backgroundAtom } from '../store/settings';
+import { logout } from '../lib/api';
 
 const wmBase =
   'grid h-7 w-7 place-items-center rounded transition glass-btn disabled:cursor-not-allowed disabled:opacity-40';
@@ -103,6 +105,24 @@ function PanelBottomIcon() {
   );
 }
 
+function LogoutIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+
 export default function AppShell() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
@@ -114,6 +134,7 @@ export default function AppShell() {
   const [activeSpace] = useAtom(activeSpaceAtom);
   const [spacesHidden, setSpacesHidden] = useAtom(spacesHiddenAtom);
   const [, setSpacesAutoHidden] = useAtom(spacesAutoHiddenAtom);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [focusedId] = useAtom(focusedIdAtom);
   const [background] = useAtom(backgroundAtom);
 
@@ -215,6 +236,16 @@ export default function AppShell() {
               onClick={openMenu}
             >
               <MenuIcon />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLogoutConfirmOpen(true)}
+              aria-label={t('app.logout')}
+              title={`${t('app.logout')} (Alt+Shift+L)`}
+              className={wmBtn}
+            >
+              <LogoutIcon />
             </button>
 
             <button
@@ -407,6 +438,29 @@ export default function AppShell() {
       </div>
       <SuwuDialog />
       <NotificationPanel />
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent className="flex w-[min(92vw,22rem)] flex-col gap-3 p-4">
+          <DialogTitle>{t('app.logout')}</DialogTitle>
+          <p className="text-sm leading-relaxed text-muted-foreground">{t('app.logoutConfirm')}</p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setLogoutConfirmOpen(false)}
+              className="glass-btn rounded-[6px] bg-white/10 px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-white/15 hover:text-white"
+            >
+              {t('app.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="glass-btn rounded-[6px] bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-200 transition hover:bg-red-500/30"
+            >
+              {t('app.logout')}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

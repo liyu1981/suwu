@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -24,16 +25,30 @@ func requireRG(t *testing.T) string {
 }
 
 func TestSearchExtension(t *testing.T) {
-	for raw, want := range map[string]string{"": "", "  ": "", "ts": "ts", " .tsx ": "tsx", "d.ts": "d.ts", "c++": "c++"} {
-		got, err := normalizeSearchExtension(raw)
-		if err != nil || got != want {
+	for raw, want := range map[string][]string{
+		"":         {},
+		"  ":       {},
+		".":        {},
+		"ts":       {"ts"},
+		" .tsx ":   {"tsx"},
+		"d.ts":     {"d.ts"},
+		"c++":      {"c++"},
+		"ts,go":    {"ts", "go"},
+		".ts .tsx": {"ts", "tsx"},
+		"ts,TS":    {"ts"},
+	} {
+		got, err := normalizeSearchExtensions(raw)
+		if err != nil || !slices.Equal(got, want) {
 			t.Fatalf("normalize %q: %q %v", raw, got, err)
 		}
 	}
-	for _, raw := range []string{".", "*.ts", "ts,go", "../ts", "ts/go", "ts\\go", "ts\n--hidden", "{ts,go}", strings.Repeat("x", 65)} {
-		if _, err := normalizeSearchExtension(raw); err == nil {
+	for _, raw := range []string{"*.ts", "../ts", "ts/go", "ts\\go", "--hidden", "{ts,go}", strings.Repeat("x", 65)} {
+		if _, err := normalizeSearchExtensions(raw); err == nil {
 			t.Fatalf("accepted invalid extension %q", raw)
 		}
+	}
+	if _, err := normalizeSearchExtensions(tooManyExtensions()...); err == nil {
+		t.Fatal("accepted more than the extension limit")
 	}
 	rg := requireRG(t)
 	dir := t.TempDir()
@@ -49,12 +64,37 @@ func TestSearchExtension(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for extension, want := range map[string]int{"ts": 2, "tsx": 1, "go": 1, "": 5, "rs": 0} {
-		result, err := runFileSearch(context.Background(), rg, dir, "needle", extension)
+	for extensions, want := range map[string]int{
+		"ts":        2,
+		"tsx":       1,
+		"go":        1,
+		"":          5,
+		"rs":        0,
+		"ts,tsx":    3,
+		"ts,go,tsx": 4,
+	} {
+		result, err := runFileSearch(context.Background(), rg, dir, "needle", mustExtensions(t, extensions))
 		if err != nil || result.Truncated || result.ReturnedMatches != want {
-			t.Fatalf("extension %q: %+v %v", extension, result, err)
+			t.Fatalf("extensions %q: %+v %v", extensions, result, err)
 		}
 	}
+}
+
+func mustExtensions(t *testing.T, raw string) []string {
+	t.Helper()
+	extensions, err := normalizeSearchExtensions(raw)
+	if err != nil {
+		t.Fatalf("normalize %q: %v", raw, err)
+	}
+	return extensions
+}
+
+func tooManyExtensions() []string {
+	extensions := make([]string, searchMaxExtensions+1)
+	for i := range extensions {
+		extensions[i] = fmt.Sprintf("e%d", i)
+	}
+	return extensions
 }
 
 func TestSearchPosition(t *testing.T) {
@@ -98,7 +138,7 @@ func TestSearchLiteralAndMultiline(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("RIPGREP_CONFIG_PATH", config)
-	result, err := runFileSearch(context.Background(), rg, dir, "-a.b[0]", "")
+	result, err := runFileSearch(context.Background(), rg, dir, "-a.b[0]", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +150,7 @@ func TestSearchLiteralAndMultiline(t *testing.T) {
 		t.Fatalf("bad position: %+v", first)
 	}
 	for _, query := range []string{"hello\nworld", "hello\r\nworld"} {
-		result, err = runFileSearch(context.Background(), rg, dir, query, "")
+		result, err = runFileSearch(context.Background(), rg, dir, query, nil)
 		if err != nil || result.ReturnedMatches != 2 || result.Truncated {
 			t.Fatalf("multiline %q: %+v, %v", query, result, err)
 		}
@@ -121,7 +161,7 @@ func TestSearchLiteralAndMultiline(t *testing.T) {
 			}
 		}
 	}
-	result, err = runFileSearch(context.Background(), rg, dir, "HELLO", "")
+	result, err = runFileSearch(context.Background(), rg, dir, "HELLO", nil)
 	if err != nil || result.Truncated || result.ReturnedMatches != 0 {
 		t.Fatalf("no matches: %+v %v", result, err)
 	}
@@ -133,14 +173,14 @@ func TestSearchLimitsAndCancellation(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "many.txt"), []byte(strings.Repeat("match\n", searchMaxMatches+10)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	result, err := runFileSearch(context.Background(), rg, dir, "match", "")
+	result, err := runFileSearch(context.Background(), rg, dir, "match", nil)
 	if err != nil || !result.Truncated || result.ReturnedMatches != searchMaxMatches {
 		t.Fatalf("limit: %+v %v", result, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	start := time.Now()
-	_, _ = runFileSearch(ctx, rg, dir, "match", "")
+	_, _ = runFileSearch(ctx, rg, dir, "match", nil)
 	if time.Since(start) > time.Second {
 		t.Fatal("cancelled search did not stop promptly")
 	}
@@ -150,7 +190,7 @@ func TestSearchLimitsAndCancellation(t *testing.T) {
 	if err := os.WriteFile(fake, []byte("#!/bin/sh\nexit 2\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	result, err = runFileSearch(context.Background(), fake, dir, "match", "")
+	result, err = runFileSearch(context.Background(), fake, dir, "match", nil)
 	if err != nil || !result.Truncated || len(result.Warnings) == 0 {
 		t.Fatalf("exit 2: %+v %v", result, err)
 	}
@@ -161,7 +201,7 @@ func TestSearchLimitsAndCancellation(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	start = time.Now()
-	result, err = runFileSearch(ctx, fake, dir, "match", "")
+	result, err = runFileSearch(ctx, fake, dir, "match", nil)
 	if err != nil || !result.Truncated || time.Since(start) > 2*time.Second {
 		t.Fatalf("timeout: %+v %v", result, err)
 	}
@@ -205,7 +245,9 @@ func TestFileSearchEndpoint(t *testing.T) {
 	}{
 		{"ok", "POST", fmt.Sprintf(`{"query":"needle","directory":%q}`, dir), "testtoken", 200},
 		{"extension", "POST", fmt.Sprintf(`{"query":"needle","directory":%q,"extension":".txt"}`, dir), "testtoken", 200},
+		{"extensions", "POST", fmt.Sprintf(`{"query":"needle","directory":%q,"extensions":[".txt","ts"]}`, dir), "testtoken", 200},
 		{"invalid-extension", "POST", fmt.Sprintf(`{"query":"needle","directory":%q,"extension":"*.txt"}`, dir), "testtoken", 400},
+		{"invalid-extensions", "POST", fmt.Sprintf(`{"query":"needle","directory":%q,"extensions":["txt","*.go"]}`, dir), "testtoken", 400},
 		{"empty", "POST", fmt.Sprintf(`{"query":"","directory":%q}`, dir), "testtoken", 400},
 		{"relative", "POST", `{"query":"needle","directory":"."}`, "testtoken", 400},
 		{"missing", "POST", fmt.Sprintf(`{"query":"needle","directory":%q}`, filepath.Join(dir, "absent")), "testtoken", 400},
@@ -251,5 +293,72 @@ func TestFileSearchEndpoint(t *testing.T) {
 	defer res.Body.Close()
 	if res.StatusCode != 503 {
 		t.Fatalf("missing rg status: %d", res.StatusCode)
+	}
+}
+
+func TestFileExtensionsEndpoint(t *testing.T) {
+	requireRG(t)
+	ts, _ := testServer(t)
+	dir := t.TempDir()
+	files := map[string]string{
+		"a.ts": "", "b.ts": "", "c.tsx": "", "d.go": "", "README": "",
+		".hidden.ts": "", "ignored.go": "", ".ignore": "ignored.go\n",
+	}
+	for name, text := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	req, _ := http.NewRequest("GET", ts.URL+"/api/files/extensions?path="+dir, nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	var body fileExtensionsResponse
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(body.Extensions, []string{"ts", "go", "tsx"}) {
+		t.Fatalf("extensions: %v", body.Extensions)
+	}
+
+	for _, path := range []string{"relative", filepath.Join(dir, "absent")} {
+		req, _ := http.NewRequest("GET", ts.URL+"/api/files/extensions?path="+path, nil)
+		req.Header.Set("Authorization", "Bearer testtoken")
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != 400 {
+			t.Fatalf("path %q: status %d", path, res.StatusCode)
+		}
+	}
+
+	req, _ = http.NewRequest("GET", ts.URL+"/api/files/extensions?path="+dir, nil)
+	req.Header.Set("Authorization", "Bearer wrong")
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 401 {
+		t.Fatalf("unauthorized status: %d", res.StatusCode)
+	}
+}
+
+func TestExtensionForName(t *testing.T) {
+	for name, want := range map[string]string{
+		"a.ts": "ts", "a.d.ts": "ts", "README": "", ".gitignore": "", "trailing.": "",
+		"archive.tar.gz": "gz", "a." + strings.Repeat("x", 20): "", "has space.txt": "txt",
+	} {
+		if got := extensionForName(name); got != want {
+			t.Fatalf("extensionForName(%q) = %q want %q", name, got, want)
+		}
 	}
 }

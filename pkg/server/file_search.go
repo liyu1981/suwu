@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	searchMaxMatches = 1000
-	searchMaxOutput  = 8 * 1024 * 1024
-	searchMaxRecord  = 1024 * 1024
+	searchMaxMatches    = 1000
+	searchMaxOutput     = 8 * 1024 * 1024
+	searchMaxRecord     = 1024 * 1024
+	searchMaxExtensions = 200
 )
 
 // Bound concurrent subprocesses across all sessions.
@@ -29,7 +30,10 @@ var searchSlots = make(chan struct{}, 2)
 type searchRequest struct {
 	Query     string `json:"query"`
 	Directory string `json:"directory"`
-	Extension string `json:"extension"`
+	// Extension is a deprecated single-value field kept for compatibility;
+	// Extensions is the current list form. Either may be supplied.
+	Extension  string   `json:"extension"`
+	Extensions []string `json:"extensions"`
 }
 
 type searchMatch struct {
@@ -97,7 +101,7 @@ func (s *Server) handleFileSearch(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Search text must be nonempty UTF-8, at most 4096 bytes, without NUL characters"})
 		return
 	}
-	extension, err := normalizeSearchExtension(req.Extension)
+	extensions, err := normalizeSearchExtensions(append([]string{req.Extension}, req.Extensions...)...)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -126,7 +130,7 @@ func (s *Server) handleFileSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	result, err := runFileSearch(ctx, rg, dir, req.Query, extension)
+	result, err := runFileSearch(ctx, rg, dir, req.Query, extensions)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Could not start ripgrep search"})
 		return
@@ -134,28 +138,49 @@ func (s *Server) handleFileSearch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
-var searchExtensionPattern = regexp.MustCompile(`^[A-Za-z0-9_+\-]+(\.[A-Za-z0-9_+\-]+)*$`)
+var searchExtensionPattern = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_+\-]*(\.[A-Za-z0-9_+\-]+)*$`)
 
-// Accept one literal suffix, with an optional leading dot; never a glob or flag.
-func normalizeSearchExtension(raw string) (string, error) {
-	extension := strings.TrimSpace(raw)
-	if extension == "" {
-		return "", nil
+// Accept literal suffixes, each with an optional leading dot, split on commas
+// or whitespace; never a glob or flag. Duplicates are removed case-insensitively.
+func normalizeSearchExtensions(raw ...string) ([]string, error) {
+	seen := make(map[string]bool)
+	extensions := make([]string, 0, len(raw))
+	for _, value := range raw {
+		for _, part := range strings.FieldsFunc(value, func(r rune) bool {
+			return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+		}) {
+			extension := strings.TrimPrefix(part, ".")
+			if extension == "" {
+				continue
+			}
+			if len(extension) > 64 || !searchExtensionPattern.MatchString(extension) {
+				return nil, errors.New("Enter file extensions such as ts or .tsx, or leave blank for all extensions")
+			}
+			key := strings.ToLower(extension)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			extensions = append(extensions, extension)
+			if len(extensions) > searchMaxExtensions {
+				return nil, errors.New("Too many file extensions")
+			}
+		}
 	}
-	extension = strings.TrimPrefix(extension, ".")
-	if len(extension) > 64 || !searchExtensionPattern.MatchString(extension) {
-		return "", errors.New("Enter one file extension, such as ts or .tsx, or leave blank for all extensions")
-	}
-	return extension, nil
+	return extensions, nil
 }
 
-func searchArgs(query, extension string) []string {
+func searchArgs(query string, extensions []string) []string {
 	args := []string{"--json", "--no-config", "--case-sensitive", "--color=never", "--max-filesize=2M", "--glob=!.env", "--glob=!.env.*", "--glob=!**/.*"}
-	if extension != "" {
-		// A type filter narrows files without overriding ignore rules, unlike
-		// a positive --glob. Explicit hidden-path exclusion above also applies
-		// because type filters can otherwise admit hidden files.
-		args = append(args, "--type-add=suwuoccurrence:*."+extension, "--type=suwuoccurrence")
+	// A type filter narrows files without overriding ignore rules, unlike a
+	// positive --glob. Repeated --type-add entries extend one synthetic type;
+	// explicit hidden-path exclusion above also applies because type filters
+	// can otherwise admit hidden files.
+	for _, extension := range extensions {
+		args = append(args, "--type-add=suwuoccurrence:*."+extension)
+	}
+	if len(extensions) > 0 {
+		args = append(args, "--type=suwuoccurrence")
 	}
 	// Newlines in -F patterns mean alternatives in rg, not a contiguous
 	// selection. Escape all regex metacharacters and explicitly join lines.
@@ -172,10 +197,10 @@ func searchArgs(query, extension string) []string {
 	return append(args, "-e", query, "--", ".")
 }
 
-func runFileSearch(ctx context.Context, executable, dir, query, extension string) (searchResponse, error) {
+func runFileSearch(ctx context.Context, executable, dir, query string, extensions []string) (searchResponse, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, executable, searchArgs(query, extension)...)
+	cmd := exec.CommandContext(ctx, executable, searchArgs(query, extensions)...)
 	cmd.Dir = dir
 	cmd.Stderr = io.Discard // Do not accumulate unbounded diagnostics or leak paths.
 	cmd.WaitDelay = time.Second
@@ -202,6 +227,113 @@ func runFileSearch(ctx context.Context, executable, dir, query, extension string
 		}
 	}
 	return result, nil
+}
+
+type fileExtensionsResponse struct {
+	Directory  string   `json:"directory"`
+	Extensions []string `json:"extensions"`
+}
+
+// GET /api/files/extensions?path=/home/user. Lists the file extensions present
+// under a directory so the search dialog can offer typeahead suggestions.
+func (s *Server) handleFileExtensions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"})
+		return
+	}
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+	dir := r.URL.Query().Get("path")
+	if !filepath.IsAbs(dir) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Choose an absolute directory path"})
+		return
+	}
+	dir = filepath.Clean(dir)
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Directory does not exist or is not accessible"})
+		return
+	}
+	rg, err := exec.LookPath("rg")
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "ripgrep (rg) is not installed on the server"})
+		return
+	}
+	// Share the search subprocess budget; skip suggestions rather than queue
+	// behind (or compete with) an active search.
+	select {
+	case searchSlots <- struct{}{}:
+		defer func() { <-searchSlots }()
+	default:
+		writeJSON(w, http.StatusOK, fileExtensionsResponse{Directory: dir, Extensions: []string{}})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	writeJSON(w, http.StatusOK, fileExtensionsResponse{
+		Directory:  dir,
+		Extensions: listFileExtensions(ctx, rg, dir),
+	})
+}
+
+// listFileExtensions runs ripgrep's file enumeration (respecting ignore files)
+// and returns the most common suffixes, most frequent first. It is best-effort:
+// any failure yields an empty list rather than an error.
+func listFileExtensions(ctx context.Context, executable, dir string) []string {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, executable,
+		"--files", "--no-config", "--color=never",
+		"--glob=!.env", "--glob=!.env.*", "--glob=!**/.*", "--", ".")
+	cmd.Dir = dir
+	cmd.Stderr = io.Discard
+	cmd.WaitDelay = time.Second
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return []string{}
+	}
+	if err = cmd.Start(); err != nil {
+		return []string{}
+	}
+	counts := make(map[string]int)
+	scanner := bufio.NewScanner(io.LimitReader(stdout, searchMaxOutput+1))
+	scanner.Buffer(make([]byte, 4096), searchMaxRecord)
+	for scanner.Scan() {
+		if extension := extensionForName(filepath.Base(scanner.Text())); extension != "" {
+			counts[extension]++
+		}
+	}
+	_ = cmd.Wait()
+	extensions := make([]string, 0, len(counts))
+	for extension := range counts {
+		extensions = append(extensions, extension)
+	}
+	sort.Slice(extensions, func(i, j int) bool {
+		if counts[extensions[i]] != counts[extensions[j]] {
+			return counts[extensions[i]] > counts[extensions[j]]
+		}
+		return extensions[i] < extensions[j]
+	})
+	if len(extensions) > searchMaxExtensions {
+		extensions = extensions[:searchMaxExtensions]
+	}
+	return extensions
+}
+
+// extensionForName returns the suffix after the final dot, or "" when the name
+// has no usable extension. Overlong suffixes are dropped to avoid noise.
+func extensionForName(name string) string {
+	idx := strings.LastIndexByte(name, '.')
+	if idx <= 0 || idx == len(name)-1 {
+		return ""
+	}
+	extension := name[idx+1:]
+	if len(extension) > 16 || !searchExtensionPattern.MatchString(extension) {
+		return ""
+	}
+	return extension
 }
 
 func parseSearchOutput(reader io.Reader, dir string) searchResponse {

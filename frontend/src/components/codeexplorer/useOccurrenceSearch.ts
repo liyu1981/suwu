@@ -6,13 +6,13 @@ export function useOccurrenceSearch(selection: SearchSelection | null) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [directory, setDirectory] = useState('');
-  const [extension, setExtension] = useState('');
+  const [extensions, setExtensions] = useState<string[]>([]);
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
 
-  const search = useCallback(async (text: string, dir: string, ext: string) => {
+  const search = useCallback(async (text: string, dir: string, exts: string[]) => {
     controller.current?.abort();
     const request = new AbortController();
     controller.current = request;
@@ -23,7 +23,7 @@ export function useOccurrenceSearch(selection: SearchSelection | null) {
       const response = await authFetch('/api/files/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: text, directory: dir, extension: ext }),
+        body: JSON.stringify({ query: text, directory: dir, extensions: exts }),
         signal: request.signal,
       });
       const body = await response.json();
@@ -42,11 +42,11 @@ export function useOccurrenceSearch(selection: SearchSelection | null) {
     setOpen(true);
     setQuery(selection.query);
     setDirectory(selection.directory);
-    setExtension(selection.extension);
+    setExtensions(selection.extensions);
     setResult(null);
     setError(null);
     setLoading(false);
-    if (!selection.custom) void search(selection.query, selection.directory, selection.extension);
+    if (!selection.custom) void search(selection.query, selection.directory, selection.extensions);
   }, [selection, search]);
 
   useEffect(() => () => controller.current?.abort(), []);
@@ -59,12 +59,12 @@ export function useOccurrenceSearch(selection: SearchSelection | null) {
 
   // Open the dialog without a selection, e.g. from the toolbar search button.
   // The directory is prefilled and the user types the query themselves.
-  const openSearch = useCallback((dir: string, ext: string) => {
+  const openSearch = useCallback((dir: string, exts: string[]) => {
     controller.current?.abort();
     setOpen(true);
     setQuery('');
     setDirectory(dir);
-    setExtension(ext);
+    setExtensions(exts);
     setResult(null);
     setError(null);
     setLoading(false);
@@ -76,8 +76,8 @@ export function useOccurrenceSearch(selection: SearchSelection | null) {
     setQuery,
     directory,
     setDirectory,
-    extension,
-    setExtension,
+    extensions,
+    setExtensions,
     result,
     loading,
     error,
@@ -85,6 +85,6 @@ export function useOccurrenceSearch(selection: SearchSelection | null) {
     openSearch,
     hasSearch: selection !== null || result !== null,
     reopen: () => setOpen(true),
-    run: () => void search(query, directory, extension),
+    run: () => void search(query, directory, extensions),
   };
 }

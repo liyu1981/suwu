@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
 import { CloseIcon } from '../icons';
-import type { SearchLocation } from './search';
+import { COMMON_EXTENSIONS, type SearchLocation } from './search';
+import { ExtensionPicker } from './ExtensionPicker';
+import { useExtensionSuggestions } from './useExtensionSuggestions';
 import type { useOccurrenceSearch } from './useOccurrenceSearch';
 
 interface Props {
@@ -21,6 +23,11 @@ export function SearchOccurrencesDialog({ search, onNavigate, onRestoreFocus }: 
   const activePathRef = useRef<string | null>(null);
   const navigationVersion = useRef(0);
   const { open, result, loading } = search;
+  const diskExtensions = useExtensionSuggestions(search.directory, open);
+  const suggestions = useMemo(
+    () => Array.from(new Set([...diskExtensions, ...COMMON_EXTENSIONS])),
+    [diskExtensions],
+  );
 
   useEffect(() => {
     navigationVersion.current++;
@@ -138,17 +145,22 @@ export function SearchOccurrencesDialog({ search, onNavigate, onRestoreFocus }: 
               className="mt-1 w-full rounded border border-white/15 bg-black/20 px-2 py-1.5 text-sm outline-none focus:border-white/40"
             />
           </label>
-          <label className="shrink-0 text-xs">
-            {t('codeExplorer.search.extension')}
-            <input
-              value={search.extension}
-              onChange={(event) => search.setExtension(event.target.value)}
-              spellCheck={false}
-              placeholder={t('codeExplorer.search.allExtensions')}
+          <div className="w-52 shrink-0 text-xs">
+            <label
+              htmlFor="occurrence-search-extensions"
               title={t('codeExplorer.search.extensionHint')}
-              className="mt-1 block w-28 rounded border border-white/15 bg-black/20 px-2 py-1.5 text-sm outline-none focus:border-white/40"
-            />
-          </label>
+            >
+              {t('codeExplorer.search.extension')}
+            </label>
+            <div className="mt-1">
+              <ExtensionPicker
+                id="occurrence-search-extensions"
+                value={search.extensions}
+                onChange={search.setExtensions}
+                suggestions={suggestions}
+              />
+            </div>
+          </div>
           <button
             type="submit"
             disabled={!search.directory || !search.query || opening}

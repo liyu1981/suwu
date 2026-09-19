@@ -71,7 +71,7 @@ export function CodeExplorer() {
   // directory, then home.
   const searchDir = activeDir ?? tileDefaultDir ?? homeDir;
   const openSearch = () => {
-    if (searchDir) search.openSearch(searchDir, '');
+    if (searchDir) search.openSearch(searchDir, []);
   };
 
   useEffect(() => {

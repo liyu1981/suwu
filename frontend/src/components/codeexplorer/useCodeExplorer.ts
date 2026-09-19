@@ -435,12 +435,13 @@ export function useCodeExplorer(
           const tab = tabsRef.current.find((candidate) => candidate.model === model);
           if (!selection || selection.isEmpty() || !model || !tab) return;
           const query = model.getValueInRange(selection);
+          const extension = extensionForPath(tab.path);
           setSearchSelection((previous) => ({
             id: (previous?.id ?? 0) + 1,
             query,
             directory: tab.path.slice(0, tab.path.lastIndexOf('/')) || '/',
             custom,
-            extension: extensionForPath(tab.path),
+            extensions: extension ? [extension] : [],
           }));
         },
       });

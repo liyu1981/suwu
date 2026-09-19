@@ -81,7 +81,7 @@ registerTilePlugin({
       key: 'dir',
       label: 'Default directory',
       description:
-        'Absolute directory used when opening or searching files before any tab is active (first file base dir, or cwd for `suwu code .`)',
+        'Absolute directory used when opening or searching files before any tab is active (first file base dir, or the directory for `suwu code <dir>`)',
     },
   ],
   render: (paneId, context?: TileRenderContext) => {

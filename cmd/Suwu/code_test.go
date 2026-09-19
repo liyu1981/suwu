@@ -102,10 +102,30 @@ func TestResolveCodeTargetDot(t *testing.T) {
 	}
 }
 
-func TestResolveCodeTargetRejectsDirectory(t *testing.T) {
+func TestResolveCodeTargetDir(t *testing.T) {
 	dir := t.TempDir()
 
-	if _, _, err := resolveCodeTarget([]string{dir}); err == nil {
-		t.Fatal("expected error for a directory argument")
+	files, defaultDir, err := resolveCodeTarget([]string{dir})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("files = %+v, want none", files)
+	}
+	if defaultDir != dir {
+		t.Fatalf("defaultDir = %q, want %q", defaultDir, dir)
+	}
+}
+
+func TestResolveCodeTargetRejectsDirectoryInList(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	file := filepath.Join(dir, "a.ts")
+	if err := os.WriteFile(file, []byte("one\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := resolveCodeTarget([]string{"a.ts", dir}); err == nil {
+		t.Fatal("expected error for a directory mixed with files")
 	}
 }

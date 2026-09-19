@@ -23,8 +23,8 @@ type codePayload struct {
 	Type  string     `json:"type"`
 	Files []codeFile `json:"files"`
 	// Dir is the Code Explorer's default directory: the first file's base
-	// directory for `suwu code <files>`, or the working directory for
-	// `suwu code .`.
+	// directory for `suwu code <files>`, or the directory itself for
+	// `suwu code <dir>`.
 	Dir string `json:"dir,omitempty"`
 }
 
@@ -106,7 +106,7 @@ func codeMain(args []string) error {
 	}
 
 	if fs.NArg() == 0 {
-		return fmt.Errorf("usage: suwu code [--sock <path>] <path[:start[-end][,start[-end]]...]>... | .")
+		return fmt.Errorf("usage: suwu code [--sock <path>] <path[:start[-end][,start[-end]]...]>... | <dir>")
 	}
 
 	files, defaultDir, err := resolveCodeTarget(fs.Args())
@@ -154,33 +154,46 @@ func codeMain(args []string) error {
 	return nil
 }
 
+// resolveSpec parses one CLI argument into an absolute path, its highlight
+// ranges, and whether the path is a directory.
+func resolveSpec(spec string) (string, []codeRange, bool, error) {
+	rawPath, ranges, err := parseCodeSpec(spec)
+	if err != nil {
+		return "", nil, false, fmt.Errorf("%s: %w", spec, err)
+	}
+	absPath, err := filepath.Abs(rawPath)
+	if err != nil {
+		return "", nil, false, fmt.Errorf("resolve path %s: %w", rawPath, err)
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", nil, false, fmt.Errorf("stat %s: %w", absPath, err)
+	}
+	return absPath, ranges, info.IsDir(), nil
+}
+
 // resolveCodeTarget turns CLI specs into the files to open plus the Code
-// Explorer's default directory. A lone "." is the special form that opens the
-// explorer with no files and the current working directory as the default dir.
+// Explorer's default directory. A single directory argument opens the explorer
+// rooted there with no files — "." is simply the current directory. File
+// arguments open as tabs, with the first file's base directory as the default.
 func resolveCodeTarget(specs []string) ([]codeFile, string, error) {
-	if len(specs) == 1 && specs[0] == "." {
-		cwd, err := os.Getwd()
+	if len(specs) == 1 {
+		absPath, ranges, isDir, err := resolveSpec(specs[0])
 		if err != nil {
-			return nil, "", fmt.Errorf("resolve current directory: %w", err)
+			return nil, "", err
 		}
-		return []codeFile{}, cwd, nil
+		if isDir && len(ranges) == 0 {
+			return []codeFile{}, absPath, nil
+		}
 	}
 
 	files := make([]codeFile, 0, len(specs))
 	for _, spec := range specs {
-		rawPath, ranges, err := parseCodeSpec(spec)
+		absPath, ranges, isDir, err := resolveSpec(spec)
 		if err != nil {
-			return nil, "", fmt.Errorf("%s: %w", spec, err)
+			return nil, "", err
 		}
-		absPath, err := filepath.Abs(rawPath)
-		if err != nil {
-			return nil, "", fmt.Errorf("resolve path %s: %w", rawPath, err)
-		}
-		info, err := os.Stat(absPath)
-		if err != nil {
-			return nil, "", fmt.Errorf("stat %s: %w", absPath, err)
-		}
-		if info.IsDir() {
+		if isDir {
 			return nil, "", fmt.Errorf("%s is a directory", absPath)
 		}
 		files = append(files, codeFile{Path: absPath, Ranges: ranges})

@@ -23,7 +23,7 @@ export function CodeExplorer() {
     [urlParams],
   );
   // Tile default directory handed over by `suwu code`: the first file's base
-  // directory, or the working directory for `suwu code .`.
+  // directory, or the directory itself for `suwu code <dir>`.
   const tileDefaultDir = useMemo(() => {
     const raw = urlParams.get('dir');
     return raw && raw.startsWith('/') ? raw : null;

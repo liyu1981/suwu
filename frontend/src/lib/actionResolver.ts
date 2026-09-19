@@ -199,7 +199,7 @@ export function openDiff(file1: string, file2: string, store: Store): string | n
 /**
  * Open the Code Explorer in a new tile with the given files and highlight
  * ranges. `dir` is the tile's default directory (the first file's base dir,
- * or the working directory for `suwu code .`). Always a fresh tile — no reuse.
+ * or the directory itself for `suwu code <dir>`). Always a fresh tile — no reuse.
  */
 export function openCode(files: CodeFileSpec[], store: Store, dir?: string): string | null {
   const leafId = doSplit(store);

@@ -166,9 +166,9 @@ Usage:
                            open git graph for a repository directory
   suwu diff [--sock <path>] <file1> <file2>
                            open a side-by-side diff view between two files
-  suwu code [--sock <path>] <path[:start[-end][,start[-end]]...]>... | .
+  suwu code [--sock <path>] <path[:start[-end][,start[-end]]...]>... | <dir>
                            open files in the Code Explorer with highlighted lines;
-                           use . to open it at the current directory
+                           a single directory opens it rooted there
   suwu forward [flags] <localport> [targethost] <targetport>
                            create TCP/UDP port forwarding through the server
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
@@ -298,15 +298,15 @@ Examples:
   suwu diff ~/project/v1.go ~/project/v2.go
 `)
 	case "code":
-		fmt.Print(`Usage: suwu code [flags] <path[:ranges]>... | .
+		fmt.Print(`Usage: suwu code [flags] <path[:ranges]>... | <dir>
 
 Open one or more files in the Code Explorer tile. Each argument is a file
 path optionally followed by ':' and a comma-separated list of line ranges
 to highlight, e.g. path:50-55,40-41. A bare path opens without highlights.
 
-Passing a single '.' instead opens the Code Explorer with no file and the
-current working directory as its default directory. For file arguments the
-default directory is the first file's base directory.
+Passing a single directory instead opens the Code Explorer with no file and
+that directory as its default directory (use '.' for the current directory).
+For file arguments the default directory is the first file's base directory.
 
 Flags:
   --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
@@ -317,6 +317,7 @@ Examples:
   suwu code src/a.ts:10-20 src/b.ts
   suwu code /home/me/notes.md:50-55,40-41
   suwu code .
+  suwu code src
 `)
 	case "gencerts":
 		fmt.Print(`Usage: suwu gencerts [flags]

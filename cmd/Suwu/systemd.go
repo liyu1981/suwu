@@ -11,14 +11,19 @@ import (
 
 // systemdServiceTemplate is the unit file for the Suwu user service.
 // ExecStart uses the absolute path to the binary so systemd can find it
-// even without a login session. Environment variables mirror the ones the
-// daemon script sets so `suwu serve` behaves the same way.
+// even without a login session. WorkingDirectory pins the process to the
+// config directory so `suwu serve` resolves its default `./.env` to the
+// onboard-written file, and EnvironmentFile loads that same file as real
+// process environment (optional, so a missing file is not fatal). Together
+// they stop a stray `$HOME/.env` from shadowing the global configuration.
 const systemdServiceTemplate = `[Unit]
 Description=Suwu Terminal Server
 After=network.target
 
 [Service]
 Type=simple
+WorkingDirectory={{.ConfigDir}}
+EnvironmentFile=-{{.ConfigDir}}/.env
 ExecStart={{.Bin}} serve
 Restart=on-failure
 RestartSec=2
@@ -29,6 +34,20 @@ Environment=SUWU_CONFIG_DIR={{.ConfigDir}}
 [Install]
 WantedBy=default.target
 `
+
+// renderSystemdService renders the user service unit for the given paths.
+func renderSystemdService(bin, varDir, configDir string) (string, error) {
+	tmpl, err := template.New("service").Parse(systemdServiceTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parse template: %w", err)
+	}
+	var buf strings.Builder
+	data := struct{ Bin, VarDir, ConfigDir string }{bin, varDir, configDir}
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("render service file: %w", err)
+	}
+	return buf.String(), nil
+}
 
 // servicePaths returns the canonical paths used by the systemd integration.
 func servicePaths() (bin, varDir, configDir, serviceFile string, err error) {
@@ -105,23 +124,14 @@ func installSystemdService() error {
 	}
 
 	// Render the service file from the template.
-	tmpl, err := template.New("service").Parse(systemdServiceTemplate)
+	content, err := renderSystemdService(bin, varDir, configDir)
 	if err != nil {
-		return fmt.Errorf("parse template: %w", err)
+		return err
 	}
 
-	f, err := os.Create(serviceFile)
-	if err != nil {
+	if err := os.WriteFile(serviceFile, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("write service file: %w", err)
 	}
-	defer f.Close()
-
-	data := struct{ Bin, VarDir, ConfigDir string }{bin, varDir, configDir}
-	if err := tmpl.Execute(f, data); err != nil {
-		f.Close()
-		return fmt.Errorf("render service file: %w", err)
-	}
-	f.Close()
 	fmt.Printf("  ✅ wrote %s\n", serviceFile)
 
 	// Reload systemd, enable, and optionally start.

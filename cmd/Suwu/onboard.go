@@ -733,14 +733,22 @@ func collectOnboardRuntime(plan *onboardPlan) error {
 
 	if hasSystemctl() {
 		install := !plan.existingService
+		title := "Install a systemd user service?"
+		description := "Suwu can restart automatically and start on login."
+		if plan.existingService {
+			// Default to refreshing so template fixes reach existing units.
+			install = true
+			title = "Refresh the existing systemd user service?"
+			description = "Rewrites the unit from the current settings; drop-ins are kept."
+		}
 		form = huh.NewForm(huh.NewGroup(
-			huh.NewConfirm().Title("Install a systemd user service?").Description("Suwu can restart automatically and start on login.").Value(&install),
+			huh.NewConfirm().Title(title).Description(description).Value(&install),
 		)).WithTheme(huh.ThemeCatppuccin())
 		if err := form.Run(); err != nil {
 			return fmt.Errorf("service prompt: %w", err)
 		}
-		plan.installService = install && !plan.existingService
-		start := plan.installService
+		plan.installService = install
+		start := install
 		form = huh.NewForm(huh.NewGroup(
 			huh.NewConfirm().Title("Start the Suwu service after setup?").Value(&start),
 		)).WithTheme(huh.ThemeCatppuccin())
@@ -995,7 +1003,10 @@ func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
 				fmt.Println("    skipped by user")
 				return nil
 			}
-			if plan.installService {
+			// Rewrite the unit whenever onboarding installs or refreshes the
+			// service, so template fixes reach an already-installed unit.
+			// systemd drop-ins are left untouched.
+			if plan.installService && hasSystemctl() {
 				if err := installSystemdService(); err != nil {
 					return err
 				}

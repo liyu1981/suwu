@@ -154,7 +154,7 @@ func normalizeSearchExtensions(raw ...string) ([]string, error) {
 				continue
 			}
 			if len(extension) > 64 || !searchExtensionPattern.MatchString(extension) {
-				return nil, errors.New("Enter file extensions such as ts or .tsx, or leave blank for all extensions")
+				return nil, errors.New("enter file extensions such as ts or .tsx, or leave blank for all extensions")
 			}
 			key := strings.ToLower(extension)
 			if seen[key] {
@@ -163,7 +163,7 @@ func normalizeSearchExtensions(raw ...string) ([]string, error) {
 			seen[key] = true
 			extensions = append(extensions, extension)
 			if len(extensions) > searchMaxExtensions {
-				return nil, errors.New("Too many file extensions")
+				return nil, errors.New("too many file extensions")
 			}
 		}
 	}

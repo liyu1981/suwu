@@ -609,13 +609,9 @@ func ValidateAPIRequest(cfg *Config, hostHeader, originHeader, authHeader, query
 		return d, ""
 	}
 
-	// Try HMAC signature first (most secure — raw token never sent).
-	// The caller must send X-Suwu-Signature and X-Suwu-Timestamp headers.
-	// For WebSocket upgrades, the token goes in the query string instead.
-	if cfg.SigningKey != nil {
-		// HMAC signing is checked per-request in the server middleware,
-		// not here — this function handles token-based auth.
-	}
+	// HMAC signatures are verified per-request in the server middleware, not
+	// here; this function handles token-based auth only. For WebSocket
+	// upgrades, the token is sent in the query string instead.
 
 	// Try query token first.
 	if queryToken != "" {

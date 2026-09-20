@@ -101,7 +101,7 @@ func (s *Server) handleDBConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try to list tables (best effort)
-	tables, _ := s.dbSessions.ListTables(session.ID)
+	tables, _ := s.dbSessions.ListTables(r.Context(), session.ID)
 
 	writeJSON(w, http.StatusOK, dbConnectResponse{
 		SessionID: session.ID,
@@ -203,7 +203,7 @@ func (s *Server) handleDBTables(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tables, err := s.dbSessions.ListTables(sessionID)
+	tables, err := s.dbSessions.ListTables(r.Context(), sessionID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return

@@ -141,7 +141,7 @@ func (m *Manager) CloseAll() {
 }
 
 // ListTables returns the tables in the database for a given session.
-func (m *Manager) ListTables(sessionID string) ([]TableInfo, error) {
+func (m *Manager) ListTables(ctx context.Context, sessionID string) ([]TableInfo, error) {
 	session, err := m.Get(sessionID)
 	if err != nil {
 		return nil, err
@@ -152,5 +152,5 @@ func (m *Manager) ListTables(sessionID string) ([]TableInfo, error) {
 		return nil, err
 	}
 
-	return d.ListTables(context.Background(), session.DB())
+	return d.ListTables(ctx, session.DB())
 }

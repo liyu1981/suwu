@@ -198,7 +198,7 @@ func collectInteractive(configDir string, opts options) (hosts []string, outDir 
 					return errors.New("output directory is required")
 				}
 				if err := os.MkdirAll(expanded, 0o700); err != nil {
-					return fmt.Errorf("cannot create %s: %v", expanded, err)
+					return fmt.Errorf("cannot create %s: %w", expanded, err)
 				}
 				return nil
 			}),
@@ -315,7 +315,7 @@ func absDir(dir string) (string, error) {
 		return "", err
 	}
 	if err := os.MkdirAll(abs, 0o700); err != nil {
-		return "", fmt.Errorf("cannot create %s: %v", abs, err)
+		return "", fmt.Errorf("cannot create %s: %w", abs, err)
 	}
 	return abs, nil
 }

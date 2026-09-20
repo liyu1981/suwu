@@ -116,7 +116,6 @@ function TreeView({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showHidden]);
 
   // Auto-expand ancestors of currentPath (re-runs when tree data loads)
@@ -166,7 +165,6 @@ function TreeView({
     if (changed) {
       setRootChildren([...rootChildren]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath, rootChildren, showHidden]);
 
   const toggleNode = useCallback(
@@ -195,7 +193,6 @@ function TreeView({
         }
       }
       setRootChildren((prev) => (prev ? [...prev] : prev));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [showHidden],
   );

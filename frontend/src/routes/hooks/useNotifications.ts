@@ -115,6 +115,5 @@ export function useNotifications() {
       ws?.close();
     };
     // store, maxEntries are stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxEntries]);
 }

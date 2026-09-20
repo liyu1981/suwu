@@ -82,6 +82,5 @@ export function useUpdateCheck() {
     check();
     const interval = setInterval(check, CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxEntries]);
 }

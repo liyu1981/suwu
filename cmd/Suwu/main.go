@@ -579,12 +579,21 @@ func run() error {
 		}
 	}
 
-	// Build the list of servers to start.
+	// Build the list of servers to start. ReadHeaderTimeout bounds slow-loris
+	// header reads without affecting WebSocket connections (which are hijacked
+	// after the handshake).
 	var listeners []srvListener
+	newHTTPServer := func(port int) *http.Server {
+		return &http.Server{
+			Addr:              net.JoinHostPort(cfg.BindHost, strconv.Itoa(port)),
+			Handler:           handler,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+	}
 
 	if mode == "https" || mode == "https+http" {
 		listeners = append(listeners, srvListener{
-			server: &http.Server{Addr: net.JoinHostPort(cfg.BindHost, strconv.Itoa(httpsPort)), Handler: handler},
+			server: newHTTPServer(httpsPort),
 			useTLS: true,
 			port:   httpsPort,
 			source: tlsSource,
@@ -592,7 +601,7 @@ func run() error {
 	}
 	if mode == "http" || mode == "https+http" {
 		listeners = append(listeners, srvListener{
-			server: &http.Server{Addr: net.JoinHostPort(cfg.BindHost, strconv.Itoa(httpPort)), Handler: handler},
+			server: newHTTPServer(httpPort),
 			useTLS: false,
 			port:   httpPort,
 			source: "SERVER_MODE",
@@ -675,7 +684,7 @@ func resolveTLS() (certFile, keyFile, source string, err error) {
 		}
 		for _, p := range pairs {
 			if _, err := os.Stat(p.path); err != nil {
-				return "", "", "", fmt.Errorf("%s: %v\nhint: run 'suwu gencerts' to create a certificate pair", p.label, err)
+				return "", "", "", fmt.Errorf("%s: %w\nhint: run 'suwu gencerts' to create a certificate pair", p.label, err)
 			}
 		}
 		return certFile, keyFile, "TLS_CERT_FILE/TLS_KEY_FILE", nil

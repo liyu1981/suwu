@@ -344,17 +344,12 @@ func installFromReader(r io.Reader, name string, userLocal bool) error {
 }
 
 func installBinary(srcPath, name string, userLocal bool) error {
-	f := mustOpen(srcPath)
+	f, err := os.Open(srcPath)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", srcPath, err)
+	}
 	defer f.Close()
 	return installFromReader(f, name, userLocal)
-}
-
-func mustOpen(path string) *os.File {
-	f, err := os.Open(path)
-	if err != nil {
-		panic(err)
-	}
-	return f
 }
 
 type devenvPlan struct {

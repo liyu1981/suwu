@@ -57,7 +57,7 @@ func compareGit(ctx context.Context, repo string, args ...string) ([]byte, error
 		if ctx.Err() != nil {
 			return nil, fmt.Errorf("comparison cancelled or timed out: %w", ctx.Err())
 		}
-		return nil, errors.New("Git could not read this repository or comparison")
+		return nil, errors.New("git could not read this repository or comparison")
 	}
 	return out.Bytes(), nil
 }

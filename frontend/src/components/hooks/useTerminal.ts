@@ -79,7 +79,6 @@ export function useTerminal(
       t.dispose();
     };
     // Options are static per mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Runtime font change: update the option, then re-fit the grid since the

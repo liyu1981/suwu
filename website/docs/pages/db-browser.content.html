@@ -1,0 +1,124 @@
+<h2>Opening the DB Browser</h2>
+        <p>The DB Browser is a tile like any other — open it alongside your terminals and other apps:</p>
+        <ul>
+          <li><strong>Context menu</strong> — right-click any tile and choose <strong>DB Browser</strong>.</li>
+          <li><strong>Tile picker</strong> — create a new tile and select <strong>DB Browser</strong> from the app list.</li>
+          <li><strong>Tile parameters</strong> — a new DB Browser tile accepts <code>driver</code>, <code>host</code>, <code>port</code>, and <code>database</code> parameters so a connection can be pre-filled when the tile is created.</li>
+        </ul>
+
+        <h2>Supported Databases</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Driver</th>
+              <th>Connection fields</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>SQLite</strong></td>
+              <td>Path to a <code>.db</code> file (including <code>:memory:</code>)</td>
+            </tr>
+            <tr>
+              <td><strong>MySQL</strong></td>
+              <td>Host, port (default <code>3306</code>), database, user, password, SSL mode</td>
+            </tr>
+            <tr>
+              <td><strong>PostgreSQL</strong></td>
+              <td>Host, port (default <code>5432</code>), database, user, password, SSL mode</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>SQLite needs no server — point the driver at a database file on the same machine, or use <code>:memory:</code> for a throwaway database. MySQL and PostgreSQL connect to a server reachable from the Suwu host.</p>
+
+        <h2>Connecting</h2>
+        <p>Pick a driver, fill in the fields, and press <strong>Connect</strong>. The connection is validated and the schema is loaded in one step; any error is shown inline in the dialog.</p>
+        <ul>
+          <li><strong>Recent connections</strong> — every successful connection is remembered (the last five per driver) and offered for one-click reconnect.</li>
+          <li><strong>Saved connections</strong> — pick a recent connection to re-open it, or delete ones you no longer need.</li>
+        </ul>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Credentials</div>
+          <p>Passwords are used for the lifetime of the query session only. They are never written to disk and never included in a saved connection. A saved connection stores the driver, host, port, database, user, and SQLite path — but not the password.</p>
+        </div>
+
+        <h2>Writing Queries</h2>
+        <p>The SQL editor is a Monaco editor with SQL syntax highlighting. Type your statement and run it:</p>
+        <ul>
+          <li><strong>Run</strong> — press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on macOS), or click <strong>Execute</strong>.</li>
+          <li><strong>Status bar</strong> — shows the connection state, the row count, the execution time, and how many rows were affected.</li>
+        </ul>
+
+        <h2>Exploring Results</h2>
+        <p>Query results render in a data table built for wide result sets:</p>
+        <ul>
+          <li><strong>Sort</strong> — click a column header to sort by that column; click again to reverse.</li>
+          <li><strong>Page</strong> — results are paginated 100 rows at a time.</li>
+          <li><strong>Inspect long values</strong> — long cells are truncated; click one to expand it.</li>
+          <li><strong>Read NULLs</strong> — <code>NULL</code> values are dimmed and italic so they stand out from empty strings.</li>
+          <li><strong>Export</strong> — download the current result set as CSV.</li>
+        </ul>
+
+        <h2>Schema Browser</h2>
+        <p>The sidebar lists the tables and views in the connected database. Expand a table to load its columns.</p>
+        <ul>
+          <li><strong>Click a table</strong> to insert <code>SELECT * FROM &lt;table&gt; LIMIT 100</code> into the editor.</li>
+          <li><strong>Count rows</strong> from the table's context action to insert <code>SELECT COUNT(*)</code>.</li>
+          <li><strong>Resize</strong> — drag the divider between the schema panel and the editor.</li>
+        </ul>
+
+        <h2>Limits</h2>
+        <p>Queries are bounded so a large result set can't take down the browser or the server:</p>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Limit</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Rows returned per query</td>
+              <td>10,000 — further rows are dropped and the result is marked truncated</td>
+            </tr>
+            <tr>
+              <td>Query timeout</td>
+              <td>30 seconds</td>
+            </tr>
+            <tr>
+              <td>Idle session timeout</td>
+              <td>30 minutes without activity, then the connection is closed</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Keyboard Shortcuts</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Execute query</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Enter</kbd> / <kbd>Cmd</kbd>+<kbd>Enter</kbd></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Security</div>
+          <p>The DB Browser runs queries from the Suwu host with the credentials you provide. It does not widen Suwu's trust boundary — anyone who can reach the server already has a shell — but treat production databases with care: result sets are returned to the browser, where they can end up in a screenshot or a shared tab.</p>
+        </div>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Keep a DB Browser tile next to a terminal tile for exploratory work: query in the browser, then copy the SQL into a script or migration when it's ready.</p>
+        </div>

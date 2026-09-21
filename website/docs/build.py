@@ -118,6 +118,16 @@ PAGES = [
         "breadcrumb": "Dropbox",
         "active": "dropbox",
         "prev": ("/docs/features/port-forwarding.html", "← Previous", "Port Forwarding"),
+        "next": ("/docs/features/db-browser.html", "Next →", "DB Browser"),
+    },
+    {
+        "url": "/docs/features/db-browser.html",
+        "title": "DB Browser — Suwu Docs",
+        "description": "Connect to SQLite, MySQL, or PostgreSQL and run SQL in a tile.",
+        "lead": "Connect to SQLite, MySQL, or PostgreSQL, write SQL in a Monaco editor, and explore results in a sortable table — right in a tile.",
+        "breadcrumb": "DB Browser",
+        "active": "db-browser",
+        "prev": ("/docs/features/dropbox.html", "← Previous", "Dropbox"),
         "next": ("/docs/features/git-graph.html", "Next →", "Git Graph"),
     },
     {
@@ -127,7 +137,7 @@ PAGES = [
         "lead": "Visualize branch history, commits, and merges in an interactive graph — see your repository's story at a glance.",
         "breadcrumb": "Git Graph",
         "active": "git-graph",
-        "prev": ("/docs/features/dropbox.html", "← Previous", "Dropbox"),
+        "prev": ("/docs/features/db-browser.html", "← Previous", "DB Browser"),
         "next": ("/docs/features/diff-viewer.html", "Next →", "Diff Viewer"),
     },
     {
@@ -158,6 +168,16 @@ PAGES = [
         "breadcrumb": "Appearance &amp; i18n",
         "active": "appearance",
         "prev": ("/docs/features/suwu-cli.html", "← Previous", "Suwu CLI"),
+        "next": ("/docs/features/backgrounds.html", "Next →", "Backgrounds"),
+    },
+    {
+        "url": "/docs/features/backgrounds.html",
+        "title": "Backgrounds — Suwu Docs",
+        "description": "Choose a CPU or WebGPU background for the app shell, with a live preview.",
+        "lead": "Choose the full-viewport background that sits behind your tiles — from an ambient blob to a GPU-rendered seascape or a looping video clip — with a live preview in System Settings.",
+        "breadcrumb": "Backgrounds",
+        "active": "backgrounds",
+        "prev": ("/docs/features/appearance.html", "← Previous", "Appearance &amp; i18n"),
         "next": ("/docs/index.html", "Back to →", "Docs Index"),
     },
 ]
@@ -180,6 +200,7 @@ SIDEBAR_GROUPS = [
         ("file-viewer", "File Viewer", "/docs/features/file-viewer.html"),
         ("port-forwarding", "Port Forwarding", "/docs/features/port-forwarding.html"),
         ("dropbox", "Dropbox", "/docs/features/dropbox.html"),
+        ("db-browser", "DB Browser", "/docs/features/db-browser.html"),
     ]),
     ("Developer Tools", [
         ("git-graph", "Git Graph", "/docs/features/git-graph.html"),
@@ -188,6 +209,7 @@ SIDEBAR_GROUPS = [
     ("CLI &amp; Configuration", [
         ("suwu-cli", "Suwu CLI", "/docs/features/suwu-cli.html"),
         ("appearance", "Appearance &amp; i18n", "/docs/features/appearance.html"),
+        ("backgrounds", "Backgrounds", "/docs/features/backgrounds.html"),
     ]),
 ]
 

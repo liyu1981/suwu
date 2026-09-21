@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Backgrounds — Suwu Docs</title>
+  <meta name="description" content="Choose a CPU or WebGPU background for the app shell, with a live preview." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+            <li><a href="/docs/features/db-browser.html">DB Browser</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+            <li><a href="/docs/features/backgrounds.html" aria-current="page">Backgrounds</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Backgrounds</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Backgrounds</h1>
+        <p class="doc-lead">Choose the full-viewport background that sits behind your tiles — from an ambient blob to a GPU-rendered seascape or a looping video clip — with a live preview in System Settings.</p>
+      </div>
+<div class="prose">
+<h2 id="overview">Overview</h2>
+        <p>Suwu renders a full-viewport background behind the tile grid. It is chosen in <strong>System Settings → Appearance</strong> and stored per browser, so the shell, the tiles, and the background all come back the way you left them.</p>
+        <p>Backgrounds are pluggable: each declares its own tunable parameters, and some ship both a CPU and a WebGPU implementation. Suwu picks the GPU one when your browser supports WebGPU and falls back to the CPU one when it does not. A GPU-only background simply renders nothing on a browser without WebGPU.</p>
+
+        <h2 id="choosing-a-background">Choosing a Background</h2>
+        <p>Open <strong>Settings</strong> (<kbd>Ctrl</kbd>+<kbd>,</kbd>) and switch to the <strong>Appearance</strong> tab:</p>
+        <ul>
+          <li><strong>Live preview</strong> — a small preview above the selector shows exactly what the selected background looks like, sized to the current window's aspect ratio. It updates as soon as you change the selection or a parameter.</li>
+          <li><strong>Primary selector</strong> — lists the backgrounds available to the shell. Engine-backed shader backgrounds are grouped under a single <strong>WebGPU</strong> entry.</li>
+          <li><strong>WebGPU selector</strong> — when the WebGPU group is selected, a second selector chooses which engine background to run.</li>
+          <li><strong>Credit</strong> — backgrounds ported from external work show the author, a link, and any license note below the preview.</li>
+        </ul>
+
+        <div class="callout">
+          <div class="callout-title">WebGPU availability</div>
+          <p>WebGPU requires a secure context (HTTPS or <code>localhost</code>) and a supporting browser. GPU-only backgrounds show a <em>Preview needs WebGPU</em> note when it is unavailable. Everything else keeps working — the shell falls back to a CPU background.</p>
+        </div>
+
+        <h2 id="built-in-backgrounds">Built-in Backgrounds</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Background</th>
+              <th>Backend</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Ambient Blob</strong></td>
+              <td>CPU + WebGPU</td>
+              <td>The default. Soft drifting colour fields; the CPU path automatically replaces the GPU one when WebGPU is unavailable.</td>
+            </tr>
+            <tr>
+              <td><strong>Video</strong></td>
+              <td>CPU</td>
+              <td>Plays a short muted clip you upload. See <a href="#video-clips">Video Clips</a>.</td>
+            </tr>
+            <tr>
+              <td><strong>Matrix Rain</strong></td>
+              <td>WebGPU</td>
+              <td>Falling columns of glyphs with a bright head and fading trail.</td>
+            </tr>
+            <tr>
+              <td><strong>Interactive Fluid</strong></td>
+              <td>WebGPU</td>
+              <td>A compute-driven fluid that reacts to the pointer.</td>
+            </tr>
+            <tr>
+              <td><strong>Seascape</strong></td>
+              <td>WebGPU</td>
+              <td>An animated ocean horizon (port of the Shadertoy by Alexander Alekseev aka TDM).</td>
+            </tr>
+            <tr>
+              <td><strong>Atmospheric Landscape</strong></td>
+              <td>WebGPU</td>
+              <td>Layered terrain and haze (port of the Shadertoy by TekF).</td>
+            </tr>
+            <tr>
+              <td><strong>Rainforest</strong></td>
+              <td>WebGPU</td>
+              <td>A dense procedural forest (Inigo Quilez, used with permission).</td>
+            </tr>
+            <tr>
+              <td><strong>Cosmos in Crystal</strong></td>
+              <td>WebGPU</td>
+              <td>A refracted crystal interior (port of the Shadertoy by nayk).</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="per-background-settings">Per-Background Settings</h2>
+        <p>Each background controls its own parameters, shown below the selector. Common ones include:</p>
+        <ul>
+          <li><strong>Palette</strong> — Ambient Blob can match the active theme or force a light or dark palette.</li>
+          <li><strong>Animation speed</strong> — scales the motion of a shader background.</li>
+          <li><strong>Detail</strong> — caps the shader render budget in megapixels (Low / Medium / High / Ultra / Native), trading sharpness for GPU cost.</li>
+          <li><strong>Colour and opacity</strong> — tint controls, such as the mask drawn over a video.</li>
+        </ul>
+        <p>A parameter change restarts the backend so the new value takes effect. Shader backgrounds share one animation clock, so changing a parameter does not snap the animation back to the start.</p>
+
+        <h2 id="video-clips">Video Clips</h2>
+        <p>The Video background plays short, muted clips without a network round trip:</p>
+        <ul>
+          <li><strong>Upload</strong> — pick MP4, WebM, or Matroska files. Each clip is copied into this browser's private storage (OPFS) with a thumbnail, so it stays available across reloads and is never uploaded to the server.</li>
+          <li><strong>Fit</strong> — <em>Auto-crop (cover)</em> fills the viewport and crops the overflow, or <em>Stretch to fill</em> distorts the clip to the viewport.</li>
+          <li><strong>Playback speed</strong> — from <code>0.25×</code> to <code>2×</code>.</li>
+          <li><strong>Smooth loop</strong> — crossfades the last two seconds into the start to hide the jump at the loop point. Off by default and skipped for clips shorter than four seconds.</li>
+          <li><strong>Mask</strong> — a colour and opacity tint drawn over the video. The default is the same translucent white as the tile panel, so the tiles stay readable.</li>
+        </ul>
+        <p>Clips longer than 30 seconds are flagged as too long for a background. Decoding is done lazily with backpressure, so memory stays bounded regardless of clip length; load and codec failures are reported on the canvas itself.</p>
+
+        <h2 id="performance">Performance</h2>
+        <ul>
+          <li><strong>WebGPU first</strong> — when the browser and context support it, Suwu runs the GPU backend and moves the work off the main thread.</li>
+          <li><strong>CPU fallback</strong> — Ambient Blob and Video have canvas-based backends that keep rendering without WebGPU. The CPU path is frame-capped and pauses while the tab is hidden or the window is blurred.</li>
+          <li><strong>Reduced motion</strong> — when <code>prefers-reduced-motion: reduce</code> is set, backgrounds settle to a static frame instead of animating.</li>
+          <li><strong>Detail caps</strong> — shader backgrounds render to a bounded megapixel budget, so a 4K viewport does not cost proportionally more.</li>
+        </ul>
+
+        <h2 id="debug-overrides">Debug Overrides</h2>
+        <p>To force a backend for testing, append a query parameter to the URL:</p>
+
+<pre><code>?bg=gpu    # force the WebGPU backend
+?bg=cpu    # force the CPU fallback
+?bg=auto   # automatic (default)</code></pre>
+
+        <p>You can also persist a choice with <code>localStorage.setItem('suwu.bg', 'cpu')</code>. The background itself is always chosen in System Settings.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>A subtle CPU-friendly background keeps the interface fast on low-power machines. Use the live preview to judge a choice before committing, and dial the tile glass alpha up if a busy background hurts readability.</p>
+        </div>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/appearance.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Appearance &amp; i18n</span>
+        </a>
+        <a href="/docs/index.html" class="doc-nav-next">
+          <span class="doc-nav-label">Back to →</span>
+          <span class="doc-nav-title">Docs Index</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#overview">Overview</a></li>
+<li><a href="#choosing-a-background">Choosing a Background</a></li>
+<li><a href="#built-in-backgrounds">Built-in Backgrounds</a></li>
+<li><a href="#per-background-settings">Per-Background Settings</a></li>
+<li><a href="#video-clips">Video Clips</a></li>
+<li><a href="#performance">Performance</a></li>
+<li><a href="#debug-overrides">Debug Overrides</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<h2>Overview</h2>
+        <p>Suwu renders a full-viewport background behind the tile grid. It is chosen in <strong>System Settings → Appearance</strong> and stored per browser, so the shell, the tiles, and the background all come back the way you left them.</p>
+        <p>Backgrounds are pluggable: each declares its own tunable parameters, and some ship both a CPU and a WebGPU implementation. Suwu picks the GPU one when your browser supports WebGPU and falls back to the CPU one when it does not. A GPU-only background simply renders nothing on a browser without WebGPU.</p>
+
+        <h2>Choosing a Background</h2>
+        <p>Open <strong>Settings</strong> (<kbd>Ctrl</kbd>+<kbd>,</kbd>) and switch to the <strong>Appearance</strong> tab:</p>
+        <ul>
+          <li><strong>Live preview</strong> — a small preview above the selector shows exactly what the selected background looks like, sized to the current window's aspect ratio. It updates as soon as you change the selection or a parameter.</li>
+          <li><strong>Primary selector</strong> — lists the backgrounds available to the shell. Engine-backed shader backgrounds are grouped under a single <strong>WebGPU</strong> entry.</li>
+          <li><strong>WebGPU selector</strong> — when the WebGPU group is selected, a second selector chooses which engine background to run.</li>
+          <li><strong>Credit</strong> — backgrounds ported from external work show the author, a link, and any license note below the preview.</li>
+        </ul>
+
+        <div class="callout">
+          <div class="callout-title">WebGPU availability</div>
+          <p>WebGPU requires a secure context (HTTPS or <code>localhost</code>) and a supporting browser. GPU-only backgrounds show a <em>Preview needs WebGPU</em> note when it is unavailable. Everything else keeps working — the shell falls back to a CPU background.</p>
+        </div>
+
+        <h2>Built-in Backgrounds</h2>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Background</th>
+              <th>Backend</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Ambient Blob</strong></td>
+              <td>CPU + WebGPU</td>
+              <td>The default. Soft drifting colour fields; the CPU path automatically replaces the GPU one when WebGPU is unavailable.</td>
+            </tr>
+            <tr>
+              <td><strong>Video</strong></td>
+              <td>CPU</td>
+              <td>Plays a short muted clip you upload. See <a href="#video-clips">Video Clips</a>.</td>
+            </tr>
+            <tr>
+              <td><strong>Matrix Rain</strong></td>
+              <td>WebGPU</td>
+              <td>Falling columns of glyphs with a bright head and fading trail.</td>
+            </tr>
+            <tr>
+              <td><strong>Interactive Fluid</strong></td>
+              <td>WebGPU</td>
+              <td>A compute-driven fluid that reacts to the pointer.</td>
+            </tr>
+            <tr>
+              <td><strong>Seascape</strong></td>
+              <td>WebGPU</td>
+              <td>An animated ocean horizon (port of the Shadertoy by Alexander Alekseev aka TDM).</td>
+            </tr>
+            <tr>
+              <td><strong>Atmospheric Landscape</strong></td>
+              <td>WebGPU</td>
+              <td>Layered terrain and haze (port of the Shadertoy by TekF).</td>
+            </tr>
+            <tr>
+              <td><strong>Rainforest</strong></td>
+              <td>WebGPU</td>
+              <td>A dense procedural forest (Inigo Quilez, used with permission).</td>
+            </tr>
+            <tr>
+              <td><strong>Cosmos in Crystal</strong></td>
+              <td>WebGPU</td>
+              <td>A refracted crystal interior (port of the Shadertoy by nayk).</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Per-Background Settings</h2>
+        <p>Each background controls its own parameters, shown below the selector. Common ones include:</p>
+        <ul>
+          <li><strong>Palette</strong> — Ambient Blob can match the active theme or force a light or dark palette.</li>
+          <li><strong>Animation speed</strong> — scales the motion of a shader background.</li>
+          <li><strong>Detail</strong> — caps the shader render budget in megapixels (Low / Medium / High / Ultra / Native), trading sharpness for GPU cost.</li>
+          <li><strong>Colour and opacity</strong> — tint controls, such as the mask drawn over a video.</li>
+        </ul>
+        <p>A parameter change restarts the backend so the new value takes effect. Shader backgrounds share one animation clock, so changing a parameter does not snap the animation back to the start.</p>
+
+        <h2 id="video-clips">Video Clips</h2>
+        <p>The Video background plays short, muted clips without a network round trip:</p>
+        <ul>
+          <li><strong>Upload</strong> — pick MP4, WebM, or Matroska files. Each clip is copied into this browser's private storage (OPFS) with a thumbnail, so it stays available across reloads and is never uploaded to the server.</li>
+          <li><strong>Fit</strong> — <em>Auto-crop (cover)</em> fills the viewport and crops the overflow, or <em>Stretch to fill</em> distorts the clip to the viewport.</li>
+          <li><strong>Playback speed</strong> — from <code>0.25×</code> to <code>2×</code>.</li>
+          <li><strong>Smooth loop</strong> — crossfades the last two seconds into the start to hide the jump at the loop point. Off by default and skipped for clips shorter than four seconds.</li>
+          <li><strong>Mask</strong> — a colour and opacity tint drawn over the video. The default is the same translucent white as the tile panel, so the tiles stay readable.</li>
+        </ul>
+        <p>Clips longer than 30 seconds are flagged as too long for a background. Decoding is done lazily with backpressure, so memory stays bounded regardless of clip length; load and codec failures are reported on the canvas itself.</p>
+
+        <h2>Performance</h2>
+        <ul>
+          <li><strong>WebGPU first</strong> — when the browser and context support it, Suwu runs the GPU backend and moves the work off the main thread.</li>
+          <li><strong>CPU fallback</strong> — Ambient Blob and Video have canvas-based backends that keep rendering without WebGPU. The CPU path is frame-capped and pauses while the tab is hidden or the window is blurred.</li>
+          <li><strong>Reduced motion</strong> — when <code>prefers-reduced-motion: reduce</code> is set, backgrounds settle to a static frame instead of animating.</li>
+          <li><strong>Detail caps</strong> — shader backgrounds render to a bounded megapixel budget, so a 4K viewport does not cost proportionally more.</li>
+        </ul>
+
+        <h2>Debug Overrides</h2>
+        <p>To force a backend for testing, append a query parameter to the URL:</p>
+
+<pre><code>?bg=gpu    # force the WebGPU backend
+?bg=cpu    # force the CPU fallback
+?bg=auto   # automatic (default)</code></pre>
+
+        <p>You can also persist a choice with <code>localStorage.setItem('suwu.bg', 'cpu')</code>. The background itself is always chosen in System Settings.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>A subtle CPU-friendly background keeps the interface fast on low-power machines. Use the live preview to judge a choice before committing, and dial the tile glass alpha up if a busy background hurts readability.</p>
+        </div>

@@ -28,6 +28,16 @@
     "install_cmd": "if ldconfig -p 2>/dev/null | grep -q libatomic; then exit 0; fi; if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y libatomic1; elif command -v dnf >/dev/null 2>&1; then dnf install -y libatomic; elif command -v yum >/dev/null 2>&1; then yum install -y libatomic; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm gcc-libs; elif command -v apk >/dev/null 2>&1; then apk add libatomic; else echo ' unsupported package manager — install libatomic1 manually' && exit 1; fi"
   },
   {
+    "id": "curl",
+    "name": "curl",
+    "category": "essential",
+    "default_selected": true,
+    "hidden": true,
+    "description": "Transfer tool required by several installers",
+    "check_binary": "curl",
+    "install_cmd": "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y curl; elif command -v dnf >/dev/null 2>&1; then dnf install -y curl; elif command -v yum >/dev/null 2>&1; then yum install -y curl; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm curl; elif command -v apk >/dev/null 2>&1; then apk add curl; else echo ' unsupported package manager — install curl manually' && exit 1; fi"
+  },
+  {
     "id": "ripgrep",
     "name": "ripgrep",
     "category": "essential",
@@ -62,8 +72,8 @@
     "default_selected": true,
     "description": "Node.js LTS via asdf",
     "check_binary": "node",
-    "depends": "asdf,libatomic1",
-    "install_cmd": "asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git && NODE_VERSION=$(curl -s https://nodejs.org/dist/index.json | grep -o '\"version\":\"v[^\"]*\"' | head -1 | sed -E 's/.*\"version\":\"v([^\"]+)\".*/\\1/') && asdf install nodejs $NODE_VERSION && asdf set -u nodejs $NODE_VERSION && asdf reshim nodejs"
+    "depends": "asdf,libatomic1,curl",
+    "install_cmd": "asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git && asdf install nodejs 24.21.0 && asdf set -u nodejs 24.21.0 && asdf reshim nodejs"
   },
   {
     "id": "pnpm",
@@ -72,8 +82,8 @@
     "default_selected": true,
     "description": "Frontend package manager",
     "check_binary": "pnpm",
-    "depends": "asdf-nodejs",
-    "install_cmd": "corepack enable && corepack prepare pnpm@latest --activate"
+    "depends": "asdf-nodejs,curl",
+    "install_cmd": "curl -fsSL https://get.pnpm.io/install.sh | sh -"
   },
   {
     "id": "fzf",

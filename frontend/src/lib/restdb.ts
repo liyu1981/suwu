@@ -133,21 +133,25 @@ export async function restCount(store: RestStore): Promise<number> {
 
 /**
  * Prune the history store down to MAX_HISTORY entries, deleting the oldest by
- * the `timestamp` index (the same FIFO cleanup the source project uses).
+ * the `timestamp` index and their stored responses (the same FIFO cleanup the
+ * source project uses).
  */
 export async function pruneRestHistory(): Promise<void> {
   try {
     const count = await restCount('history');
     if (count <= MAX_HISTORY) return;
-    let toDelete = count - MAX_HISTORY;
     const db = await openRestDB();
     await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction('history', 'readwrite');
+      const transaction = db.transaction(['history', 'responses'], 'readwrite');
+      const responseStore = transaction.objectStore('responses');
       const index = transaction.objectStore('history').index('timestamp');
+      let toDelete = count - MAX_HISTORY;
       const cursorRequest = index.openCursor();
       cursorRequest.onsuccess = () => {
         const cursor = cursorRequest.result;
         if (cursor && toDelete > 0) {
+          const record = cursor.value as { id?: string };
+          if (record?.id) responseStore.delete(record.id);
           cursor.delete();
           toDelete -= 1;
           cursor.continue();

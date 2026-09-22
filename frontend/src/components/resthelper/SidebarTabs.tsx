@@ -7,6 +7,7 @@ interface Props {
   history: RestHistoryEntry[];
   collections: RestCollection[];
   onOpenHistory: (entry: RestHistoryEntry) => void;
+  onDuplicateHistory: (entry: RestHistoryEntry) => void;
   onOpenSaved: (saved: SavedRequest) => void;
   onRemoveHistory: (id: string) => void;
   onClearHistory: () => void;
@@ -20,6 +21,7 @@ export default function SidebarTabs({
   history,
   collections,
   onOpenHistory,
+  onDuplicateHistory,
   onOpenSaved,
   onRemoveHistory,
   onClearHistory,
@@ -49,6 +51,7 @@ export default function SidebarTabs({
           <HistoryList
             entries={history}
             onOpen={onOpenHistory}
+            onDuplicate={onDuplicateHistory}
             onRemove={onRemoveHistory}
             onClear={onClearHistory}
           />

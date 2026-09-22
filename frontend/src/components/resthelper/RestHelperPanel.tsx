@@ -54,7 +54,7 @@ export function RestHelperPanel({ paneId }: { paneId?: string }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useAtom(restDraftAtom);
   const [options, setOptions] = useAtom(restOptionsAtom);
-  const { state, execute, cancel } = useRestRequest();
+  const { state, execute, cancel, restore, clear } = useRestRequest();
   const history = useRestHistory();
   const collections = useRestCollections();
   const cookieJar = useRestCookies();
@@ -126,15 +126,18 @@ export function RestHelperPanel({ paneId }: { paneId?: string }) {
     const response = await execute(payload);
     if (!response) return;
 
-    void history.add({
-      id: newId('hist'),
-      method: payload.method,
-      url: payload.url,
-      status: response.status,
-      durationMs: response.durationMs,
-      timestamp: Date.now(),
-      request: cloneDraft({ ...draft, url }),
-    });
+    void history.add(
+      {
+        id: newId('hist'),
+        method: payload.method,
+        url: payload.url,
+        status: response.status,
+        durationMs: response.durationMs,
+        timestamp: Date.now(),
+        request: cloneDraft({ ...draft, url }),
+      },
+      response,
+    );
 
     if (options.captureCookies && response.status !== 0) {
       cookieJar.capture(url, response);
@@ -166,6 +169,30 @@ export function RestHelperPanel({ paneId }: { paneId?: string }) {
     [collections, draft],
   );
 
+  /** Open a history entry: restore the request and its saved response. */
+  const openHistory = useCallback(
+    async (entry: RestHistoryEntry) => {
+      const request = cloneDraft(entry.request);
+      setDraft(request);
+      const stored = await history.getResponse(entry.id);
+      if (stored) {
+        restore(stored, toSendPayload(request, options, navigator.userAgent, ''));
+      } else {
+        clear();
+      }
+    },
+    [setDraft, history, restore, clear, options],
+  );
+
+  /** Duplicate a history entry into a fresh request without its result. */
+  const duplicateHistory = useCallback(
+    (entry: RestHistoryEntry) => {
+      setDraft(cloneDraft(entry.request));
+      clear();
+    },
+    [setDraft, clear],
+  );
+
   return (
     <CommonTileContainer
       paneId={paneId}
@@ -191,8 +218,12 @@ export function RestHelperPanel({ paneId }: { paneId?: string }) {
             <SidebarTabs
               history={history.entries}
               collections={collections.collections}
-              onOpenHistory={(entry: RestHistoryEntry) => setDraft(cloneDraft(entry.request))}
-              onOpenSaved={(savedRequest) => setDraft(cloneDraft(savedRequest.request))}
+              onOpenHistory={(entry: RestHistoryEntry) => void openHistory(entry)}
+              onDuplicateHistory={duplicateHistory}
+              onOpenSaved={(savedRequest) => {
+                setDraft(cloneDraft(savedRequest.request));
+                clear();
+              }}
               onRemoveHistory={(id) => void history.remove(id)}
               onClearHistory={() => void history.clear()}
               onRemoveRequest={(collectionId, requestId) =>

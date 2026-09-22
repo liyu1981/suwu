@@ -88,6 +88,8 @@ export interface RestResponseData {
   insecureTLS: boolean;
   error?: string;
   errorKind?: string;
+  /** Set when a stored response's body was too large to keep in IndexedDB. */
+  bodyOmitted?: boolean;
 }
 
 export interface RestResponseState {
@@ -105,6 +107,13 @@ export interface RestHistoryEntry {
   durationMs: number;
   timestamp: number;
   request: RestRequestDraft;
+}
+
+/** A response snapshot persisted in IndexedDB, keyed by its history entry id. */
+export interface RestStoredResponse {
+  id: string;
+  timestamp: number;
+  response: RestResponseData;
 }
 
 export interface SavedRequest {
@@ -189,6 +198,9 @@ export const restResponseAtom = atom<RestResponseState>({
 });
 
 export const DEFAULT_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+
+/** Stored responses larger than this keep status/headers but drop the body. */
+export const MAX_STORED_BODY_BYTES = 2 * 1024 * 1024;
 
 /** Build the backend payload from a draft, options, and the browser UA. */
 export function toSendPayload(

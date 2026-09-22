@@ -1,9 +1,10 @@
-import { TrashIcon } from '../icons';
+import { CopyIcon, TrashIcon } from '../icons';
 import type { RestHistoryEntry } from '../../store/resthelper';
 
 interface Props {
   entries: RestHistoryEntry[];
   onOpen: (entry: RestHistoryEntry) => void;
+  onDuplicate: (entry: RestHistoryEntry) => void;
   onRemove: (id: string) => void;
   onClear: () => void;
 }
@@ -15,7 +16,7 @@ function timeLabel(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function HistoryList({ entries, onOpen, onRemove, onClear }: Props) {
+export default function HistoryList({ entries, onOpen, onDuplicate, onRemove, onClear }: Props) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between px-2 pb-1">
@@ -53,6 +54,15 @@ export default function HistoryList({ entries, onOpen, onRemove, onClear }: Prop
                   <span>{entry.durationMs}ms</span>
                   <span>{timeLabel(entry.timestamp)}</span>
                 </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => onDuplicate(entry)}
+                aria-label="Duplicate as a new request"
+                title="Duplicate as a new request"
+                className="grid h-5 w-5 shrink-0 place-items-center rounded text-white/20 opacity-0 transition-opacity hover:bg-cyan-500/15 hover:text-cyan-300 group-hover:opacity-100"
+              >
+                <CopyIcon className="h-3 w-3" />
               </button>
               <button
                 type="button"

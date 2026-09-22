@@ -269,6 +269,18 @@ function renderBody(
     );
   }
 
+  if (response.bodyOmitted) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center">
+        <div className="text-xs font-semibold text-amber-300">Response body not stored</div>
+        <div className="text-[11px] text-white/45">
+          {formatBytes(response.bodySize)} exceeded the storage limit. Re-send the request to view
+          it.
+        </div>
+      </div>
+    );
+  }
+
   if (view === 'auto' && isBinaryContentType(ctx.contentType)) {
     if (/image\//i.test(ctx.contentType)) {
       return (

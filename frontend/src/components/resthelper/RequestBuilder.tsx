@@ -67,7 +67,7 @@ export default function RequestBuilder({
   onRemoveCookie,
   onClearCookies,
 }: Props) {
-  const [tab, setTab] = useState<BuilderTab>('headers');
+  const [tab, setTab] = useState<BuilderTab>('body');
   const [copied, setCopied] = useState(false);
 
   const copyCurl = async () => {

@@ -100,5 +100,22 @@ export function useRestRequest() {
     abortRef.current?.abort();
   }, []);
 
-  return { state, execute, cancel };
+  /** Show a previously stored response without re-sending the request. */
+  const restore = useCallback(
+    (response: RestResponseData, request: RestSendPayload) => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setState({ loading: false, response, request, sentAt: Date.now() });
+    },
+    [setState],
+  );
+
+  /** Clear the response surface (e.g. when duplicating into a fresh request). */
+  const clear = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setState({ loading: false, response: null, request: null, sentAt: 0 });
+  }, [setState]);
+
+  return { state, execute, cancel, restore, clear };
 }

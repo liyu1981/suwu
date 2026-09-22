@@ -373,7 +373,7 @@ func onboardSections(plan *onboardPlan, sections []onboardSection) error {
 			Affirmative("Apply").
 			Negative("Cancel").
 			Value(&confirmed),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("final confirmation: %w", err)
 	}
@@ -517,7 +517,7 @@ func collectOnboardProfile(plan *onboardPlan) error {
 				huh.NewOption("Advanced configuration", string(profileCustom)),
 			).
 			Value(&choice),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("profile prompt: %w", err)
 	}
@@ -567,7 +567,7 @@ func collectOnboardServer(plan *onboardPlan) error {
 		huh.NewInput().Title("HTTP port").Value(&httpPort),
 		huh.NewInput().Title("Extra hosts (comma-separated, optional)").Value(&extraHosts),
 		huh.NewInput().Title("Detached session timeout").Description("Go duration, for example 24h or 30m").Value(&ttl),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("server settings prompt: %w", err)
 	}
@@ -579,7 +579,7 @@ func collectOnboardServer(plan *onboardPlan) error {
 		var customHost string
 		customForm := huh.NewForm(huh.NewGroup(
 			huh.NewInput().Title("Enter the bind address").Placeholder("0.0.0.0 or myhost.local").Value(&customHost),
-		)).WithTheme(huh.ThemeCatppuccin())
+		)).WithTheme(tuiTheme())
 		if err := customForm.Run(); err != nil {
 			return fmt.Errorf("custom host prompt: %w", err)
 		}
@@ -629,7 +629,7 @@ func collectOnboardAuth(plan *onboardPlan) error {
 	}
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Connection password").Options(options...).Value(&mode),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("authentication prompt: %w", err)
 	}
@@ -650,7 +650,7 @@ func collectOnboardAuth(plan *onboardPlan) error {
 	form = huh.NewForm(huh.NewGroup(
 		huh.NewInput().Title("Set a connection password").Description("Use at least 12 characters.").EchoMode(huh.EchoModePassword).Value(&password),
 		huh.NewInput().Title("Confirm password").EchoMode(huh.EchoModePassword).Value(&confirm),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("password prompt: %w", err)
 	}
@@ -680,7 +680,7 @@ func collectOnboardTLS(plan *onboardPlan) error {
 	}
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("TLS certificate setup").Options(options...).Value(&mode),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("TLS prompt: %w", err)
 	}
@@ -708,7 +708,7 @@ func collectOnboardRuntime(plan *onboardPlan) error {
 				huh.NewOption("Custom directory", "custom"),
 			).
 			Value(&varDirChoice),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("data directory prompt: %w", err)
 	}
@@ -721,7 +721,7 @@ func collectOnboardRuntime(plan *onboardPlan) error {
 		var custom string
 		customForm := huh.NewForm(huh.NewGroup(
 			huh.NewInput().Title("Enter the data directory").Value(&custom),
-		)).WithTheme(huh.ThemeCatppuccin())
+		)).WithTheme(tuiTheme())
 		if err := customForm.Run(); err != nil {
 			return fmt.Errorf("data directory prompt: %w", err)
 		}
@@ -743,7 +743,7 @@ func collectOnboardRuntime(plan *onboardPlan) error {
 		}
 		form = huh.NewForm(huh.NewGroup(
 			huh.NewConfirm().Title(title).Description(description).Value(&install),
-		)).WithTheme(huh.ThemeCatppuccin())
+		)).WithTheme(tuiTheme())
 		if err := form.Run(); err != nil {
 			return fmt.Errorf("service prompt: %w", err)
 		}
@@ -751,7 +751,7 @@ func collectOnboardRuntime(plan *onboardPlan) error {
 		start := install
 		form = huh.NewForm(huh.NewGroup(
 			huh.NewConfirm().Title("Start the Suwu service after setup?").Value(&start),
-		)).WithTheme(huh.ThemeCatppuccin())
+		)).WithTheme(tuiTheme())
 		if err := form.Run(); err != nil {
 			return fmt.Errorf("service start prompt: %w", err)
 		}
@@ -767,7 +767,7 @@ func collectOnboardShellIntegration(plan *onboardPlan) error {
 			Title("Apply shell integration?").
 			Description("Add ~/.local/bin and asdf shims to your shell configuration.").
 			Value(&apply),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("shell integration prompt: %w", err)
 	}
@@ -813,7 +813,7 @@ func reviewOnboardPlan(plan *onboardPlan) (bool, error) {
 					huh.NewOption("Cancel without changes", "cancel"),
 				).
 				Value(&action),
-		)).WithTheme(huh.ThemeCatppuccin())
+		)).WithTheme(tuiTheme())
 		if err := form.Run(); err != nil {
 			return false, fmt.Errorf("review action: %w", err)
 		}
@@ -826,7 +826,7 @@ func reviewOnboardPlan(plan *onboardPlan) (bool, error) {
 					Affirmative("Execute").
 					Negative("Back").
 					Value(&confirmed),
-			)).WithTheme(huh.ThemeCatppuccin())
+			)).WithTheme(tuiTheme())
 			if err := confirmForm.Run(); err != nil {
 				return false, fmt.Errorf("final confirmation: %w", err)
 			}
@@ -857,7 +857,7 @@ func editOnboardSection(plan *onboardPlan) error {
 				huh.NewOption("Shell integration", string(sectionShell)),
 			).
 			Value(&section),
-	)).WithTheme(huh.ThemeCatppuccin())
+	)).WithTheme(tuiTheme())
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("edit section prompt: %w", err)
 	}

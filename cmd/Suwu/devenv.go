@@ -412,7 +412,7 @@ func collectDevenvPlan() (devenvPlan, error) {
 				Title("Install missing essential development tools?").
 				Description("These tools support frontend development and recovery.").
 				Value(&install),
-		)).WithTheme(huh.ThemeCatppuccin())
+		)).WithTheme(tuiTheme())
 		if err := form.Run(); err != nil {
 			return devenvPlan{}, fmt.Errorf("essential tools prompt: %w", err)
 		}
@@ -441,7 +441,7 @@ func collectDevenvPlan() (devenvPlan, error) {
 				Options(advancedOptions...).
 				Value(&selected).
 				Filterable(true),
-		)).WithTheme(huh.ThemeCatppuccin())
+		)).WithTheme(tuiTheme())
 		if err := form.Run(); err != nil {
 			return devenvPlan{}, fmt.Errorf("advanced tools prompt: %w", err)
 		}

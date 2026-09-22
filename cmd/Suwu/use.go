@@ -172,7 +172,7 @@ func selectDisplay(displays []string) (string, error) {
 				Title("Select X display to use").
 				Options(options...).
 				Value(&selected),
-		)).WithTheme(huh.ThemeCatppuccin())
+		)).WithTheme(tuiTheme())
 
 		if err := form.Run(); err != nil {
 			return "", fmt.Errorf("interactive prompt: %w", err)

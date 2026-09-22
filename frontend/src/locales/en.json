@@ -215,7 +215,10 @@
     "daysAgo": "{{count}}d ago",
     "upgrade": "Upgrade",
     "upgrading": "Upgrading…",
-    "checkForUpdates": "Check for updates"
+    "checkForUpdates": "Check for updates",
+    "upgradeConfirmTitle": "Upgrade Suwu?",
+    "upgradeConfirmBody": "Upgrading restarts the Suwu server. Any unsaved work will be lost, and you will be logged out automatically.",
+    "confirmUpgrade": "Upgrade now"
   },
   "filebrowser": {
     "today": "Today",

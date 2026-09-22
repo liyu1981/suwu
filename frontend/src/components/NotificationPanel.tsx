@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAtom, useSetAtom, useStore } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { executeAction, type Store } from '../lib/actionResolver';
-import { authFetch } from '../lib/api';
+import { authFetch, logout } from '../lib/api';
 import {
   maxEntriesAtom,
   notificationsAtom,
@@ -12,6 +12,7 @@ import {
 } from '../store/notifications';
 import { upgradingAtom } from '../store/update';
 import { BellIcon, CheckIcon, CloseIcon, CopyIcon } from './icons';
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
 const TRUNCATE_LEN = 140;
 
@@ -30,13 +31,21 @@ function relativeTime(
   return t('notifications.daysAgo', { count: d });
 }
 
-function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) => void }) {
+function MessageRow({
+  n,
+  onRead,
+  onUpgrade,
+  upgrading,
+}: {
+  n: Notification;
+  onRead: (n: Notification) => void;
+  onUpgrade: (n: Notification) => void;
+  upgrading: boolean;
+}) {
   const { t } = useTranslation();
   const store: Store = useStore();
   const setOpen = useSetAtom(panelOpenAtom);
-  const setUpgrading = useSetAtom(upgradingAtom);
   const setNotifications = useSetAtom(notificationsAtom);
-  const [upgradingLocal, setUpgradingLocal] = useState(false);
   const needsTruncation = n.message.length > TRUNCATE_LEN;
 
   const handleDismiss = () => {
@@ -49,28 +58,6 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
     if (n.data && !isUpgrade) {
       executeAction(n.data, store);
       setOpen(false);
-    }
-  };
-
-  const handleUpgrade = async () => {
-    setUpgradingLocal(true);
-    setUpgrading(true);
-    try {
-      const res = await authFetch('/api/update/upgrade', { method: 'POST' });
-      if (res.ok) {
-        // Remove the update notification.
-        setNotifications((prev) => prev.filter((x) => x.id !== n.id));
-        // Show a brief "upgrading" message then the server will restart.
-        setTimeout(() => {
-          // The server is restarting — the page will auto-reconnect.
-        }, 1000);
-      } else {
-        setUpgradingLocal(false);
-        setUpgrading(false);
-      }
-    } catch {
-      setUpgradingLocal(false);
-      setUpgrading(false);
     }
   };
 
@@ -105,15 +92,15 @@ function MessageRow({ n, onRead }: { n: Notification; onRead: (n: Notification) 
         {n.data && (
           <button
             type="button"
-            onClick={isUpgrade ? handleUpgrade : handleAction}
-            disabled={upgradingLocal}
+            onClick={isUpgrade ? () => onUpgrade(n) : handleAction}
+            disabled={isUpgrade && upgrading}
             className={`rounded px-2 py-0.5 text-xs font-medium transition ${
               isUpgrade
                 ? 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 hover:text-emerald-200 disabled:opacity-50'
                 : 'bg-sky-500/15 text-sky-300 hover:bg-sky-500/25 hover:text-sky-200'
             }`}
           >
-            {upgradingLocal ? t('notifications.upgrading') : actionLabel}
+            {isUpgrade && upgrading ? t('notifications.upgrading') : actionLabel}
           </button>
         )}
         {needsTruncation && (
@@ -199,12 +186,15 @@ export function NotificationPanel() {
   const [notifications, setNotifications] = useAtom(notificationsAtom);
   const [, setUnread] = useAtom(unreadCountAtom);
   const [maxEntries] = useAtom(maxEntriesAtom);
+  const [upgrading, setUpgrading] = useAtom(upgradingAtom);
   const listRef = useRef<HTMLDivElement>(null);
   const [readerMsg, setReaderMsg] = useState<string | null>(null);
+  const [upgradeTarget, setUpgradeTarget] = useState<Notification | null>(null);
 
-  // Escape closes.
+  // Escape closes. While the upgrade confirmation is open, let the dialog
+  // handle Escape so the panel (and thus the dialog) is not torn down.
   useEffect(() => {
-    if (!open) return;
+    if (!open || upgradeTarget) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (readerMsg) {
@@ -216,12 +206,34 @@ export function NotificationPanel() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, setOpen, readerMsg]);
+  }, [open, setOpen, readerMsg, upgradeTarget]);
 
   const clearAll = () => {
     setNotifications([]);
     setUnread(0);
     setReaderMsg(null);
+  };
+
+  // Confirm-then-upgrade: the server restarts, so unsaved work is lost and the
+  // user is logged out once the upgrade call succeeds.
+  const runUpgrade = async () => {
+    if (!upgradeTarget) return;
+    setUpgrading(true);
+    try {
+      const res = await authFetch('/api/update/upgrade', { method: 'POST' });
+      if (res.ok) {
+        setNotifications((prev) => prev.filter((x) => x.id !== upgradeTarget.id));
+        setUpgradeTarget(null);
+        setUpgrading(false);
+        logout();
+      } else {
+        setUpgrading(false);
+        setUpgradeTarget(null);
+      }
+    } catch {
+      setUpgrading(false);
+      setUpgradeTarget(null);
+    }
   };
 
   if (!open) return null;
@@ -281,7 +293,13 @@ export function NotificationPanel() {
             ) : (
               <div className="flex flex-col gap-0.5">
                 {[...notifications].reverse().map((n) => (
-                  <MessageRow key={n.id} n={n} onRead={(msg) => setReaderMsg(msg.message)} />
+                  <MessageRow
+                    key={n.id}
+                    n={n}
+                    onRead={(msg) => setReaderMsg(msg.message)}
+                    onUpgrade={setUpgradeTarget}
+                    upgrading={upgrading}
+                  />
                 ))}
               </div>
             )}
@@ -295,6 +313,39 @@ export function NotificationPanel() {
           </div>
         </div>
       </div>
+
+      {/* Upgrade confirmation — warns that the server restarts and logs out. */}
+      <Dialog
+        open={upgradeTarget !== null}
+        onOpenChange={(next) => {
+          if (!next && !upgrading) setUpgradeTarget(null);
+        }}
+      >
+        <DialogContent className="flex w-[min(92vw,22rem)] flex-col gap-3 p-4">
+          <DialogTitle>{t('notifications.upgradeConfirmTitle')}</DialogTitle>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {t('notifications.upgradeConfirmBody')}
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setUpgradeTarget(null)}
+              disabled={upgrading}
+              className="glass-btn rounded-[6px] bg-white/10 px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-white/15 hover:text-white disabled:opacity-40"
+            >
+              {t('app.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={runUpgrade}
+              disabled={upgrading}
+              className="glass-btn rounded-[6px] bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/30 disabled:opacity-40"
+            >
+              {upgrading ? t('notifications.upgrading') : t('notifications.confirmUpgrade')}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

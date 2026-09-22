@@ -214,7 +214,10 @@
     "daysAgo": "{{count}}天前",
     "upgrade": "升级",
     "upgrading": "升级中…",
-    "checkForUpdates": "检查更新"
+    "checkForUpdates": "检查更新",
+    "upgradeConfirmTitle": "升级 Suwu？",
+    "upgradeConfirmBody": "升级将重启 Suwu 服务器。未保存的工作将丢失，并且您会被自动登出。",
+    "confirmUpgrade": "立即升级"
   },
   "filebrowser": {
     "today": "今天",

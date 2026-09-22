@@ -9,7 +9,7 @@ import { usePtySession } from './hooks/usePtySession';
 import { useTermCopy } from './hooks/useTermCopy';
 import { useBell } from './hooks/useBell';
 import { CommonTileContainer } from './CommonTileContainer';
-import { CloseIcon, CopyIcon } from './icons';
+import { CloseIcon, CopyIcon, RefreshIcon } from './icons';
 import { Toast } from './Toast';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
@@ -97,7 +97,16 @@ export default function FullTerminal() {
     [],
   );
 
-  usePtySession(term, paneId);
+  const { sendRaw } = usePtySession(term, paneId);
+
+  // Reset a terminal left in a bad state by a TUI app (hidden cursor,
+  // alternate screen, mouse tracking, etc.). Resets the browser terminal and
+  // asks the server-side shell to reset its tty line discipline.
+  const resetTerminal = useCallback(() => {
+    term?.reset();
+    sendRaw('reset\r');
+  }, [term, sendRaw]);
+
   useTermCopy(
     term,
     selectionMode,
@@ -178,28 +187,39 @@ export default function FullTerminal() {
             </span>
           )}
           {/* Clickable char-count badge — only in selection mode */}
-          {selectionMode && (
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {selectionMode && (
+              <button
+                type="button"
+                onClick={() => setShowCacheDialog(true)}
+                className="rounded bg-sky-800/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-200 transition hover:bg-sky-700/60 hover:text-white"
+                title={t('terminal.showCachePreview')}
+              >
+                {cachedLength > 0
+                  ? t('terminal.cachedChars', { count: cachedLength })
+                  : t('terminal.cacheEmpty')}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setShowCacheDialog(true)}
-              className="ml-auto shrink-0 rounded bg-sky-800/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-200 transition hover:bg-sky-700/60 hover:text-white"
-              title={t('terminal.showCachePreview')}
+              onClick={toggleSelectionMode}
+              className="rounded p-0.5 hover:bg-white/10"
+              title={
+                selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')
+              }
             >
-              {cachedLength > 0
-                ? t('terminal.cachedChars', { count: cachedLength })
-                : t('terminal.cacheEmpty')}
+              {selectionMode ? <CloseIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={toggleSelectionMode}
-            className="shrink-0 rounded p-0.5 hover:bg-white/10"
-            title={
-              selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')
-            }
-          >
-            {selectionMode ? <CloseIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-          </button>
+            <button
+              type="button"
+              onClick={resetTerminal}
+              className="rounded p-0.5 hover:bg-white/10"
+              title={t('terminal.reset')}
+              aria-label={t('terminal.reset')}
+            >
+              <RefreshIcon className="h-3 w-3" />
+            </button>
+          </div>
         </footer>
         {/* Toast overlay for copy confirmation */}
         {toastMsg && <Toast message={toastMsg} />}

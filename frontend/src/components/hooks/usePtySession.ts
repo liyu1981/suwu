@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useAtom, useSetAtom } from 'jotai';
 import type { Terminal } from '@xterm/xterm';
 import i18n from 'i18next';
@@ -92,6 +92,9 @@ type AttachMessage = {
 export function usePtySession(term: Terminal | null, paneId?: string) {
   const [, setStatus] = useAtom(connectionStatusAtom);
   const setMessage = useSetAtom(connectionMessageAtom);
+  // Set to a sender while the effect is live so callers (e.g. a reset button)
+  // can inject raw input into the PTY without going through xterm onData.
+  const senderRef = useRef<((data: string) => boolean) | null>(null);
 
   useEffect(() => {
     if (!term) return;
@@ -115,6 +118,15 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       // while the browser terminal is detached or being replayed. The onData
       // guard below remains necessary because an event can already be queued.
       term.options.disableStdin = !enabled;
+    };
+
+    // Inject raw input (used by the terminal reset action). Returns false when
+    // the session is not ready to accept input.
+    senderRef.current = (data: string) => {
+      const ws = currentWs;
+      if (!inputReady || !ws || ws.readyState !== WebSocket.OPEN) return false;
+      ws.send(data);
+      return true;
     };
 
     const clearReconnectTimers = () => {
@@ -491,6 +503,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
 
     return () => {
       disposed = true;
+      senderRef.current = null;
       clearReconnectTimers();
       invalidateSocket();
       onData.dispose();
@@ -500,4 +513,8 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       window.removeEventListener('pageshow', onPageShow);
     };
   }, [term, paneId, setStatus, setMessage]);
+
+  const sendRaw = useCallback((data: string) => senderRef.current?.(data) ?? false, []);
+
+  return { sendRaw };
 }

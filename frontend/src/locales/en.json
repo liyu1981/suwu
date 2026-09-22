@@ -182,7 +182,8 @@
     "cacheEmpty": "No text selected yet",
     "cachePreview": "Cached Selection",
     "copyAndExit": "Copy & Exit",
-    "showCachePreview": "Show cached selection"
+    "showCachePreview": "Show cached selection",
+    "reset": "Reset terminal (clear screen and recover a stuck TUI)"
   },
   "pty": {
     "connecting": "Connecting...",

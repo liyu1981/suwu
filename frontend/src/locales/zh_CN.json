@@ -181,7 +181,8 @@
     "cacheEmpty": "尚未选中文本",
     "cachePreview": "已缓存的选区",
     "copyAndExit": "复制并退出",
-    "showCachePreview": "显示已缓存的选区"
+    "showCachePreview": "显示已缓存的选区",
+    "reset": "重置终端（清屏并恢复卡住的 TUI）"
   },
   "pty": {
     "connecting": "连接中...",

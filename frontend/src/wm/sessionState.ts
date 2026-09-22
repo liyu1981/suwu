@@ -1,5 +1,7 @@
 /** Per-plugin UI state shapes persisted across reloads. */
 
+import type { RestRequestDraft } from '../store/resthelper';
+
 export interface FileBrowserSessionState {
   currentPath: string;
   sortKey?: string;
@@ -34,6 +36,11 @@ export interface CodeExplorerSessionState {
   /** Saved (on-disk) tabs to reopen; unsaved buffers are never persisted. */
   tabs: Array<{ path: string; ranges?: Array<{ start: number; end: number }> }>;
   activePath?: string;
+}
+
+export interface RestHelperSessionState {
+  /** In-progress request draft. Response bodies are never persisted here. */
+  draft?: RestRequestDraft;
 }
 
 /** Per-tile session state entry. */

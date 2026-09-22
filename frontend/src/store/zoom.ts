@@ -26,6 +26,7 @@ export const xdisplayZoomAtom = atomWithStorage<number>('suwu.xdisplay-zoom', ZO
 export const xdisplayFpsAtom = atomWithStorage<number>('suwu.xdisplay-fps', 30);
 export const dbbrowserZoomAtom = atomWithStorage<number>('suwu.dbbrowser-zoom', ZOOM_DEFAULT);
 export const codeZoomAtom = atomWithStorage<number>('suwu.code-zoom', ZOOM_DEFAULT);
+export const resthelperZoomAtom = atomWithStorage<number>('suwu.resthelper-zoom', ZOOM_DEFAULT);
 
 export function clampZoom(n: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(n * 4) / 4));

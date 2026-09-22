@@ -327,7 +327,9 @@
     "dbbrowser": "DB Browser",
     "dbbrowserDesc": "Database query & browser",
     "code": "Code Explorer",
-    "codeDesc": "Multi-file editor with highlighted lines"
+    "codeDesc": "Multi-file editor with highlighted lines",
+    "resthelper": "REST Helper",
+    "resthelperDesc": "Investigate HTTP/REST requests"
   },
   "codeExplorer": {
     "search": {

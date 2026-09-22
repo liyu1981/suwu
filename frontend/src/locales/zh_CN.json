@@ -325,7 +325,9 @@
     "dbbrowser": "数据库浏览器",
     "dbbrowserDesc": "数据库查询与浏览",
     "code": "代码浏览器",
-    "codeDesc": "带行高亮的多文件编辑器"
+    "codeDesc": "带行高亮的多文件编辑器",
+    "resthelper": "REST 助手",
+    "resthelperDesc": "调试 HTTP/REST 请求"
   },
   "codeExplorer": {
     "search": {

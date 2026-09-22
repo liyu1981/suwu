@@ -69,6 +69,7 @@ type Server struct {
 	dataDir    string
 	startedAt  time.Time
 	rateLimit  *RateLimiter
+	restLimit  *RateLimiter
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
@@ -85,6 +86,7 @@ func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify
 		dataDir:    dataDir,
 		startedAt:  time.Now(),
 		rateLimit:  NewRateLimiter(),
+		restLimit:  newRateLimiter(restRateLimitMax),
 	}
 }
 
@@ -276,6 +278,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(r.URL.Path, "/api/rest/") {
+		s.handleRESTHelper(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/server-info" {
 		s.handleServerInfo(w, r)
 		return
@@ -360,6 +367,7 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 type RateLimiter struct {
 	mu      sync.Mutex
 	buckets map[string]*tokenBucket
+	max     int
 }
 
 type tokenBucket struct {
@@ -368,10 +376,15 @@ type tokenBucket struct {
 }
 
 const rateLimitWindow = time.Minute
-const rateLimitMax = 60 // max requests per window for destructive ops
+const rateLimitMax = 60      // max requests per window for destructive ops
+const restRateLimitMax = 240 // max outbound REST helper requests per window
 
 func NewRateLimiter() *RateLimiter {
-	return &RateLimiter{buckets: make(map[string]*tokenBucket)}
+	return newRateLimiter(rateLimitMax)
+}
+
+func newRateLimiter(max int) *RateLimiter {
+	return &RateLimiter{buckets: make(map[string]*tokenBucket), max: max}
 }
 
 // Allow checks whether a request from the given token is allowed.
@@ -387,7 +400,7 @@ func (rl *RateLimiter) Allow(token string) bool {
 		rl.buckets[token] = &tokenBucket{count: 1, resetAt: now.Add(rateLimitWindow)}
 		return true
 	}
-	if b.count >= rateLimitMax {
+	if b.count >= rl.max {
 		return false
 	}
 	b.count++
@@ -449,6 +462,17 @@ func (s *Server) validateRequest(w http.ResponseWriter, r *http.Request) string 
 
 // validateRequestRateLimit checks rate limits for destructive operations.
 func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request, cfg *auth.Config) bool {
+	// The REST helper talks to the network on the user's behalf; give it a
+	// higher, dedicated budget.
+	if strings.HasPrefix(r.URL.Path, "/api/rest/") {
+		if !s.restLimit.Allow(cfg.Token) {
+			slog.Warn("rest rate limit exceeded", "path", r.URL.Path, "remote", r.RemoteAddr)
+			writePlain(w, http.StatusTooManyRequests, "Rate limit exceeded")
+			return false
+		}
+		return true
+	}
+
 	// Only rate-limit destructive endpoints.
 	destructive := strings.HasPrefix(r.URL.Path, "/api/file/") ||
 		strings.HasPrefix(r.URL.Path, "/api/dropbox/") ||

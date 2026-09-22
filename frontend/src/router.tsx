@@ -11,6 +11,7 @@ import DiffPage from './routes/DiffPage';
 import XDisplayPage from './routes/XDisplayPage';
 import DBBrowserPage from './routes/DBBrowserPage';
 import CodeExplorerPage from './routes/CodeExplorerPage';
+import RestHelperPage from './routes/RestHelperPage';
 
 const rootRoute = createRootRoute();
 
@@ -92,6 +93,12 @@ const codeRoute = createRoute({
   component: CodeExplorerPage,
 });
 
+const resthelperRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/resthelper',
+  component: RestHelperPage,
+});
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -104,6 +111,7 @@ const routeTree = rootRoute.addChildren([
   xdisplayRoute,
   dbbrowserRoute,
   codeRoute,
+  resthelperRoute,
 ]);
 
 export const router = createRouter({ routeTree });

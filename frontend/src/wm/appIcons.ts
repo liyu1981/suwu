@@ -17,6 +17,7 @@ const COLOR_MAP: Record<string, { bg: string; text: string; letter: string }> = 
   xdisplay: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', letter: 'X' },
   dbbrowser: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', letter: 'D' },
   code: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', letter: 'C' },
+  resthelper: { bg: 'bg-rose-500/20', text: 'text-rose-400', letter: 'R' },
 };
 
 const DEFAULT_COLORS = { bg: 'bg-white/10', text: 'text-white/40', letter: '' };

@@ -15,6 +15,8 @@ interface Props {
   zoomAtom?: Atom<number>;
   /** Remove the default p-2 padding on the wrapper. */
   noPadding?: boolean;
+  /** Override the shared tile background (e.g. a less transparent color). */
+  background?: string;
   children: React.ReactNode;
 }
 
@@ -64,7 +66,7 @@ export function useReportTileState(paneId?: string) {
  * - Notifying the parent window manager when this pane gains focus
  * - Relaying WM keyboard shortcuts (Alt+arrows, etc.) to the parent
  */
-export function CommonTileContainer({ paneId, zoomAtom, noPadding, children }: Props) {
+export function CommonTileContainer({ paneId, zoomAtom, noPadding, background, children }: Props) {
   const zoom = useAtomValue(zoomAtom ?? defaultZoomAtom);
   const bgColor = useAtomValue(fileBrowserBgAtom);
   useHtmlZoom(zoom);
@@ -152,7 +154,7 @@ export function CommonTileContainer({ paneId, zoomAtom, noPadding, children }: P
     <TileSessionContext.Provider value={session}>
       <div
         className={`flex flex-col rounded-[6px] text-white/80 ${noPadding ? '' : 'p-2'}`}
-        style={{ ...tileZoomStyle(zoom), backgroundColor: bgColor }}
+        style={{ ...tileZoomStyle(zoom), backgroundColor: background ?? bgColor }}
       >
         {children}
       </div>

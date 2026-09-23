@@ -133,6 +133,11 @@ func main() {
 				log.Fatalf("use: %v", err)
 			}
 			return
+		case "agent":
+			if err := agentCmd(os.Args[2:]); err != nil {
+				log.Fatalf("agent: %v", err)
+			}
+			return
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -184,6 +189,9 @@ Usage:
                            check for updates and upgrade if available
   suwu use [--sock <path>] <command> [args...]
                            run command with DISPLAY set to available X display
+  suwu agent [--list|--print] [--agent <ids>] [--global] [--force] [--dir <path>]
+                           detect AI coding agents and install the suwu-tools
+                           skill into this repository (TUI by default)
 
 Configuration precedence:
   --env-file explicitly given → that file only
@@ -394,6 +402,8 @@ Examples:
   suwu use firefox
   suwu use xterm
 `)
+	case "agent":
+		printAgentUsage()
 	default:
 		fmt.Printf("Unknown subcommand: %s\nRun 'suwu help' for usage.\n", cmd)
 	}

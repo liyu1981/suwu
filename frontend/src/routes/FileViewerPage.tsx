@@ -137,7 +137,7 @@ export default function FileViewerPage() {
   if (error) {
     return (
       <CommonTileContainer paneId={paneRef.current ?? undefined}>
-        <div className="flex h-screen w-screen items-center justify-center bg-transparent">
+        <div className="flex h-[calc(100vh-16px)] w-[calc(100vw-16px)] items-center justify-center bg-transparent">
           <span className="text-[11px] text-red-400/70">{error}</span>
         </div>
         {dropdownState.showDropdown && (
@@ -155,7 +155,7 @@ export default function FileViewerPage() {
   if (!fileUrl) {
     return (
       <CommonTileContainer paneId={paneRef.current ?? undefined}>
-        <div className="flex h-screen w-screen items-center justify-center bg-transparent">
+        <div className="flex h-[calc(100vh-16px)] w-[calc(100vw-16px)] items-center justify-center bg-transparent">
           <span className="text-[11px] text-white/30">Loading...</span>
         </div>
         {dropdownState.showDropdown && (
@@ -198,7 +198,7 @@ export default function FileViewerPage() {
   if (renderError) {
     return (
       <CommonTileContainer paneId={paneRef.current ?? undefined}>
-        <div className="flex h-screen w-screen flex-col bg-transparent">
+        <div className="flex h-[calc(100vh-16px)] w-[calc(100vw-16px)] flex-col bg-transparent">
           {header}
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
             <svg
@@ -231,7 +231,7 @@ export default function FileViewerPage() {
 
   return (
     <CommonTileContainer paneId={paneRef.current ?? undefined}>
-      <div className="flex h-screen w-screen flex-col bg-transparent">
+      <div className="flex h-[calc(100vh-16px)] w-[calc(100vw-16px)] flex-col bg-transparent">
         {header}
         <div className="min-h-0 flex-1">
           <FileViewer

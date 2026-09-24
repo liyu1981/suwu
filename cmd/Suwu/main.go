@@ -47,7 +47,6 @@ import (
 	"suwu/pkg/auth"
 	"suwu/pkg/certs"
 	"suwu/pkg/envfile"
-	"suwu/pkg/extension"
 	"suwu/pkg/forward"
 	"suwu/pkg/gencerts"
 	"suwu/pkg/logging"
@@ -579,12 +578,6 @@ func run() error {
 		if home, err := os.UserHomeDir(); err == nil {
 			dataDir = filepath.Join(home, ".suwu")
 		}
-	}
-
-	// Seed built-in extensions into <dataDir>/extensions (never overwrites
-	// an existing user copy).
-	if err := extension.Seed(extension.Dir(dataDir)); err != nil {
-		slog.Warn("seed extensions", "error", err)
 	}
 
 	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager, dataDir)

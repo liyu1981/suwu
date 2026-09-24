@@ -1,0 +1,11 @@
+{
+  "name": "Hacker News Top Stories",
+  "description": "The Hacker News front page as a broadsheet carousel, backed by the extension's own API",
+  "suwu": {
+    "static": "public",
+    "net": true,
+    "api": [
+      { "route": "/stories", "handler": "stories.js" }
+    ]
+  }
+}

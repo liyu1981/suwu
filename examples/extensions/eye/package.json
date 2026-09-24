@@ -1,0 +1,15 @@
+{
+  "name": "Eye",
+  "description": "Classic X11-style eye that follows the pointer",
+  "suwu": {
+    "static": "public",
+    "params": [
+      {
+        "key": "size",
+        "label": "Size",
+        "description": "Eye radius in px",
+        "defaultValue": "140"
+      }
+    ]
+  }
+}

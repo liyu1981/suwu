@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { authFetch } from './api';
 
-/** One launch parameter documented by an extension's meta.json. */
+/** One launch parameter documented by an extension's package.json. */
 export interface ExtensionParam {
   key: string;
   label?: string;
   description?: string;
   defaultValue?: string;
+}
+
+/** One API route an extension registers under /gqjs/api/<id>/. */
+export interface ExtensionAPIRoute {
+  route: string;
+  handler: string;
 }
 
 /** A registered gqjs extension. */
@@ -15,6 +21,12 @@ export interface Extension {
   name: string;
   description?: string;
   params?: ExtensionParam[];
+  /** Ordered route registrations; first match wins. Absent when render-only. */
+  api?: ExtensionAPIRoute[];
+  /** Declared suwu.net — the extension's scripts may use the network. */
+  net?: boolean;
+  /** Declared suwu.static — directory of assets served under /gqjs/static/<id>/. */
+  static?: string;
 }
 
 async function fetchExtensions(): Promise<Extension[]> {

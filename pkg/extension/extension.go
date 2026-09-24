@@ -1,14 +1,21 @@
 // Package extension discovers and resolves gqjs-backed extensions that the
 // `extension` tile plugin renders. An extension is a directory under the Suwu
-// data dir's `extensions/` folder containing a required `meta.json` (metadata)
-// and a hard-coded `index.js` entry point.
+// data dir's `extensions/` folder containing a required `package.json`
+// (npm-style name/description at the top level, Suwu specifics under the
+// "suwu" object) and a hard-coded `index.js` entry point. Optional API
+// handlers are registered as ordered `{route, handler}` entries under
+// `suwu.api` and served under /gqjs/api/<id>/, a directory of public assets
+// is declared with `suwu.static` and served unauthenticated under
+// /gqjs/static/<id>/ (never put secrets in it), and `suwu.net` opts the
+// extension into network access for its scripts.
+//
+// Nothing is seeded automatically: installable examples live in the repo's
+// examples/extensions/ directory and are copied here by the user.
 package extension
 
 import (
-	"embed"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,16 +23,16 @@ import (
 	"strings"
 )
 
-// go:embed seeds embeds the built-in extension examples shipped with Suwu.
-//
-//go:embed seeds
-var seedsFS embed.FS
-
-// EntryFile is the hard-coded entry point filename inside an extension dir.
+// EntryFile is the hard-coded render entry point filename inside an extension dir.
 const EntryFile = "index.js"
 
-// MetaFile is the required metadata filename inside an extension dir.
-const MetaFile = "meta.json"
+// PackageFile is the required metadata filename inside an extension dir.
+// npm-style fields (name, description) are read from the top level and never
+// repeated inside the Suwu-specific object.
+const PackageFile = "package.json"
+
+// paramSegRe matches a route parameter segment: <name>.
+var paramSegRe = regexp.MustCompile(`^<[A-Za-z_][A-Za-z0-9_-]*>$`)
 
 // idRe validates an extension id (also the directory name). It forbids path
 // separators and dot segments, which is the primary traversal defense.
@@ -40,11 +47,35 @@ type Param struct {
 	DefaultValue string `json:"defaultValue,omitempty"`
 }
 
-// Meta is the parsed contents of an extension's meta.json.
-type Meta struct {
-	Name        string  `json:"name,omitempty"`
-	Description string  `json:"description,omitempty"`
-	Params      []Param `json:"params,omitempty"`
+// APIRoute registers one API entry: requests under /gqjs/api/<id>/ whose path
+// prefix-matches Route are executed by Handler's script. Registration order
+// matters — the first matching route wins, so a broader route listed first
+// shortcuts later, more specific ones.
+type APIRoute struct {
+	Route   string `json:"route"`
+	Handler string `json:"handler"`
+}
+
+// packageJSON is the subset of package.json Suwu reads. Unknown fields
+// (version, dependencies, …) are ignored.
+type packageJSON struct {
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Suwu        *suwuSpecs `json:"suwu"`
+}
+
+// suwuSpecs is the Suwu-specific object inside package.json.
+type suwuSpecs struct {
+	Params []Param    `json:"params"`
+	API    []APIRoute `json:"api"`
+	// Static is the directory (relative to the extension dir) whose files are
+	// served under /gqjs/static/<id>/. Empty means no static serving. The
+	// directory must be a dedicated subtree (never "." or the extension root)
+	// so handler source and package.json can never be served.
+	Static string `json:"static"`
+	// Net opts the extension's scripts into network access (suwu gq
+	// --allow-net). Off by default: without it, fetch() rejects.
+	Net bool `json:"net"`
 }
 
 // Extension is one resolved, runnable extension.
@@ -57,6 +88,13 @@ type Extension struct {
 	Description string `json:"description,omitempty"`
 	// Params documents accepted launch parameters.
 	Params []Param `json:"params,omitempty"`
+	// API lists registered API routes in declaration order (first match wins).
+	API []APIRoute `json:"api,omitempty"`
+	// Net reports whether the extension declared suwu.net (network access).
+	Net bool `json:"net,omitempty"`
+	// Static is the declared public-assets directory (suwu.static); empty
+	// when the extension serves no static files.
+	Static string `json:"static,omitempty"`
 	// Dir is the absolute extension directory.
 	Dir string `json:"-"`
 	// Entry is the absolute path to index.js.
@@ -97,7 +135,7 @@ func List(dir string) ([]Extension, error) {
 	return out, nil
 }
 
-// Resolve validates an id and returns its Extension, reading meta.json.
+// Resolve validates an id and returns its Extension, reading package.json.
 func Resolve(dir, id string) (Extension, error) {
 	if !ValidID(id) {
 		return Extension{}, fmt.Errorf("invalid extension id %q", id)
@@ -119,88 +157,223 @@ func Resolve(dir, id string) (Extension, error) {
 		return Extension{}, fmt.Errorf("extension %q: %w", id, err)
 	}
 
-	meta, err := readMeta(filepath.Join(extDir, MetaFile))
+	pkg, err := readPackage(filepath.Join(extDir, PackageFile))
 	if err != nil {
 		return Extension{}, fmt.Errorf("extension %q: %w", id, err)
 	}
-	name := meta.Name
+
+	// A malformed registration fails the whole extension: an extension can
+	// never half-serve with a broken API surface.
+	var api []APIRoute
+	var params []Param
+	if pkg.Suwu != nil {
+		api = pkg.Suwu.API
+		params = pkg.Suwu.Params
+	}
+	for _, rt := range api {
+		if err := validateAPIRoute(rt); err != nil {
+			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
+		}
+		if _, err := handlerPath(extDir, rt.Handler); err != nil {
+			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
+		}
+	}
+
+	var static string
+	if pkg.Suwu != nil {
+		static = pkg.Suwu.Static
+		if err := validateStaticRoot(static); err != nil {
+			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
+		}
+	}
+
+	name := pkg.Name
 	if name == "" {
 		name = id
 	}
+	net := pkg.Suwu != nil && pkg.Suwu.Net
 	return Extension{
 		ID:          id,
 		Name:        name,
-		Description: meta.Description,
-		Params:      meta.Params,
+		Description: pkg.Description,
+		Params:      params,
+		API:         api,
+		Net:         net,
+		Static:      static,
 		Dir:         extDir,
 		Entry:       entry,
 	}, nil
 }
 
-// Seed writes embedded built-in extensions into dir, never overwriting an
-// existing extension directory.
-func Seed(dir string) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("create extensions dir: %w", err)
+// HandlerPath resolves an API handler (as declared in suwu.api) to an
+// absolute path inside the extension directory.
+func (e Extension) HandlerPath(handler string) (string, error) {
+	return handlerPath(e.Dir, handler)
+}
+
+// StaticPath resolves a requested static asset (relative path after the id)
+// inside the extension's declared suwu.static directory. Every segment must
+// be a plain file component — no empty/dot segments and no dotfiles — and the
+// resolved path (symlinks included) must stay inside the static root, so a
+// request can never walk into handler source, package.json, or out of the
+// extension altogether.
+func (e Extension) StaticPath(rel string) (string, error) {
+	if e.Static == "" {
+		return "", fmt.Errorf("extension has no static directory")
 	}
-	entries, err := fs.ReadDir(seedsFS, "seeds")
-	if err != nil {
-		return fmt.Errorf("read seeds: %w", err)
+	if err := validateRelSegments(rel); err != nil {
+		return "", err
 	}
-	for _, e := range entries {
-		if !e.IsDir() || !ValidID(e.Name()) {
-			continue
+	root := filepath.Join(e.Dir, e.Static)
+	p := filepath.Join(root, rel)
+	if err := ensureWithin(root, p); err != nil {
+		return "", fmt.Errorf("static path %q: %w", rel, err)
+	}
+	return p, nil
+}
+
+// validateRelSegments checks a slash-separated relative path: non-empty,
+// with no absolute prefix, no backslashes, and no empty, dot, or dot-prefixed
+// segments (which also rejects dotfiles like .env).
+func validateRelSegments(p string) error {
+	if p == "" {
+		return fmt.Errorf("path is empty")
+	}
+	if strings.HasPrefix(p, "/") || strings.Contains(p, `\`) {
+		return fmt.Errorf("path %q must be relative", p)
+	}
+	for _, seg := range strings.Split(p, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return fmt.Errorf("path %q has an invalid segment", p)
 		}
-		target := filepath.Join(dir, e.Name())
-		if _, err := os.Stat(target); err == nil {
-			continue // already present; never overwrite a user's copy
-		}
-		if err := copyTree("seeds/"+e.Name(), target); err != nil {
-			return fmt.Errorf("seed %s: %w", e.Name(), err)
+		if strings.HasPrefix(seg, ".") {
+			return fmt.Errorf("path %q must not contain dotfiles", p)
 		}
 	}
 	return nil
 }
 
-func readMeta(path string) (Meta, error) {
+// validateStaticRoot checks the declared suwu.static directory (empty = no
+// static serving), with the same segment rules as StaticPath — the root must
+// be a dedicated subtree, never "." or a hidden directory.
+func validateStaticRoot(root string) error {
+	if root == "" {
+		return nil
+	}
+	return validateRelSegments(root)
+}
+
+// validateHandlerSyntax checks a declared handler before it is joined to the
+// extension directory: a plain relative .js path with no dot segments.
+func validateHandlerSyntax(handler string) error {
+	if handler == "" {
+		return fmt.Errorf("API handler is empty")
+	}
+	if !strings.HasSuffix(handler, ".js") {
+		return fmt.Errorf("API handler %q must end in .js", handler)
+	}
+	if strings.HasPrefix(handler, "/") || strings.Contains(handler, `\`) {
+		return fmt.Errorf("API handler %q must be a relative path", handler)
+	}
+	for _, seg := range strings.Split(handler, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return fmt.Errorf("API handler %q has an invalid path segment", handler)
+		}
+	}
+	return nil
+}
+
+// handlerPath validates a handler and resolves it inside extDir, re-checked
+// against symlinks as defense in depth.
+func handlerPath(extDir, handler string) (string, error) {
+	if err := validateHandlerSyntax(handler); err != nil {
+		return "", err
+	}
+	p := filepath.Join(extDir, handler)
+	if err := ensureWithin(extDir, p); err != nil {
+		return "", fmt.Errorf("API handler %q: %w", handler, err)
+	}
+	return p, nil
+}
+
+// validateAPIRoute checks one suwu.api entry: the route's segment grammar
+// (literals and <param> segments, no empty segments) and its handler syntax.
+// The catch-all root is "/".
+func validateAPIRoute(rt APIRoute) error {
+	if rt.Route == "" {
+		return fmt.Errorf("API route is empty")
+	}
+	for _, seg := range splitRoute(rt.Route) {
+		switch {
+		case seg == "":
+			return fmt.Errorf("API route %q has an empty segment", rt.Route)
+		case strings.HasPrefix(seg, "<") || strings.HasSuffix(seg, ">"):
+			if !paramSegRe.MatchString(seg) {
+				return fmt.Errorf("API route %q has an invalid parameter segment %q", rt.Route, seg)
+			}
+		case strings.ContainsAny(seg, "<>"):
+			return fmt.Errorf("API route %q has an invalid segment %q", rt.Route, seg)
+		}
+	}
+	return validateHandlerSyntax(rt.Handler)
+}
+
+// splitRoute normalizes a route pattern or request path into its segments.
+// A leading slash is implied and trailing slashes are trimmed; "/" and ""
+// yield no segments — the catch-all root.
+func splitRoute(p string) []string {
+	trimmed := strings.Trim(p, "/")
+	if trimmed == "" {
+		return nil
+	}
+	return strings.Split(trimmed, "/")
+}
+
+// MatchAPI selects the first route in declaration order whose pattern
+// prefix-matches path: every route segment must match the corresponding path
+// segment — a literal by equality, a <param> by binding it — while the path
+// may carry extra trailing segments. So /hello listed before /hello/world
+// shortcuts the latter, and /note/<id> matches /note/42 as well as
+// /note/42/edit (binding id to the first segment).
+func MatchAPI(routes []APIRoute, path string) (APIRoute, map[string]string, bool) {
+	pathSegs := splitRoute(path)
+	for _, rt := range routes {
+		routeSegs := splitRoute(rt.Route)
+		if len(routeSegs) > len(pathSegs) {
+			continue
+		}
+		bindings := map[string]string{}
+		matched := true
+		for i, seg := range routeSegs {
+			if strings.HasPrefix(seg, "<") {
+				bindings[seg[1:len(seg)-1]] = pathSegs[i]
+				continue
+			}
+			if seg != pathSegs[i] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return rt, bindings, true
+		}
+	}
+	return APIRoute{}, nil, false
+}
+
+func readPackage(path string) (packageJSON, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Meta{}, fmt.Errorf("missing %s", MetaFile)
+			return packageJSON{}, fmt.Errorf("missing %s", PackageFile)
 		}
-		return Meta{}, fmt.Errorf("read %s: %w", MetaFile, err)
+		return packageJSON{}, fmt.Errorf("read %s: %w", PackageFile, err)
 	}
-	var m Meta
-	if err := json.Unmarshal(data, &m); err != nil {
-		return Meta{}, fmt.Errorf("parse %s: %w", MetaFile, err)
+	var p packageJSON
+	if err := json.Unmarshal(data, &p); err != nil {
+		return packageJSON{}, fmt.Errorf("parse %s: %w", PackageFile, err)
 	}
-	return m, nil
-}
-
-// copyTree recursively copies an embedded directory into dst with 0644 files.
-func copyTree(src, dst string) error {
-	if err := os.MkdirAll(dst, 0o755); err != nil {
-		return err
-	}
-	return fs.WalkDir(seedsFS, src, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel := strings.TrimPrefix(path, src)
-		rel = strings.TrimPrefix(rel, "/")
-		if rel == "" {
-			return nil
-		}
-		target := filepath.Join(dst, rel)
-		if d.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-		data, err := seedsFS.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(target, data, 0o644)
-	})
+	return p, nil
 }
 
 // isRegularFile reports whether p exists and is a regular file.

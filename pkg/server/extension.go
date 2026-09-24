@@ -1,7 +1,9 @@
 package server
 
-// Extension rendering: GET /gqjs/<id> runs a gqjs-backed extension in a
+// Extension rendering: GET /gqjs/ext/<id> runs a gqjs-backed extension in a
 // separate `suwu gq` child process and returns the HTML page it produces.
+// Extension APIs (GET/POST/... /gqjs/api/<id>/<path>) are handled in
+// extension_api.go.
 //
 // Isolation model: one fresh child process per render, bounded by a deadline
 // and a concurrency cap, so a crashed or runaway extension cannot take the
@@ -28,7 +30,7 @@ import (
 )
 
 // extensionRoutePrefix is the path prefix for rendering an extension page.
-const extensionRoutePrefix = "/gqjs/"
+const extensionRoutePrefix = "/gqjs/ext/"
 
 // extensionRelayMarker identifies the injected relay script so injection stays
 // idempotent even if an extension ships a copy of its own.
@@ -105,6 +107,8 @@ func isHTMLContentType(contentType string) bool {
 // so the default source is 'none'; inline scripts/styles are allowed because
 // extension pages are self-contained, and frame-ancestors limits framing to
 // the same-origin /extension tile page.
+// extensionCSP is the strict CSP used for error documents: no external
+// scripts, no connections. Rendered pages get extensionCSPFor instead.
 const extensionCSP = "default-src 'none'; " +
 	"script-src 'unsafe-inline'; " +
 	"style-src 'unsafe-inline'; " +
@@ -112,6 +116,31 @@ const extensionCSP = "default-src 'none'; " +
 	"font-src data:; " +
 	"connect-src 'self'; " +
 	"frame-ancestors 'self'"
+
+// extensionCSPFor builds the CSP for a rendered extension page. Compared with
+// extensionCSP it additionally allows the pinned htmx CDN in script-src, and
+// names the request origin in every directive that can load extension assets
+// (script/style/img/font, plus connect for the API): the page runs in a
+// sandboxed iframe with an opaque origin — where 'self' alone is unreliable.
+// r.Host is restricted to host-safe characters before it enters the header.
+func extensionCSPFor(r *http.Request) string {
+	host := strings.Map(func(c rune) rune {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9',
+			c == '.', c == ':', c == '-', c == '[', c == ']':
+			return c
+		}
+		return -1
+	}, r.Host)
+	origin := "https://" + host + " http://" + host
+	return "default-src 'none'; " +
+		"script-src 'unsafe-inline' https://unpkg.com " + origin + "; " +
+		"style-src 'unsafe-inline' " + origin + "; " +
+		"img-src data: blob: " + origin + "; " +
+		"font-src data: " + origin + "; " +
+		"connect-src 'self' " + origin + "; " +
+		"frame-ancestors 'self'"
+}
 
 // defaultExtensionTimeout follows PHP's max_execution_time rule. Override with
 // SUWU_EXTENSION_TIMEOUT (e.g. a short value in tests).
@@ -124,9 +153,10 @@ const defaultExtensionConcurrency = 4
 // errExtensionTimeout reports that an extension render hit its deadline.
 var errExtensionTimeout = errors.New("extension render timed out")
 
-// extensionRunner renders one extension into its result JSON.
+// extensionRunner executes one extension script (the render entry or an API
+// handler) and returns its raw JSON result.
 type extensionRunner interface {
-	Render(ctx context.Context, ext extension.Extension, input map[string]any) ([]byte, error)
+	Exec(ctx context.Context, ext extension.Extension, entry string, input map[string]any) ([]byte, error)
 }
 
 // extensionResult is the parsed JSON contract returned by an extension script.
@@ -172,7 +202,7 @@ func newProcessRunner(extDir string) *processRunner {
 	}
 }
 
-func (p *processRunner) Render(ctx context.Context, ext extension.Extension, input map[string]any) ([]byte, error) {
+func (p *processRunner) Exec(ctx context.Context, ext extension.Extension, entry string, input map[string]any) ([]byte, error) {
 	// Bound concurrency; respect an already-cancelled context.
 	select {
 	case p.sem <- struct{}{}:
@@ -185,6 +215,24 @@ func (p *processRunner) Render(ctx context.Context, ext extension.Extension, inp
 	if err != nil {
 		return nil, fmt.Errorf("marshal input: %w", err)
 	}
+
+	// Input travels via a temp file, not the command line: API bodies can
+	// exceed argv limits (E2BIG), and a command line would leak payloads
+	// into `ps`.
+	inFile, err := os.CreateTemp("", "suwu-ext-in-*.json")
+	if err != nil {
+		return nil, fmt.Errorf("create input temp: %w", err)
+	}
+	inPath := inFile.Name()
+	_, werr := inFile.Write(inputJSON)
+	if cerr := inFile.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr != nil {
+		_ = os.Remove(inPath)
+		return nil, fmt.Errorf("write input temp: %w", werr)
+	}
+	defer func() { _ = os.Remove(inPath) }()
 
 	tmp, err := os.CreateTemp("", "suwu-ext-*.json")
 	if err != nil {
@@ -200,14 +248,7 @@ func (p *processRunner) Render(ctx context.Context, ext extension.Extension, inp
 	runCtx, cancel := context.WithTimeout(ctx, p.timeout+time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(runCtx, p.binary, "gq",
-		"--timeout", p.timeout.String(),
-		"--result-file", resultPath,
-		"--input", string(inputJSON),
-		"--root", "/ext="+p.extDir,
-		"--ro",
-		ext.Entry,
-	)
+	cmd := exec.CommandContext(runCtx, p.binary, p.gqArgs(entry, inPath, resultPath, ext.Net)...)
 	// A deliberately minimal environment: the child only needs PATH (for the
 	// binary, though we pass an absolute path) and HOME.
 	cmd.Env = []string{
@@ -238,6 +279,24 @@ func (p *processRunner) Render(ctx context.Context, ext extension.Extension, inp
 	return data, nil
 }
 
+// gqArgs builds the `suwu gq` argument list for one extension exec.
+//
+// --allow-net is the suwu.net opt-in; --allow-private is never passed, so an
+// extension with network access still cannot reach loopback, private, or
+// link-local (cloud metadata) addresses.
+func (p *processRunner) gqArgs(entry, inputPath, resultPath string, net bool) []string {
+	args := []string{
+		"gq",
+		"--timeout", p.timeout.String(),
+		"--result-file", resultPath,
+		"--input-file", inputPath,
+	}
+	if net {
+		args = append(args, "--allow-net")
+	}
+	return append(args, "--root", "/ext="+p.extDir, "--ro", entry)
+}
+
 // extensionDir is the resolved extensions directory for this server.
 func (s *Server) extensionDir() string { return extension.Dir(s.dataDir) }
 
@@ -249,10 +308,14 @@ func (s *Server) extensionRunner() extensionRunner {
 	return newProcessRunner(s.extensionDir())
 }
 
-// validateExtensionRequest authenticates an extension page navigation. These
-// are iframe GETs that cannot carry an HMAC header, so the browser's
-// suwu_token cookie is used, with the query token as a fallback.
-func (s *Server) validateExtensionRequest(w http.ResponseWriter, r *http.Request) string {
+// authorizeExtensionRequest authenticates an extension request and returns the
+// validated token, or ("", status, reason) on failure. It writes nothing, so
+// page renders (plain text) and API routes (JSON) can shape their own errors.
+//
+// Extension navigations are iframe GETs that cannot carry an HMAC header, so
+// the browser's suwu_token cookie is used, with the query token as a fallback;
+// programmatic API calls may authenticate with the Authorization header.
+func (s *Server) authorizeExtensionRequest(r *http.Request) (string, int, string) {
 	token := ""
 	if c, err := r.Cookie("suwu_token"); err == nil {
 		token = c.Value
@@ -261,25 +324,36 @@ func (s *Server) validateExtensionRequest(w http.ResponseWriter, r *http.Request
 		token = r.URL.Query().Get("token")
 	}
 	if token == "" {
-		writePlain(w, http.StatusUnauthorized, "Unauthorized")
-		return ""
+		return "", http.StatusUnauthorized, "Unauthorized"
 	}
-	d, validated := auth.ValidateAPIRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"), token)
+	origin := r.Header.Get("Origin")
+	// Extension pages run in a sandboxed iframe whose opaque origin is the
+	// literal "null": it can never match the Host, and failing to parse it
+	// would 400 every API call the page makes. Treat it as "no comparable
+	// origin" — the request still needs the session token, cross-site callers
+	// cannot attach the SameSite=Lax cookie, and the API's CORS grant for null
+	// origins is deliberately non-credentialed. Real foreign origins
+	// (https://evil.example) keep failing the match inside ValidateAPIRequest.
+	if origin == "null" {
+		origin = ""
+	}
+	d, validated := auth.ValidateAPIRequest(s.cfg, r.Host, origin, r.Header.Get("Authorization"), token)
 	if !d.OK {
-		writePlain(w, d.Status, d.Reason)
-		return ""
+		return "", d.Status, d.Reason
 	}
-	return validated
+	return validated, 0, ""
 }
 
-// handleExtension renders an extension page: GET /gqjs/<id>
+// handleExtension renders an extension page: GET /gqjs/ext/<id>
 func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	if s.validateExtensionRequest(w, r) == "" {
+	validated, authStatus, authReason := s.authorizeExtensionRequest(r)
+	if authStatus != 0 {
+		writePlain(w, authStatus, authReason)
 		return
 	}
 
@@ -295,7 +369,7 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	raw, err := s.extensionRunner().Render(r.Context(), ext, buildExtensionInput(r, ext))
+	raw, err := s.extensionRunner().Exec(r.Context(), ext, ext.Entry, buildExtensionInput(r, ext, validated))
 	if err != nil {
 		if errors.Is(err, errExtensionTimeout) || errors.Is(err, context.DeadlineExceeded) {
 			writePlain(w, http.StatusGatewayTimeout, "Extension timed out")
@@ -326,7 +400,7 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Security-Policy", extensionCSP)
+	w.Header().Set("Content-Security-Policy", extensionCSPFor(r))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
@@ -367,7 +441,12 @@ func (s *Server) handleExtensionsList(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildExtensionInput assembles the `input` global handed to the script.
-func buildExtensionInput(r *http.Request, ext extension.Extension) map[string]any {
+//
+// token is the caller's validated session token. The render page has an
+// opaque origin, so it cannot authenticate to its own API with the cookie;
+// it embeds this token in its API URLs instead. Exposing it to the script is
+// deliberate: extensions are user-installed and network-gated (suwu.net).
+func buildExtensionInput(r *http.Request, ext extension.Extension, token string) map[string]any {
 	query := map[string]string{}
 	params := map[string]string{}
 	for k, vs := range r.URL.Query() {
@@ -381,6 +460,7 @@ func buildExtensionInput(r *http.Request, ext extension.Extension) map[string]an
 	return map[string]any{
 		"action": "render",
 		"id":     ext.ID,
+		"token":  token,
 		"pane":   params["pane"],
 		"method": r.Method,
 		"url":    r.URL.Path,

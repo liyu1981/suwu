@@ -3,7 +3,7 @@
  *
  * A deliberately blank container tile: it wires the configured extension id and
  * any extra params into `/extension`, which then loads the gqjs-rendered page
- * from `/gqjs/<id>`. All behavior lives in the extension script — see
+ * from `/gqjs/ext/<id>`. All behavior lives in the extension script — see
  * docs/EXTENSION_TILE_PLAN.md.
  */
 

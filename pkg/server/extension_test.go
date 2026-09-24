@@ -24,10 +24,12 @@ type stubExtensionRunner struct {
 	err      error
 	gotInput map[string]any
 	gotExt   extension.Extension
+	gotEntry string
 }
 
-func (s *stubExtensionRunner) Render(_ context.Context, ext extension.Extension, input map[string]any) ([]byte, error) {
+func (s *stubExtensionRunner) Exec(_ context.Context, ext extension.Extension, entry string, input map[string]any) ([]byte, error) {
 	s.gotExt = ext
+	s.gotEntry = entry
 	s.gotInput = input
 	return s.result, s.err
 }
@@ -35,6 +37,13 @@ func (s *stubExtensionRunner) Render(_ context.Context, ext extension.Extension,
 // extTestServer builds a Server rooted at a temp data dir with the built-in
 // extensions seeded, and injects the given runner.
 func extTestServer(t *testing.T, runner extensionRunner) (*httptest.Server, *auth.Config) {
+	ts, cfg, _ := extTestServerDir(t, runner)
+	return ts, cfg
+}
+
+// extTestServerDir is extTestServer plus the data dir, so tests can install
+// extra extensions next to the seeded ones.
+func extTestServerDir(t *testing.T, runner extensionRunner) (*httptest.Server, *auth.Config, string) {
 	t.Helper()
 	cfg := &auth.Config{
 		Token:        "testtoken",
@@ -52,23 +61,26 @@ func extTestServer(t *testing.T, runner extensionRunner) (*httptest.Server, *aut
 	t.Cleanup(func() { sessions.Close() })
 
 	dataDir := t.TempDir()
-	if err := extension.Seed(extension.Dir(dataDir)); err != nil {
-		t.Fatal(err)
-	}
+	// No seed mechanism: install the eye fixture the way a user installs an
+	// example (copy examples/extensions/eye into <dataDir>/extensions).
+	writeAPIExt(t, dataDir, "eye", map[string]string{
+		"package.json": `{"name":"Eye","description":"Classic X11-style eye that follows the pointer","suwu":{"params":[{"key":"size","label":"Size","description":"Eye radius in px","defaultValue":"140"}]}}`,
+		"index.js":     `function handler() { return "eye page"; }`,
+	})
 
 	srv := New(cfg, sub, sessions, nil, forward.NewManager(), dataDir)
 	srv.extRunner = runner
 
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
-	return ts, cfg
+	return ts, cfg, dataDir
 }
 
 func TestExtensionEndpoint(t *testing.T) {
 	runner := &stubExtensionRunner{result: []byte(`{"body":"<html><body>ok</body></html>"}`)}
 	ts, cfg := extTestServer(t, runner)
 
-	req, err := http.NewRequest(http.MethodGet, ts.URL+"/gqjs/eye?pane=P1&size=200", nil)
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/gqjs/ext/eye?pane=P1&size=200", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,6 +101,15 @@ func TestExtensionEndpoint(t *testing.T) {
 	}
 	if csp := resp.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "frame-ancestors 'self'") {
 		t.Errorf("CSP = %q, want frame-ancestors 'self'", csp)
+	} else {
+		// Rendered pages may load the pinned htmx CDN and call back into their
+		// own API from an opaque origin.
+		if !strings.Contains(csp, "https://unpkg.com") {
+			t.Errorf("CSP missing the htmx CDN: %q", csp)
+		}
+		if !strings.Contains(csp, "https://127.0.0.1:") {
+			t.Errorf("CSP missing the request origin: %q", csp)
+		}
 	}
 	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
 		t.Errorf("Content-Type = %q", ct)
@@ -100,12 +121,15 @@ func TestExtensionEndpoint(t *testing.T) {
 		t.Errorf("HTML response is missing the injected focus/key relay")
 	}
 
-	// The runner received the right extension and input.
+	// The runner received the right extension, entry script and input.
 	if runner.gotExt.ID != "eye" {
 		t.Errorf("rendered ext = %q, want eye", runner.gotExt.ID)
 	}
 	if runner.gotExt.Entry == "" {
 		t.Error("rendered ext.Entry is empty")
+	}
+	if runner.gotEntry != runner.gotExt.Entry {
+		t.Errorf("exec entry = %q, want %q", runner.gotEntry, runner.gotExt.Entry)
 	}
 	if runner.gotExt.Dir == "" {
 		t.Error("rendered ext.Dir is empty")
@@ -119,6 +143,9 @@ func TestExtensionEndpoint(t *testing.T) {
 	if got := runner.gotInput["action"]; got != "render" {
 		t.Errorf("input.action = %v, want render", got)
 	}
+	if got := runner.gotInput["token"]; got != cfg.Token {
+		t.Errorf("input.token = %v, want the validated session token", got)
+	}
 	// Extra params flow through.
 	params, ok := runner.gotInput["params"].(map[string]string)
 	if !ok {
@@ -130,10 +157,10 @@ func TestExtensionEndpoint(t *testing.T) {
 }
 
 func TestExtensionEndpointAuth(t *testing.T) {
-	ts, _ := extTestServer(t, &stubExtensionRunner{result: []byte(`"ok"`)})
+	ts, cfg := extTestServer(t, &stubExtensionRunner{result: []byte(`"ok"`)})
 
 	// No cookie, no token → 401.
-	resp, err := http.Get(ts.URL + "/gqjs/eye")
+	resp, err := http.Get(ts.URL + "/gqjs/ext/eye")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +170,7 @@ func TestExtensionEndpointAuth(t *testing.T) {
 	}
 
 	// Query token fallback works.
-	resp, err = http.Get(ts.URL + "/gqjs/eye?token=testtoken")
+	resp, err = http.Get(ts.URL + "/gqjs/ext/eye?token=testtoken")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,12 +178,29 @@ func TestExtensionEndpointAuth(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("query-token status = %d, want 200", resp.StatusCode)
 	}
+
+	// A sandboxed (opaque-origin) caller sends Origin: null — it must not be
+	// rejected as a malformed origin (it used to 400).
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/gqjs/ext/eye", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Origin", "null")
+	req.AddCookie(&http.Cookie{Name: "suwu_token", Value: cfg.Token})
+	resp2, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK {
+		t.Errorf("opaque-origin page status = %d, want 200", resp2.StatusCode)
+	}
 }
 
 func TestExtensionEndpointErrors(t *testing.T) {
 	t.Run("unknown id", func(t *testing.T) {
 		ts, cfg := extTestServer(t, &stubExtensionRunner{result: []byte(`"x"`)})
-		status := getWithCookie(t, ts.URL+"/gqjs/nope", cfg.Token)
+		status := getWithCookie(t, ts.URL+"/gqjs/ext/nope", cfg.Token)
 		if status != http.StatusNotFound {
 			t.Errorf("status = %d, want 404", status)
 		}
@@ -164,7 +208,7 @@ func TestExtensionEndpointErrors(t *testing.T) {
 
 	t.Run("traversal id", func(t *testing.T) {
 		ts, cfg := extTestServer(t, &stubExtensionRunner{result: []byte(`"x"`)})
-		status := getWithCookie(t, ts.URL+"/gqjs/..%2F..%2Fetc", cfg.Token)
+		status := getWithCookie(t, ts.URL+"/gqjs/ext/..%2F..%2Fetc", cfg.Token)
 		if status != http.StatusNotFound {
 			t.Errorf("status = %d, want 404", status)
 		}
@@ -172,7 +216,7 @@ func TestExtensionEndpointErrors(t *testing.T) {
 
 	t.Run("empty id", func(t *testing.T) {
 		ts, cfg := extTestServer(t, &stubExtensionRunner{result: []byte(`"x"`)})
-		status := getWithCookie(t, ts.URL+"/gqjs/", cfg.Token)
+		status := getWithCookie(t, ts.URL+"/gqjs/ext/", cfg.Token)
 		if status != http.StatusNotFound {
 			t.Errorf("status = %d, want 404", status)
 		}
@@ -180,7 +224,7 @@ func TestExtensionEndpointErrors(t *testing.T) {
 
 	t.Run("timeout", func(t *testing.T) {
 		ts, cfg := extTestServer(t, &stubExtensionRunner{err: errExtensionTimeout})
-		status := getWithCookie(t, ts.URL+"/gqjs/eye", cfg.Token)
+		status := getWithCookie(t, ts.URL+"/gqjs/ext/eye", cfg.Token)
 		if status != http.StatusGatewayTimeout {
 			t.Errorf("status = %d, want 504", status)
 		}
@@ -188,7 +232,7 @@ func TestExtensionEndpointErrors(t *testing.T) {
 
 	t.Run("runner failure", func(t *testing.T) {
 		ts, cfg := extTestServer(t, &stubExtensionRunner{err: os.ErrPermission})
-		status := getWithCookie(t, ts.URL+"/gqjs/eye", cfg.Token)
+		status := getWithCookie(t, ts.URL+"/gqjs/ext/eye", cfg.Token)
 		if status != http.StatusInternalServerError {
 			t.Errorf("status = %d, want 500", status)
 		}
@@ -196,7 +240,7 @@ func TestExtensionEndpointErrors(t *testing.T) {
 
 	t.Run("invalid result", func(t *testing.T) {
 		ts, cfg := extTestServer(t, &stubExtensionRunner{result: []byte(`{"nope":1}`)})
-		status := getWithCookie(t, ts.URL+"/gqjs/eye", cfg.Token)
+		status := getWithCookie(t, ts.URL+"/gqjs/ext/eye", cfg.Token)
 		if status != http.StatusInternalServerError {
 			t.Errorf("status = %d, want 500", status)
 		}
@@ -204,7 +248,7 @@ func TestExtensionEndpointErrors(t *testing.T) {
 
 	t.Run("method not allowed", func(t *testing.T) {
 		ts, cfg := extTestServer(t, &stubExtensionRunner{result: []byte(`"x"`)})
-		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/gqjs/eye", nil)
+		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/gqjs/ext/eye", nil)
 		req.AddCookie(&http.Cookie{Name: "suwu_token", Value: cfg.Token})
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -221,7 +265,7 @@ func TestExtensionStatusAndContentType(t *testing.T) {
 	runner := &stubExtensionRunner{result: []byte(`{"status":201,"contentType":"text/plain","body":"created"}`)}
 	ts, cfg := extTestServer(t, runner)
 
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/gqjs/eye", nil)
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/gqjs/ext/eye", nil)
 	req.AddCookie(&http.Cookie{Name: "suwu_token", Value: cfg.Token})
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -419,6 +463,27 @@ func TestProcessRunnerDefaults(t *testing.T) {
 	}
 	if p.extDir != "/tmp/ext" {
 		t.Errorf("extDir = %q", p.extDir)
+	}
+}
+
+func TestGQArgsNetOptIn(t *testing.T) {
+	p := newProcessRunner("/tmp/ext")
+
+	offline := strings.Join(p.gqArgs("/ext/index.js", "/tmp/in.json", "/tmp/out.json", false), " ")
+	if strings.Contains(offline, "--allow-net") {
+		t.Errorf("without suwu.net the child must stay networkless: %s", offline)
+	}
+	online := strings.Join(p.gqArgs("/ext/stories.js", "/tmp/in.json", "/tmp/out.json", true), " ")
+	if !strings.Contains(online, "--allow-net") {
+		t.Errorf("with suwu.net the child must get --allow-net: %s", online)
+	}
+	for _, args := range []string{offline, online} {
+		if strings.Contains(args, "--allow-private") {
+			t.Errorf("extensions never get --allow-private: %s", args)
+		}
+	}
+	if got := p.gqArgs("/ext/stories.js", "/tmp/in.json", "/tmp/out.json", true); got[len(got)-1] != "/ext/stories.js" {
+		t.Errorf("entry must stay the final argument, got %q", got[len(got)-1])
 	}
 }
 

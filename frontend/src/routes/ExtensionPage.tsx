@@ -39,7 +39,7 @@ export default function ExtensionPage() {
     const p = new URLSearchParams(query);
     if (paneId) p.set('pane', paneId);
     const qs = p.toString();
-    return `/gqjs/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`;
+    return `/gqjs/ext/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`;
   }, [id, paneId, query]);
 
   const innerRef = useRef<HTMLIFrameElement>(null);
@@ -99,7 +99,11 @@ export default function ExtensionPage() {
           title={`extension-${id}`}
           // Deliberately no `allow-same-origin`: the extension runs in an
           // opaque origin, so it cannot read Suwu storage or escape upward.
-          sandbox="allow-scripts allow-pointer-lock"
+          // `allow-popups` lets story links open in a new tab that *inherits*
+          // this sandbox — without it target=_blank is silently blocked; with
+          // it (and no allow-popups-to-escape-sandbox) a popup to our own
+          // origin stays sandboxed too.
+          sandbox="allow-scripts allow-pointer-lock allow-popups"
           className="h-full w-full border-0 bg-transparent"
         />
       ) : (

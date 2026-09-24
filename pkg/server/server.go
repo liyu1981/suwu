@@ -308,6 +308,16 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(r.URL.Path, extensionAPIRoutePrefix) {
+		s.handleExtensionAPI(w, r)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, extensionStaticRoutePrefix) {
+		s.handleExtensionStatic(w, r)
+		return
+	}
+
 	if strings.HasPrefix(r.URL.Path, extensionRoutePrefix) {
 		s.handleExtension(w, r)
 		return

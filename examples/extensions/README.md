@@ -28,9 +28,13 @@ ES-module fetches from the sandboxed page carry neither cookies nor tokens
 (a module's relative imports cannot carry `?token=`). **Never put secrets in
 a static file** — no tokens, passwords, or API keys anywhere under `public/`.
 
-Secrets travel through the **authenticated render HTML** only (an inline
+Credentials travel through the **authenticated render HTML** only (an inline
 *classic* script or a `data-*` attribute) and are read by static code at
 runtime; `hn-top-stories`'s `data-api="…?token=…"` is the canonical pattern.
+That value is an **extension-scoped token**, not the app-shell session token:
+it only opens this extension's own `/gqjs/api/<id>/*`. Extensions must not call
+the main `/api/*` or WebSockets — the session token is never issued to them
+(`docs/EXTENSION_TOKEN_SCOPING_PLAN.md`).
 
 Background: `docs/EXTENSION_TILE_PLAN.md` (render pipeline) and
 `docs/EXTENSION_API_PLAN.md` (metadata + API + static contract).

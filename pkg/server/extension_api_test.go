@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"suwu/pkg/auth"
 	"suwu/pkg/extension"
 )
 
@@ -58,7 +59,20 @@ func demoAPIExt(t *testing.T, dataDir string) {
 	})
 }
 
-// extAPIReq performs an API request, optionally with the session cookie.
+// extTok returns the extension-scoped token a test client must present for id.
+func extTok(cfg *auth.Config, id string) string {
+	return auth.DeriveExtensionToken(cfg, id)
+}
+
+// apiIDFromPath returns the <id> segment of a /gqjs/api/<id>/... path.
+func apiIDFromPath(path string) string {
+	rest := strings.TrimPrefix(path, "/gqjs/api/")
+	id, _, _ := strings.Cut(rest, "/")
+	return id
+}
+
+// extAPIReq performs an extension API request, presenting token as a Bearer
+// credential (empty means unauthenticated).
 func extAPIReq(t *testing.T, base, token, method, path string, body []byte) *http.Response {
 	t.Helper()
 	var rdr io.Reader
@@ -70,7 +84,7 @@ func extAPIReq(t *testing.T, base, token, method, path string, body []byte) *htt
 		t.Fatal(err)
 	}
 	if token != "" {
-		req.AddCookie(&http.Cookie{Name: "suwu_token", Value: token})
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -84,7 +98,7 @@ func TestExtensionAPIRouteOrder(t *testing.T) {
 	ts, cfg, dataDir := extTestServerDir(t, runner)
 	demoAPIExt(t, dataDir)
 
-	resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodGet, "/gqjs/api/demo/hello/world", nil)
+	resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodGet, "/gqjs/api/demo/hello/world", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
@@ -115,7 +129,7 @@ func TestExtensionAPIPathParams(t *testing.T) {
 	ts, cfg, dataDir := extTestServerDir(t, runner)
 	demoAPIExt(t, dataDir)
 
-	resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodGet, "/gqjs/api/demo/note/42", nil)
+	resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodGet, "/gqjs/api/demo/note/42", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
@@ -143,7 +157,7 @@ func TestExtensionAPIRootCatchAll(t *testing.T) {
 
 	// The bare prefix and arbitrary subpaths both land on the root route.
 	for _, p := range []string{"/gqjs/api/fallback", "/gqjs/api/fallback/anything/deep"} {
-		resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodGet, p, nil)
+		resp := extAPIReq(t, ts.URL, extTok(cfg, "fallback"), http.MethodGet, p, nil)
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("%s: status = %d, want 200", p, resp.StatusCode)
@@ -178,7 +192,7 @@ func TestExtensionAPIFailClosedRoutes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := extAPIReq(t, ts.URL, cfg.Token, tc.method, tc.path, nil)
+			resp := extAPIReq(t, ts.URL, extTok(cfg, apiIDFromPath(tc.path)), tc.method, tc.path, nil)
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusNotFound {
 				t.Errorf("status = %d, want 404", resp.StatusCode)
@@ -213,7 +227,7 @@ func TestExtensionAPIAuthAndMethods(t *testing.T) {
 	ts2, cfg2, dataDir2 := extTestServerDir(t, runner)
 	demoAPIExt(t, dataDir2)
 	resp = extAPIReq(t, ts2.URL, "", http.MethodGet,
-		"/gqjs/api/demo/hello?foo=bar&token="+cfg2.Token, nil)
+		"/gqjs/api/demo/hello?foo=bar&token="+extTok(cfg2, "demo"), nil)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("query-token status = %d, want 200", resp.StatusCode)
@@ -227,7 +241,7 @@ func TestExtensionAPIAuthAndMethods(t *testing.T) {
 	}
 
 	// Disallowed method → 405 before any child process starts.
-	resp = extAPIReq(t, ts.URL, cfg.Token, "TRACE", "/gqjs/api/demo/hello", nil)
+	resp = extAPIReq(t, ts.URL, extTok(cfg, "demo"), "TRACE", "/gqjs/api/demo/hello", nil)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("TRACE status = %d, want 405", resp.StatusCode)
@@ -237,12 +251,54 @@ func TestExtensionAPIAuthAndMethods(t *testing.T) {
 	}
 }
 
+func TestExtensionAPIScopedTokenOnly(t *testing.T) {
+	runner := &stubExtensionRunner{result: []byte(`{"body":"ok"}`)}
+	ts, cfg, dataDir := extTestServerDir(t, runner)
+	demoAPIExt(t, dataDir)
+	writeAPIExt(t, dataDir, "ghost", map[string]string{
+		"package.json": `{"name":"Ghost","suwu":{"api":[{"route":"/gone","handler":"gone.js"}]}}`,
+		"index.js":     `1`,
+		"gone.js":      `1`,
+	})
+
+	cases := []struct {
+		name  string
+		token string
+		want  int
+	}{
+		{name: "own scoped token", token: extTok(cfg, "demo"), want: http.StatusOK},
+		{name: "session token", token: cfg.Token, want: http.StatusUnauthorized},
+		{name: "another extension's token", token: extTok(cfg, "ghost"), want: http.StatusUnauthorized},
+		{name: "missing", token: "", want: http.StatusUnauthorized},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			runner.gotEntry = ""
+			resp := extAPIReq(t, ts.URL, tc.token, http.MethodGet, "/gqjs/api/demo/hello", nil)
+			resp.Body.Close()
+			if resp.StatusCode != tc.want {
+				t.Errorf("status = %d, want %d", resp.StatusCode, tc.want)
+			}
+			if tc.want == http.StatusUnauthorized && runner.gotEntry != "" {
+				t.Errorf("handler ran on a rejected token: %q", runner.gotEntry)
+			}
+		})
+	}
+
+	// An extension token must never open the app-shell API.
+	resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodGet, "/api/home", nil)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("extension token on /api/home = %d, want 401", resp.StatusCode)
+	}
+}
+
 func TestExtensionAPIBodyLimit(t *testing.T) {
-	runner := &stubExtensionRunner{result: []byte(`"x"`) }
+	runner := &stubExtensionRunner{result: []byte(`"x"`)}
 	ts, cfg, dataDir := extTestServerDir(t, runner)
 	demoAPIExt(t, dataDir)
 
-	resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodPost, "/gqjs/api/demo/hello",
+	resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodPost, "/gqjs/api/demo/hello",
 		bytes.Repeat([]byte("a"), extensionAPIMaxBody+1))
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusRequestEntityTooLarge {
@@ -263,9 +319,10 @@ func TestExtensionAPIInputPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.AddCookie(&http.Cookie{Name: "suwu_token", Value: cfg.Token})
+	req.Header.Set("Authorization", "Bearer "+extTok(cfg, "demo"))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Custom", "v")
+	req.Header.Set("Cookie", "suwu_token="+cfg.Token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -287,6 +344,10 @@ func TestExtensionAPIInputPayload(t *testing.T) {
 	if headers["x-custom"] != "v" || headers["content-type"] != "application/json" {
 		t.Errorf("input.headers = %v", headers)
 	}
+	// Credential headers never cross into extension code.
+	if headers["authorization"] != "" || headers["cookie"] != "" {
+		t.Errorf("credential headers leaked to handler: %v", headers)
+	}
 	query, _ := runner.gotInput["query"].(map[string]string)
 	if query["page"] != "2" {
 		t.Errorf("input.query = %v", query)
@@ -295,7 +356,7 @@ func TestExtensionAPIInputPayload(t *testing.T) {
 	// Binary payloads cross as base64.
 	runner.result = []byte(`"x"`)
 	binaryBody := []byte{0xff, 0xfe, 0x00}
-	resp = extAPIReq(t, ts.URL, cfg.Token, http.MethodPost, "/gqjs/api/demo/hello", binaryBody)
+	resp = extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodPost, "/gqjs/api/demo/hello", binaryBody)
 	resp.Body.Close()
 	if got, _ := runner.gotInput["bodyB64"].(string); got != base64.StdEncoding.EncodeToString(binaryBody) {
 		t.Errorf("input.bodyB64 = %v", runner.gotInput["bodyB64"])
@@ -313,7 +374,7 @@ func TestExtensionAPIRelay(t *testing.T) {
 	ts, cfg, dataDir := extTestServerDir(t, runner)
 	demoAPIExt(t, dataDir)
 
-	resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodGet, "/gqjs/api/demo/hello", nil)
+	resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodGet, "/gqjs/api/demo/hello", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 201 {
 		t.Errorf("status = %d, want 201", resp.StatusCode)
@@ -353,7 +414,7 @@ func TestExtensionAPINoScriptInjection(t *testing.T) {
 	ts, cfg, dataDir := extTestServerDir(t, runner)
 	demoAPIExt(t, dataDir)
 
-	resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodGet, "/gqjs/api/demo/hello", nil)
+	resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodGet, "/gqjs/api/demo/hello", nil)
 	defer resp.Body.Close()
 	body := readAll(t, resp)
 	if strings.Contains(body, extensionRelayMarker) {
@@ -370,7 +431,7 @@ func TestExtensionAPIBinaryAndDefaults(t *testing.T) {
 	ts, cfg, dataDir := extTestServerDir(t, runner)
 	demoAPIExt(t, dataDir)
 
-	resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodGet, "/gqjs/api/demo/hello", nil)
+	resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodGet, "/gqjs/api/demo/hello", nil)
 	defer resp.Body.Close()
 	body := readAll(t, resp)
 	if body != string([]byte{0xff, 0xfe, 0x00}) {
@@ -386,7 +447,7 @@ func TestExtensionAPIEmptyResultIsNoContent(t *testing.T) {
 		runner := &stubExtensionRunner{result: []byte(raw)}
 		ts, cfg, dataDir := extTestServerDir(t, runner)
 		demoAPIExt(t, dataDir)
-		resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodGet, "/gqjs/api/demo/hello", nil)
+		resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodGet, "/gqjs/api/demo/hello", nil)
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusNoContent {
 			t.Errorf("result %q: status = %d, want 204", raw, resp.StatusCode)
@@ -409,7 +470,7 @@ func TestExtensionAPICORS(t *testing.T) {
 			req.Header.Set("Origin", origin)
 		}
 		if token != "" {
-			req.AddCookie(&http.Cookie{Name: "suwu_token", Value: token})
+			req.Header.Set("Authorization", "Bearer "+token)
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -419,7 +480,7 @@ func TestExtensionAPICORS(t *testing.T) {
 	}
 
 	// Sandboxed extension pages (opaque origin) may read the response.
-	resp := withOrigin(http.MethodGet, "/gqjs/api/demo/hello", "null", cfg.Token)
+	resp := withOrigin(http.MethodGet, "/gqjs/api/demo/hello", "null", extTok(cfg, "demo"))
 	resp.Body.Close()
 	// Regression: auth used to parse "null" as a malformed origin and 400.
 	if resp.StatusCode != http.StatusOK {
@@ -436,7 +497,7 @@ func TestExtensionAPICORS(t *testing.T) {
 	}
 
 	// Foreign origins get no grant.
-	resp = withOrigin(http.MethodGet, "/gqjs/api/demo/hello", "https://evil.example", cfg.Token)
+	resp = withOrigin(http.MethodGet, "/gqjs/api/demo/hello", "https://evil.example", extTok(cfg, "demo"))
 	resp.Body.Close()
 	if got := resp.Header.Get("Access-Control-Allow-Origin"); got != "" {
 		t.Errorf("ACAO for a foreign origin = %q, want empty", got)
@@ -505,7 +566,7 @@ func TestExtensionAPIErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ts, cfg, dataDir := extTestServerDir(t, tc.runner)
 			demoAPIExt(t, dataDir)
-			resp := extAPIReq(t, ts.URL, cfg.Token, http.MethodGet, "/gqjs/api/demo/hello", nil)
+			resp := extAPIReq(t, ts.URL, extTok(cfg, "demo"), http.MethodGet, "/gqjs/api/demo/hello", nil)
 			body := readAll(t, resp)
 			resp.Body.Close()
 			if resp.StatusCode != tc.want {

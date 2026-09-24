@@ -2,8 +2,9 @@
  * Hacker News Top Stories — render stub.
  *
  * Only what must be server-side lives here: status/contentType plus the
- * authenticated API URL (session token) embedded in the page. Styles and the
- * ES-module app come from the static directory (package.json → suwu.static).
+ * authenticated API URL (extension-scoped token, never the session token)
+ * embedded in the page. Styles and the ES-module app come from the static
+ * directory (package.json → suwu.static).
  *
  * NEVER put the token or other secrets into public/ — static files are served
  * unauthenticated because module fetches cannot carry credentials

@@ -308,13 +308,20 @@ func (s *Server) extensionRunner() extensionRunner {
 	return newProcessRunner(s.extensionDir())
 }
 
-// authorizeExtensionRequest authenticates an extension request and returns the
-// validated token, or ("", status, reason) on failure. It writes nothing, so
-// page renders (plain text) and API routes (JSON) can shape their own errors.
+// authorizeExtensionRequest authenticates the extension *render* navigation
+// (GET /gqjs/ext/<id>) with the app-shell session credential, and returns the
+// validated session token or ("", status, reason) on failure. It writes
+// nothing, so the caller shapes its own error body.
 //
 // Extension navigations are iframe GETs that cannot carry an HMAC header, so
 // the browser's suwu_token cookie is used, with the query token as a fallback;
-// programmatic API calls may authenticate with the Authorization header.
+// programmatic callers may authenticate with the Authorization header.
+//
+// The returned session token is deliberately NOT handed to the render script:
+// handleExtension downgrades it to the extension-scoped token. The render
+// route keeps the session gate because the iframe is a same-origin navigation
+// that carries the cookie; extension tokens are for API calls (see
+// authorizeExtensionAPIRequest).
 func (s *Server) authorizeExtensionRequest(r *http.Request) (string, int, string) {
 	token := ""
 	if c, err := r.Cookie("suwu_token"); err == nil {
@@ -344,6 +351,40 @@ func (s *Server) authorizeExtensionRequest(r *http.Request) (string, int, string
 	return validated, 0, ""
 }
 
+// authorizeExtensionAPIRequest authenticates an extension API request
+// (/gqjs/api/<id>/<path>) against the token derived for id, returning
+// (status, reason) with status 0 on success. It writes nothing.
+//
+// Only the extension-scoped token is accepted — never the app-shell session
+// token. The extension page is opaque-origin, so it cannot present the
+// suwu_token cookie; its token travels in the query string (or an
+// Authorization: Bearer header for programmatic callers).
+func (s *Server) authorizeExtensionAPIRequest(r *http.Request, id string) (int, string) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		const bearer = "Bearer "
+		if header := r.Header.Get("Authorization"); strings.HasPrefix(header, bearer) {
+			token = header[len(bearer):]
+		}
+	}
+	if token == "" {
+		return http.StatusUnauthorized, "Unauthorized"
+	}
+	origin := r.Header.Get("Origin")
+	// The sandboxed page's opaque origin is the literal "null", which can
+	// never match the Host and would fail parsing. Treat it as "no comparable
+	// origin": the scoped token is still required, and real foreign origins
+	// keep failing the match.
+	if origin == "null" {
+		origin = ""
+	}
+	d := auth.ValidateExtensionAPIRequest(s.cfg, r.Host, origin, id, token)
+	if !d.OK {
+		return d.Status, d.Reason
+	}
+	return 0, ""
+}
+
 // handleExtension renders an extension page: GET /gqjs/ext/<id>
 func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -351,8 +392,7 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	validated, authStatus, authReason := s.authorizeExtensionRequest(r)
-	if authStatus != 0 {
+	if _, authStatus, authReason := s.authorizeExtensionRequest(r); authStatus != 0 {
 		writePlain(w, authStatus, authReason)
 		return
 	}
@@ -369,7 +409,11 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	raw, err := s.extensionRunner().Exec(r.Context(), ext, ext.Entry, buildExtensionInput(r, ext, validated))
+	// The render navigation carried the session token; the page itself is
+	// handed only this extension's scoped token, so a leaked page credential
+	// cannot reach the main API or another extension.
+	extToken := auth.DeriveExtensionToken(s.cfg, ext.ID)
+	raw, err := s.extensionRunner().Exec(r.Context(), ext, ext.Entry, buildExtensionInput(r, ext, extToken))
 	if err != nil {
 		if errors.Is(err, errExtensionTimeout) || errors.Is(err, context.DeadlineExceeded) {
 			writePlain(w, http.StatusGatewayTimeout, "Extension timed out")
@@ -442,14 +486,18 @@ func (s *Server) handleExtensionsList(w http.ResponseWriter, r *http.Request) {
 
 // buildExtensionInput assembles the `input` global handed to the script.
 //
-// token is the caller's validated session token. The render page has an
-// opaque origin, so it cannot authenticate to its own API with the cookie;
-// it embeds this token in its API URLs instead. Exposing it to the script is
-// deliberate: extensions are user-installed and network-gated (suwu.net).
+// token is the extension-scoped token derived for this extension (never the
+// session token). The render page has an opaque origin, so it cannot
+// authenticate to its own API with the cookie; it embeds this token in its API
+// URLs instead. The token is stripped from the relayed query/params so a
+// ?token= render navigation cannot bounce the credential back through input.
 func buildExtensionInput(r *http.Request, ext extension.Extension, token string) map[string]any {
 	query := map[string]string{}
 	params := map[string]string{}
 	for k, vs := range r.URL.Query() {
+		if k == "token" {
+			continue
+		}
 		v := ""
 		if len(vs) > 0 {
 			v = vs[0]

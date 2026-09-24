@@ -143,8 +143,12 @@ func TestExtensionEndpoint(t *testing.T) {
 	if got := runner.gotInput["action"]; got != "render" {
 		t.Errorf("input.action = %v, want render", got)
 	}
-	if got := runner.gotInput["token"]; got != cfg.Token {
-		t.Errorf("input.token = %v, want the validated session token", got)
+	// The render script gets the extension-scoped token, never the session token.
+	if got, want := runner.gotInput["token"], auth.DeriveExtensionToken(cfg, "eye"); got != want {
+		t.Errorf("input.token = %v, want the extension token %v", got, want)
+	}
+	if runner.gotInput["token"] == cfg.Token {
+		t.Error("input.token is the session token")
 	}
 	// Extra params flow through.
 	params, ok := runner.gotInput["params"].(map[string]string)
@@ -177,6 +181,21 @@ func TestExtensionEndpointAuth(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("query-token status = %d, want 200", resp.StatusCode)
+	}
+
+	// The render route is session-only: an extension-scoped token is rejected.
+	extReq, err := http.NewRequest(http.MethodGet, ts.URL+"/gqjs/ext/eye", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extReq.Header.Set("Authorization", "Bearer "+auth.DeriveExtensionToken(cfg, "eye"))
+	resp, err = http.DefaultClient.Do(extReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("extension-token render status = %d, want 401", resp.StatusCode)
 	}
 
 	// A sandboxed (opaque-origin) caller sends Origin: null — it must not be

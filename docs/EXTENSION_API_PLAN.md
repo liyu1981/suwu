@@ -169,13 +169,18 @@ The render page runs in `sandbox="allow-scripts allow-pointer-lock
 allow-popups"` — an **opaque origin**, which breaks the two assumptions a
 same-origin page would enjoy:
 
-1. **Auth:** no cookie-credentials ride along, so the validated session
-   `token` is handed to the render script (`input.token`) and embedded in the
-   page's API URLs (`?token=`). Handlers never receive it (stripped from
-   `input.query`). The literal `Origin: null` is treated as "no comparable
-   origin" in `authorizeExtensionRequest` — an opaque origin can never match
-   the Host (it used to fail origin parsing and 400 every call), while real
-   foreign origins still fail the match.
+1. **Auth:** no cookie-credentials ride along, so the render script is handed
+   an **extension-scoped token** (`input.token`) and embeds it in the page's
+   API URLs (`?token=`). It is derived per extension from the signing key
+   (`auth.DeriveExtensionToken`), never the app-shell session token, and it is
+   stripped from `input.query`/`params`. `/gqjs/api/<id>/*` accepts **only**
+   that extension's derived token — the session token is rejected there, and an
+   extension token is rejected everywhere in `/api/*`. See
+   `docs/EXTENSION_TOKEN_SCOPING_PLAN.md`. The render navigation itself still
+   authenticates on the `suwu_token` cookie. The literal `Origin: null` is
+   treated as "no comparable origin" in the extension authorizers — an opaque
+   origin can never match the Host (it used to fail origin parsing and 400
+   every call), while real foreign origins still fail the match.
 2. **CSP:** `connect-src 'self'` is unreliable for an opaque origin, so
    rendered pages get `extensionCSPFor(r)`, which names the request origin
    explicitly and allows the pinned htmx CDN in `script-src` (error documents
@@ -190,7 +195,15 @@ same-origin page would enjoy:
    without the token, gets nothing usable.
 4. **Links:** `allow-popups` lets `target="_blank"` open a new tab that
    *inherits* the sandbox; `allow-popups-to-escape-sandbox` is deliberately
-   absent, so a popup to our own origin stays sandboxed too.
+   absent, so a popup to our own origin stays sandboxed too. **Cost:** those
+   tabs are opaque-origin documents and break on workers/storage/credentialed
+   fetch; see `docs/EXTENSION_SANDBOX_LINKS_ANALYSIS.md` for the root cause and
+   what relaxing it would cost.
+5. **Contract — extensions do not use the app-shell API.** `/api/*` and the
+   WebSockets are for the app shell; an extension reaches server-side data only
+   through its own `/gqjs/api/<id>/*` handlers. `/api/*` calls carrying an
+   extension token are rejected by design, and extension code is never issued
+   the session token.
 
 ---
 
@@ -212,17 +225,19 @@ same-origin page would enjoy:
 > cookies nor tokens (relative imports can't), which is why
 > `/gqjs/static/` is unauthenticated. **Never put sensitive values in a
 > static file** — no tokens, passwords, or API keys under `public/`.
-> Secrets travel through the **authenticated render HTML** only (an inline
+> Credentials travel through the **authenticated render HTML** only (an inline
 > *classic* script or a `data-*` attribute) and are read by static code at
 > runtime — `hn-top-stories`'s `data-api="…?token=…"` is the canonical
-> pattern. Use a classic script when the secret must be evaluated directly
+> pattern. That value is the extension-scoped token, so even if it leaks it
+> only opens this extension's own API. Use a classic script when the secret must be evaluated directly
 > (inline in the stub); everything in `public/` must stay secret-free.
 
 ---
 
 ## 3. Security summary
 
-1. Session auth on every API request; auth failures answer JSON.
+1. Session auth on every app-shell API request; extension API requests use
+the per-extension scoped token. Auth failures answer JSON.
 2. `ValidID` regex + `ensureWithin`/symlink defense for id, path and handler.
 3. Fail closed: unregistered extension, unmatched route, missing handler → 404.
 4. Method allowlist (405) and 4 MiB body cap (413) before any child starts.

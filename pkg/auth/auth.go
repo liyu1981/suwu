@@ -69,6 +69,30 @@ func GenerateSigningKey(token string) []byte {
 	return key[:]
 }
 
+// ExtTokenDomain domain-separates extension tokens from every other HMAC use
+// of the signing key.
+const ExtTokenDomain = "suwu-extension-token:"
+
+// DeriveExtensionToken returns the token scoped to a single extension id.
+//
+// It is stateless and one-way: an extension holding its own token cannot
+// recover the session token or the signing key, nor derive another extension's
+// token. The value changes whenever SigningKey rotates — the same lifetime an
+// embedded session token had before scoping.
+func DeriveExtensionToken(cfg *Config, id string) string {
+	mac := hmac.New(sha256.New, cfg.SigningKey)
+	mac.Write([]byte(ExtTokenDomain + id))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// ValidateExtensionToken reports whether token is the token derived for id.
+func ValidateExtensionToken(cfg *Config, id, token string) bool {
+	if id == "" {
+		return false
+	}
+	return safeTokenEquals(DeriveExtensionToken(cfg, id), token)
+}
+
 // SignRequest computes HMAC-SHA256(method + "\n" + path + "\n" + timestamp, signingKey).
 func SignRequest(signingKey []byte, method, reqPath, timestamp string) string {
 	mac := hmac.New(sha256.New, signingKey)
@@ -588,6 +612,25 @@ func ValidateWebSocketRequest(cfg *Config, hostHeader, originHeader, token strin
 		return unauthorized()
 	}
 	if !safeTokenEquals(cfg.Token, token) {
+		return unauthorized()
+	}
+	return allowed()
+}
+
+// ValidateExtensionAPIRequest validates an extension API request. It applies
+// the same host/origin rules as ValidateAPIRequest, then accepts only the
+// token derived for id. The session token is deliberately rejected: extension
+// code should never hold it.
+func ValidateExtensionAPIRequest(cfg *Config, hostHeader, originHeader, id, token string) Decision {
+	d, _ := validateAllowedHost(cfg, hostHeader)
+	if !d.OK {
+		return d
+	}
+	d = validateMatchingOrigin(originHeader, hostFromHeader(hostHeader), false)
+	if !d.OK {
+		return d
+	}
+	if !ValidateExtensionToken(cfg, id, token) {
 		return unauthorized()
 	}
 	return allowed()

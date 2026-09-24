@@ -136,17 +136,19 @@ func (s *Server) handleExtensionAPI(w http.ResponseWriter, r *http.Request) {
 		writeExtensionAPIError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	if _, status, reason := s.authorizeExtensionRequest(r); status != 0 {
-		writeExtensionAPIError(w, status, reason)
-		return
-	}
 
 	// <ext_id> is the first segment; everything after it is the path handed
-	// to route matching and the handler.
+	// to route matching and the handler. The id is parsed before auth because
+	// the accepted token is derived from it, and only that extension's token
+	// is valid.
 	rest := strings.TrimPrefix(r.URL.Path, extensionAPIRoutePrefix)
 	id, reqPath, _ := strings.Cut(rest, "/")
 	if !extension.ValidID(id) {
 		writeExtensionAPIError(w, http.StatusNotFound, "Not found")
+		return
+	}
+	if status, reason := s.authorizeExtensionAPIRequest(r, id); status != 0 {
+		writeExtensionAPIError(w, status, reason)
 		return
 	}
 	ext, err := extension.Resolve(s.extensionDir(), id)
@@ -253,7 +255,9 @@ func (s *Server) handleExtensionAPI(w http.ResponseWriter, r *http.Request) {
 // buildExtensionAPIInput assembles the `input` global handed to the handler.
 // The path is normalized (leading slash), route bindings land in pathParams,
 // and the payload crosses as text when it is valid UTF-8 and as base64
-// otherwise. The auth query token is stripped — it is transport, not data.
+// otherwise. The auth query token is stripped — it is transport, not data —
+// and credential headers (Authorization, Cookie) are withheld so a caller's
+// session credential can never be relayed into extension code.
 func buildExtensionAPIInput(
 	r *http.Request,
 	ext extension.Extension,
@@ -272,9 +276,14 @@ func buildExtensionAPIInput(
 	}
 	headers := map[string]string{}
 	for k, vs := range r.Header {
-		if len(vs) > 0 {
-			headers[strings.ToLower(k)] = strings.Join(vs, ", ")
+		if len(vs) == 0 {
+			continue
 		}
+		switch strings.ToLower(k) {
+		case "authorization", "cookie":
+			continue
+		}
+		headers[strings.ToLower(k)] = strings.Join(vs, ", ")
 	}
 	if pathParams == nil {
 		pathParams = map[string]string{}

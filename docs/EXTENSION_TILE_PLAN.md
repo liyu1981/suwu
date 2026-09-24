@@ -488,7 +488,7 @@ selection lives in the config editor.
 | Memory bomb | gqjs `MemoryLimit`/`MaxStackSize` defaults (64 MiB / 1 MiB). |
 | Output flood | gqjs `MaxOutputBytes` (1 MiB); server reads the result file, not stdout. |
 | Untrusted HTML/JS in the app | Nested iframe sandboxed **without** `allow-same-origin`; scoped CSP with `default-src 'none'`. |
-| Unauthenticated execution | `/gqjs/ext/<id>`, `/gqjs/api/<id>/…` and `/api/extensions` require the session token. |
+| Unauthenticated execution | `/gqjs/ext/<id>` and `/api/extensions` require the session token; `/gqjs/api/<id>/…` requires that extension's derived token (session token rejected). See EXTENSION_TOKEN_SCOPING_PLAN.md. |
 | Public static assets | `/gqjs/static/<id>/…` is deliberately unauthenticated (opaque-origin module fetches carry no credentials) — extension `public/` files must never contain secrets; see EXTENSION_API_PLAN.md §2.8. |
 | FS access | Extension process gets only `/ext` (read-only) by default. |
 

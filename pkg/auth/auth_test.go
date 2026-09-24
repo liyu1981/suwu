@@ -455,3 +455,85 @@ func TestTokenRotation(t *testing.T) {
 		t.Fatal("old key accepted new signature")
 	}
 }
+
+func extTestConfig(t *testing.T) *Config {
+	t.Helper()
+	token, err := GenerateSessionToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &Config{
+		Token:        token,
+		SigningKey:   GenerateSigningKey(token),
+		AllowedHosts: []string{"localhost", "127.0.0.1", "::1"},
+	}
+}
+
+func TestDeriveExtensionToken(t *testing.T) {
+	cfg := extTestConfig(t)
+	eye := DeriveExtensionToken(cfg, "eye")
+	hn := DeriveExtensionToken(cfg, "hn-top-stories")
+
+	if eye == hn {
+		t.Fatal("different extensions derived the same token")
+	}
+	if eye == cfg.Token {
+		t.Fatal("extension token equals the session token")
+	}
+	if !ValidateExtensionToken(cfg, "eye", eye) {
+		t.Error("derived token did not validate")
+	}
+	if ValidateExtensionToken(cfg, "hn-top-stories", eye) {
+		t.Error("token for eye validated for hn-top-stories")
+	}
+	if ValidateExtensionToken(cfg, "eye", cfg.Token) {
+		t.Error("session token validated as an extension token")
+	}
+	if ValidateExtensionToken(cfg, "eye", "") || ValidateExtensionToken(cfg, "", eye) {
+		t.Error("empty id or token validated")
+	}
+
+	// Rotation of the session key invalidates derived tokens.
+	newToken, err := GenerateSessionToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Token = newToken
+	cfg.SigningKey = GenerateSigningKey(newToken)
+	if ValidateExtensionToken(cfg, "eye", eye) {
+		t.Error("token survived signing-key rotation")
+	}
+}
+
+func TestValidateExtensionAPIRequest(t *testing.T) {
+	cfg := extTestConfig(t)
+	eye := DeriveExtensionToken(cfg, "eye")
+
+	cases := []struct {
+		name   string
+		host   string
+		origin string
+		id     string
+		token  string
+		ok     bool
+		status int
+	}{
+		{name: "scoped token", host: "127.0.0.1:8080", id: "eye", token: eye, ok: true},
+		{name: "session token rejected", host: "127.0.0.1:8080", id: "eye", token: cfg.Token, status: 401},
+		{name: "other extension rejected", host: "127.0.0.1:8080", id: "other", token: eye, status: 401},
+		{name: "missing token", host: "127.0.0.1:8080", id: "eye", status: 401},
+		{name: "foreign host", host: "evil.example", id: "eye", token: eye, status: 403},
+		{name: "foreign origin", host: "127.0.0.1:8080", origin: "https://evil.example", id: "eye", token: eye, status: 403},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := ValidateExtensionAPIRequest(cfg, tc.host, tc.origin, tc.id, tc.token)
+			if d.OK != tc.ok {
+				t.Fatalf("OK = %v, want %v (status %d, %q)", d.OK, tc.ok, d.Status, d.Reason)
+			}
+			if !tc.ok && d.Status != tc.status {
+				t.Errorf("status = %d, want %d", d.Status, tc.status)
+			}
+		})
+	}
+}

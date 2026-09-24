@@ -80,6 +80,7 @@ import './plugins/xdisplay';
 import './plugins/dbbrowser';
 import './plugins/code';
 import './plugins/resthelper';
+import './plugins/extension';
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +
@@ -268,6 +269,25 @@ function TileTypePicker({
  * then only mutates inline styles; an iframe's DOM node is never recreated
  * or reparented, so its PTY session survives layout changes.
  */
+/**
+ * True when a postMessage `source` is one of the tile iframes this WM owns.
+ *
+ * Tile messages (focus, shortcuts, close, open-file) are only trustworthy when
+ * they come from a direct child iframe carrying `data-pane`. A sandboxed
+ * extension runs one frame deeper on an opaque origin, so an extension that
+ * posts straight at the shell has a `source` that fails this check — which is
+ * what lets us relay focus/keys from extensions without also letting them
+ * impersonate panes.
+ */
+function isDirectTileFrame(source: MessageEventSource | null): boolean {
+  if (!source) return false;
+  const frames = document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]');
+  for (const frame of frames) {
+    if (frame.contentWindow === source) return true;
+  }
+  return false;
+}
+
 export default function TilingWM() {
   const { t } = useTranslation();
   const store = useStore();
@@ -943,8 +963,12 @@ export default function TilingWM() {
   }, [wmHandlers]);
 
   // Space switching: Ctrl+1-9, Ctrl+Tab, Ctrl+Shift+Tab.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+  //
+  // Extracted from the window keydown listener so the identical logic also
+  // serves keys relayed out of a sandboxed extension tile (wm-key): key events
+  // do not cross document boundaries, so the never sees them natively.
+  const handleSpaceKey = useCallback(
+    (e: KeyboardEvent) => {
       if (!e.ctrlKey || e.altKey || e.metaKey) return;
       const sp = store.get(spacesAtom);
       const cur = store.get(activeSpaceAtom);
@@ -975,10 +999,15 @@ export default function TilingWM() {
         store.set(focusedIdAtom, '');
         return;
       }
-    };
+    },
+    [store],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => handleSpaceKey(e);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [store]);
+  }, [handleSpaceKey]);
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
@@ -990,17 +1019,46 @@ export default function TilingWM() {
             tileType?: string;
             sourcePane?: string;
             action?: ReturnType<typeof wmAction>;
+            key?: unknown;
+            altKey?: unknown;
+            ctrlKey?: unknown;
+            shiftKey?: unknown;
+            metaKey?: unknown;
           }
         | undefined;
+      // Only a direct tile iframe may drive tile-level state; a sandboxed
+      // extension is one frame deeper and must not impersonate a pane.
+      const trusted = isDirectTileFrame(e.source);
       if (d?.type === 'pane-focus') {
-        if (typeof d.pane === 'string') store.set(focusedIdAtom, d.pane);
+        if (trusted && typeof d.pane === 'string') store.set(focusedIdAtom, d.pane);
         return;
       }
-      if (d?.type === 'wm-close-pane' && typeof d.pane === 'string') {
+      // Raw key relayed from a sandboxed extension tile (Alt WM shortcuts and
+      // Ctrl space switching). Both were swallowed inside the extension, so
+      // resolve them here exactly as if the shell had received them natively.
+      if (d?.type === 'wm-key') {
+        if (!trusted || typeof d.key !== 'string') return;
+        const ev = new KeyboardEvent('keydown', {
+          key: d.key,
+          altKey: d.altKey === true,
+          ctrlKey: d.ctrlKey === true,
+          shiftKey: d.shiftKey === true,
+          metaKey: d.metaKey === true,
+          cancelable: true,
+        });
+        const act = wmAction(ev);
+        if (act) {
+          applyWmAction(act, wmHandlers);
+          return;
+        }
+        handleSpaceKey(ev);
+        return;
+      }
+      if (d?.type === 'wm-close-pane' && trusted && typeof d.pane === 'string') {
         closeTile(d.pane);
         return;
       }
-      if (d?.type === 'wm-open-file' && typeof d.path === 'string') {
+      if (d?.type === 'wm-open-file' && trusted && typeof d.path === 'string') {
         // Reuse the actionResolver approach: split from the source pane,
         // set type and initialPath directly on the store.
         if (d.sourcePane) store.set(focusedIdAtom, d.sourcePane);
@@ -1012,7 +1070,7 @@ export default function TilingWM() {
         return;
       }
       const a = d?.type === 'wm-shortcut' ? d.action : undefined;
-      if (!a) return;
+      if (!a || !trusted) return;
       applyWmAction(a, wmHandlers);
     };
     window.addEventListener('message', onMsg);

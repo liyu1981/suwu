@@ -331,7 +331,9 @@
     "code": "代码浏览器",
     "codeDesc": "带行高亮的多文件编辑器",
     "resthelper": "REST 助手",
-    "resthelperDesc": "调试 HTTP/REST 请求"
+    "resthelperDesc": "调试 HTTP/REST 请求",
+    "extension": "扩展",
+    "extensionDesc": "在容器磁贴中渲染 gqjs 扩展"
   },
   "codeExplorer": {
     "search": {
@@ -481,5 +483,8 @@
   "lang": {
     "en": "English",
     "zh_CN": "简体中文"
+  },
+  "extension": {
+    "configure": "尚未配置扩展。请在应用菜单中创建配置磁贴并选择扩展 id。"
   }
 }

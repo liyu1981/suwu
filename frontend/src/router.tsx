@@ -12,6 +12,7 @@ import XDisplayPage from './routes/XDisplayPage';
 import DBBrowserPage from './routes/DBBrowserPage';
 import CodeExplorerPage from './routes/CodeExplorerPage';
 import RestHelperPage from './routes/RestHelperPage';
+import ExtensionPage from './routes/ExtensionPage';
 
 const rootRoute = createRootRoute();
 
@@ -99,6 +100,13 @@ const resthelperRoute = createRoute({
   component: RestHelperPage,
 });
 
+// Full-space extension host page, loaded inside each extension pane's iframe.
+const extensionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/extension',
+  component: ExtensionPage,
+});
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -112,6 +120,7 @@ const routeTree = rootRoute.addChildren([
   dbbrowserRoute,
   codeRoute,
   resthelperRoute,
+  extensionRoute,
 ]);
 
 export const router = createRouter({ routeTree });

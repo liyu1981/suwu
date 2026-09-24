@@ -38,6 +38,7 @@ Flags:
   --cwd <dir>            virtual working directory (default /)
   --arg <value>          append an entry to process.argv (repeatable)
   --print-result         print the JSON result to stdout
+  --result-file <path>   write the JSON result to a file (machine-readable)
 
 Exit codes:
   0 success, 1 script/runtime error, 2 timeout, 3 output limit, 64 usage error
@@ -67,6 +68,7 @@ func gqMain(args []string) int {
 		cwd         = fs.String("cwd", "/", "virtual working directory")
 		extraArgs   gqStringList
 		printResult = fs.Bool("print-result", false, "print the JSON result to stdout")
+		resultFile  = fs.String("result-file", "", "write the JSON result to a file")
 	)
 	fs.Var(&roots, "root", "mount a host directory as virtual=real (repeatable), e.g. /app=./src")
 	fs.Var(&vars, "env", "set an environment variable KEY=VALUE (repeatable)")
@@ -119,6 +121,12 @@ func gqMain(args []string) int {
 	}
 	if *printResult && res.JSON != "" && res.JSON != "null" {
 		fmt.Fprintln(os.Stdout, res.JSON)
+	}
+	if *resultFile != "" {
+		if err := os.WriteFile(*resultFile, []byte(res.JSON), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "suwu gq: write result file: %v\n", err)
+			return 1
+		}
 	}
 	return 0
 }

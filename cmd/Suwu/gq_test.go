@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -121,5 +122,21 @@ func TestGqExitCodes(t *testing.T) {
 	big := writeGqScript(t, `for (let i = 0; i < 20000; i++) console.log("x".repeat(100));`)
 	if code := runGq(t, "--timeout", "60s", big); code != 3 {
 		t.Errorf("output limit: code = %d, want 3", code)
+	}
+}
+
+func TestGqResultFile(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "result.json")
+	src := writeGqScript(t, `function handler(input){ return { doubled: input.n * 2 }; }`)
+
+	if code := runGq(t, "--timeout", "60s", "--input", `{"n":21}`, "--result-file", out, src); code != 0 {
+		t.Fatalf("success: code = %d, want 0", code)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(data)); got != `{"doubled":42}` {
+		t.Errorf("result file = %q, want {\"doubled\":42}", got)
 	}
 }

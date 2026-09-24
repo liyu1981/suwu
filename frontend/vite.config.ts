@@ -64,6 +64,7 @@ export default defineConfig({
     proxy: {
       // Forward API + WebSocket traffic to the Go demo server.
       '/api': { target: demoTarget, changeOrigin: false },
+      '/gqjs': { target: demoTarget, changeOrigin: false },
       '/ws': { target: demoTarget.replace(/^http/, 'ws'), ws: true, changeOrigin: false },
     },
   },

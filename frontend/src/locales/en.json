@@ -333,7 +333,9 @@
     "code": "Code Explorer",
     "codeDesc": "Multi-file editor with highlighted lines",
     "resthelper": "REST Helper",
-    "resthelperDesc": "Investigate HTTP/REST requests"
+    "resthelperDesc": "Investigate HTTP/REST requests",
+    "extension": "Extension",
+    "extensionDesc": "Render a gqjs extension in a container tile"
   },
   "codeExplorer": {
     "search": {
@@ -483,5 +485,8 @@
   "lang": {
     "en": "English",
     "zh_CN": "简体中文"
+  },
+  "extension": {
+    "configure": "No extension configured. Create a config tile in the App Menu and choose an extension id."
   }
 }

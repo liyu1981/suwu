@@ -12,6 +12,7 @@ import { getAllTilePlugins } from '../../wm/tilePlugins';
 import { getAppIconClasses, getAppIconLetter } from '../../wm/appIcons';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
 import type { PluginParamDoc } from '../../wm/tilePlugins';
+import { useExtensions } from '../../lib/extensions';
 
 // ── Style constants ──────────────────────────────────────────────────
 
@@ -107,6 +108,7 @@ function ParamRow({
   doc,
   paramKey,
   value,
+  options,
   onChangeKey,
   onChangeValue,
   onRemove,
@@ -114,6 +116,8 @@ function ParamRow({
   doc?: PluginParamDoc;
   paramKey: string;
   value: string;
+  /** When present, the value field renders a selector instead of free text. */
+  options?: ParamOption[];
   onChangeKey: (next: string) => void;
   onChangeValue: (next: string) => void;
   onRemove: () => void;
@@ -128,13 +132,30 @@ function ParamRow({
           placeholder="key"
           className="w-20 shrink-0 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs font-mono text-popover-foreground outline-none transition-colors focus:border-sky-400/50"
         />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChangeValue(e.target.value)}
-          placeholder="value"
-          className={inputBase}
-        />
+        {options && options.length > 0 ? (
+          <Select value={value} onValueChange={onChangeValue}>
+            <SelectTrigger className={inputBase}>
+              <span className="truncate">
+                {options.find((o) => o.value === value)?.label ?? (value || 'Select…')}
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChangeValue(e.target.value)}
+            placeholder="value"
+            className={inputBase}
+          />
+        )}
         <button
           type="button"
           onClick={onRemove}
@@ -150,6 +171,34 @@ function ParamRow({
         </span>
       )}
     </div>
+  );
+}
+
+type ParamOption = { value: string; label: string };
+
+/**
+ * The extension tile's `id` row: a selector fed by GET /api/extensions.
+ * Kept as its own component so the list is only fetched when this row is
+ * actually rendered, and so a fetch failure degrades to plain free text.
+ */
+function ExtensionIdParamRow(props: {
+  doc?: PluginParamDoc;
+  paramKey: string;
+  value: string;
+  onChangeKey: (next: string) => void;
+  onChangeValue: (next: string) => void;
+  onRemove: () => void;
+}) {
+  const { items, failed } = useExtensions();
+  if (failed || items.length === 0) return <ParamRow {...props} />;
+  return (
+    <ParamRow
+      {...props}
+      options={items.map((e) => ({
+        value: e.id,
+        label: e.id === e.name ? e.id : `${e.name} (${e.id})`,
+      }))}
+    />
   );
 }
 
@@ -298,23 +347,27 @@ function EditingForm({
         )}
 
         <div className="space-y-1.5">
-          {allKeys.map((key) => (
-            <ParamRow
-              key={key}
-              doc={docFor(key)}
-              paramKey={key}
-              value={params[key] ?? ''}
-              onChangeKey={(nextKey) => {
+          {allKeys.map((key) => {
+            const props = {
+              doc: docFor(key),
+              paramKey: key,
+              value: params[key] ?? '',
+              onChangeKey: (nextKey: string) => {
                 // Rename: remove old, add new.
                 const next = { ...params };
                 delete next[key];
                 next[nextKey] = params[key] ?? '';
                 onUpdate({ params: next });
-              }}
-              onChangeValue={(v) => setParam(key, v)}
-              onRemove={() => removeParam(key)}
-            />
-          ))}
+              },
+              onChangeValue: (v: string) => setParam(key, v),
+              onRemove: () => removeParam(key),
+            };
+            // The extension tile's `id` gets a registered-extension selector.
+            if (activePlugin?.id === 'extension' && key === 'id') {
+              return <ExtensionIdParamRow key={key} {...props} />;
+            }
+            return <ParamRow key={key} {...props} />;
+          })}
         </div>
       </div>
 

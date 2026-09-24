@@ -70,6 +70,9 @@ type Server struct {
 	startedAt  time.Time
 	rateLimit  *RateLimiter
 	restLimit  *RateLimiter
+	// extRunner renders extensions; nil means run `suwu gq` in a child process.
+	// Tests inject a stub.
+	extRunner extensionRunner
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
@@ -295,6 +298,16 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/update/upgrade" {
 		s.handleUpdateUpgrade(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/extensions" {
+		s.handleExtensionsList(w, r)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, extensionRoutePrefix) {
+		s.handleExtension(w, r)
 		return
 	}
 

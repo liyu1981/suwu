@@ -40,11 +40,6 @@ function LoginPage({ onAuthenticated }: { onAuthenticated: () => void }) {
               alt={t('app.title')}
               className="h-48 w-48 shadow-[0_12px_40px_rgb(0_0_0/0.35)]"
             />
-            <div className="mt-4">
-              <div className="text-2xl font-semibold tracking-tight text-popover-foreground">
-                {t('app.title')}
-              </div>
-            </div>
           </div>
           <div className="mt-3 flex flex-col gap-2">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="suwu-password">

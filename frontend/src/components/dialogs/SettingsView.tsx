@@ -5,7 +5,9 @@ import i18n from 'i18next';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { maxEntriesAtom } from '../../store/notifications';
 import {
+  type AvatarSource,
   autoResolveAtom,
+  avatarAtom,
   backgroundAtom,
   backgroundParamsAtom,
   spacesIdleAtom,
@@ -13,6 +15,8 @@ import {
   SPACES_IDLE_MIN_MINUTES,
   webgpuBackgroundAtom,
 } from '../../store/settings';
+import { AvatarUploadError, readAvatarImage } from '../../lib/avatar';
+import { Avatar } from '../Avatar';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import {
@@ -51,6 +55,11 @@ const toggle =
 const toggleThumb =
   'block h-4 w-4 translate-x-0.5 rounded-full bg-white shadow transition-transform ' +
   'data-[state=checked]:translate-x-4';
+
+const smallBtn =
+  'shrink-0 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs outline-none ' +
+  'transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
+  'disabled:cursor-not-allowed disabled:opacity-40';
 
 function Toggle({
   checked,
@@ -295,11 +304,6 @@ function FileListField({
     }
   };
 
-  const button =
-    'shrink-0 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs outline-none ' +
-    'transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
-    'disabled:cursor-not-allowed disabled:opacity-40';
-
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -308,7 +312,7 @@ function FileListField({
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className={button}
+          className={smallBtn}
         >
           {busy ? 'Working…' : 'Add file…'}
         </button>
@@ -351,7 +355,7 @@ function FileListField({
                 type="button"
                 onClick={() => onChange(file.id)}
                 disabled={busy || active}
-                className={`${button} ${active ? 'text-sky-300' : ''}`}
+                className={`${smallBtn} ${active ? 'text-sky-300' : ''}`}
               >
                 {active ? 'In use' : 'Use'}
               </button>
@@ -359,7 +363,7 @@ function FileListField({
                 type="button"
                 onClick={() => void remove(file.id)}
                 disabled={busy}
-                className={`${button} text-red-300 hover:bg-red-500/15`}
+                className={`${smallBtn} text-red-300 hover:bg-red-500/15`}
               >
                 Clear
               </button>
@@ -495,6 +499,48 @@ export default function SettingsView() {
   const [backgroundParams, setBackgroundParams] = useAtom(backgroundParamsAtom);
   const [webgpuBackground, setWebgpuBackground] = useAtom(webgpuBackgroundAtom);
   const [spacesIdle, setSpacesIdle] = useAtom(spacesIdleAtom);
+  const [avatar, setAvatar] = useAtom(avatarAtom);
+  const [avatarEmail, setAvatarEmail] = useState(avatar.email);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+
+  // The email commits on blur/Enter, so keep a local copy while typing.
+  useEffect(() => setAvatarEmail(avatar.email), [avatar.email]);
+
+  const avatarSources = [
+    { value: 'logo', label: t('settings.avatarSourceLogo') },
+    { value: 'gravatar', label: t('settings.avatarSourceGravatar') },
+    { value: 'upload', label: t('settings.avatarSourceUpload') },
+  ] as const;
+  const avatarSourceLabel =
+    avatarSources.find((option) => option.value === avatar.source)?.label ?? avatarSources[0].label;
+
+  const commitAvatarEmail = () => {
+    const next = avatarEmail.trim();
+    if (next !== avatar.email) setAvatar({ ...avatar, email: next });
+  };
+
+  const pickAvatarImage = async (files: FileList | null): Promise<void> => {
+    const file = files?.[0];
+    if (!file) return;
+    setAvatarError(null);
+    try {
+      setAvatar({ ...avatar, source: 'upload', image: await readAvatarImage(file) });
+    } catch (error) {
+      setAvatarError(
+        error instanceof AvatarUploadError && error.code === 'type'
+          ? t('settings.avatarTypeError')
+          : t('settings.avatarUploadError'),
+      );
+    } finally {
+      if (avatarFileRef.current) avatarFileRef.current.value = '';
+    }
+  };
+
+  const removeAvatarImage = () => {
+    setAvatarError(null);
+    setAvatar({ ...avatar, source: 'logo', image: '' });
+  };
 
   const definitions = listBackgrounds();
   const engineDefinitions = definitions.filter((d) => d.engine === WEBGPU_ENGINE);
@@ -566,6 +612,9 @@ export default function SettingsView() {
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="actions" className={tabBtn}>
             {t('settings.actionsTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="account" className={tabBtn}>
+            {t('settings.accountTab')}
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="language" className={tabBtn}>
             {t('settings.language')}
@@ -754,6 +803,88 @@ export default function SettingsView() {
               />
             </div>
             <p className={sectionHint}>{t('settings.spacesIdleAfterHint')}</p>
+          </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="account" className="min-w-0 flex-1">
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.avatarTitle')}</span>
+            </div>
+            <div className="mt-2 flex items-center gap-3">
+              <Avatar size={80} className="h-20 w-20 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <Select
+                  value={avatar.source}
+                  onValueChange={(v) => setAvatar({ ...avatar, source: v as AvatarSource })}
+                >
+                  <SelectTrigger aria-label={t('settings.avatarSource')}>
+                    <span>{avatarSourceLabel}</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {avatarSources.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className={sectionHint}>{t('settings.avatarHint')}</p>
+
+            {avatar.source === 'gravatar' && (
+              <div className="mt-3">
+                <span className={sectionLabel}>{t('settings.avatarEmail')}</span>
+                <input
+                  type="email"
+                  value={avatarEmail}
+                  placeholder={t('settings.avatarEmailPlaceholder')}
+                  spellCheck={false}
+                  onChange={(e) => setAvatarEmail(e.target.value)}
+                  onBlur={commitAvatarEmail}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                  }}
+                  aria-label={t('settings.avatarEmail')}
+                  className="mt-2 h-8 w-full rounded border border-white/10 bg-black/30 px-2 text-xs text-popover-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-sky-400/60 focus:ring-1 focus:ring-sky-400/30"
+                />
+                <p className={sectionHint}>{t('settings.avatarGravatarHint')}</p>
+              </div>
+            )}
+
+            {avatar.source === 'upload' && (
+              <div className="mt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => avatarFileRef.current?.click()}
+                    className={smallBtn}
+                  >
+                    {t('settings.avatarUpload')}
+                  </button>
+                  {avatar.image && (
+                    <button
+                      type="button"
+                      onClick={removeAvatarImage}
+                      className={`${smallBtn} text-red-300 hover:bg-red-500/15`}
+                    >
+                      {t('settings.avatarRemove')}
+                    </button>
+                  )}
+                </div>
+                <p className={sectionHint}>{t('settings.avatarUploadHint')}</p>
+                <input
+                  ref={avatarFileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => void pickAvatarImage(e.target.files)}
+                />
+              </div>
+            )}
+
+            {avatarError && <p className="mt-2 text-[11px] text-red-400">{avatarError}</p>}
           </div>
         </TabsPrimitive.Content>
 

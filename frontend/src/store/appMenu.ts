@@ -21,6 +21,12 @@ export interface CustomApp {
 export interface AppMenuState {
   /** IDs of registry apps the user has explicitly hidden (blacklist). */
   hiddenApps: string[];
+  /**
+   * Default-hidden plugins the user explicitly turned back on. Kept separate
+   * from `hiddenApps` so "never touched" and "deliberately shown" stay
+   * distinguishable for plugins that declare `defaultHidden`.
+   */
+  shownApps?: string[];
   /** Custom apps created by the user. */
   customApps: CustomApp[];
 }
@@ -54,6 +60,23 @@ export const appMenuAtom = atomWithStorage<AppMenuState | LegacyAppMenuItem[]>(
 );
 
 // ── Pure helpers ─────────────────────────────────────────────────
+
+/**
+ * Visibility for a registry app, honoring a plugin's `defaultHidden` flag.
+ *
+ * A plain plugin is visible unless blacklisted. A `defaultHidden` plugin is
+ * hidden until the user explicitly enables it (`shownApps`), so "never
+ * touched" reads as off while an explicit enable still sticks.
+ */
+export function isAppHidden(
+  id: string,
+  defaultHidden: boolean | undefined,
+  state: AppMenuState,
+): boolean {
+  if (state.hiddenApps.includes(id)) return true;
+  if (defaultHidden) return !(state.shownApps ?? []).includes(id);
+  return false;
+}
 
 /** Get the combined order of all apps (registry + custom). */
 function getUnifiedOrder(plugins: TilePlugin[], state: AppMenuState): Map<string, number> {
@@ -99,7 +122,6 @@ export function getVisibleApps(
 > {
   const pluginMap = new Map(plugins.map((p) => [p.id, p]));
   const order = getUnifiedOrder(plugins, state);
-  const hiddenSet = new Set(state.hiddenApps);
 
   interface AppEntry {
     id: string;
@@ -115,7 +137,7 @@ export function getVisibleApps(
   // Add all registry plugins (except 'empty' placeholder).
   for (const p of plugins) {
     if (p.id === 'empty') continue;
-    if (hiddenSet.has(p.id)) continue;
+    if (isAppHidden(p.id, p.defaultHidden, state)) continue;
     entries.push({
       id: p.id,
       kind: 'plugin',

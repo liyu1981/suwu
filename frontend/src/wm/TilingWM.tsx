@@ -88,6 +88,14 @@ const appRow =
   'hover:bg-white/10 hover:text-popover-foreground active:bg-white/15 active:text-popover-foreground ' +
   'focus-visible:bg-white/10 focus-visible:text-popover-foreground';
 
+/** Apps shown per page in the tile app selector. */
+const APP_PAGE_SIZE = 8;
+
+/** Style for the Back/Next rows that live at the bottom of the app list. */
+const pagerBtn =
+  'flex items-center rounded px-2 py-1.5 text-xs text-slate-300 transition ' +
+  'hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white';
+
 function AppIcon({ id, label, pluginId }: { id: string; label?: string; pluginId?: string }) {
   const classes = getAppIconClasses(id, pluginId);
   const letter = getAppIconLetter(id, label ?? id, pluginId);
@@ -132,17 +140,39 @@ function TileTypePicker({
   const plugins = getAllTilePlugins();
   const [menuItems] = useAtom(appMenuAtom);
   const navRef = useRef<HTMLElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [homeDir, setHomeDir] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
 
-  // Get visible apps in user-defined order.
+  // Get visible apps in user-defined order. Apps turned off in App Menu
+  // settings never reach this list, so the search below only matches active
+  // ones.
   const appState: AppMenuState =
     !menuItems || typeof menuItems !== 'object' || Array.isArray(menuItems)
       ? { hiddenApps: [], customApps: [] }
       : (menuItems as AppMenuState);
   const visibleApps = getVisibleApps(plugins, appState);
 
+  // In-memory typeahead: the menu is small, so filtering the active list
+  // locally beats any round-trip.
+  const q = query.trim().toLowerCase();
+  const filteredApps = q
+    ? visibleApps.filter((item) => {
+        const label = item.kind === 'plugin' ? item.plugin.label : item.config.label;
+        const desc = item.kind === 'plugin' ? item.plugin.description : item.config.description;
+        const ids =
+          item.kind === 'plugin' ? item.plugin.id : `${item.config.pluginId} ${item.config.id}`;
+        return `${label ?? ''} ${desc ?? ''} ${ids}`.toLowerCase().includes(q);
+      })
+    : visibleApps;
+
+  const pageCount = Math.max(1, Math.ceil(filteredApps.length / APP_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedApps = filteredApps.slice(safePage * APP_PAGE_SIZE, (safePage + 1) * APP_PAGE_SIZE);
+
   useEffect(() => {
-    navRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    searchRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -204,14 +234,39 @@ function TileTypePicker({
       >
         <DialogTitle>{t('wm.openApp')}</DialogTitle>
         <p className="mt-1 text-xs text-muted-foreground">{t('wm.chooseApp')}</p>
-        <nav ref={navRef} aria-label="Applications" onKeyDown={onKeyDown} className="mt-3">
+        <div className="mt-3">
+          <input
+            ref={searchRef}
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown' || (e.key === 'Enter' && pagedApps.length > 0)) {
+                e.preventDefault();
+                navRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+              }
+            }}
+            placeholder={t('wm.searchApps')}
+            aria-label={t('wm.searchApps')}
+            className="w-full rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-popover-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-sky-400/50"
+          />
+        </div>
+        <nav ref={navRef} aria-label="Applications" onKeyDown={onKeyDown} className="mt-2">
           <div className="divide-y divide-white/5 rounded-[6px] border border-white/10 bg-black/20">
-            {visibleApps.length === 0 && (
-              <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                {t('appMenu.allHidden')}
+            {/* The empty-state message occupies exactly one reserved row
+                (icon-height box, same padding as a slot), so an empty search
+                still totals APP_PAGE_SIZE rows. */}
+            {pagedApps.length === 0 && (
+              <div className="flex w-full items-center px-3 py-2.5">
+                <div className="flex h-8 w-full items-center justify-center text-xs text-muted-foreground">
+                  {q ? t('wm.noAppsFound') : t('appMenu.allHidden')}
+                </div>
               </div>
             )}
-            {visibleApps.map((item) => {
+            {pagedApps.map((item) => {
               if (item.kind === 'plugin') {
                 const p = item.plugin;
                 return (
@@ -251,6 +306,54 @@ function TileTypePicker({
                 </button>
               );
             })}
+            {/* The list always reserves APP_PAGE_SIZE rows: a short page, a
+                single-page search result, and the empty state all pad out
+                with inert slots (the empty-state message counts as one row),
+                and the pager row below is always mounted — so the dialog keeps
+                the same height while searching or paging. Slots are plain
+                divs, so arrow-key navigation skips them. */}
+            {pagedApps.length < APP_PAGE_SIZE &&
+              Array.from({ length: APP_PAGE_SIZE - Math.max(pagedApps.length, 1) }, (_, i) => (
+                <div
+                  key={`slot-${i}`}
+                  aria-hidden="true"
+                  className="flex w-full items-center gap-3 px-3 py-2.5"
+                >
+                  <div className="h-8 w-8 shrink-0" />
+                  <div className="min-w-0 flex-1" />
+                </div>
+              ))}
+            {/* Back/Next are ordinary rows in the list: arrow keys reach them
+                and Enter activates them. They stay mounted even on a single
+                page (dimmed + guarded instead of `disabled`) so the dialog
+                height never changes with the search or page count, and
+                keyboard focus is never dropped when a page change would
+                disable one of them. */}
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5">
+              <button
+                type="button"
+                aria-label={t('wm.pageBack')}
+                onClick={() => {
+                  if (safePage > 0) setPage(safePage - 1);
+                }}
+                className={`${pagerBtn} ${safePage === 0 ? 'opacity-30' : ''}`}
+              >
+                {t('wm.pageBack')}
+              </button>
+              <span aria-live="polite" className="text-[11px] text-muted-foreground">
+                {safePage + 1} / {pageCount}
+              </span>
+              <button
+                type="button"
+                aria-label={t('wm.pageNext')}
+                onClick={() => {
+                  if (safePage < pageCount - 1) setPage(safePage + 1);
+                }}
+                className={`${pagerBtn} ${safePage >= pageCount - 1 ? 'opacity-30' : ''}`}
+              >
+                {t('wm.pageNext')}
+              </button>
+            </div>
           </div>
         </nav>
       </DialogContent>

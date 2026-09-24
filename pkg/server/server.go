@@ -32,12 +32,14 @@ import (
 //   - WebSocket connections allowed to same origin
 //   - `blob:` media is allowed so the video background can grab preview frames
 //     from OPFS clips with a <video> element
+//   - `img-src` allows Gravatar so the login dialog can show the user-configured
+//     avatar; when no avatar is set (or it fails to load) the local logo is used
 //   - Frame ancestors blocked (no framing by other pages)
 const csp = "default-src 'self'; " +
 	"script-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; " +
 	"connect-src 'self' ws: wss: blob:; " +
-	"img-src 'self' data: blob:; " +
+	"img-src 'self' data: blob: https://*.gravatar.com; " +
 	"media-src 'self' blob:; " +
 	"font-src 'self'; " +
 	"object-src 'none'; " +

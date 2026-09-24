@@ -12,6 +12,9 @@ import { registerTilePlugin, type TileRenderContext } from '../tilePlugins';
 
 registerTilePlugin({
   id: 'extension',
+  // Off by default: extensions are opt-in, so a fresh install does not
+  // advertise a tile that has no extension configured yet.
+  defaultHidden: true,
   get label() {
     return i18n.t('plugin.extension');
   },

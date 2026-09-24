@@ -38,6 +38,12 @@ export interface TilePlugin {
   description?: string;
   /** Declared parameters this plugin accepts (shown as hints in the editor). */
   supportedParams?: PluginParamDoc[];
+  /**
+   * Keep this app out of the picker until the user turns it on in App Menu
+   * settings. Combined with `shownApps` in AppMenuState, so an explicit
+   * enable persists.
+   */
+  defaultHidden?: boolean;
   /** Render the tile content (iframe, React component, etc.). */
   render: (paneId: string, context?: TileRenderContext) => ReactNode;
   /**

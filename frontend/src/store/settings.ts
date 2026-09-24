@@ -48,6 +48,33 @@ export const backgroundParamsAtom = atomWithStorage<
 export const webgpuBackgroundAtom = atomWithStorage<string>('suwu:webgpu-background', '');
 
 /**
+ * Where the login-dialog avatar comes from, chosen in System Settings.
+ * - `logo` — the Suwu logo; the default, and the fallback whenever the chosen
+ *   source has nothing to show (no email, no upload, or a failed load).
+ * - `gravatar` — the avatar registered for `email` at gravatar.com.
+ * - `upload` — a picture the user picked, downscaled and stored locally.
+ */
+export type AvatarSource = 'logo' | 'gravatar' | 'upload';
+
+export interface AvatarSettings {
+  source: AvatarSource;
+  /** Email hashed for Gravatar; retained while another source is active. */
+  email: string;
+  /** Data URL of the uploaded picture; retained while another source is active. */
+  image: string;
+}
+
+/**
+ * The login-dialog avatar. Persisted in localStorage only — the email is
+ * hashed in the browser for Gravatar and the image never leaves the device.
+ */
+export const avatarAtom = atomWithStorage<AvatarSettings>('suwu:avatar', {
+  source: 'logo',
+  email: '',
+  image: '',
+});
+
+/**
  * Idle auto-hide for the tiling spaces, configured in System Settings. When
  * enabled, spaces hide after `minutes` without pointer or keyboard activity
  * and reappear on the next interaction — a screensaver for the work surface.

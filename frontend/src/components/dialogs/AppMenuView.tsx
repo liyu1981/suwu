@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
-import { appMenuAtom, type AppMenuState, type CustomApp } from '../../store/appMenu';
+import { appMenuAtom, isAppHidden, type AppMenuState, type CustomApp } from '../../store/appMenu';
 import { getAllTilePlugins } from '../../wm/tilePlugins';
 import { getAppIconClasses, getAppIconLetter } from '../../wm/appIcons';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
@@ -393,6 +393,7 @@ interface DisplayItem {
   label: string;
   description?: string;
   visible: boolean;
+  defaultHidden?: boolean;
   isCustom: boolean;
   isConfig: boolean;
   pluginId?: string;
@@ -438,7 +439,6 @@ export default function AppMenuView() {
 
   // Plugin lookup for labels/descriptions.
   const pluginMap = useMemo(() => new Map(plugins.map((p) => [p.id, p])), [plugins]);
-  const hiddenSet = useMemo(() => new Set(state.hiddenApps), [state.hiddenApps]);
 
   // Build unified display list (all apps: registry + custom).
   const displayItems: DisplayItem[] = useMemo(() => {
@@ -451,7 +451,8 @@ export default function AppMenuView() {
         id: p.id,
         label: p.label,
         description: p.description,
-        visible: !hiddenSet.has(p.id),
+        visible: !isAppHidden(p.id, p.defaultHidden, state),
+        defaultHidden: p.defaultHidden,
         isCustom: false,
         isConfig: false,
         order: items.length,
@@ -476,16 +477,28 @@ export default function AppMenuView() {
     }
 
     return items;
-  }, [plugins, hiddenSet, state.customApps, pluginMap]);
+  }, [plugins, state, pluginMap]);
 
   // ── Toggle visibility ──────────────────────────────────────────
   const toggleVisible = useCallback(
-    (id: string) => {
+    (id: string, defaultHidden?: boolean) => {
       setState((prev) => {
-        const isHidden = prev.hiddenApps.includes(id);
+        if (isAppHidden(id, defaultHidden, prev)) {
+          // Turning on: leave the blacklist and, for a default-hidden plugin,
+          // record the explicit enable so it survives a reload.
+          return {
+            ...prev,
+            hiddenApps: prev.hiddenApps.filter((h) => h !== id),
+            shownApps: defaultHidden
+              ? [...new Set([...(prev.shownApps ?? []), id])]
+              : prev.shownApps,
+          };
+        }
+        // Turning off: blacklist it and drop any explicit enable.
         return {
           ...prev,
-          hiddenApps: isHidden ? prev.hiddenApps.filter((h) => h !== id) : [...prev.hiddenApps, id],
+          hiddenApps: [...prev.hiddenApps, id],
+          shownApps: (prev.shownApps ?? []).filter((s) => s !== id),
         };
       });
     },
@@ -499,10 +512,11 @@ export default function AppMenuView() {
       if (allVisible) {
         // Hide all registry apps.
         const registryIds = plugins.filter((p) => p.id !== 'empty').map((p) => p.id);
-        return { ...prev, hiddenApps: registryIds };
+        return { ...prev, hiddenApps: registryIds, shownApps: [] };
       }
-      // Show all: clear the blacklist.
-      return { ...prev, hiddenApps: [] };
+      // Show all: clear the blacklist and explicitly enable default-hidden ones.
+      const shown = plugins.filter((p) => p.defaultHidden).map((p) => p.id);
+      return { ...prev, hiddenApps: [], shownApps: shown };
     });
   }, [allVisible, setState, plugins]);
 
@@ -707,7 +721,10 @@ export default function AppMenuView() {
                 </div>
 
                 {/* Toggle */}
-                <Toggle checked={item.visible} onCheckedChange={() => toggleVisible(item.id)} />
+                <Toggle
+                  checked={item.visible}
+                  onCheckedChange={() => toggleVisible(item.id, item.defaultHidden)}
+                />
               </div>
 
               {/* Expanded editing form (config items only) — below the row */}

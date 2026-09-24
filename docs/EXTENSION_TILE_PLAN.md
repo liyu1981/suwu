@@ -489,6 +489,9 @@ selection lives in the config editor.
    `id` selector (and future tooling), not the tile.
 8. **Extra params.** Arbitrary params configured on the custom app are passed
    through to the extension (`input.query` / `input.params`).
+9. **Default off.** The `extension` plugin declares `defaultHidden`, so a fresh
+   install does not advertise it in the tile app selector; enabling it in App
+   Menu settings records an explicit `shownApps` entry that persists.
 
 ### Remaining minor defaults (proposed)
 

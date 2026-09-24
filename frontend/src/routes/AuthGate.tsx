@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackgroundCanvas } from '../components/background';
+import { Avatar } from '../components/Avatar';
 import AppShell from './AppShell';
 import { AuthRequiredError, authenticate, fetchToken } from '../lib/api';
 
@@ -34,12 +35,10 @@ function LoginPage({ onAuthenticated }: { onAuthenticated: () => void }) {
           className="glass-control menu-glass flex w-[min(92vw,22rem)] flex-col gap-4 rounded-2xl p-6 shadow-2xl"
         >
           <div className="flex flex-col items-center justify-center text-center">
-            <img
-              src="/logo.svg"
-              alt="Suwu logo"
-              width={192}
-              height={192}
-              className="h-48 w-48 rounded-[42px] shadow-[0_12px_40px_rgb(0_0_0/0.35)]"
+            <Avatar
+              size={192}
+              alt={t('app.title')}
+              className="h-48 w-48 shadow-[0_12px_40px_rgb(0_0_0/0.35)]"
             />
             <div className="mt-4">
               <div className="text-2xl font-semibold tracking-tight text-popover-foreground">

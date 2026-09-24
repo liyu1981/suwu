@@ -367,6 +367,14 @@ classes (and `menu-glass` for floating menus) — never hand-rolled
 `backdrop-blur` + rgba. The container supplies the tile background; child panels
 that need separation use `bg-black/20`-style translucent layers.
 
+**Tile-corner clearance.** The WM's hover toolbar (`TileTools`) owns the
+**top-right corner of every tile** — a `w-56 h-12` (224×48px) zone anchored at
+`right-0 top-0`, with the pill fading in on hover. Never place controls or
+content a user must read/click in that corner of a tile **or an extension
+page** (whose entire surface is a tile): the toolbar covers it or steals its
+attention. Keep the top-right corner empty — cluster actions to the left or
+inline, and place secondary content below the zone.
+
 **Typography — the type scale.** Suwu uses a fixed seven-step scale. This table
 is the single source of truth (`AGENTS.md` points here). Do not invent sizes; if
 a value is not in this table it is wrong.

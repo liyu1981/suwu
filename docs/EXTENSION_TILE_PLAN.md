@@ -339,6 +339,29 @@ stopping Alt+Left from navigating the SPA away.
 
 ---
 
+### 4.8 Storage bridge (`ext-store`)
+
+Sandboxed extension frames have an **opaque origin**, and browsers deny all
+web storage to opaque origins (localStorage and IndexedDB both throw
+`SecurityError`) — so a client-side extension like `note` persists through
+the trusted `ExtensionPage` instead:
+
+1. The child posts `{type:'ext-store', op:'get'|'set', key, rid, value?}`.
+2. The page accepts it only from *its own* inner frame (the same `e.source`
+   check that gates the focus/key relay), validates `key` against
+   `[A-Za-z0-9._-]{1,64}`, and forces the full key to
+   `suwu:ext/<ext-id from this pane's own URL>/<key>` — the child only ever
+   chooses the suffix, so it can never reach another extension's keys, app
+   settings, or the session.
+3. Values are capped at 512 KB JSON-serialized; storage is the page's own
+   IndexedDB (`suwu-extension-ext`, store `kv`).
+4. The page always answers `{type:'ext-store-result', rid, ok, value?,
+   error?}` (`error` is the DOMException name, e.g. `QuotaExceededError`);
+   the child times out after 3s and degrades to in-memory operation with a
+   status line.
+
+---
+
 ## 5. Frontend
 
 ### 5.1 Plugin — `frontend/src/wm/plugins/extension.tsx`
@@ -413,13 +436,14 @@ selection lives in the config editor.
 
 ## 6. Example extensions
 
-- Examples live in the repo at `examples/extensions/` (`eye`,
+- Examples live in the repo at `examples/extensions/` (`eye`, `note`,
   `hn-top-stories`) with an install README — nothing is embedded or seeded.
 - Install by copying, e.g. `cp -r examples/extensions/eye ~/.suwu/extensions/`
   (`$SUWU_VAR/extensions` when set); the directory name is the extension id.
-- `eye` is render-only (`suwu.static` + a classic script); `hn-top-stories`
-  additionally demonstrates `suwu.api` + `suwu.net` + an ES-module tree under
-  `public/` (docs/EXTENSION_API_PLAN.md).
+- `eye` is render-only (`suwu.static` + a classic script), `note` is a pure
+  client-side app (IndexedDB, no API/no `suwu.net`), and
+  `hn-top-stories` additionally demonstrates `suwu.api` + `suwu.net` + an
+  ES-module tree under `public/` (docs/EXTENSION_API_PLAN.md).
 
 ---
 

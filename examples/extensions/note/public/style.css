@@ -1,0 +1,156 @@
+/*
+ * Note — a strip of seven numbered square dots over one flat 3M Post-it,
+ * on a transparent document (the tile shows through). Everything is left-
+ * aligned or below the strip so the tile's top-right corner stays empty.
+ * Type follows the Suwu scale (Label 12 chips, Heading 16 bold note text,
+ * Caption 11 status) in a typewriter mono stack.
+ */
+:root {
+  --ink: #26241d;
+  /* Soft, low-chroma pastels — easy on the eye, ink text stays high-contrast. */
+  --yellow: #f7edc6;
+  --pink: #f5dbe2;
+  --blue: #d9e9f1;
+  --green: #deecd4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  /* Transparent document: the tile behind the (bg-transparent) extension
+     iframe shows through; only the dots and the Post-it sit on top. */
+  background: transparent;
+  color: var(--ink);
+  font-family: "Courier New", Courier, ui-monospace, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Header — square numbered dots, one per slot, left-aligned. */
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.tab {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 3px;
+  /* Dark chip, light bold number: readable on any background. */
+  background: #302d27;
+  color: #f7f2e7;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.tab:hover {
+  background: #413c33;
+  transform: translateY(-1px);
+}
+.tab:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+.tab:focus-visible {
+  outline: 2px solid #f7f2e7;
+  outline-offset: 1px;
+}
+.tab[aria-selected="true"] {
+  box-shadow: 0 0 0 2px #f7f2e7, 0 2px 4px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+/* The Post-it — flat (no tilt), folded gum strip, paper shadow. */
+.postit {
+  --paper: var(--yellow);
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--paper);
+  border-radius: 2px;
+  padding: 1.4rem 0.9rem 0.9rem;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+/* The translucent adhesive band across the top. */
+.postit::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1.15rem;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.02));
+  pointer-events: none;
+}
+.postit.color-yellow {
+  --paper: var(--yellow);
+}
+.postit.color-pink {
+  --paper: var(--pink);
+}
+.postit.color-blue {
+  --paper: var(--blue);
+}
+.postit.color-green {
+  --paper: var(--green);
+}
+
+/* Typewriter body: fills the Post-it, scrolls inside it. Bumped to the
+   Heading step (16px) and bold for easy reading on the pastel. */
+.editor {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+  color: inherit;
+  font-family: "Courier New", Courier, ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 0;
+}
+.editor::placeholder {
+  color: rgba(38, 36, 29, 0.45);
+}
+
+/* Storage/quota status — shown only on failure (Caption 11). */
+.status {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: 11px;
+  color: #b02a1e;
+  text-align: center;
+}
+.status:empty {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Note",
+  "description": "Client-side sticky notes styled like 3M Post-it notes, saved in this browser's IndexedDB",
+  "suwu": {
+    "static": "public"
+  }
+}

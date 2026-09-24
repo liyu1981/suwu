@@ -5,6 +5,7 @@ extensions directory (`$SUWU_VAR/extensions`, default `~/.suwu/extensions`):
 
 ```sh
 cp -r examples/extensions/eye ~/.suwu/extensions/
+cp -r examples/extensions/note ~/.suwu/extensions/
 cp -r examples/extensions/hn-top-stories ~/.suwu/extensions/
 ```
 
@@ -17,6 +18,7 @@ default) and add an Extension tile whose `id` is the directory name
 | Example | Files | Demonstrates |
 |---|---|---|
 | `eye` | `index.js` (render stub) · `public/{style.css,eye.js}` | `suwu.static` with a **classic** script; server-rendered config passed via `data-size` |
+| `note` | `index.js` (render stub) · `public/{style.css,note.js}` | A **pure client-side** app: seven numbered slots kept in the browser's IndexedDB **via the parent-frame storage bridge** (the sandboxed page has no storage of its own; no API, no `suwu.net`); a flat 3M Post-it over a chip strip on a transparent document |
 | `hn-top-stories` | `index.js` (render stub) · `stories.js` (API) · `public/{style.css,app.js,carousel.js,stories-cache.js}` | `suwu.api` route registration, `suwu.net` server-side `fetch`, `suwu.static` with an **ES-module** tree (relative imports), htmx polling of the extension's own API |
 
 ## ⚠ Static files are public

@@ -6,14 +6,21 @@ require (
 	github.com/charmbracelet/huh v1.0.0
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
+	github.com/fastschema/qjs v0.0.6
+	github.com/go-sql-driver/mysql v1.10.1
+	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jezek/xgb v1.3.1
 	github.com/jezek/xgbutil v0.0.0-20260124183602-9fd151d6a51a
 	github.com/mattn/go-isatty v0.0.24
 	github.com/muesli/termenv v0.16.0
 	github.com/shintaoku/libghostty-go v0.1.0
 	golang.org/x/mod v0.40.0
+	modernc.org/sqlite v1.58.0
 )
 
+// wazero is pinned to v1.11.x: qjs v0.0.6 fails to instantiate on v1.12+
+// (store-local FunctionTypeID mismatch during import resolution).
+// See docs/GQJS_INTEGRATION_PLAN.md §3 before upgrading.
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
@@ -29,11 +36,9 @@ require (
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
-	github.com/go-sql-driver/mysql v1.10.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.11.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
@@ -52,5 +57,4 @@ require (
 	modernc.org/libc v1.75.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
-	modernc.org/sqlite v1.58.0 // indirect
 )

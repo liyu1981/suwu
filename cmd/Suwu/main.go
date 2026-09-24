@@ -138,6 +138,8 @@ func main() {
 				log.Fatalf("agent: %v", err)
 			}
 			return
+		case "gq":
+			os.Exit(gqMain(os.Args[2:]))
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -192,6 +194,9 @@ Usage:
   suwu agent [--list|--print] [--agent <ids>] [--global] [--force] [--dir <path>]
                            detect AI coding agents and install the suwu-tools
                            skill into this repository (TUI by default)
+  suwu gq [flags] <script.js>
+                           run a JavaScript file in a request-scoped QuickJS
+                           sandbox (see 'suwu help gq')
 
 Configuration precedence:
   --env-file explicitly given → that file only
@@ -404,6 +409,8 @@ Examples:
 `)
 	case "agent":
 		printAgentUsage()
+	case "gq":
+		fmt.Print(gqUsageText)
 	default:
 		fmt.Printf("Unknown subcommand: %s\nRun 'suwu help' for usage.\n", cmd)
 	}

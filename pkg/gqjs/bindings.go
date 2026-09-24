@@ -121,6 +121,7 @@ func bindHost(c *qjs.Context, ctx context.Context, env Env, stdout, stderr *limi
 		}
 		return this.Context().NewUndefined(), nil
 	}))
+	bindFetch(c, q, ctx, env)
 	global.SetPropertyStr("__gqjs", q)
 }
 

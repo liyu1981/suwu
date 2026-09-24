@@ -37,6 +37,9 @@ Flags:
   --input-file <file>    read the input payload from a file
   --cwd <dir>            virtual working directory (default /)
   --arg <value>          append an entry to process.argv (repeatable)
+  --allow-net            enable fetch() (http/https, bounded by --timeout)
+  --allow-private        with --allow-net, allow loopback/private targets
+                          (link-local and metadata addresses stay blocked)
   --print-result         print the JSON result to stdout
   --result-file <path>   write the JSON result to a file (machine-readable)
 
@@ -47,6 +50,7 @@ Examples:
   suwu gq --print-result examples/gqjs/hello.js
   suwu gq --root /app=./examples/gqjs --input '{"n":21}' --print-result examples/gqjs/handler.js
   suwu gq --timeout 300ms examples/gqjs/timeout.js
+  suwu gq --allow-net --print-result examples/gqjs/fetch.js
 `
 
 func printGqUsage() { fmt.Fprint(os.Stderr, gqUsageText) }
@@ -69,6 +73,9 @@ func gqMain(args []string) int {
 		extraArgs   gqStringList
 		printResult = fs.Bool("print-result", false, "print the JSON result to stdout")
 		resultFile  = fs.String("result-file", "", "write the JSON result to a file")
+		allowNet    = fs.Bool("allow-net", false, "enable fetch() (http/https, bounded by --timeout)")
+		allowPrivate = fs.Bool("allow-private", false,
+			"with --allow-net, allow loopback/private targets (link-local stays blocked)")
 	)
 	fs.Var(&roots, "root", "mount a host directory as virtual=real (repeatable), e.g. /app=./src")
 	fs.Var(&vars, "env", "set an environment variable KEY=VALUE (repeatable)")
@@ -97,6 +104,8 @@ func gqMain(args []string) int {
 		fmt.Fprintf(os.Stderr, "suwu gq: %v\n", err)
 		return 64
 	}
+	env.AllowNet = *allowNet
+	env.AllowPrivate = *allowPrivate
 
 	res, err := gqjs.New().Run(context.Background(), string(source), env)
 	if err != nil {

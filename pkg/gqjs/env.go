@@ -14,6 +14,7 @@ const (
 	DefaultMemoryLimit    = 64 << 20 // 64 MiB
 	DefaultMaxStackSize   = 1 << 20  // 1 MiB
 	DefaultMaxOutputBytes = 1 << 20  // 1 MiB
+	DefaultMaxFetchBody   = 4 << 20  // 4 MiB
 )
 
 // FSConfig scopes filesystem access for a request.
@@ -48,6 +49,15 @@ type Env struct {
 	MaxStackSize int
 	// MaxOutputBytes caps captured stdout+stderr. Defaults to 1 MiB.
 	MaxOutputBytes int
+	// AllowNet enables the global fetch() (http/https only). Off by default:
+	// the extension renderer and plain `suwu gq` runs are networkless unless
+	// explicitly opted in with --allow-net.
+	AllowNet bool
+	// AllowPrivate lets fetch() dial loopback and private addresses. Link-local
+	// addresses (cloud metadata) stay denied even with this set.
+	AllowPrivate bool
+	// MaxFetchBody caps one response body in bytes. Defaults to 4 MiB.
+	MaxFetchBody int
 }
 
 // applyDefaults normalizes the environment for execution.
@@ -63,6 +73,9 @@ func (e *Env) applyDefaults() {
 	}
 	if e.MaxOutputBytes <= 0 {
 		e.MaxOutputBytes = DefaultMaxOutputBytes
+	}
+	if e.MaxFetchBody <= 0 {
+		e.MaxFetchBody = DefaultMaxFetchBody
 	}
 	if e.CWD == "" {
 		e.CWD = "/"

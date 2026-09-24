@@ -9,6 +9,22 @@
 // back into the WebAssembly module concurrently; the async JS facade lives in
 // prelude.js.
 //
+// # Network (fetch)
+//
+// The global fetch() implements the modern Fetch API subset — fetch, Headers,
+// Response with text()/json()/arrayBuffer() — and nothing else: no
+// XMLHttpRequest, no WebSocket, no ReadableStream/Blob bodies, no cookie jar.
+// The prelude builds the facade; the host primitive (__gqjs.fetch in net.go)
+// performs the whole request synchronously, bounded by Env.Timeout, with
+// keep-alives disabled so no connection outlives the call.
+//
+// fetch() is opt-in via Env.AllowNet (the `suwu gq --allow-net` flag; the
+// extension renderer does not set it). Only http/https is allowed, response
+// bodies are capped at Env.MaxFetchBody, and dial-time address filtering
+// (net.go) denies loopback/private targets unless Env.AllowPrivate —
+// link-local addresses, which hold cloud metadata endpoints, are never
+// allowed.
+//
 // # Provenance
 //
 //	Source:  /home/yli/gqjs (local repository), HEAD 8916194

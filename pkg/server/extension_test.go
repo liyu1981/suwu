@@ -110,6 +110,14 @@ func TestExtensionEndpoint(t *testing.T) {
 		if !strings.Contains(csp, "https://127.0.0.1:") {
 			t.Errorf("CSP missing the request origin: %q", csp)
 		}
+		// The render response must re-sandbox any document loaded at our origin
+		// outside the tile (direct tab, escape-sandbox popup).
+		if !strings.Contains(csp, "sandbox "+extensionSandboxTokens) {
+			t.Errorf("CSP missing the sandbox guard: %q", csp)
+		}
+		if strings.Contains(csp, "allow-same-origin") {
+			t.Errorf("CSP sandbox must not allow same-origin: %q", csp)
+		}
 	}
 	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "text/html") {
 		t.Errorf("Content-Type = %q", ct)
@@ -213,6 +221,29 @@ func TestExtensionEndpointAuth(t *testing.T) {
 	resp2.Body.Close()
 	if resp2.StatusCode != http.StatusOK {
 		t.Errorf("opaque-origin page status = %d, want 200", resp2.StatusCode)
+	}
+}
+
+// TestExtensionCSPForSandboxGuard pins the guard tokens to the tile iframe's
+// sandbox attribute. Effective capabilities are the intersection of every
+// sandbox source, so these two lists must never drift apart.
+func TestExtensionCSPForSandboxGuard(t *testing.T) {
+	const tileIframeSandbox = "allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
+	if extensionSandboxTokens != tileIframeSandbox {
+		t.Errorf("extensionSandboxTokens = %q, want the tile iframe's %q", extensionSandboxTokens, tileIframeSandbox)
+	}
+
+	r := httptest.NewRequest(http.MethodGet, "https://127.0.0.1:8080/gqjs/ext/eye", nil)
+	for name, csp := range map[string]string{
+		"rendered page": extensionCSPFor(r),
+		"error page":    extensionCSP,
+	} {
+		if !strings.Contains(csp, "sandbox "+tileIframeSandbox) {
+			t.Errorf("%s CSP = %q, want a sandbox directive", name, csp)
+		}
+		if strings.Contains(csp, "allow-same-origin") {
+			t.Errorf("%s CSP = %q, must not allow same-origin", name, csp)
+		}
 	}
 }
 

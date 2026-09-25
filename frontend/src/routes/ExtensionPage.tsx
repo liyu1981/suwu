@@ -224,11 +224,15 @@ export default function ExtensionPage() {
           title={`extension-${id}`}
           // Deliberately no `allow-same-origin`: the extension runs in an
           // opaque origin, so it cannot read Suwu storage or escape upward.
-          // `allow-popups` lets story links open in a new tab that *inherits*
-          // this sandbox — without it target=_blank is silently blocked; with
-          // it (and no allow-popups-to-escape-sandbox) a popup to our own
-          // origin stays sandboxed too.
-          sandbox="allow-scripts allow-pointer-lock allow-popups"
+          // `allow-popups` lets story links open new tabs; with
+          // `allow-popups-to-escape-sandbox` those tabs get their real origin,
+          // so normal sites work. The escape is safe because the render
+          // response carries a matching `sandbox` CSP (extensionCSPFor): a
+          // popup that navigates back to /gqjs/ext/<id> is forced opaque again,
+          // so it can never read the session cookie. Keep this token list
+          // identical to `extensionSandboxTokens` in pkg/server/extension.go —
+          // effective capabilities are the intersection of the two.
+          sandbox="allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
           className="h-full w-full border-0 bg-transparent"
         />
       ) : (

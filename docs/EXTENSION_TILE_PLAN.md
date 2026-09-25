@@ -393,9 +393,10 @@ custom app): the user picks `id` and adds any extra params there. See §5.4.
 - Wrap in `<CommonTileContainer zoomAtom={extensionZoomAtom} noPadding>`.
 - Read `id` + extra params from `window.location.search`.
 - If `id`: render the inner iframe
-  `<iframe src={`/gqjs/ext/${id}?${p}`} sandbox="allow-scripts allow-pointer-lock" />`
+  `<iframe src={`/gqjs/ext/${id}?${p}`} sandbox="allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox" />`
   (`allow-same-origin` is deliberately **omitted** → opaque origin). All extra
-  params are appended to `p`.
+  params are appended to `p`. The render response carries the same tokens as a
+  CSP `sandbox` directive, so a direct tab or escaped popup is re-sandboxed.
 - If no `id`: render a short empty-state hint ("Configure this tile with an
   extension id in the App Menu"). **No in-tile picker** — selection happens in
   the config editor (§5.4).
@@ -487,7 +488,7 @@ selection lives in the config editor.
 | Runaway CPU / infinite loop | gqjs deadline (`--timeout`, default 30s) + process kill backstop. |
 | Memory bomb | gqjs `MemoryLimit`/`MaxStackSize` defaults (64 MiB / 1 MiB). |
 | Output flood | gqjs `MaxOutputBytes` (1 MiB); server reads the result file, not stdout. |
-| Untrusted HTML/JS in the app | Nested iframe sandboxed **without** `allow-same-origin`; scoped CSP with `default-src 'none'`. |
+| Untrusted HTML/JS in the app | Nested iframe sandboxed **without** `allow-same-origin`; scoped CSP with `default-src 'none'`, plus the matching CSP `sandbox` guard on the render response so direct tabs and escaped popups are re-sandboxed. |
 | Unauthenticated execution | `/gqjs/ext/<id>` and `/api/extensions` require the session token; `/gqjs/api/<id>/…` requires that extension's derived token (session token rejected). See EXTENSION_TOKEN_SCOPING_PLAN.md. |
 | Public static assets | `/gqjs/static/<id>/…` is deliberately unauthenticated (opaque-origin module fetches carry no credentials) — extension `public/` files must never contain secrets; see EXTENSION_API_PLAN.md §2.8. |
 | FS access | Extension process gets only `/ext` (read-only) by default. |

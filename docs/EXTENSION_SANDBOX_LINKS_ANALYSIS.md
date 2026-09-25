@@ -1,8 +1,12 @@
 # Extension Sandbox & Link Popups — Root-Cause Analysis
 
-> **Status:** Analysis only. No code change has been made. This document exists
-> to explain why links opened from an extension tile arrive broken, and to lay
-> out the cost of the obvious fix before anyone commits to it.
+> **Status:** Implemented. Option A and its guard are in place: the tile
+> iframe grants `allow-popups-to-escape-sandbox`, and the render response
+> carries the matching CSP `sandbox` directive (`extensionSandboxTokens` in
+> `pkg/server/extension.go`), so every load of the render route outside the
+> tile is forced to an opaque origin. The orthogonal token-scoping fix is also
+> in place (`docs/EXTENSION_TOKEN_SCOPING_PLAN.md`). This document remains as
+> the root-cause record and the rationale for the guard (§7.4).
 > **Trigger:** story links clicked in the `hn-top-stories` extension
 > (`examples/extensions/hn-top-stories/public/carousel.js`, which renders
 > `<a target="_blank" rel="noopener">`).
@@ -99,21 +103,23 @@ extension.
 The isolation requirement (“extension content must never touch Suwu's
 origin”) was implemented as `sandbox` **without** `allow-same-origin`. That
 is correct for the tile, but popup inheritance means the isolation leaks into
-every tab the extension opens. The omission is deliberate and documented —
-`docs/EXTENSION_API_PLAN.md` §2.7, item 4:
+every tab the extension opens. The omission was deliberate —
+`docs/EXTENSION_API_PLAN.md` §2.7 item 4 originally read:
 
 > **Links:** `allow-popups` lets `target="_blank"` open a new tab that
 > *inherits* the sandbox; `allow-popups-to-escape-sandbox` is deliberately
 > absent, so a popup to our own origin stays sandboxed too.
 
-So the bug is the price of that design decision: a normal web tab is
-incompatible with inheriting both `sandbox` and an opaque origin.
+So the bug was the price of that design decision: a normal web tab is
+incompatible with inheriting both `sandbox` and an opaque origin. §6 option A
+plus the §7.4 guard resolves it — popups escape the *inherited* sandbox, while
+the render response's `sandbox` header keeps every render document opaque.
 
 ---
 
 ## 6. Options
 
-### A. Add `allow-popups-to-escape-sandbox`
+### A. Add `allow-popups-to-escape-sandbox` (chosen, implemented)
 
 ```html
 sandbox="allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
@@ -124,7 +130,8 @@ workers/storage/fetch all work. `target="_blank"` from the child keeps its
 user activation, so popup blockers are not a problem.
 
 The cost is the body of §7: the extension can also force an **unsandboxed
-document on our own origin**.
+document on our own origin**. That is what the §7.4 guard removes — pair this
+flag with a `sandbox` directive on the render response header.
 
 ### B. Relay link clicks to the trusted parent (`postMessage` → `window.open`)
 
@@ -147,11 +154,11 @@ drop `sandbox` entirely. Same-origin policy then provides the isolation
 properly, popups are completely normal, and the extension even gets working
 storage inside the tile.
 
-Auth already supports the `?token=` fallback, so this is feasible, but it
-revisits every opaque-origin assumption baked into
-`authorizeExtensionRequest`, `extensionCSPFor`, the
-`Access-Control-Allow-Origin: null` grants, and the relay. Significantly
-larger change.
+Auth already supports the `?token=` fallback on the render route (session
+token only), so this is feasible, but it revisits every opaque-origin
+assumption baked into `authorizeExtensionRequest` (render),
+`extensionCSPFor`, the `Access-Control-Allow-Origin: null` grants, and the
+relay. Significantly larger change.
 
 ### D. Keep as-is
 
@@ -172,20 +179,15 @@ app, and from there reach things that were previously unreachable by design.
 
 It helps to separate two trust domains.
 
-**Server-side power is already fully granted.** `buildExtensionInput`
-(`pkg/server/extension.go`) hands the extension the validated **session
-token** — the same token the app uses as `Bearer` for its REST API:
-
-```go
-// token is the caller's validated session token. ...
-// Exposing it to the script is deliberate: extensions are
-// user-installed and network-gated (suwu.net).
-"token": token,
-```
-
-Extension API handlers also run extension code server-side via the
-`suwu gq` runner. A hostile extension therefore already has user-level API
-access and server-side code execution.
+**Server-side power is now scoped (fixed).** Extensions no longer receive the
+app-shell session token: `buildExtensionInput` hands the render script
+`auth.DeriveExtensionToken(cfg, ext.ID)`, and `/gqjs/api/<id>/*` accepts only
+that extension's token — the session token is rejected there, and an extension
+token is rejected on `/api/*` and the WebSockets. See
+`docs/EXTENSION_TOKEN_SCOPING_PLAN.md` (implemented). Extension handlers still
+run extension code server-side via the `suwu gq` runner under the `--ro` /
+`suwu.net` gates, but they can no longer act as the user against the main API,
+the WebSockets, or another extension.
 
 **Browser-side isolation is what the sandbox exists for.** From
 `ExtensionPage.tsx`:
@@ -193,10 +195,12 @@ access and server-side code execution.
 > Deliberately no `allow-same-origin`: the extension runs in an opaque
 > origin, so it cannot read Suwu storage or escape upward.
 
-That invariant is what A breaks. The cost is not “the extension can own the
-server”; it is “the extension can own the **browser origin**” —
-`localStorage`, IndexedDB, cookies, the live DOM, service workers —
-**persistently**.
+That invariant is what A breaks. With the server-side over-grant already
+removed by token scoping, the cost of A is **purely browser-side**: the
+extension can obtain *same-origin* execution in the Suwu web app and from
+there own the **browser origin** — `localStorage`, IndexedDB, the live DOM,
+service workers, and the session token itself via the non-`HttpOnly` cookie —
+**persistently**. Token scoping does not touch any of that.
 
 ### 7.2 The pivot: getting extension code to run at Suwu's origin
 
@@ -204,22 +208,24 @@ Escape alone is not enough: an escaped popup pointing at `/` runs *Suwu's*
 code, not the extension's. The extension needs a document **it authored**
 running at the real origin, and it has one — the render route it controls.
 
-`authorizeExtensionRequest` accepts the session token from either the cookie
-**or `?token=`**:
+`handleExtension` still authenticates on the **session** credential, which for
+an iframe/navigation is the `suwu_token` **cookie** (`?token=` also works, but
+the render route is session-only and rejects the scoped token). The extension
+does not need to *hold* that token: a top-level navigation to
+`/gqjs/ext/<id>` carries the cookie automatically (`SameSite=Lax` still sends
+it on a top-level GET), so once the popup escapes the sandbox,
 
-```go
-if token == "" {
-    token = r.URL.Query().Get("token")
-}
-...
-return validated, 0, ""
+```js
+window.open('/gqjs/ext/<id>')
 ```
 
-So `window.open('/gqjs/ext/<id>?token=<session-token>')` yields a normal,
-unsandboxed tab whose HTML is the extension's own render output, executing
-with `https://<suwu-host>` as its origin. There is no framing/top-level check
-on `handleExtension`, and `frame-ancestors` does not apply to a top-level
-navigation, so nothing stops it.
+yields a normal, unsandboxed tab whose HTML is the extension's own render
+output, executing with `https://<suwu-host>` as its origin. It is now
+same-origin with the app, so it recovers the session token from
+`document.cookie` even though the render input only carried the scoped token.
+There is no framing/top-level check on `handleExtension`, and
+`frame-ancestors` does not apply to a top-level navigation, so nothing stops
+it.
 
 (Separately: this is already reachable **today** by a user opening a render
 URL directly. Today the *extension itself* cannot trigger it; §8 closes the
@@ -247,14 +253,17 @@ hole.)
   `responses`, `collections`, `environments`, and **`cookies`** in IndexedDB
   `suwu-rest-helper` (`frontend/src/lib/restdb.ts`); `RestHeader` explicitly
   models `sensitive` credentials.
-- **Read the session token directly.** `suwu_token` is set from JS
-  (`frontend/src/lib/api.ts`):
+- **Read the session token directly — and undo the token scoping.** Extension
+  code no longer receives the session token
+  (`docs/EXTENSION_TOKEN_SCOPING_PLAN.md`), but a same-origin document reads it
+  straight from the cookie (`frontend/src/lib/api.ts`):
   ```js
   document.cookie = `${TOKEN_COOKIE}=${encodeURIComponent(token)}; Path=/; SameSite=Lax${secure}`;
   ```
-  No `HttpOnly`, so `document.cookie` exposes it. Not new *knowledge* for the
-  extension (it parses the token from its render input), but it removes the
-  last step.
+  No `HttpOnly`, so `document.cookie` exposes it. Same-origin execution is the
+  join that re-grants the full API and WebSocket authority that token scoping
+  just removed. (`HttpOnly` would block *this* read but none of the other
+  same-origin powers below; it stays a separate follow-up.)
 - **Register a Service Worker at scope `/`.** Localhost is a secure context,
   so the escaped document can install a persistent SW that intercepts and
   rewrites the app's requests. Unlike the ephemeral opaque frame, this
@@ -270,49 +279,86 @@ hole.)
 - **It is not one-shot.** The extension chooses when to do any of the above;
   nothing requires more than ordinary browsing in the tile.
 
-### 7.4 What a guard buys — and what it doesn't
+### 7.4 The guard: a `sandbox` directive on the render response (implemented)
 
-A head-injected guard can neutralize §7.2: if `location.origin !== 'null'`
-(i.e. the page is *not* in our sandbox), insert a CSP meta into `<head>`:
+A `<meta>` tag cannot do this job. The `sandbox` directive is honored **only
+from the HTTP response header** — verified on Chromium by serving the same
+policy both ways to a top-level document:
 
-```html
-<meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'unsafe-inline'">
+```
+Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; sandbox allow-scripts
 ```
 
-This mirrors the existing inert-document policy in `extensionStaticInertCSP`
-(`pkg/server/extension_static.go`). Verified on Chromium (headless,
-virtual-time): a **runtime-inserted** meta policy blocks all subsequent
-parser scripts, so an unsandboxed load executes nothing, while the sandboxed
-load (`origin === 'null'`) is untouched.
+With the header: `self.origin === "null"` and `localStorage` throws. With the
+identical policy in `<meta http-equiv="Content-Security-Policy"
+content="sandbox allow-scripts">`: ignored — the origin stays real and storage
+works. A script-inserted meta is the wrong tool generally, too: CSP can only
+*add* restrictions, so one static payload cannot both allow the tile's scripts
+and deny the top-level load's.
 
-Limits:
+The server already rewrites the render body server-side (`injectExtensionRelay`
+injects the focus/key relay), so it *could* place markup statically — but the
+guard does not need the body at all, and a body/meta policy could not be made
+conditional anyway. The guard is a **`sandbox` directive added to the render
+response's existing CSP header** (`extensionCSPFor`), mirroring the iframe
+token list:
 
-- **Browser dependency.** The technique relies on dynamically inserted meta
-  CSP being honored. Verified on Chromium; not something to assume
-  identically across engines. If an engine ignores it, the guard silently
-  reverts to full escalation.
-- **Injection-position sensitivity.** The guard only works if it executes
-  before any extension script and the meta lands in `<head>`. Malformed
-  extension HTML with a decoy `>` after `<head` (e.g. `<head title=">">`)
-  could push injected bytes into an attribute/comment. The injector must be
-  written for that or the guard is bypassable.
-- **It guards one page, not the origin.** It protects `/gqjs/ext/*`. Any
-  future Suwu page that renders extension-influenced content, any endpoint
-  that trusts same-origin messages/popups, or any CSP/meta regression reopens
-  §7.3. Safety moves from “the browser’s sandbox” to “an invariant that must be
-  re-verified per page”.
+```
+Content-Security-Policy: default-src 'none'; script-src …; …
+  sandbox allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox
+```
+
+It lands as `extensionSandboxTokens` in `pkg/server/extension.go` (appended by
+`extensionCSPFor`), mirrored by the tile iframe's `sandbox` attribute in
+`frontend/src/routes/ExtensionPage.tsx`, and pinned by
+`TestExtensionCSPForSandboxGuard`.
+
+Why this is the robust form:
+
+- **Static and unconditional.** It is a response header, resolved before the
+  document exists — the only delivery that can set an opaque origin at
+  creation. There is no runtime script, and no need to classify the request
+  (tile iframe vs escape-sandbox popup vs direct tab), so it does not depend on
+  `Sec-Fetch-*`, parser ordering, or injected markup.
+- **It re-sandboxes every load of `/gqjs/ext/<id>`** to an opaque origin with
+  scripts allowed — the tile, an escape-sandbox popup, and a directly opened
+  tab alike. Extension code still runs, but with no cookies, no origin
+  `localStorage`/IndexedDB, no Service Worker, and no same-origin access to the
+  app, so every row of §7.3 is closed.
+- **It closes the §8 direct-tab hole** as a side effect.
+
+Capabilities are the **intersection** of all sandbox sources, so the iframe
+attribute and the CSP `sandbox` token list must agree. Both must list
+`allow-popups-to-escape-sandbox` for story links to open as real tabs, and
+neither may list `allow-same-origin`.
+
+What the guard does **not** cover:
+
+- **Directive support.** `sandbox` is a standard CSP3 header directive, but this
+  analysis verified only Chromium; Firefox and Safari need an explicit check.
+  Keep the iframe attribute as the primary sandbox so a browser that ignored
+  the header could still not un-sandbox the tile — it would only reopen the
+  top-level hole.
+- **A regression is silent.** If the directive is dropped or mistyped, a
+  top-level render load runs same-origin again. Add a test asserting the render
+  header contains the `sandbox` directive and no `allow-same-origin`.
+- **Other paths for extension-authored execution.** Both render responses —
+  `extensionCSPFor` (page) and `extensionCSP` (error page) — carry the guard.
+  Any future Suwu page that executes extension-supplied content needs the same
+  header. Extension API responses are script-blocked by `default-src 'none'`
+  and left unsandboxed; adding `sandbox` there too is cheap defense in depth.
 - **Residual, guard-proof costs.** The extension can still open arbitrary
-  unsandboxed tabs on the app origin (spam/DoS, opening `/`) and still reach
-  the app via `postMessage`; today’s defenses there are per-handler
-  (`isDirectTileFrame`, origin checks), not structural.
+  unsandboxed tabs on the app origin (spam/DoS, opening `/`) and reach the app
+  via `postMessage`; today’s defenses there are per-handler
+  (`isDirectTileFrame`, origin checks), not structural — though a guarded
+  render document is opaque-origin, so it cannot script those tabs.
 
 ### 7.5 Cost summary
 
 | Capability | Today (sandbox, no escape) | After A, no guard | After A + guard |
 |---|---|---|---|
-| Server API as user | already yes (token in render input) | yes | yes |
-| Same-origin code at app origin | no (only via direct-tab hole) | **yes, self-service** | inert (meta CSP) |
+| Server API / WebSockets as user | no (scoped token only) | **yes** (session token via `document.cookie`) | no (via that route) |
+| Same-origin code at app origin | no (only via direct-tab hole) | **yes, self-service** | no (CSP `sandbox` → opaque origin) |
 | Read/write app `localStorage` | no | **yes** | no (via that route) |
 | Cross-extension IndexedDB | no (namespaced in tile) | **yes, bypass** | no |
 | REST-helper history/cookies | no | **yes** | no |
@@ -321,14 +367,12 @@ Limits:
 | Script the live app UI | no | **yes** (same-origin iframe) | no |
 | Popups inherit sandbox | yes (the bug) | no (fixed) | no (fixed) |
 
-The honest trade of A: **give up the sandbox as a real security boundary in
-exchange for “the sandbox plus a hand-rolled, browser-dependent,
-position-sensitive guard”.** Because extensions already hold the session
-token, the marginal *server* risk is small; the marginal **browser-side** risk
-(persistent same-origin execution, cross-extension data, in-app UI control,
-service workers) is precisely the class of threat the sandbox was introduced
-to prevent, and it would now be enforced by app-level checks rather than by
-the browser.
+The honest trade of A: **add the escape flag, and rely on the render
+response's `sandbox` header (§7.4) to re-sandbox any document loaded at our
+origin outside the tile.** Unlike a runtime script guard, that is static and
+unconditional — but it is still a single response header away from failure,
+and the browser-support check (Firefox/Safari) and the header regression test
+are what keep it honest.
 
 ---
 
@@ -338,17 +382,19 @@ the browser.
 `suwu_token` **cookie** or a `?token=` fallback, and there is no framing or
 top-level check. So **today** any user who opens a render URL directly as a
 normal tab — or follows a cross-site link to it, given the `SameSite=Lax`
-cookie — gets extension JS running unsandboxed on the Suwu origin. The guard
-in §7.4 would close that hole as a side effect, independently of the popup
-fix.
+cookie — gets extension JS running unsandboxed on the Suwu origin. Token
+scoping does not close this: the unsandboxed document is same-origin, so it
+reads the session token from the cookie regardless of what the render input
+carried.
 
-A server-side distinguisher is tempting but imperfect: a sandboxed
-tile-iframe load is initiated by our-origin tile (`Sec-Fetch-Site:
-same-origin`), while an escape-sandbox popup initiated by an opaque origin
-looks `cross-site`; but legitimate extension self-navigations to the render
-route also look cross-site, older browsers omit `Sec-Fetch-*`, and
-`frame-ancestors` does not cover top-level navigations. Treat any such header
-check as defense-in-depth, not the primary control.
+The §7.4 `sandbox` header closes this: the directly opened document is
+forced to an opaque origin before it runs, so it cannot read the cookie or the
+session token. A server-side request distinguisher (e.g. `Sec-Fetch-Dest:
+iframe` vs `document`) is not needed for the guard, but remains reasonable
+defense in depth: a sandboxed tile-iframe load is initiated by our-origin tile
+(`Sec-Fetch-Site: same-origin`), while an escape-sandbox popup or direct tab is
+`cross-site`/`none`; extension self-navigations look `cross-site` and older
+browsers omit `Sec-Fetch-*`, so treat any such check as secondary.
 
 ---
 
@@ -361,16 +407,20 @@ scoped to their own `/gqjs/api/<id>/*` surface — see
 server-side over-grant but does **not** fix the popup bug or same-origin
 escalation, so it is not a substitute for the work below.
 
-If the popup behavior is to be fixed, prefer **A + the §7.4 guard**, and
-regard the guard as load-bearing security code that needs:
+**A + the §7.4 guard is implemented.** It remains load-bearing security code,
+so keep these follow-ups honest:
 
-- explicit tests for placement (before any extension script, inside
-  `<head>`), idempotence, and malformed-HTML inputs;
-- a browser note in `docs/EXTENSION_API_PLAN.md` §2.7 item 4 recording that
-  the “popups stay sandboxed” guarantee is replaced by “unsandboxed render
-  loads are inert”;
-- a follow-up decision on option C (real separate origin), which is the only
-  variant that keeps a browser-enforced boundary *and* normal tabs.
+- the `sandbox` token list is pinned to the iframe's by
+  `TestExtensionCSPForSandboxGuard`; keep the two identical and never add
+  `allow-same-origin` to either;
+- **an explicit Firefox and Safari check of the `sandbox` header is still
+  pending** (only Chromium is verified here);
+- `docs/EXTENSION_API_PLAN.md` §2.7 item 4 now records that the “popups stay
+  sandboxed” guarantee is replaced by “every render load is CSP-sandboxed to an
+  opaque origin”;
+- option C (real separate origin) remains the only variant that keeps a
+  browser-enforced boundary *and* normal tabs without relying on a response
+  header.
 
 Until then, the current behavior — an opaque-origin tab that silently breaks
 on many sites — is the documented, deliberate cost of the existing sandbox.
@@ -382,9 +432,13 @@ on many sites — is the documented, deliberate cost of the existing sandbox.
 - `frontend/src/routes/ExtensionPage.tsx` — sandbox attribute, ext-store
   bridge, `suwu:ext/<id>/` namespacing.
 - `pkg/server/extension.go` — `handleExtension`, `authorizeExtensionRequest`,
-  `buildExtensionInput`, `injectExtensionRelay`, `extensionCSPFor`.
+  `authorizeExtensionAPIRequest`, `buildExtensionInput`, `injectExtensionRelay`,
+  `extensionCSPFor`.
+- `pkg/auth/auth.go` — `DeriveExtensionToken`, `ValidateExtensionToken`,
+  `ValidateExtensionAPIRequest`.
 - `pkg/server/extension_static.go` — `extensionStaticInertCSP`.
 - `frontend/src/lib/api.ts` — `suwu_token` cookie (non-HttpOnly).
 - `frontend/src/lib/restdb.ts` — `suwu-rest-helper` IndexedDB stores.
 - `docs/EXTENSION_API_PLAN.md` §2.7 — origin, CSP, CORS, links.
+- `docs/EXTENSION_TOKEN_SCOPING_PLAN.md` — extension-scoped tokens (implemented).
 - `docs/EXTENSION_TILE_PLAN.md` §4.8 — extension storage bridge.

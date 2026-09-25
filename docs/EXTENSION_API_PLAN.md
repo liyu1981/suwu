@@ -165,9 +165,12 @@ SSRF dial-time guard stays in force.
 
 ### 2.7 How the sandboxed page calls its own API
 
-The render page runs in `sandbox="allow-scripts allow-pointer-lock
-allow-popups"` — an **opaque origin**, which breaks the two assumptions a
-same-origin page would enjoy:
+The render page runs in a sandboxed iframe — `sandbox="allow-scripts
+allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"` — and the
+render response carries a matching CSP `sandbox` directive, so every load of
+`/gqjs/ext/<id>` (tile iframe, escape-sandbox popup, or direct tab) is an
+**opaque origin**. That breaks the two assumptions a same-origin page would
+enjoy:
 
 1. **Auth:** no cookie-credentials ride along, so the render script is handed
    an **extension-scoped token** (`input.token`) and embeds it in the page's
@@ -193,12 +196,16 @@ same-origin page would enjoy:
    as `HX-Trigger`, so a fixed allow-list would reject them) and acknowledging
    Chrome's private-network preflight. A foreign origin, or a null-origin page
    without the token, gets nothing usable.
-4. **Links:** `allow-popups` lets `target="_blank"` open a new tab that
-   *inherits* the sandbox; `allow-popups-to-escape-sandbox` is deliberately
-   absent, so a popup to our own origin stays sandboxed too. **Cost:** those
-   tabs are opaque-origin documents and break on workers/storage/credentialed
-   fetch; see `docs/EXTENSION_SANDBOX_LINKS_ANALYSIS.md` for the root cause and
-   what relaxing it would cost.
+4. **Links:** `allow-popups` plus `allow-popups-to-escape-sandbox` lets
+   `target="_blank"` open a normal tab with its real origin, so story links
+   work in Firefox/Safari/Chrome alike. The escape is paired with the **guard**:
+   the render response carries a matching `sandbox` directive
+   (`extensionSandboxTokens`), so any document that loads `/gqjs/ext/<id>`
+   outside the tile — an escape-sandbox popup or a directly opened tab — is
+   forced to an opaque origin and cannot read the session cookie. Because
+   sandbox capabilities are the intersection of every source, the iframe token
+   list and the CSP list must stay identical. See
+   `docs/EXTENSION_SANDBOX_LINKS_ANALYSIS.md` §7.4.
 5. **Contract — extensions do not use the app-shell API.** `/api/*` and the
    WebSockets are for the app shell; an extension reaches server-side data only
    through its own `/gqjs/api/<id>/*` handlers. `/api/*` calls carrying an
@@ -244,7 +251,8 @@ the per-extension scoped token. Auth failures answer JSON.
 5. Child isolation unchanged: fresh process, deadline, `--ro`, minimal env;
    network only via the explicit `suwu.net` opt-in (and never
    `--allow-private`).
-6. Response denylist + nosniff + strict CSP + no-store; no script injection.
+6. Response denylist + nosniff + strict CSP (the render response also carries
+   the `sandbox` guard) + no-store; no script injection.
 7. Static assets are deliberately public (see §2.8) but tightly scoped:
    declared subtree only, no dotfiles/dot segments, no listings, symlink- and
    traversal-proof (`ensureWithin`), extension-type allow-list, and an inert

@@ -103,25 +103,42 @@ func isHTMLContentType(contentType string) bool {
 	return strings.Contains(strings.ToLower(contentType), "text/html")
 }
 
+// extensionSandboxTokens mirrors the sandbox attribute on the extension tile
+// iframe (frontend/src/routes/ExtensionPage.tsx). Every render response carries
+// the same tokens as a CSP `sandbox` directive so that a load of the render
+// route outside the tile — an escape-sandbox popup (the iframe grants
+// allow-popups-to-escape-sandbox) or a directly opened tab — is forced to an
+// opaque origin too. Effective capabilities are the intersection of every
+// sandbox source, so the two lists must stay identical; a browser that ignored
+// the directive still cannot un-sandbox the tile because the iframe attribute
+// remains in force.
+const extensionSandboxTokens = "allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
+
 // extensionCSP scopes the generated document. The extension page is untrusted,
 // so the default source is 'none'; inline scripts/styles are allowed because
 // extension pages are self-contained, and frame-ancestors limits framing to
 // the same-origin /extension tile page.
 // extensionCSP is the strict CSP used for error documents: no external
-// scripts, no connections. Rendered pages get extensionCSPFor instead.
+// scripts, no connections. Rendered pages get extensionCSPFor instead. Both
+// carry the sandbox guard so every render-route response is opaque outside the
+// tile.
 const extensionCSP = "default-src 'none'; " +
 	"script-src 'unsafe-inline'; " +
 	"style-src 'unsafe-inline'; " +
 	"img-src data: blob:; " +
 	"font-src data:; " +
 	"connect-src 'self'; " +
-	"frame-ancestors 'self'"
+	"frame-ancestors 'self'; " +
+	"sandbox " + extensionSandboxTokens
 
 // extensionCSPFor builds the CSP for a rendered extension page. Compared with
 // extensionCSP it additionally allows the pinned htmx CDN in script-src, and
 // names the request origin in every directive that can load extension assets
 // (script/style/img/font, plus connect for the API): the page runs in a
 // sandboxed iframe with an opaque origin — where 'self' alone is unreliable.
+// The `sandbox` directive is the guard that keeps a document loaded at our
+// origin outside that iframe opaque as well; see
+// docs/EXTENSION_SANDBOX_LINKS_ANALYSIS.md §7.4.
 // r.Host is restricted to host-safe characters before it enters the header.
 func extensionCSPFor(r *http.Request) string {
 	host := strings.Map(func(c rune) rune {
@@ -139,7 +156,8 @@ func extensionCSPFor(r *http.Request) string {
 		"img-src data: blob: " + origin + "; " +
 		"font-src data: " + origin + "; " +
 		"connect-src 'self' " + origin + "; " +
-		"frame-ancestors 'self'"
+		"frame-ancestors 'self'; " +
+		"sandbox " + extensionSandboxTokens
 }
 
 // defaultExtensionTimeout follows PHP's max_execution_time rule. Override with

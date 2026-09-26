@@ -1,19 +1,8 @@
-import { useState } from 'react';
+import { useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { MoveDir } from './layout';
 import type { TilePlugin } from './tilePlugins';
-import {
-  ChevronIcon,
-  CloseIcon,
-  ExitFocusIcon,
-  FocusIcon,
-  MoveToSpaceIcon,
-  SwapIcon,
-} from './icons';
+import { CloseIcon, ExitFocusIcon, FocusIcon, GripIcon, MoveToSpaceIcon, SwapIcon } from './icons';
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
-
-const MOVE_DIRS: MoveDir[] = ['left', 'right', 'up', 'down'];
-const ARROW_KEY: Record<MoveDir, string> = { left: '←', right: '→', up: '↑', down: '↓' };
 
 const toolBtn =
   'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300';
@@ -35,8 +24,7 @@ interface TileToolsProps {
   fontDefault: number;
   setFontSize: (size: number) => void;
   plugin?: TilePlugin;
-  canMove: (id: string, dir: MoveDir) => boolean;
-  move: (id: string, dir: MoveDir) => void;
+  startDrag: (id: string, e: ReactPointerEvent) => void;
   closeTile: (id: string) => void;
   startSwap: (id: string) => void;
   isFocused: boolean;
@@ -50,7 +38,7 @@ interface TileToolsProps {
  * Per-tile hover toolbar, revealed only while the cursor is near the
  * top-right corner. Composes:
  *   1. Type-specific plugin buttons (e.g. font size for term)
- *   2. Shared move buttons (left/right/up/down)
+ *   2. Shared drag grip
  *   3. Shared close button
  */
 export function TileTools({
@@ -59,8 +47,7 @@ export function TileTools({
   fontDefault,
   setFontSize,
   plugin,
-  canMove,
-  move,
+  startDrag,
   closeTile,
   startSwap,
   isFocused,
@@ -76,8 +63,6 @@ export function TileTools({
     fontSize,
     fontDefault,
     setFontSize,
-    canMove,
-    move,
     closeTile,
     startSwap,
   });
@@ -93,21 +78,17 @@ export function TileTools({
         aria-label={`Tile tools ${paneId}`}
       >
         {pluginToolbar}
-        {/* Shared per-tile movement */}
+        {/* Shared drag-to-layout grip */}
         <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
-        {MOVE_DIRS.map((dir) => (
-          <button
-            key={dir}
-            type="button"
-            disabled={!canMove(paneId, dir)}
-            onClick={() => move(paneId, dir)}
-            aria-label={t('wm.moveDir', { direction: dir })}
-            title={t('wm.moveDir', { direction: dir }) + ' (Alt+' + ARROW_KEY[dir] + ')'}
-            className={toolBtn}
-          >
-            <ChevronIcon dir={dir} />
-          </button>
-        ))}
+        <button
+          type="button"
+          onPointerDown={(e) => startDrag(paneId, e)}
+          aria-label={t('wm.dragTile')}
+          title={t('wm.dragTileHint')}
+          className={`${toolBtn} cursor-grab touch-none active:cursor-grabbing`}
+        >
+          <GripIcon />
+        </button>
         {/* Shared per-tile swap */}
         <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
         <button

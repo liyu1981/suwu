@@ -31,12 +31,14 @@ import {
   cycleSpace,
   createLeaf,
   createSpace,
+  detectDropZone,
   findNeighborRect,
   findLeaf,
   findSplit,
   focusByOffset,
   getPaneData,
   leaves,
+  moveLeafAdjacent,
   moveLeafBetweenSpaces,
   setPaneData,
   splitAtWithId,
@@ -47,8 +49,10 @@ import {
   updateSplitAt,
   type Direction,
   type DividerSpec,
+  type DropZone,
   type LayoutNode,
   type MoveDir,
+  type Rect,
 } from './layout';
 import { applyWmAction, wmAction } from './shortcuts';
 import { openViewer, openFileBrowser } from '../lib/actionResolver';
@@ -90,6 +94,12 @@ const appRow =
 
 /** Apps shown per page in the tile app selector. */
 const APP_PAGE_SIZE = 8;
+
+/** Pointer travel (px) before a grip press becomes a drag. */
+const DRAG_THRESHOLD = 8;
+
+/** Active drag-to-layout target under the pointer. */
+type DropTarget = { targetId: string; zone: DropZone; coverRect: Rect };
 
 /** Style for the Back/Next rows that live at the bottom of the app list. */
 const pagerBtn =
@@ -743,27 +753,6 @@ export default function TilingWM() {
     [store, size],
   );
 
-  const move = useCallback(
-    (id: string, dir: MoveDir) => {
-      const cur = store.get(layoutAtom);
-      if (!cur || size.w <= 0 || size.h <= 0) return;
-      const { panes } = computeTiling(cur, size.w, size.h);
-      const neighbor = findNeighborRect(panes, id, dir);
-      if (!neighbor) return;
-      store.set(layoutAtom, swapLeaves(cur, id, neighbor.id));
-      store.set(focusedIdAtom, id);
-    },
-    [store, size],
-  );
-
-  const moveFocused = useCallback(
-    (dir: MoveDir) => {
-      const f = store.get(focusedIdAtom);
-      if (f) move(f, dir);
-    },
-    [store, move],
-  );
-
   // Swap mode: enter, complete, cancel.
   const swapSource = useAtomValue(swapModeAtom);
   const setSwapSource = useSetAtom(swapModeAtom);
@@ -1032,7 +1021,6 @@ export default function TilingWM() {
       close,
       focusOffset,
       focusDirection,
-      moveFocused,
       enterSwap,
       toggleFocus,
       toggleSpaces,
@@ -1045,7 +1033,6 @@ export default function TilingWM() {
       close,
       focusOffset,
       focusDirection,
-      moveFocused,
       enterSwap,
       toggleFocus,
       toggleSpaces,
@@ -1200,11 +1187,6 @@ export default function TilingWM() {
     [spaces, size.w, size.h],
   );
 
-  const canMove = useCallback(
-    (id: string, dir: MoveDir) => findNeighborRect(panes, id, dir) !== null,
-    [panes],
-  );
-
   const { ghosts, removeGhost } = usePaneGhosts(panes);
 
   const startDividerDrag = useCallback(
@@ -1251,6 +1233,119 @@ export default function TilingWM() {
       window.addEventListener('pointerup', onUp);
     },
     [store, setLayout],
+  );
+
+  // ── Tile drag-to-layout ──────────────────────────────────────────
+  // Pressing the toolbar grip enters a drop-targeting mode: the cover only
+  // appears over the tile under the pointer, and the layout changes only on
+  // pointer-up (Esc cancels). The preview rect is read from the real
+  // projected layout, so it is pixel-identical to the committed result.
+  const [dragSource, setDragSource] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
+  const projectionRef = useRef<{ key: string; rect: Rect } | null>(null);
+
+  const projectCoverRect = useCallback(
+    (sourceId: string, targetId: string, zone: DropZone): Rect | null => {
+      const key = `${sourceId}|${targetId}|${zone}`;
+      if (projectionRef.current?.key === key) return projectionRef.current.rect;
+      const cur = store.get(layoutAtom);
+      if (!cur || size.w <= 0 || size.h <= 0) return null;
+      const projected =
+        zone === 'swap'
+          ? swapLeaves(cur, sourceId, targetId)
+          : moveLeafAdjacent(cur, sourceId, targetId, zone);
+      const landed = computeTiling(projected, size.w, size.h).panes.find((p) => p.id === sourceId);
+      if (!landed) return null;
+      const rect = { x: landed.x, y: landed.y, w: landed.w, h: landed.h };
+      projectionRef.current = { key, rect };
+      return rect;
+    },
+    [store, size.w, size.h],
+  );
+
+  const startTileDrag = useCallback(
+    (paneId: string, e: ReactPointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      store.set(focusedIdAtom, paneId);
+
+      const handle = e.currentTarget as HTMLElement;
+      handle.setPointerCapture?.(e.pointerId);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let moved = false;
+      projectionRef.current = null;
+
+      const locate = (clientX: number, clientY: number): DropTarget | null => {
+        const vp = viewportRef.current;
+        if (!vp || size.w <= 0 || size.h <= 0) return null;
+        const bounds = vp.getBoundingClientRect();
+        const p = { x: clientX - bounds.left, y: clientY - bounds.top };
+        const cur = store.get(layoutAtom);
+        if (!cur) return null;
+        const current = computeTiling(cur, size.w, size.h).panes;
+        for (const pane of current) {
+          if (pane.id === paneId) continue;
+          const zone = detectDropZone(p, pane);
+          if (!zone) continue;
+          const coverRect = projectCoverRect(paneId, pane.id, zone);
+          if (!coverRect) return null;
+          return { targetId: pane.id, zone, coverRect };
+        }
+        return null;
+      };
+
+      const cleanup = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
+        window.removeEventListener('keydown', onKey, true);
+        handle.releasePointerCapture?.(e.pointerId);
+        projectionRef.current = null;
+        setDragSource(null);
+        setDropTarget(null);
+      };
+
+      const onMove = (ev: PointerEvent) => {
+        if (!moved) {
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+          moved = true;
+          setDragSource(paneId);
+        }
+        setPointerPos({ x: ev.clientX, y: ev.clientY });
+        setDropTarget(locate(ev.clientX, ev.clientY));
+      };
+
+      const onKey = (ev: KeyboardEvent) => {
+        // Swallow other WM shortcuts (space switching, split, …) while dragging.
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.key === 'Escape') cleanup();
+      };
+
+      const onCancel = () => cleanup();
+
+      const onUp = (ev: PointerEvent) => {
+        const target = moved ? locate(ev.clientX, ev.clientY) : null;
+        cleanup();
+        if (!target) return;
+        const cur = store.get(layoutAtom);
+        if (!cur) return;
+        const next =
+          target.zone === 'swap'
+            ? swapLeaves(cur, paneId, target.targetId)
+            : moveLeafAdjacent(cur, paneId, target.targetId, target.zone);
+        store.set(layoutAtom, next);
+        store.set(focusedIdAtom, paneId);
+      };
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
+      window.addEventListener('keydown', onKey, true);
+    },
+    [store, size.w, size.h, projectCoverRect],
   );
 
   // State for the type-selection picker (one at a time).
@@ -1301,6 +1396,26 @@ export default function TilingWM() {
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [swapSource, selectablePanes, swapHighlightIdx, cancelSwap, completeSwap]);
+
+  const dragLabel = useMemo(() => {
+    if (!dragSource || !layout) return '';
+    const leaf = findLeaf(layout, dragSource);
+    const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
+    return tileType ? (getTilePlugin(tileType)?.label ?? tileType) : '';
+  }, [dragSource, layout]);
+
+  const dragChipPos = useMemo(() => {
+    const OFFSET = 12;
+    const CHIP_W = 150;
+    const CHIP_H = 26;
+    let x = pointerPos.x + OFFSET;
+    let y = pointerPos.y + OFFSET;
+    if (typeof window !== 'undefined') {
+      if (x + CHIP_W > window.innerWidth) x = pointerPos.x - CHIP_W - OFFSET;
+      if (y + CHIP_H > window.innerHeight) y = pointerPos.y - CHIP_H - OFFSET;
+    }
+    return { x, y };
+  }, [pointerPos]);
 
   return (
     <div
@@ -1379,8 +1494,7 @@ export default function TilingWM() {
                       fontDefault={fontDefault}
                       setFontSize={(size) => setTileFontSize(id, size)}
                       plugin={plugin}
-                      canMove={canMove}
-                      move={move}
+                      startDrag={startTileDrag}
                       closeTile={closeTile}
                       startSwap={startSwap}
                       isFocused={focusState?.paneId === id}
@@ -1424,6 +1538,48 @@ export default function TilingWM() {
           </div>
         );
       })}
+      {/* Tile drag overlay */}
+      {dragSource && dropTarget && (
+        <div
+          key="drag-cover"
+          className="pointer-events-none absolute z-30 rounded-[6px] border border-sky-400/60 bg-sky-400/20"
+          style={{
+            left: dropTarget.coverRect.x,
+            top: dropTarget.coverRect.y,
+            width: dropTarget.coverRect.w,
+            height: dropTarget.coverRect.h,
+          }}
+        >
+          {dropTarget.zone === 'swap' && (
+            <div className="flex h-full items-center justify-center">
+              <span className="rounded bg-black/60 px-2 py-1 text-[11px] text-white/70">
+                {t('wm.dragSwap')}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+      {dragSource &&
+        (() => {
+          const src = panes.find((p) => p.id === dragSource);
+          if (!src) return null;
+          return (
+            <div
+              key="drag-source-glow"
+              className="pointer-events-none absolute z-30 rounded-[6px] border border-amber-400/60 shadow-[0_0_12px_rgb(251_191_36/0.25)]"
+              style={{ left: src.x, top: src.y, width: src.w, height: src.h }}
+            />
+          );
+        })()}
+      {dragSource && dragLabel && (
+        <div
+          key="drag-chip"
+          className="menu-glass pointer-events-none fixed z-40 rounded-[6px] px-2 py-1 text-xs text-white/85 shadow-[0_8px_24px_rgb(0_0_0/0.35)]"
+          style={{ left: dragChipPos.x, top: dragChipPos.y }}
+        >
+          {dragLabel}
+        </div>
+      )}
       {/* Swap mode overlay */}
       {swapSource &&
         panes.map(({ id, x, y, w, h }) => {

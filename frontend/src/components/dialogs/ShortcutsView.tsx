@@ -62,6 +62,7 @@ export default function ShortcutsView() {
           { label: t('shortcuts.splitRight'), keys: [['Alt', '⏎']] },
           { label: t('shortcuts.splitBelow'), keys: [['Alt', '⇧', '⏎']] },
           { label: t('shortcuts.closeTile'), keys: [['Alt', 'Q']] },
+          { label: t('shortcuts.dragTile'), keys: [], search: 'drag move tile' },
           { label: t('shortcuts.swapTile'), keys: [['Alt', 'S']] },
         ],
       },
@@ -72,15 +73,6 @@ export default function ShortcutsView() {
           { label: t('shortcuts.focusRight'), keys: [['Alt', '→']], search: 'focus right' },
           { label: t('shortcuts.focusUp'), keys: [['Alt', '↑']], search: 'focus up' },
           { label: t('shortcuts.focusDown'), keys: [['Alt', '↓']], search: 'focus down' },
-        ],
-      },
-      {
-        title: t('shortcuts.movement'),
-        items: [
-          { label: t('shortcuts.moveLeft'), keys: [['Alt', '⇧', '←']], search: 'move left swap' },
-          { label: t('shortcuts.moveRight'), keys: [['Alt', '⇧', '→']], search: 'move right swap' },
-          { label: t('shortcuts.moveUp'), keys: [['Alt', '⇧', '↑']], search: 'move up swap' },
-          { label: t('shortcuts.moveDown'), keys: [['Alt', '⇧', '↓']], search: 'move down swap' },
         ],
       },
       {

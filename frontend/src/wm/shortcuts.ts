@@ -10,10 +10,6 @@ export type WmAction =
   | 'focus-right'
   | 'focus-up'
   | 'focus-down'
-  | 'move-left'
-  | 'move-right'
-  | 'move-up'
-  | 'move-down'
   | 'swap'
   | 'focus-toggle'
   | 'toggle-spaces'
@@ -27,7 +23,6 @@ export interface WmActionHandlers {
   close: () => void;
   focusOffset: (o: number) => void;
   focusDirection: (d: MoveDir) => void;
-  moveFocused: (d: MoveDir) => void;
   enterSwap: () => void;
   toggleFocus: () => void;
   toggleSpaces: () => void;
@@ -65,18 +60,6 @@ export function applyWmAction(name: WmAction, h: WmActionHandlers): void {
       break;
     case 'focus-down':
       h.focusDirection('down');
-      break;
-    case 'move-left':
-      h.moveFocused('left');
-      break;
-    case 'move-right':
-      h.moveFocused('right');
-      break;
-    case 'move-up':
-      h.moveFocused('up');
-      break;
-    case 'move-down':
-      h.moveFocused('down');
       break;
     case 'swap':
       h.enterSwap();
@@ -120,13 +103,13 @@ export function wmAction(e: KeyboardEvent): WmAction | null {
     case 'K':
       return 'focus-prev';
     case 'ArrowLeft':
-      return e.shiftKey ? 'move-left' : 'focus-left';
+      return e.shiftKey ? null : 'focus-left';
     case 'ArrowRight':
-      return e.shiftKey ? 'move-right' : 'focus-right';
+      return e.shiftKey ? null : 'focus-right';
     case 'ArrowUp':
-      return e.shiftKey ? 'move-up' : 'focus-up';
+      return e.shiftKey ? null : 'focus-up';
     case 'ArrowDown':
-      return e.shiftKey ? 'move-down' : 'focus-down';
+      return e.shiftKey ? null : 'focus-down';
     case 's':
     case 'S':
       return 'swap';

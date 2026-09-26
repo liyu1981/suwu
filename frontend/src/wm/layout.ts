@@ -258,6 +258,38 @@ export function focusByOffset(root: LayoutNode | null, currentId: string, offset
 /** Direction to move a tile in. */
 export type MoveDir = 'left' | 'right' | 'up' | 'down';
 
+/** Drop zone when dragging a tile over another tile. */
+export type DropZone = 'swap' | 'top' | 'bottom' | 'left' | 'right';
+
+/**
+ * Fraction of a pane's width/height occupied by the centered swap zone.
+ * The remaining ring is split among the four edge zones.
+ */
+export const DROP_INNER_RATIO = 0.65;
+
+/**
+ * Classify a point against a pane rect into a drop zone, or null when the
+ * point is outside the rect entirely.
+ *
+ * The centered inner rect (65%) is `swap`; the full-width top/bottom bands
+ * own the corners, then the left/right bands cover the inner vertical extent.
+ */
+export function detectDropZone(p: { x: number; y: number }, r: Rect): DropZone | null {
+  if (p.x < r.x || p.x > r.x + r.w || p.y < r.y || p.y > r.y + r.h) return null;
+  const insetX = ((1 - DROP_INNER_RATIO) / 2) * r.w;
+  const insetY = ((1 - DROP_INNER_RATIO) / 2) * r.h;
+  const ix = r.x + insetX;
+  const iy = r.y + insetY;
+  const iw = DROP_INNER_RATIO * r.w;
+  const ih = DROP_INNER_RATIO * r.h;
+  if (p.x >= ix && p.x <= ix + iw && p.y >= iy && p.y <= iy + ih) return 'swap';
+  if (p.y < iy) return 'top';
+  if (p.y > iy + ih) return 'bottom';
+  if (p.x < ix) return 'left';
+  if (p.x > ix + iw) return 'right';
+  return null;
+}
+
 /**
  * Swap the positions of two leaves anywhere in the tree, keeping the size
  * weights attached to their slots: after a swap each leaf occupies the
@@ -265,6 +297,7 @@ export type MoveDir = 'left' | 'right' | 'up' | 'down';
  * leaf id) repositions the existing iframes instead of remounting them.
  */
 export function swapLeaves(root: LayoutNode, a: string, b: string): LayoutNode {
+  if (a === b) return root;
   // Collect full leaf data for both targets so we can swap everything.
   const leafA = findLeaf(root, a);
   const leafB = findLeaf(root, b);
@@ -272,13 +305,55 @@ export function swapLeaves(root: LayoutNode, a: string, b: string): LayoutNode {
 
   const walk = (node: LayoutNode): LayoutNode => {
     if (node.type === 'leaf') {
-      if (node.id === a) return { ...leafB, id: a };
-      if (node.id === b) return { ...leafA, id: b };
+      // Move each pane — identity *and* data — to the other's slot, so the
+      // renderer repositions the existing iframes (keyed by id) instead of
+      // remounting them. The node at slot `a` becomes pane `b`, and vice versa.
+      if (node.id === a) return { ...leafB, id: b };
+      if (node.id === b) return { ...leafA, id: a };
       return node;
     }
     return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
   };
   return walk(root);
+}
+
+/**
+ * Move the leaf `sourceId` next to `targetId`, replacing the target's slot
+ * with a 50/50 split on the given edge zone.
+ *
+ * The source leaf is removed first (which may rebalance the target's slot),
+ * then re-inserted beside the target. Both leaf ids are preserved so the pane
+ * renderer repositions the existing iframes instead of remounting them.
+ */
+export function moveLeafAdjacent(
+  root: LayoutNode,
+  sourceId: string,
+  targetId: string,
+  zone: Exclude<DropZone, 'swap'>,
+): LayoutNode {
+  if (sourceId === targetId) return root;
+  const source = findLeaf(root, sourceId);
+  const target = findLeaf(root, targetId);
+  if (!source || source.type !== 'leaf' || !target || target.type !== 'leaf') return root;
+
+  // Remove the dragged leaf first so the tree stays well-formed.
+  const without = closeAt(root, sourceId);
+  if (!without) return root;
+
+  const direction: Direction = zone === 'top' || zone === 'bottom' ? 'vertical' : 'horizontal';
+  const sourceBefore = zone === 'top' || zone === 'left';
+  const dragged: LayoutNode = { ...source };
+
+  const walk = (node: LayoutNode): LayoutNode => {
+    if (node.type === 'leaf') {
+      if (node.id !== targetId) return node;
+      return sourceBefore
+        ? createSplit(direction, dragged, node)
+        : createSplit(direction, node, dragged);
+    }
+    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
+  };
+  return walk(without);
 }
 
 /**

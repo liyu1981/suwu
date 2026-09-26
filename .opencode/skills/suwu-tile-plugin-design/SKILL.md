@@ -44,7 +44,7 @@ TilingWM (parent window)
   │                           └── WM shortcut relay → parent
   └── TileTools (hover toolbar per pane)
         ├── plugin.renderToolbar(ctx)   ← type-specific buttons
-        └── shared move/swap/focus/space/close
+        └── shared drag/swap/focus/space/close
 ```
 
 **The single most important invariant:** panes are a *flat* list positioned by
@@ -92,8 +92,6 @@ export interface ToolbarContext {
   fontSize: number
   fontDefault: number
   setFontSize: (size: number) => void
-  canMove: (id: string, dir: MoveDir) => boolean
-  move: (id: string, dir: MoveDir) => void
   closeTile: (id: string) => void
   startSwap: (id: string) => void
 }
@@ -275,7 +273,7 @@ of the plugin contract, not optional documentation.
 composes, in order:
 
 ```
-[ plugin.renderToolbar(ctx) ] │ [move ←→↑↓] │ [swap] │ [focus] │ [move-to-space] │ [close]
+[ plugin.renderToolbar(ctx) ] │ [drag grip] │ [swap] │ [focus] │ [move-to-space] │ [close]
 ```
 
 Design rules:
@@ -489,7 +487,7 @@ frontend/src/
 - [ ] If needed, implement `renderToolbar` using the `toolBtn` pattern.
 - [ ] Persist state with `useReportTileState`; restore with `useTileSessionState`.
 - [ ] Use only the declared type scale (Body 14 / Label 12 for tile content).
-- [ ] Verify: split/close/move/swap keeps the iframe alive; reload restores
+- [ ] Verify: split/close/drag-move/swap keeps the iframe alive; reload restores
       state; zoom syncs across panes; font size flows from the toolbar.
 
 ---
@@ -523,4 +521,4 @@ frontend/src/
 - Off-scale font sizes (`text-[8px]`, `text-[12px]`, `text-[13px]`, …) — use the
   declared scale.
 - Registering a plugin with a non-lazy `i18n.t()` label.
-- Duplicating move/swap/close buttons inside `renderToolbar`.
+- Duplicating drag/swap/close buttons inside `renderToolbar`.

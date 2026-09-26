@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { MoveDir, TileType } from './layout';
+import type { TileType } from './layout';
 
 /** Context passed to a tile plugin's toolbar renderer. */
 export interface ToolbarContext {
@@ -7,8 +7,6 @@ export interface ToolbarContext {
   fontSize: number;
   fontDefault: number;
   setFontSize: (size: number) => void;
-  canMove: (id: string, dir: MoveDir) => boolean;
-  move: (id: string, dir: MoveDir) => void;
   closeTile: (id: string) => void;
   startSwap: (id: string) => void;
 }
@@ -48,7 +46,7 @@ export interface TilePlugin {
   render: (paneId: string, context?: TileRenderContext) => ReactNode;
   /**
    * Render type-specific toolbar buttons. These appear between the divider
-   * and the shared move/close section of TileTools.
+   * and the shared drag/close section of TileTools.
    */
   renderToolbar?: (ctx: ToolbarContext) => ReactNode;
 }

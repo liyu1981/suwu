@@ -1,29 +1,16 @@
-import type { MoveDir } from './layout';
-
 // Re-export shared icons used by WM components.
 export { CloseIcon, CopyIcon, ResetFontSizeIcon, SwapIcon } from '../components/icons';
 
-/** Chevron pointing in a tile-move direction (for the hover toolbar). */
-export function ChevronIcon({ dir }: { dir: MoveDir }) {
-  const d =
-    dir === 'left'
-      ? 'M15 6l-6 6 6 6'
-      : dir === 'right'
-        ? 'M9 6l6 6-6 6'
-        : dir === 'up'
-          ? 'M6 15l6-6 6 6'
-          : 'M6 9l6 6 6-6';
+/** Grip handle for dragging a tile into a new layout position. */
+export function GripIcon() {
   return (
-    <svg
-      className="h-3 w-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={d} />
+    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <circle cx="9" cy="6" r="1.6" />
+      <circle cx="15" cy="6" r="1.6" />
+      <circle cx="9" cy="12" r="1.6" />
+      <circle cx="15" cy="12" r="1.6" />
+      <circle cx="9" cy="18" r="1.6" />
+      <circle cx="15" cy="18" r="1.6" />
     </svg>
   );
 }

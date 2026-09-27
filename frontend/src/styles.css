@@ -318,6 +318,18 @@ body {
   animation: panel-in 0.25s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* Mirrored slide for a left-anchored panel (right-docked header) */
+@keyframes panel-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+
+.animate-panel-in-left {
+  animation: panel-in-left 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 /* ============================================================================
    Terminal BEL flash — brief white overlay on \a (0x07)
    ============================================================================ */

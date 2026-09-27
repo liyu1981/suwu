@@ -25,6 +25,22 @@ export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-r
 });
 
 /**
+ * Where the app-shell header bar is docked. Persisted in localStorage; an
+ * unknown or missing value falls back to `top`.
+ */
+export type HeaderPosition = 'top' | 'bottom' | 'left' | 'right';
+
+const HEADER_POSITIONS: readonly HeaderPosition[] = ['top', 'bottom', 'left', 'right'];
+
+/** Narrow an arbitrary stored string to a known header position. */
+export function isHeaderPosition(value: unknown): value is HeaderPosition {
+  return typeof value === 'string' && (HEADER_POSITIONS as readonly string[]).includes(value);
+}
+
+/** The edge the header bar is docked to. Persisted in localStorage. */
+export const headerPositionAtom = atomWithStorage<HeaderPosition>('suwu:header-position', 'top');
+
+/**
  * The app-shell background the user chose in System Settings. Persisted in
  * localStorage; falls back to the default background when unset.
  */

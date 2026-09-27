@@ -11,6 +11,7 @@ import {
   type Notification,
 } from '../store/notifications';
 import { upgradingAtom } from '../store/update';
+import { headerPositionAtom } from '../store/settings';
 import { BellIcon, CheckIcon, CloseIcon, CopyIcon } from './icons';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
@@ -187,6 +188,9 @@ export function NotificationPanel() {
   const [, setUnread] = useAtom(unreadCountAtom);
   const [maxEntries] = useAtom(maxEntriesAtom);
   const [upgrading, setUpgrading] = useAtom(upgradingAtom);
+  const [headerPosition] = useAtom(headerPositionAtom);
+  // A right-docked header owns the right edge, so the panel flips to the left.
+  const panelOnLeft = headerPosition === 'right';
   const listRef = useRef<HTMLDivElement>(null);
   const [readerMsg, setReaderMsg] = useState<string | null>(null);
   const [upgradeTarget, setUpgradeTarget] = useState<Notification | null>(null);
@@ -248,7 +252,10 @@ export function NotificationPanel() {
         data-state="open"
       />
 
-      <div className="fixed right-4 top-4 bottom-4 z-50 flex gap-2" data-state="open">
+      <div
+        className={`fixed top-4 bottom-4 z-50 flex gap-2 ${panelOnLeft ? 'left-4 flex-row-reverse' : 'right-4'}`}
+        data-state="open"
+      >
         {/* Text reader (left of panel) */}
         {readerMsg !== null && (
           <div className="hidden h-full w-[min(90vw,28rem)] md:block">
@@ -260,7 +267,9 @@ export function NotificationPanel() {
         <div
           role="dialog"
           aria-label={t('notifications.title')}
-          className="flex w-[min(90vw,20rem)] flex-col rounded-xl border border-white/10 menu-glass animate-panel-in"
+          className={`flex w-[min(90vw,20rem)] flex-col rounded-xl border border-white/10 menu-glass ${
+            panelOnLeft ? 'animate-panel-in-left' : 'animate-panel-in'
+          }`}
         >
           {/* Header */}
           <div className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 px-3">

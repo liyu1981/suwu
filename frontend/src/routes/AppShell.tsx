@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Outlet, useLocation } from '@tanstack/react-router';
 import { useAtom, useStore } from 'jotai';
 import { useTranslation } from 'react-i18next';
@@ -32,8 +32,16 @@ import {
   type SplitSide,
 } from '../wm/layout';
 import { getTilePlugin } from '../wm/tilePlugins';
-import { backgroundAtom } from '../store/settings';
+import { backgroundAtom, headerPositionAtom, isHeaderPosition } from '../store/settings';
 import { logout } from '../lib/api';
+
+/** Header bar thickness (matches py-1 + h-7 button height), used as the
+ *  cross-axis size when the header is docked to the left or right. */
+const HEADER_THICKNESS = '2.25rem';
+/** Available vertical run for a side header: the shell's p-2 top+bottom
+ *  padding (1rem) subtracted from the viewport height. Keep in sync with the
+ *  `p-2` on the vertical shell class below. */
+const VERTICAL_HEADER_RUN = 'calc(100dvh - 1rem)';
 
 const wmBase =
   'grid h-7 w-7 place-items-center rounded transition glass-btn disabled:cursor-not-allowed disabled:opacity-40';
@@ -137,6 +145,7 @@ export default function AppShell() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [focusedId] = useAtom(focusedIdAtom);
   const [background] = useAtom(backgroundAtom);
+  const [headerPosition] = useAtom(headerPositionAtom);
 
   useNotifications();
   useUpdateCheck();
@@ -222,216 +231,258 @@ export default function AppShell() {
     hoverTimeoutRef.current = setTimeout(() => setHoveredSpace(null), 150);
   }, []);
 
+  // Header docking. Horizontal docks use grid rows; side docks use grid columns
+  // and rotate the header strip 90° so its text reads vertically (see
+  // HEADER_THICKNESS / VERTICAL_HEADER_RUN).
+  const pos = isHeaderPosition(headerPosition) ? headerPosition : 'top';
+  const vertical = pos === 'left' || pos === 'right';
+  const shellClass = vertical
+    ? 'relative z-10 grid h-dvh gap-2 overflow-hidden p-2'
+    : 'relative z-10 grid h-dvh gap-2 overflow-hidden px-3 pt-2 pb-3';
+  const shellStyle: CSSProperties = vertical
+    ? { gridTemplateColumns: pos === 'left' ? 'auto 1fr' : '1fr auto', gridTemplateRows: '1fr' }
+    : { gridTemplateRows: pos === 'top' ? 'auto 1fr' : '1fr auto' };
+  const headerCellStyle: CSSProperties = vertical
+    ? { gridRow: 1, gridColumn: pos === 'left' ? 1 : 2 }
+    : { gridRow: pos === 'top' ? 1 : 2, gridColumn: 1 };
+  const mainCellStyle: CSSProperties = vertical
+    ? { gridRow: 1, gridColumn: pos === 'left' ? 2 : 1 }
+    : { gridRow: pos === 'top' ? 2 : 1, gridColumn: 1 };
+
   return (
     <div className="ambient-bg min-h-screen w-full overflow-x-clip text-slate-100">
       <BackgroundCanvas background={background} />
-      <div className="relative z-10 grid h-dvh grid-rows-[auto_1fr] gap-2 px-3 pt-2">
-        <header className="apple-panel rounded-[6px]">
-          <div className="flex items-center gap-2 px-2 py-1">
-            <button
-              type="button"
-              aria-label={t('app.openMenu')}
-              aria-haspopup="dialog"
-              className={wmBtn}
-              onClick={openMenu}
-            >
-              <MenuIcon />
-            </button>
+      <div className={shellClass} style={shellStyle}>
+        <div
+          className={vertical ? 'relative h-full overflow-visible' : undefined}
+          style={vertical ? { ...headerCellStyle, width: HEADER_THICKNESS } : headerCellStyle}
+        >
+          <header
+            className={
+              vertical
+                ? 'apple-panel absolute left-0 top-0 rounded-[6px]'
+                : 'apple-panel rounded-[6px]'
+            }
+            style={
+              vertical
+                ? {
+                    width: VERTICAL_HEADER_RUN,
+                    height: HEADER_THICKNESS,
+                    transformOrigin: 'top left',
+                    transform: `translateX(${HEADER_THICKNESS}) rotate(90deg)`,
+                  }
+                : undefined
+            }
+          >
+            <div className="flex items-center gap-2 px-2 py-1">
+              <button
+                type="button"
+                aria-label={t('app.openMenu')}
+                aria-haspopup="dialog"
+                className={wmBtn}
+                onClick={openMenu}
+              >
+                <MenuIcon />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setLogoutConfirmOpen(true)}
-              aria-label={t('app.logout')}
-              title={`${t('app.logout')} (Alt+Shift+L)`}
-              className={wmBtn}
-            >
-              <LogoutIcon />
-            </button>
+              <button
+                type="button"
+                onClick={() => setLogoutConfirmOpen(true)}
+                aria-label={t('app.logout')}
+                title={`${t('app.logout')} (Alt+Shift+L)`}
+                className={wmBtn}
+              >
+                <LogoutIcon />
+              </button>
 
-            <button
-              type="button"
-              onClick={toggleSpaces}
-              aria-pressed={spacesHidden}
-              aria-label={spacesHidden ? t('app.showSpaces') : t('app.hideSpaces')}
-              title={spacesHidden ? t('app.showSpaces') : t('app.hideSpaces')}
-              className="-mx-1 cursor-pointer rounded px-1 text-xs font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
-            >
-              {t('app.title')}
-            </button>
+              <button
+                type="button"
+                onClick={toggleSpaces}
+                aria-pressed={spacesHidden}
+                aria-label={spacesHidden ? t('app.showSpaces') : t('app.hideSpaces')}
+                title={spacesHidden ? t('app.showSpaces') : t('app.hideSpaces')}
+                className="-mx-1 cursor-pointer rounded px-1 text-xs font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+              >
+                {t('app.title')}
+              </button>
 
-            {isTiling && (
-              <>
-                {/* Space indicator: numbered buttons */}
-                <div className="ml-2 flex items-center gap-0.5">
-                  {spaces
-                    .filter((s) => s.name !== FOCUS_SPACE_NAME)
-                    .map((space, displayIdx) => {
-                      const i = spaces.indexOf(space);
-                      return (
-                        <div key={space.id} className="relative">
-                          <button
-                            type="button"
-                            className={`grid h-6 w-6 place-items-center rounded text-xs font-medium transition ${
-                              i === activeSpace
-                                ? 'bg-white/15 text-white'
-                                : 'text-white/40 hover:bg-white/10 hover:text-white/70'
-                            }`}
-                            onClick={() => {
-                              store.set(activeSpaceAtom, i);
-                              store.set(focusedIdAtom, '');
-                            }}
-                            onMouseEnter={() => onSpaceEnter(i)}
-                            onMouseLeave={onSpaceLeave}
-                          >
-                            {displayIdx + 1}
-                          </button>
-                          {/* Hover dropdown: tile list for this space */}
-                          {hoveredSpace === i &&
-                            (() => {
-                              const ids = leaves(space.layout);
-                              return (
-                                <div
-                                  className="absolute left-0 top-full z-50 mt-6 whitespace-nowrap rounded-[6px] border border-white/10 bg-[#1a1a2e]/95 px-2.5 py-2 shadow-[0_8px_32px_rgb(0_0_0/0.45)] backdrop-blur-xl"
-                                  onMouseEnter={() => onSpaceEnter(i)}
-                                  onMouseLeave={onSpaceLeave}
-                                >
-                                  {ids.length === 0 ? (
-                                    <div className="py-0.5 text-xs text-white/40">
-                                      {t('wm.emptySpace')}
-                                    </div>
-                                  ) : (
-                                    ids.map((id) => {
-                                      const leaf = findLeaf(space.layout, id);
-                                      const tileType =
-                                        leaf?.type === 'leaf' ? leaf.tileType : undefined;
-                                      const label = tileType
-                                        ? (getTilePlugin(tileType)?.label ?? tileType)
-                                        : 'Empty';
-                                      return (
-                                        <div
-                                          key={id}
-                                          className="flex items-center gap-1.5 py-0.5 text-xs text-white/60"
+              {isTiling && (
+                <>
+                  {/* Space indicator: numbered buttons */}
+                  <div className="ml-2 flex items-center gap-0.5">
+                    {spaces
+                      .filter((s) => s.name !== FOCUS_SPACE_NAME)
+                      .map((space, displayIdx) => {
+                        const i = spaces.indexOf(space);
+                        return (
+                          <div key={space.id} className="relative">
+                            <button
+                              type="button"
+                              className={`grid h-6 w-6 place-items-center rounded text-xs font-medium transition ${
+                                i === activeSpace
+                                  ? 'bg-white/15 text-white'
+                                  : 'text-white/40 hover:bg-white/10 hover:text-white/70'
+                              }`}
+                              onClick={() => {
+                                store.set(activeSpaceAtom, i);
+                                store.set(focusedIdAtom, '');
+                              }}
+                              onMouseEnter={() => onSpaceEnter(i)}
+                              onMouseLeave={onSpaceLeave}
+                            >
+                              {displayIdx + 1}
+                            </button>
+                            {/* Hover dropdown: tile list for this space */}
+                            {hoveredSpace === i &&
+                              (() => {
+                                const ids = leaves(space.layout);
+                                return (
+                                  <div
+                                    className={`absolute left-0 z-50 whitespace-nowrap rounded-[6px] border border-white/10 bg-[#1a1a2e]/95 px-2.5 py-2 shadow-[0_8px_32px_rgb(0_0_0/0.45)] backdrop-blur-xl ${
+                                      pos === 'left' ? 'bottom-full mb-6' : 'top-full mt-6'
+                                    }`}
+                                    onMouseEnter={() => onSpaceEnter(i)}
+                                    onMouseLeave={onSpaceLeave}
+                                  >
+                                    {ids.length === 0 ? (
+                                      <div className="py-0.5 text-xs text-white/40">
+                                        {t('wm.emptySpace')}
+                                      </div>
+                                    ) : (
+                                      ids.map((id) => {
+                                        const leaf = findLeaf(space.layout, id);
+                                        const tileType =
+                                          leaf?.type === 'leaf' ? leaf.tileType : undefined;
+                                        const label = tileType
+                                          ? (getTilePlugin(tileType)?.label ?? tileType)
+                                          : 'Empty';
+                                        return (
+                                          <div
+                                            key={id}
+                                            className="flex items-center gap-1.5 py-0.5 text-xs text-white/60"
+                                          >
+                                            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-white/25" />
+                                            <span>{label}</span>
+                                          </div>
+                                        );
+                                      })
+                                    )}
+                                    {/* Move focused tile here */}
+                                    {focusedId && i !== activeSpace && space.layout && (
+                                      <>
+                                        <div className="my-1.5 border-t border-white/10" />
+                                        <button
+                                          type="button"
+                                          className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            moveTileToSpace(focusedId, activeSpace, i);
+                                          }}
                                         >
-                                          <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-white/25" />
-                                          <span>{label}</span>
-                                        </div>
-                                      );
-                                    })
-                                  )}
-                                  {/* Move focused tile here */}
-                                  {focusedId && i !== activeSpace && space.layout && (
-                                    <>
-                                      <div className="my-1.5 border-t border-white/10" />
-                                      <button
-                                        type="button"
-                                        className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          moveTileToSpace(focusedId, activeSpace, i);
-                                        }}
-                                      >
-                                        <svg
-                                          className="h-3 w-3"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
+                                          <svg
+                                            className="h-3 w-3"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          >
+                                            <path d="M5 9l4-4 4 4" />
+                                            <path d="M9 5v14" />
+                                            <path d="M19 15l-4 4-4-4" />
+                                            <path d="M15 19V5" />
+                                          </svg>
+                                          <span>{t('wm.moveToSpace', { space: i + 1 })}</span>
+                                        </button>
+                                      </>
+                                    )}
+                                    {spaces.length > 1 && (
+                                      <>
+                                        <div className="my-1.5 border-t border-white/10" />
+                                        <button
+                                          type="button"
+                                          className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-xs text-red-400/80 transition hover:bg-red-500/15 hover:text-red-300"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            deleteSpace(i);
+                                          }}
                                         >
-                                          <path d="M5 9l4-4 4 4" />
-                                          <path d="M9 5v14" />
-                                          <path d="M19 15l-4 4-4-4" />
-                                          <path d="M15 19V5" />
-                                        </svg>
-                                        <span>{t('wm.moveToSpace', { space: i + 1 })}</span>
-                                      </button>
-                                    </>
-                                  )}
-                                  {spaces.length > 1 && (
-                                    <>
-                                      <div className="my-1.5 border-t border-white/10" />
-                                      <button
-                                        type="button"
-                                        className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-xs text-red-400/80 transition hover:bg-red-500/15 hover:text-red-300"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          deleteSpace(i);
-                                        }}
-                                      >
-                                        <svg
-                                          className="h-3 w-3"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                        >
-                                          <path d="M3 6h18" />
-                                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                        </svg>
-                                        <span>{t('wm.deleteSpace')}</span>
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                        </div>
-                      );
-                    })}
-                  <button
-                    type="button"
-                    className="grid h-6 w-6 place-items-center rounded text-xs text-white/30 transition hover:bg-white/10 hover:text-white/60"
-                    onClick={addNewSpace}
-                    title={t('wm.addSpace')}
-                  >
-                    +
-                  </button>
-                </div>
+                                          <svg
+                                            className="h-3 w-3"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          >
+                                            <path d="M3 6h18" />
+                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                          </svg>
+                                          <span>{t('wm.deleteSpace')}</span>
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                          </div>
+                        );
+                      })}
+                    <button
+                      type="button"
+                      className="grid h-6 w-6 place-items-center rounded text-xs text-white/30 transition hover:bg-white/10 hover:text-white/60"
+                      onClick={addNewSpace}
+                      title={t('wm.addSpace')}
+                    >
+                      +
+                    </button>
+                  </div>
 
-                <div className="ml-auto flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => split('horizontal', 'before')}
-                    aria-label={t('wm.splitLeft')}
-                    title={t('wm.splitLeftTitle')}
-                    className={wmBtn}
-                  >
-                    <PanelLeftIcon />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => split('vertical')}
-                    aria-label={t('wm.splitDown')}
-                    title={t('wm.splitDownTitle')}
-                    className={wmBtn}
-                  >
-                    <PanelBottomIcon />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => split('horizontal')}
-                    aria-label={t('wm.splitRight')}
-                    title={t('wm.splitRightTitle')}
-                    className={wmBtn}
-                  >
-                    <PanelRightIcon />
-                  </button>
-                  <NotificationBell />
-                </div>
-              </>
-            )}
-          </div>
-        </header>
+                  <div className="ml-auto flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => split('horizontal', 'before')}
+                      aria-label={t('wm.splitLeft')}
+                      title={t('wm.splitLeftTitle')}
+                      className={wmBtn}
+                    >
+                      <PanelLeftIcon />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => split('vertical')}
+                      aria-label={t('wm.splitDown')}
+                      title={t('wm.splitDownTitle')}
+                      className={wmBtn}
+                    >
+                      <PanelBottomIcon />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => split('horizontal')}
+                      aria-label={t('wm.splitRight')}
+                      title={t('wm.splitRightTitle')}
+                      className={wmBtn}
+                    >
+                      <PanelRightIcon />
+                    </button>
+                    <NotificationBell />
+                  </div>
+                </>
+              )}
+            </div>
+          </header>
+        </div>
         <main
           aria-hidden={spacesHidden || undefined}
           inert={spacesHidden || undefined}
-          className={`min-h-0 overflow-hidden pb-3 transition-opacity duration-200 motion-reduce:transition-none ${
-            spacesHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
-          }`}
+          style={mainCellStyle}
+          className={`min-h-0 overflow-hidden transition-opacity duration-200 motion-reduce:transition-none ${
+            vertical ? '' : 'pb-3 '
+          }${spacesHidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
         >
           <Outlet />
         </main>

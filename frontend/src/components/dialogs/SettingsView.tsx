@@ -6,10 +6,12 @@ import { Tabs as TabsPrimitive } from 'radix-ui';
 import { maxEntriesAtom } from '../../store/notifications';
 import {
   type AvatarSource,
+  type HeaderPosition,
   autoResolveAtom,
   avatarAtom,
   backgroundAtom,
   backgroundParamsAtom,
+  headerPositionAtom,
   spacesIdleAtom,
   SPACES_IDLE_MAX_MINUTES,
   SPACES_IDLE_MIN_MINUTES,
@@ -47,6 +49,13 @@ const tabBtn =
   'rounded px-2.5 py-1.5 text-left text-xs text-muted-foreground outline-none transition-colors ' +
   'hover:bg-white/5 hover:text-popover-foreground focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
   'data-[state=active]:bg-white/10 data-[state=active]:text-popover-foreground';
+
+const segBtn =
+  'rounded px-2 py-1.5 text-xs text-muted-foreground outline-none transition-colors ' +
+  'hover:bg-white/5 hover:text-popover-foreground focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
+  'data-[active=true]:bg-white/10 data-[active=true]:text-popover-foreground';
+
+const HEADER_POSITIONS: HeaderPosition[] = ['top', 'bottom', 'left', 'right'];
 
 const toggle =
   'relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ' +
@@ -499,6 +508,7 @@ export default function SettingsView() {
   const [backgroundParams, setBackgroundParams] = useAtom(backgroundParamsAtom);
   const [webgpuBackground, setWebgpuBackground] = useAtom(webgpuBackgroundAtom);
   const [spacesIdle, setSpacesIdle] = useAtom(spacesIdleAtom);
+  const [headerPosition, setHeaderPosition] = useAtom(headerPositionAtom);
   const [avatar, setAvatar] = useAtom(avatarAtom);
   const [avatarEmail, setAvatarEmail] = useState(avatar.email);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -604,8 +614,11 @@ export default function SettingsView() {
           <TabsPrimitive.Trigger value="notifications" className={tabBtn}>
             {t('settings.notificationsTab')}
           </TabsPrimitive.Trigger>
-          <TabsPrimitive.Trigger value="appearance" className={tabBtn}>
-            {t('settings.appearanceTab')}
+          <TabsPrimitive.Trigger value="background" className={tabBtn}>
+            {t('settings.backgroundTab')}
+          </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="header" className={tabBtn}>
+            {t('settings.headerTab')}
           </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="spaces" className={tabBtn}>
             {t('settings.spacesTab')}
@@ -643,7 +656,7 @@ export default function SettingsView() {
           </div>
         </TabsPrimitive.Content>
 
-        <TabsPrimitive.Content value="appearance" className="min-w-0 flex-1">
+        <TabsPrimitive.Content value="background" className="min-w-0 flex-1">
           <div className={section}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.background')}</span>
@@ -701,6 +714,34 @@ export default function SettingsView() {
                 ))}
               </div>
             )}
+          </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="header" className="min-w-0 flex-1">
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.headerPosition')}</span>
+            </div>
+            <div
+              role="radiogroup"
+              aria-label={t('settings.headerPosition')}
+              className="mt-2 grid grid-cols-4 gap-1"
+            >
+              {HEADER_POSITIONS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={headerPosition === p}
+                  data-active={headerPosition === p}
+                  onClick={() => setHeaderPosition(p)}
+                  className={segBtn}
+                >
+                  {t(`settings.headerPosition_${p}`)}
+                </button>
+              ))}
+            </div>
+            <p className={sectionHint}>{t('settings.headerPositionHint')}</p>
           </div>
         </TabsPrimitive.Content>
 

@@ -62,7 +62,7 @@ export default function ShortcutsView() {
           { label: t('shortcuts.splitRight'), keys: [['Alt', '⏎']] },
           { label: t('shortcuts.splitBelow'), keys: [['Alt', '⇧', '⏎']] },
           { label: t('shortcuts.closeTile'), keys: [['Alt', 'Q']] },
-          { label: t('shortcuts.dragTile'), keys: [], search: 'drag move tile' },
+          { label: t('shortcuts.dragTile'), keys: [['Alt', 'M']], search: 'drag move tile' },
           { label: t('shortcuts.swapTile'), keys: [['Alt', 'S']] },
         ],
       },

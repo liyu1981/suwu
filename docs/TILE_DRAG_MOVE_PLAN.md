@@ -30,6 +30,12 @@ mode is an additional way to reach swap (center drop) plus the four new
 The current keyboard move bindings are retired; focus navigation
 (`Alt+Arrow`) and split/close/swap/focus shortcuts are unchanged.
 
+**Follow-up:** `Alt+M` now also enters drag-to-move mode from the keyboard.
+Because no pointer button is held, it renders a full-viewport surface to catch
+moves/clicks over the iframe panes: move to highlight a drop zone, click to
+commit, `Esc` to cancel. It reuses the same `locateDropTarget` / `swapLeaves` /
+`moveLeafAdjacent` path as the pointer drag.
+
 ## 2. Current state (what exists today)
 
 | Concern | Where |

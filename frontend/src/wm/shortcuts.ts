@@ -3,6 +3,7 @@ import type { Direction, MoveDir } from './layout';
 export type WmAction =
   | 'split-right'
   | 'split-below'
+  | 'move-tile'
   | 'close'
   | 'focus-next'
   | 'focus-prev'
@@ -20,6 +21,8 @@ export type WmAction =
 /** Handlers the window manager provides for each action. */
 export interface WmActionHandlers {
   split: (d: Direction) => void;
+  /** Enter the drag-to-move-tile mode from the keyboard (Alt+M). */
+  moveTile: () => void;
   close: () => void;
   focusOffset: (o: number) => void;
   focusDirection: (d: MoveDir) => void;
@@ -39,6 +42,9 @@ export function applyWmAction(name: WmAction, h: WmActionHandlers): void {
       break;
     case 'split-below':
       h.split('vertical');
+      break;
+    case 'move-tile':
+      h.moveTile();
       break;
     case 'close':
       h.close();
@@ -113,6 +119,9 @@ export function wmAction(e: KeyboardEvent): WmAction | null {
     case 's':
     case 'S':
       return 'swap';
+    case 'm':
+    case 'M':
+      return 'move-tile';
     case 'f':
     case 'F':
       return 'focus-toggle';

@@ -729,6 +729,9 @@ export default function TilingWM() {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [dragging, setDragging] = useState(false);
+  // Filled in once the keyboard drag handler exists; the WM shortcut dispatch
+  // (registered earlier) calls through this ref for Alt+M.
+  const startMoveRef = useRef<() => void>(() => {});
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
@@ -1018,6 +1021,7 @@ export default function TilingWM() {
   const wmHandlers = useMemo(
     () => ({
       split,
+      moveTile: () => startMoveRef.current(),
       close,
       focusOffset,
       focusDirection,
@@ -1242,6 +1246,9 @@ export default function TilingWM() {
   // projected layout, so it is pixel-identical to the committed result.
   const [dragSource, setDragSource] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  // True while Alt+M drag-to-move mode is active; pointer-driven drags use
+  // dragSource without this flag and rely on pointer capture instead.
+  const [keyboardDrag, setKeyboardDrag] = useState(false);
   const [pointerPos, setPointerPos] = useState({ x: 0, y: 0 });
   const projectionRef = useRef<{ key: string; rect: Rect } | null>(null);
 
@@ -1264,6 +1271,28 @@ export default function TilingWM() {
     [store, size.w, size.h],
   );
 
+  const locateDropTarget = useCallback(
+    (sourceId: string, clientX: number, clientY: number): DropTarget | null => {
+      const vp = viewportRef.current;
+      if (!vp || size.w <= 0 || size.h <= 0) return null;
+      const bounds = vp.getBoundingClientRect();
+      const p = { x: clientX - bounds.left, y: clientY - bounds.top };
+      const cur = store.get(layoutAtom);
+      if (!cur) return null;
+      const current = computeTiling(cur, size.w, size.h).panes;
+      for (const pane of current) {
+        if (pane.id === sourceId) continue;
+        const zone = detectDropZone(p, pane);
+        if (!zone) continue;
+        const coverRect = projectCoverRect(sourceId, pane.id, zone);
+        if (!coverRect) return null;
+        return { targetId: pane.id, zone, coverRect };
+      }
+      return null;
+    },
+    [store, size.w, size.h, projectCoverRect],
+  );
+
   const startTileDrag = useCallback(
     (paneId: string, e: ReactPointerEvent) => {
       e.preventDefault();
@@ -1276,25 +1305,6 @@ export default function TilingWM() {
       const startY = e.clientY;
       let moved = false;
       projectionRef.current = null;
-
-      const locate = (clientX: number, clientY: number): DropTarget | null => {
-        const vp = viewportRef.current;
-        if (!vp || size.w <= 0 || size.h <= 0) return null;
-        const bounds = vp.getBoundingClientRect();
-        const p = { x: clientX - bounds.left, y: clientY - bounds.top };
-        const cur = store.get(layoutAtom);
-        if (!cur) return null;
-        const current = computeTiling(cur, size.w, size.h).panes;
-        for (const pane of current) {
-          if (pane.id === paneId) continue;
-          const zone = detectDropZone(p, pane);
-          if (!zone) continue;
-          const coverRect = projectCoverRect(paneId, pane.id, zone);
-          if (!coverRect) return null;
-          return { targetId: pane.id, zone, coverRect };
-        }
-        return null;
-      };
 
       const cleanup = () => {
         window.removeEventListener('pointermove', onMove);
@@ -1314,7 +1324,7 @@ export default function TilingWM() {
           setDragSource(paneId);
         }
         setPointerPos({ x: ev.clientX, y: ev.clientY });
-        setDropTarget(locate(ev.clientX, ev.clientY));
+        setDropTarget(locateDropTarget(paneId, ev.clientX, ev.clientY));
       };
 
       const onKey = (ev: KeyboardEvent) => {
@@ -1327,7 +1337,7 @@ export default function TilingWM() {
       const onCancel = () => cleanup();
 
       const onUp = (ev: PointerEvent) => {
-        const target = moved ? locate(ev.clientX, ev.clientY) : null;
+        const target = moved ? locateDropTarget(paneId, ev.clientX, ev.clientY) : null;
         cleanup();
         if (!target) return;
         const cur = store.get(layoutAtom);
@@ -1345,8 +1355,60 @@ export default function TilingWM() {
       window.addEventListener('pointercancel', onCancel);
       window.addEventListener('keydown', onKey, true);
     },
-    [store, size.w, size.h, projectCoverRect],
+    [store, locateDropTarget],
   );
+
+  /**
+   * Enter drag-to-move-tile mode from the keyboard (Alt+M). Unlike the pointer
+   * drag it holds no pointer capture, so a full-viewport surface catches the
+   * moves/clicks over the (iframe) panes; a click commits, Escape cancels.
+   */
+  const startKeyboardTileDrag = useCallback(() => {
+    const cur = store.get(layoutAtom);
+    if (!cur) return;
+    const ids = leaves(cur);
+    const focused = store.get(focusedIdAtom);
+    const source = focused && ids.includes(focused) ? focused : ids[0];
+    if (!source) return;
+    store.set(focusedIdAtom, source);
+    projectionRef.current = null;
+    setDragSource(source);
+    setDropTarget(null);
+    // Seed the drag chip near the source pane so it does not flash at 0,0.
+    const vp = viewportRef.current;
+    const srcPane = computeTiling(cur, size.w, size.h).panes.find((p) => p.id === source);
+    if (vp && srcPane) {
+      const bounds = vp.getBoundingClientRect();
+      setPointerPos({
+        x: bounds.left + srcPane.x + srcPane.w / 2,
+        y: bounds.top + srcPane.y + srcPane.h / 2,
+      });
+    }
+    setKeyboardDrag(true);
+  }, [store, size.w, size.h]);
+
+  const endKeyboardDrag = useCallback(() => {
+    setKeyboardDrag(false);
+    setDragSource(null);
+    setDropTarget(null);
+    projectionRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    startMoveRef.current = startKeyboardTileDrag;
+  }, [startKeyboardTileDrag]);
+
+  // Escape cancels the keyboard drag; swallow other keys while it is active.
+  useEffect(() => {
+    if (!keyboardDrag) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') endKeyboardDrag();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [keyboardDrag, endKeyboardDrag]);
 
   // State for the type-selection picker (one at a time).
   const [pickerPaneId, setPickerPaneId] = useState<string | null>(null);
@@ -1579,6 +1641,32 @@ export default function TilingWM() {
         >
           {dragLabel}
         </div>
+      )}
+      {/* Alt+M drag surface: catches pointer moves/clicks over the panes. */}
+      {keyboardDrag && dragSource && (
+        <div
+          key="keyboard-drag-surface"
+          className="absolute inset-0 z-20 cursor-grabbing"
+          onPointerMove={(e) => {
+            setPointerPos({ x: e.clientX, y: e.clientY });
+            setDropTarget(locateDropTarget(dragSource, e.clientX, e.clientY));
+          }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const target = locateDropTarget(dragSource, e.clientX, e.clientY);
+            endKeyboardDrag();
+            if (!target) return;
+            const cur = store.get(layoutAtom);
+            if (!cur) return;
+            const next =
+              target.zone === 'swap'
+                ? swapLeaves(cur, dragSource, target.targetId)
+                : moveLeafAdjacent(cur, dragSource, target.targetId, target.zone);
+            store.set(layoutAtom, next);
+            store.set(focusedIdAtom, dragSource);
+          }}
+        />
       )}
       {/* Swap mode overlay */}
       {swapSource &&

@@ -41,54 +41,41 @@ System Settings preference — no backend or API change.
 
 The header is a single `flex items-center gap-2 px-2 py-1` row. It contains a
 `ml-auto` cluster on the right and one absolutely-positioned hover dropdown
-(the per-space tile list, `absolute left-0 top-full mt-6`). All in-header
-dialogs/menus are portalled by Radix, so only that hover dropdown is inside the
-rotated element.
+(the per-space tile list, `absolute left-0 top-full mt-6`).
 
 ## 3. Design decision — how the header becomes vertical
 
-Two candidate approaches:
+**Chosen: (A) restructure the header into a `flex-col` and set only the brand
+label vertical.** The header keeps its markup but switches its main axis for
+side docks:
 
-- **(A) Restructure the header into a `flex-col` and rotate only the text.**
-  Best-looking (upright icons, sideways labels) but requires rewriting the
-  flex axis, `ml-auto` → `mt-auto`, each button group's direction, and the
-  dropdown anchor per side. High touch surface on complex, stateful JSX.
-- **(B) Rotate the whole header strip with a single CSS `transform`.**
-  Zero changes to the header internals: flex, `ml-auto`, gaps, dropdown
-  anchoring and bell badge all keep working because they rotate with the strip.
-  Text lands at exactly 90°, satisfying requirement 2 literally.
+- The inner row becomes `flex h-full flex-col items-center gap-2 px-1 py-2`.
+- The right-hand cluster's `ml-auto` becomes `mt-auto` (still pins to the far
+  end, now the bottom).
+- The brand button gets `[writing-mode:vertical-rl]` so its label reads at 90°,
+  plus `rotate-180` on a left dock so the left label reads bottom→top and the
+  right label top→bottom. Every icon (burger, logout, splits, bell, space
+  numbers) stays upright.
+- The per-space hover dropdown opens sideways instead of downward:
+  `left-full top-1/2 ml-2 -translate-y-1/2` for a left dock,
+  `right-full top-1/2 mr-2 -translate-y-1/2` for a right dock, and the original
+  `left-0 top-full mt-6` when horizontal. Both side variants open **inward**.
 
-**Recommended: (B).** It is the smallest, lowest-risk change and preserves the
-existing header behaviour. Trade-off: the space hover dropdown is rendered
-rotated too; because it anchors at `top-full` it automatically opens *inward*
-(toward the content) on both left and right, which is the correct direction.
-This is acceptable and consistent with the rotated strip. Approach (A) is left
-as a possible follow-up if upright dropdowns are later required.
+An earlier revision rotated the whole strip with one `transform`; it was
+replaced because it also rotated the icons, which read wrong for a vertical
+toolbar. No rotation is used now.
 
-### 3.1 Rotation geometry
+### 3.1 Side-header sizing
 
-Define:
+- `T` = header thickness = **2.25rem** (`HEADER_THICKNESS`), the cross-axis
+  size of a side dock. Cross-axis padding is `px-1` (0.25rem) so the `h-7`
+  (1.75rem) buttons fit exactly: `2.25 − 2×0.25 = 1.75rem`.
+- The header is the grid item itself; with `gridTemplateRows: '1fr'` it
+  stretches to the full run, so no `dvh` arithmetic or `ResizeObserver` is
+  needed.
 
-- `T` = header thickness = **2.25rem** (`h-9`; matches the current
-  `py-1` + `h-7` button height).
-- `L` = vertical run = `calc(100dvh - 1rem)` (the shell uses `p-2` = 0.5rem
-  top + bottom in vertical mode).
-
-Wrapper is the grid cell `position: relative` with `width: T; height: 100%`.
-Inner `<header>` is `position: absolute; top: 0; left: 0; width: L; height: T`.
-
-| Position | transform | transform-origin |
-| --- | --- | --- |
-| `left` | `translateX(T) rotate(90deg)` | `top left` |
-| `right` | `translateX(T) rotate(90deg)` | `top left` |
-
-Both produce a bounding box of exactly `T × L` flush with the cell (verified
-by transforming the four corners). Because the rotation is identical on both
-sides, the control order is the same: the burger/logout/brand start at the
-**top**, the split buttons and notification bell sit at the **bottom**, and the
-text reads top→bottom. The per-space hover dropdown anchors at `top-full` on
-the right and `bottom-full` on the left, so it always opens **inward** (toward
-the content) in both cases.
+Control order is identical on both sides: burger/logout/brand at the **top**,
+split buttons and notification bell at the **bottom**.
 
 ## 4. Data model
 
@@ -137,35 +124,25 @@ const shellStyle: CSSProperties = vertical
 - Keep the existing `<main>` semantics (`aria-hidden`/`inert` on `spacesHidden`,
   opacity transition) and move its `pb-3` into the horizontal shell class only.
 - Extract the current header JSX into a local `headerContent` variable so it can
-  be wrapped either directly or by the vertical wrapper without duplication.
-- Render:
+  be laid out horizontally or as a column without duplication.
+- Render the header as the grid item directly (no wrapper, no transform):
 
 ```tsx
-{vertical ? (
-  <div className="relative h-full overflow-visible" style={{ width: '2.25rem' }}>
-    <header
-      className="apple-panel absolute left-0 top-0 rounded-[6px]"
-      style={{
-        width: 'calc(100dvh - 1rem)',
-        height: '2.25rem',
-        transformOrigin: 'top left',
-        transform:
-          pos === 'left'
-            ? 'translateY(calc(100dvh - 1rem)) rotate(-90deg)'
-            : 'translateX(2.25rem) rotate(90deg)',
-      }}
-    >
-      {headerContent}
-    </header>
+<header
+  className={vertical ? 'apple-panel h-full rounded-[6px]' : 'apple-panel rounded-[6px]'}
+  style={vertical ? { ...headerCellStyle, width: HEADER_THICKNESS } : headerCellStyle}
+>
+  <div className={vertical
+    ? 'flex h-full flex-col items-center gap-2 px-1 py-2'
+    : 'flex items-center gap-2 px-2 py-1'}>
+    {headerContent}
   </div>
-) : (
-  <header className="apple-panel rounded-[6px]">{headerContent}</header>
-)}
+</header>
 ```
 
-- Add `gridRow`/`gridColumn` via inline `style` on the wrapper/`main`.
-- Do **not** change the hover dropdown markup: rotation already redirects it
-  inward (see §3).
+- Add `gridRow`/`gridColumn` via inline `style` on the header and `main`.
+- Switch the hover dropdown anchor per side (see §3): `left-full …` on a left
+  dock, `right-full …` on a right dock, `top-full mt-6` when horizontal.
 
 ### 5.3 `NotificationPanel.tsx` — side follows header
 - Read `headerPositionAtom`.
@@ -250,22 +227,22 @@ is reused as the Language tab label. Remove nothing else.
 
 ## 6. Edge cases & risks
 
-- **Rotated in-header popovers.** The space hover dropdown and any in-header
-  tooltip render rotated. Direction is correct (inward); visual rotation is the
-  accepted cost of approach (B). Document in code comment.
-- **`dvh` dependence.** `L = calc(100dvh - 1rem)` assumes the `p-2` vertical
-  shell padding. If that padding changes, update both together — note this in a
-  comment next to the constants.
+- **In-header popovers.** The space hover dropdown is repositioned to open
+  sideways (`left-full`/`right-full`) and its content stays upright; no
+  counter-rotation is needed.
+- **Cross-axis padding.** Side headers use `px-1` so the `h-7` buttons fit the
+  `2.25rem` strip (`2.25 − 2×0.25 = 1.75rem`). Changing `HEADER_THICKNESS`
+  means revisiting that padding.
 - **Grid placement.** DOM order stays `header` then `main`; visible order is
   controlled by `gridRow`/`gridColumn`. Screen-reader order is unchanged
   (header first) for every position, which is correct.
-- **No scrollbars from rotation.** Shell gets `overflow-hidden`; the rotated
-  strip's bounding box is exactly the grid cell, so nothing overflows.
+- **No overflow.** Shell gets `overflow-hidden`; the header is exactly the grid
+  cell, so nothing overflows.
 - **Narrow viewports.** A side header consumes ~2.25rem + gaps of width; panes
   reflow via the existing tiling logic. No change needed.
-- **Language tab removal.** Any deep link/keyboard path to the old `language`
-  tab is gone; Radix `TabsPrimitive.Root` uses `defaultValue`, so no dangling
-  value. Confirm no other code references a `language` tab value.
+- **Tab values.** `appearance` was renamed to `background`; `header` and
+  `language` are new. Radix `TabsPrimitive.Root` uses `defaultValue`, so no
+  dangling value. Confirm no other code references the old `appearance` value.
 - **First paint / hydration.** `atomWithStorage` may briefly render `top` before
   the stored value loads; this matches existing settings behavior and is
   acceptable (no visible flash beyond one frame).
@@ -280,12 +257,12 @@ is reused as the Language tab label. Remove nothing else.
   run `pnpm --dir frontend check:typography` explicitly since new UI is added.
 - Manual matrix:
 
-| Header | Text 90° | Panel side | Tabs |
-| --- | --- | --- | --- |
-| top | n/a | right | Header + Language tabs present; Background tab renamed |
-| bottom | n/a | right | same |
-| left | yes (burger top, split bottom) | right | same |
-| right | yes (burger top, split bottom) | left | same |
+| Header | Brand label | Icons | Panel side | Tabs |
+| --- | --- | --- | --- | --- |
+| top | horizontal | upright | right | Header + Language tabs; Background renamed |
+| bottom | horizontal | upright | right | same |
+| left | vertical (top→bottom) | upright | right | same |
+| right | vertical (top→bottom) | upright | left | same |
 
 - Reload after each change to confirm `localStorage` persistence.
 - Open the space hover dropdown on left/right and confirm it opens inward and
@@ -299,7 +276,7 @@ Follow the repo `git-workflow` skill and `AGENTS.md`:
 - Branch: `feat/header-position` off the current trunk.
 - Atomic commits (ask for permission before each):
   1. `feat(settings): add header position preference atom`
-  2. `feat(shell): dock header to any edge and rotate side headers`
+  2. `feat(shell): dock header to any edge with a vertical side column`
   3. `feat(notifications): anchor panel opposite a right-docked header`
   4. `feat(settings): merge language into appearance, add header position control`
   5. `docs: add header position plan`

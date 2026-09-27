@@ -3,6 +3,7 @@ import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { fitPreviewBox } from './preview-size';
 import { getBackground } from './registry';
+import { backgroundsRevisionAtom } from './external';
 import { resolveBackgroundParams } from './params';
 import { useBackground } from './useBackground';
 import { backgroundAtom, backgroundParamsAtom } from '../../store/settings';
@@ -80,9 +81,10 @@ export function BackgroundPreview({
   const { t } = useTranslation();
   const selectedId = useAtomValue(backgroundAtom);
   const paramOverrides = useAtomValue(backgroundParamsAtom);
+  const revision = useAtomValue(backgroundsRevisionAtom);
   const id = background ?? selectedId;
 
-  const definition = useMemo(() => getBackground(id), [id]);
+  const definition = useMemo(() => getBackground(id), [id, revision]);
   const overrides = paramOverrides[id];
   const params = useMemo(
     () => (definition ? resolveBackgroundParams(definition, overrides) : undefined),

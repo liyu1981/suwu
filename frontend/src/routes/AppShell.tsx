@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { Outlet, useLocation } from '@tanstack/react-router';
 import { useAtom, useStore } from 'jotai';
 import { useTranslation } from 'react-i18next';
-import { BackgroundCanvas } from '../components/background';
+import { BackgroundCanvas, loadExternalBackgrounds } from '../components/background';
 import SuwuDialog from '../components/dialogs/SuwuDialog';
 import { NotificationBell } from '../components/NotificationBell';
 import { NotificationPanel } from '../components/NotificationPanel';
@@ -162,6 +162,12 @@ export default function AppShell() {
 
   useNotifications();
   useUpdateCheck();
+
+  // Fetch the external background list once per mount (builtin + data dir);
+  // non-fatal on failure — the defaults keep working.
+  useEffect(() => {
+    void loadExternalBackgrounds();
+  }, []);
   useIdleSpaces();
 
   // Manual hide/show always supersedes an idle auto-hide.

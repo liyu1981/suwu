@@ -10,6 +10,7 @@ components/background/
   index.ts                    # public API + registry barrel
   types.ts                    # Context / Handle / Starter / Definition / Param schema
   registry.ts                 # registerBackground() / getBackground() / listBackgrounds()
+  external.ts                 # external list: cache hydration, /api/backgrounds, scene.js loader
   params.ts                   # default + override resolution for the param schema
   select.ts                   # capability detection + gpu -> cpu fallback chain
   useBackground.ts            # React lifecycle hook (detection, reduced motion, remount)
@@ -34,29 +35,29 @@ components/background/
       storage.ts              # OPFS clip library (store/list/read/clear, thumbnails)
       fit.ts                  # cover source rect
 
-  webgpu/                     # the WebGPU background family
-    index.ts                  # registers every shadertoy (side-effect imports)
-    webgpu-render-engine/     # shared host + declarative pipeline
+  webgpu/                     # the shared WebGPU engine (shipped, not a background)
+    webgpu-render-engine/     # host + declarative pass pipeline
       index.ts                # startGpuBackground / fragmentScene / GpuScene / time+size
       host.ts                 # device + surface, device-lost -> ctx.onFatal, teardown
       scene.ts                # GpuScene + lifecycle (loop, resize, reduced motion)
       fragment.ts             # fragmentScene(): targets, assets, samplers, passes
       assets.ts               # storage / texture3d upload helpers
       time.ts, size.ts        # shared epoch; megapixel budget math
-    shadertoys/
-      atmospheric-landscape/  # setup.ts merges params + noise-volume builder + scene
-      cosmos-in-crystal/      # setup.ts merges params + scene (nayk, shadertoy MXccR4)
-      interactive-fluid/      # setup.ts merges params + pointer input + solver + scene
-      matrix-rain/            # setup.ts merges params + glyph-atlas builder + scene
-      rainforest/             # setup.ts merges params + scene
-      seascape/               # setup.ts merges params + scene
+
+repository (outside the bundle):
+  backgrounds/webgpu/seascape/   # BUILTIN: embedded in the Go binary
+  examples/background/webgpu/*   # EXTERNAL: copied into the data dir by the user
+    <id>/background.json + scene.js + shaders/{*.wgsl,*.shader.js}
 ```
 
 A classic family keeps its nested `<name>-cpu` / `<name>-gpu` backends so their
-dependencies stay separate. An engine-backed shadertoy keeps everything in one
-`setup.ts` next to its `shaders/`: the eager path is metadata only, and the
-heavy code — `vgpu`, the engine and the `.wgsl` — sits behind a dynamic import,
-so those chunks are fetched only when the background actually runs.
+dependencies stay separate. The engine-backed shadertoy backgrounds are
+**external**: their directories are served by the Go backend (the builtin
+`seascape` from the embedded FS, the rest from `<dataDir>/background/webgpu`)
+and `external.ts` registers them from `GET /api/backgrounds`. Their `scene.js`
+is imported lazily when a background starts and receives this bundle's engine
+plus `vgpu` through the `create(api)` ABI — see `examples/background/README.md`
+for the on-disk format.
 
 ## Using a background
 
@@ -98,16 +99,23 @@ There are two shapes.
    the second argument).
 3. Import the definition module from `index.ts` (side-effect import).
 
-**A WebGPU shadertoy** (built on the shared engine) is one file: drop
-`webgpu/shadertoys/<name>/setup.ts` plus its `shaders/*.wgsl`, then add the
-side-effect import to `webgpu/index.ts`. `setup.ts` declares the params, calls
-`registerBackground({ ..., engine: WEBGPU_ENGINE, gpu: async () => ({ start }) })`
-and builds the scene, dynamically importing the engine and the WGSL inside
-`start` so the eager path stays metadata-only. See `webgpu/shadertoys/seascape/`
-for the minimal form and `interactive-fluid/` for a hand-written `GpuScene`.
+**An external WebGPU background** (the normal path — no rebuild): create a
+directory under `examples/background/webgpu/<id>/` with `background.json`,
+`scene.js` and `shaders/`, compile the entry shaders with the embedded
+compiler, and copy the directory into `~/.suwu/background/webgpu/`. The shell
+registers it from `GET /api/backgrounds` and imports its `scene.js` when it
+starts. `backgrounds/webgpu/seascape/` is the reference implementation — same
+format, embedded in the binary instead of copied. The full format and
+workflows are documented in `examples/background/README.md`.
 
-The shell selects a background by id, so new backgrounds need no changes outside
-this folder.
+Regenerate shader artifacts after editing a `.wgsl`:
+
+```sh
+suwu background build shaders/seascape.wgsl > shaders/seascape.shader.js
+```
+
+The shell selects a background by id, so new backgrounds need no changes
+outside the background directory.
 
 ## Parameters
 
@@ -162,9 +170,10 @@ credit: { author: 'nayk', url: 'https://www.shadertoy.com/view/MXccR4' },
 
 `author` is shown as-is, `url` as a link, and the optional `license` as a
 trailing note (e.g. Seascape's `CC BY-NC-SA 3.0`, or Rainforest's
-`used with permission`). Extract the line from the shader header into the
-`registerBackground` call in `setup.ts`; leave it off for original work
-(`matrix-rain`).
+`used with permission`). For an external background it is plain JSON in
+`background.json`; for a bundled classic family it is the `credit` field of the
+`registerBackground` call. Extract it from the shader header; leave it off for
+original work (`matrix-rain`).
 
 ## Backends
 
@@ -202,7 +211,8 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
 
 ### WebGPU render engine
 
-The engine-backed backgrounds (`webgpu/shadertoys/…`) share
+The engine-backed backgrounds (external `scene.js`, e.g.
+`backgrounds/webgpu/seascape`) share the bundled
 `webgpu/webgpu-render-engine/`:
 
 - `startGpuBackground()` owns the lifecycle they used to repeat: device +
@@ -223,9 +233,11 @@ The engine-backed backgrounds (`webgpu/shadertoys/…`) share
 `ambient-blob` (the CPU-fallback baseline) and `video` (CPU only) are not part
 of the engine. Engine-backed backgrounds declare `engine: WEBGPU_ENGINE`, and
 System Settings groups them under one **WebGPU** selector with a second selector
-for the currently registered engine backgrounds. Backgrounds are still declared
-with `registerBackground({ id, label, params, gpu })`; the engine is an
-implementation detail behind each shadertoy's `start`.
+for the currently registered engine backgrounds. A classic family declares
+`registerBackground({ id, label, params, gpu })` itself; an external background
+declares the same fields as JSON in `background.json` and receives the engine
+through its `create(api)` argument — the engine stays an implementation detail
+behind each background's `start`.
 
 > **Licensing note.** `rainforest` is an Inigo Quilez (iq) work whose original
 > license forbids use in a product, altered or not. It is included with express
@@ -243,10 +255,13 @@ chosen in System Settings.
 
 ## Testing
 
-`bg:check` resolves and compiles every background entry shader with `vgpu check`:
+`bg:check` compiles every background entry shader with `vgpu check` and
+validates each background directory's layout (manifest id matches the
+directory, `scene.js` exists, every entry `.wgsl` has a valid `.shader.js`
+artifact):
 
 ```sh
-pnpm --dir frontend bg:check     # all background .wgsl entry shaders
+pnpm --dir frontend bg:check     # all background .wgsl entry shaders + layout
 ```
 
 The ambient blob shader is additionally validated against an independent JS

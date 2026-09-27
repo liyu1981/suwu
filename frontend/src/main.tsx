@@ -5,7 +5,12 @@ import { RouterProvider } from '@tanstack/react-router';
 import '@xterm/xterm/css/xterm.css';
 import './styles.css';
 import { startCloudflareSessionWatch } from './lib/cloudflareSession';
+import { hydrateExternalBackgrounds } from './components/background';
 
 startCloudflareSessionWatch();
+
+// Register cached external backgrounds before the first render so a stored
+// selection resolves without a fallback flash; AppShell revalidates after mount.
+hydrateExternalBackgrounds();
 
 createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />);

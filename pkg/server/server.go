@@ -308,6 +308,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/backgrounds" {
+		s.handleBackgroundsList(w, r)
+		return
+	}
+
 	if strings.HasPrefix(r.URL.Path, extensionAPIRoutePrefix) {
 		s.handleExtensionAPI(w, r)
 		return
@@ -315,6 +320,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if strings.HasPrefix(r.URL.Path, extensionStaticRoutePrefix) {
 		s.handleExtensionStatic(w, r)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, backgroundRoutePrefix) {
+		s.handleBackgroundStatic(w, r)
 		return
 	}
 

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { DEFAULT_BACKGROUND_ID } from './constants';
 import { getBackground } from './registry';
+import { backgroundsRevisionAtom } from './external';
 import { resolveBackgroundParams } from './params';
 import { useBackground } from './useBackground';
 import { backgroundParamsAtom } from '../../store/settings';
@@ -37,10 +38,10 @@ export function BackgroundCanvas({ background, force }: BackgroundCanvasProps) {
   const id = resolveBackgroundId(background);
   const paramOverrides = useAtomValue(backgroundParamsAtom);
 
-  // `getBackground` returns a stable object per id, and `overrides` keeps its
-  // identity unless this background's own params change — so unrelated writes
-  // to the params atom never restart the running backend.
-  const definition = useMemo(() => getBackground(id), [id]);
+  // Re-resolve when the external background list lands (revision), but keep
+  // `overrides` identity so unrelated params writes never restart the backend.
+  const revision = useAtomValue(backgroundsRevisionAtom);
+  const definition = useMemo(() => getBackground(id), [id, revision]);
   const overrides = paramOverrides[id];
   const params = useMemo(
     () => (definition ? resolveBackgroundParams(definition, overrides) : undefined),

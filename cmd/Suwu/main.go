@@ -140,6 +140,8 @@ func main() {
 			return
 		case "gq":
 			os.Exit(gqMain(os.Args[2:]))
+		case "background":
+			os.Exit(backgroundMain(os.Args[2:]))
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -197,6 +199,9 @@ Usage:
   suwu gq [flags] <script.js>
                            run a JavaScript file in a request-scoped QuickJS
                            sandbox (see 'suwu help gq')
+  suwu background build <file.wgsl>
+                           compile a background's WGSL graph to stdout
+                           (see 'suwu help background')
 
 Configuration precedence:
   --env-file explicitly given → that file only
@@ -411,6 +416,8 @@ Examples:
 		printAgentUsage()
 	case "gq":
 		fmt.Print(gqUsageText)
+	case "background":
+		printBackgroundUsage()
 	default:
 		fmt.Printf("Unknown subcommand: %s\nRun 'suwu help' for usage.\n", cmd)
 	}

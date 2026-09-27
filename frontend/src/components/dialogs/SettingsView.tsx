@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
@@ -23,6 +23,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import {
   BackgroundPreview,
+  backgroundsRevisionAtom,
   DEFAULT_BACKGROUND_ID,
   getBackground,
   listBackgrounds,
@@ -552,7 +553,9 @@ export default function SettingsView() {
     setAvatar({ ...avatar, source: 'logo', image: '' });
   };
 
-  const definitions = listBackgrounds();
+  // Re-read the registry when the external background list lands.
+  const [backgroundRevision] = useAtom(backgroundsRevisionAtom);
+  const definitions = useMemo(() => listBackgrounds(), [backgroundRevision]);
   const engineDefinitions = definitions.filter((d) => d.engine === WEBGPU_ENGINE);
   const otherDefinitions = definitions.filter((d) => d.engine !== WEBGPU_ENGINE);
 

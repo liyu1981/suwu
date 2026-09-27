@@ -1,0 +1,6 @@
+{
+  "id": "interactive-fluid",
+  "label": "Interactive Fluid",
+  "engine": "webgpu-render-engine",
+  "credit": { "author": "vgpu (Interactive Fluid example)", "url": "https://vgpu.sh" }
+}

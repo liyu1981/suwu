@@ -1,0 +1,24 @@
+{
+  "id": "seascape",
+  "label": "Seascape",
+  "engine": "webgpu-render-engine",
+  "credit": {
+    "author": "Alexander Alekseev aka TDM",
+    "url": "https://www.shadertoy.com/view/Ms2SD1",
+    "license": "CC BY-NC-SA 3.0"
+  },
+  "params": [
+    {
+      "kind": "number",
+      "key": "speed",
+      "label": "Animation speed",
+      "hint": "Scales the drift of the camera and the waves. 0 freezes the scene.",
+      "default": 1,
+      "min": 0,
+      "max": 3,
+      "step": 0.05,
+      "decimals": 2,
+      "suffix": "×"
+    }
+  ]
+}

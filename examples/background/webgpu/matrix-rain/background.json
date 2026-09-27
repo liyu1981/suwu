@@ -1,0 +1,5 @@
+{
+  "id": "matrix-rain",
+  "label": "Matrix Rain",
+  "engine": "webgpu-render-engine"
+}

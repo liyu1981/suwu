@@ -33,7 +33,9 @@ import (
 //   - `blob:` media is allowed so the video background can grab preview frames
 //     from OPFS clips with a <video> element
 //   - `img-src` allows Gravatar so the login dialog can show the user-configured
-//     avatar; when no avatar is set (or it fails to load) the local logo is used
+//     avatar; the built-in avatars (embedded from frontend/public/avatars) and
+//     the local logo are same-origin, so anything unset or failed to load
+//     degrades to a built-in avatar
 //   - Frame ancestors blocked (no framing by other pages)
 const csp = "default-src 'self'; " +
 	"script-src 'self'; " +
@@ -56,6 +58,7 @@ var mimeTypes = map[string]string{
 	".json": "application/json",
 	".wasm": "application/wasm",
 	".png":  "image/png",
+	".webp": "image/webp",
 	".svg":  "image/svg+xml",
 	".ico":  "image/x-icon",
 }

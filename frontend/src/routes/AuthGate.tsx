@@ -1,12 +1,15 @@
 import { type FormEvent, useEffect, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { BackgroundCanvas } from '../components/background';
 import { Avatar } from '../components/Avatar';
+import { userNameAtom } from '../store/settings';
 import AppShell from './AppShell';
 import { AuthRequiredError, authenticate, fetchToken } from '../lib/api';
 
 function LoginPage({ onAuthenticated }: { onAuthenticated: () => void }) {
   const { t } = useTranslation();
+  const userName = useAtomValue(userNameAtom);
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,12 +37,15 @@ function LoginPage({ onAuthenticated }: { onAuthenticated: () => void }) {
           onSubmit={submit}
           className="glass-control menu-glass flex w-[min(92vw,22rem)] flex-col gap-4 rounded-2xl p-6 shadow-2xl"
         >
-          <div className="flex flex-col items-center justify-center text-center">
+          <div className="flex flex-col items-center justify-center gap-3 text-center">
             <Avatar
               size={192}
-              alt={t('app.title')}
+              alt={userName}
               className="h-48 w-48 shadow-[0_12px_40px_rgb(0_0_0/0.35)]"
             />
+            <p className="max-w-full truncate text-sm font-medium tracking-[-0.01em] text-white">
+              {userName}
+            </p>
           </div>
           <div className="mt-3 flex flex-col gap-2">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="suwu-password">

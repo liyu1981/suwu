@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -471,6 +472,44 @@ func TestAssetServed(t *testing.T) {
 	status, _ := getBody(t, ts.URL+asset)
 	if status != 200 {
 		t.Fatalf("GET %s = %d, want 200", asset, status)
+	}
+}
+
+// The built-in login avatars ship in the embedded web tree; the browser loads
+// them straight from the login dialog, so they must resolve with an image/webp
+// content type.
+func TestBuiltinAvatarsServed(t *testing.T) {
+	ts, _ := testServer(t)
+
+	sub, err := fs.Sub(assets.FS, "web/avatars")
+	if err != nil {
+		t.Fatalf("avatars not embedded (run `pnpm build:web` first): %v", err)
+	}
+	entries, err := fs.ReadDir(sub, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("no built-in avatars embedded")
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		resp, err := http.Get(ts.URL + "/avatars/" + entry.Name())
+		if err != nil {
+			t.Errorf("GET /avatars/%s: %v", entry.Name(), err)
+			continue
+		}
+		contentType := resp.Header.Get("Content-Type")
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET /avatars/%s = %d, want 200", entry.Name(), resp.StatusCode)
+		}
+		if contentType != "image/webp" {
+			t.Errorf("GET /avatars/%s Content-Type = %q, want image/webp", entry.Name(), contentType)
+		}
 	}
 }
 

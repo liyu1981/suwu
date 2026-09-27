@@ -15,10 +15,18 @@ import {
   spacesIdleAtom,
   SPACES_IDLE_MAX_MINUTES,
   SPACES_IDLE_MIN_MINUTES,
+  userNameAtom,
   webgpuBackgroundAtom,
 } from '../../store/settings';
-import { AvatarUploadError, readAvatarImage } from '../../lib/avatar';
+import {
+  AvatarUploadError,
+  BUILTIN_AVATARS,
+  builtinAvatarSrcFor,
+  readAvatarImage,
+} from '../../lib/avatar';
+import { randomUserName } from '../../lib/username';
 import { Avatar } from '../Avatar';
+import { DiceIcon, RefreshIcon } from '../icons';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import {
@@ -70,6 +78,16 @@ const smallBtn =
   'shrink-0 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs outline-none ' +
   'transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
   'disabled:cursor-not-allowed disabled:opacity-40';
+
+/**
+ * Circle button in the built-in avatar picker. The sky ring marks the explicit
+ * choice; a dashed white border marks the picture the user name currently
+ * derives when "from user name" is active.
+ */
+const avatarTileBtn =
+  'flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-dashed outline-none ' +
+  'transition-colors ring-1 ring-white/10 hover:ring-white/30 focus-visible:ring-2 focus-visible:ring-sky-400 ' +
+  'aria-checked:ring-2 aria-checked:ring-sky-400';
 
 function Toggle({
   checked,
@@ -511,15 +529,35 @@ export default function SettingsView() {
   const [spacesIdle, setSpacesIdle] = useAtom(spacesIdleAtom);
   const [headerPosition, setHeaderPosition] = useAtom(headerPositionAtom);
   const [avatar, setAvatar] = useAtom(avatarAtom);
+  const [userName, setUserName] = useAtom(userNameAtom);
+  const [userNameDraft, setUserNameDraft] = useState(userName);
   const [avatarEmail, setAvatarEmail] = useState(avatar.email);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const avatarFileRef = useRef<HTMLInputElement>(null);
 
-  // The email commits on blur/Enter, so keep a local copy while typing.
+  // The email and the user name commit on blur/Enter, so keep local copies
+  // while typing.
   useEffect(() => setAvatarEmail(avatar.email), [avatar.email]);
+  useEffect(() => setUserNameDraft(userName), [userName]);
+
+  const commitUserName = () => {
+    const next = userNameDraft.trim();
+    if (!next) {
+      // An empty name would blank the login dialog — keep the stored one.
+      setUserNameDraft(userName);
+      return;
+    }
+    if (next !== userName) setUserName(next);
+  };
+
+  // Rolls a new handle; the name-derived avatar follows it.
+  const randomizeUserName = () => setUserName(randomUserName(() => Math.random(), userName));
+
+  // Picture the "from user name" option is currently showing.
+  const autoAvatarSrc = builtinAvatarSrcFor(userName);
 
   const avatarSources = [
-    { value: 'logo', label: t('settings.avatarSourceLogo') },
+    { value: 'builtin', label: t('settings.avatarSourceBuiltin') },
     { value: 'gravatar', label: t('settings.avatarSourceGravatar') },
     { value: 'upload', label: t('settings.avatarSourceUpload') },
   ] as const;
@@ -550,7 +588,7 @@ export default function SettingsView() {
 
   const removeAvatarImage = () => {
     setAvatarError(null);
-    setAvatar({ ...avatar, source: 'logo', image: '' });
+    setAvatar({ ...avatar, source: 'builtin', image: '' });
   };
 
   // Re-read the registry when the external background list lands.
@@ -852,6 +890,36 @@ export default function SettingsView() {
 
         <TabsPrimitive.Content value="account" className="min-w-0 flex-1">
           <div className={section}>
+            <span className={sectionLabel}>{t('settings.userNameTitle')}</span>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="text"
+                value={userNameDraft}
+                maxLength={40}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(e) => setUserNameDraft(e.target.value)}
+                onBlur={commitUserName}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                }}
+                aria-label={t('settings.userNameTitle')}
+                className="h-8 min-w-0 flex-1 rounded border border-white/10 bg-black/30 px-2 text-xs text-popover-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-sky-400/60 focus:ring-1 focus:ring-sky-400/30"
+              />
+              <button
+                type="button"
+                onClick={randomizeUserName}
+                title={t('settings.userNameRandom')}
+                className={`${smallBtn} inline-flex items-center gap-1.5`}
+              >
+                <DiceIcon className="h-3.5 w-3.5" />
+                {t('settings.userNameRandom')}
+              </button>
+            </div>
+            <p className={sectionHint}>{t('settings.userNameHint')}</p>
+          </div>
+
+          <div className={`${section} mt-4`}>
             <div className="flex items-center justify-between">
               <span className={sectionLabel}>{t('settings.avatarTitle')}</span>
             </div>
@@ -876,6 +944,60 @@ export default function SettingsView() {
               </div>
             </div>
             <p className={sectionHint}>{t('settings.avatarHint')}</p>
+
+            {avatar.source === 'builtin' && (
+              <div className="mt-3">
+                <span className={sectionLabel}>{t('settings.avatarBuiltinTitle')}</span>
+                <div
+                  role="radiogroup"
+                  aria-label={t('settings.avatarBuiltinTitle')}
+                  className="mt-2 flex flex-wrap items-center gap-2"
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={avatar.builtinId === ''}
+                    aria-label={t('settings.avatarAuto')}
+                    title={t('settings.avatarAuto')}
+                    onClick={() => setAvatar({ ...avatar, builtinId: '' })}
+                    className={`${avatarTileBtn} ${
+                      avatar.builtinId === '' ? 'border-white/40' : 'border-transparent'
+                    }`}
+                  >
+                    <RefreshIcon className="h-5 w-5 text-muted-foreground" />
+                  </button>
+                  {BUILTIN_AVATARS.map((builtin) => {
+                    const followsName = avatar.builtinId === '' && autoAvatarSrc === builtin.src;
+                    return (
+                      <button
+                        key={builtin.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={avatar.builtinId === builtin.id}
+                        aria-label={builtin.label}
+                        title={
+                          followsName
+                            ? `${builtin.label} · ${t('settings.avatarAuto')}`
+                            : builtin.label
+                        }
+                        onClick={() => setAvatar({ ...avatar, builtinId: builtin.id })}
+                        className={`${avatarTileBtn} ${
+                          followsName ? 'border-white/40' : 'border-transparent'
+                        }`}
+                      >
+                        <img
+                          src={builtin.src}
+                          alt=""
+                          loading="lazy"
+                          className="h-11 w-11 rounded-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className={sectionHint}>{t('settings.avatarAutoHint')}</p>
+              </div>
+            )}
 
             {avatar.source === 'gravatar' && (
               <div className="mt-3">

@@ -1,6 +1,8 @@
 import { atomWithStorage } from 'jotai/utils';
 import { DEFAULT_BACKGROUND_ID } from '../components/background/constants';
 import type { BackgroundParamValue } from '../components/background/types';
+import { DEFAULT_AVATAR_SETTINGS, normalizeAvatarSettings } from '../lib/avatar';
+import { randomUserName } from '../lib/username';
 
 export interface AutoResolveSettings {
   filebrowser: boolean;
@@ -65,30 +67,116 @@ export const webgpuBackgroundAtom = atomWithStorage<string>('suwu:webgpu-backgro
 
 /**
  * Where the login-dialog avatar comes from, chosen in System Settings.
- * - `logo` — the Suwu logo; the default, and the fallback whenever the chosen
- *   source has nothing to show (no email, no upload, or a failed load).
+ * - `builtin` — a picture bundled with the server; the default. With no
+ *   explicit pick (`builtinId` empty) the picture is derived from the user
+ *   name, and it also backs every unavailable/failed source.
  * - `gravatar` — the avatar registered for `email` at gravatar.com.
  * - `upload` — a picture the user picked, downscaled and stored locally.
+ *
+ * The former `logo` source (the Suwu logo) is gone; stored values are upgraded
+ * to `builtin` on read.
  */
-export type AvatarSource = 'logo' | 'gravatar' | 'upload';
+export type AvatarSource = 'builtin' | 'gravatar' | 'upload';
 
 export interface AvatarSettings {
   source: AvatarSource;
+  /** Built-in avatar id, or `''` to derive one from the user name. */
+  builtinId: string;
   /** Email hashed for Gravatar; retained while another source is active. */
   email: string;
   /** Data URL of the uploaded picture; retained while another source is active. */
   image: string;
 }
 
+/** localStorage-backed JSON storage that normalizes legacy payloads on read. */
+const avatarStorage = {
+  getItem: (key: string, initialValue: AvatarSettings): AvatarSettings => {
+    try {
+      const raw = globalThis.localStorage?.getItem(key);
+      if (raw === null || raw === undefined) return initialValue;
+      return normalizeAvatarSettings(JSON.parse(raw));
+    } catch {
+      return initialValue;
+    }
+  },
+  setItem: (key: string, value: AvatarSettings) => {
+    try {
+      globalThis.localStorage?.setItem(key, JSON.stringify(value));
+    } catch {
+      /* quota exceeded or storage disabled — the choice just won't persist */
+    }
+  },
+  removeItem: (key: string) => {
+    try {
+      globalThis.localStorage?.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  },
+};
+
 /**
  * The login-dialog avatar. Persisted in localStorage only — the email is
  * hashed in the browser for Gravatar and the image never leaves the device.
  */
-export const avatarAtom = atomWithStorage<AvatarSettings>('suwu:avatar', {
-  source: 'logo',
-  email: '',
-  image: '',
-});
+export const avatarAtom = atomWithStorage<AvatarSettings>(
+  'suwu:avatar',
+  DEFAULT_AVATAR_SETTINGS,
+  avatarStorage,
+);
+
+/** localStorage key holding the account's display name. */
+export const USER_NAME_KEY = 'suwu:username';
+
+/**
+ * The account's display name: shown under the avatar on the login dialog and
+ * hashed into the default built-in avatar. Seeded on first read with a
+ * generated name (`randomUserName`) so a fresh install has an identity without
+ * a setup step, then persisted so neither the name nor its derived avatar
+ * drifts between sessions.
+ */
+export const userNameAtom = atomWithStorage<string>(
+  USER_NAME_KEY,
+  '',
+  {
+    getItem: (key) => {
+      try {
+        const raw = globalThis.localStorage?.getItem(key);
+        if (raw !== null && raw !== undefined) {
+          const parsed: unknown = JSON.parse(raw);
+          if (typeof parsed === 'string' && parsed.trim()) return parsed.trim();
+        }
+      } catch {
+        /* fall through and generate a fresh name */
+      }
+      const generated = randomUserName();
+      try {
+        globalThis.localStorage?.setItem(key, JSON.stringify(generated));
+      } catch {
+        /* storage disabled — the generated name lasts for this session only */
+      }
+      return generated;
+    },
+    setItem: (key, value) => {
+      try {
+        globalThis.localStorage?.setItem(key, JSON.stringify(value));
+      } catch {
+        /* ignore */
+      }
+    },
+    removeItem: (key) => {
+      try {
+        globalThis.localStorage?.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+    },
+  },
+  // Read while the atom is created, so the first login-screen frame already
+  // has the name — and with it the right derived avatar — instead of briefly
+  // showing an empty label under a placeholder picture.
+  { getOnInit: true },
+);
 
 /**
  * Idle auto-hide for the tiling spaces, configured in System Settings. When

@@ -2,15 +2,105 @@
  * Login-avatar helpers.
  *
  * The avatar is resolved client-side from the System Settings choice: a
- * Gravatar fetched from the MD5 hash of the user's email, an image the user
- * uploaded (downscaled to a data URL kept in localStorage), or — the default
- * and the fallback for every failure mode — the Suwu logo.
+ * built-in picture bundled with the binary — the default, picked from the user
+ * name unless one was chosen explicitly — a Gravatar fetched from the MD5 hash
+ * of the user's email, or an image the user uploaded (downscaled to a data URL
+ * kept in localStorage). The last-resort fallback is one fixed built-in avatar,
+ * so the Suwu logo is never used as a user picture.
  */
 
 import type { AvatarSettings } from '../store/settings';
 
-/** Fallback image when nothing is configured or the chosen source fails to load. */
-export const AVATAR_FALLBACK_SRC = '/logo.svg';
+/**
+ * One of the avatars shipped with the server (frontend/public/avatars, embedded
+ * in the Go binary). `id` is persisted in settings, so it must stay stable.
+ */
+export interface BuiltinAvatar {
+  id: string;
+  src: string;
+  label: string;
+}
+
+/**
+ * The built-in avatar catalog. **Order matters**: the list index is what a
+ * user name hashes into (see `builtinAvatarIdFor`), so append rather than
+ * reorder — reordering would silently reassign every generated avatar.
+ */
+export const BUILTIN_AVATARS: readonly BuiltinAvatar[] = [
+  { id: 'samoyed', src: '/avatars/samoyed.webp', label: 'Samoyed' },
+  { id: 'whale', src: '/avatars/whale.webp', label: 'Whale' },
+  { id: 'raccoon', src: '/avatars/raccoon.webp', label: 'Raccoon' },
+  { id: 'robot', src: '/avatars/robot.webp', label: 'Robot' },
+  { id: 'penguin', src: '/avatars/penguin.webp', label: 'Penguin' },
+  { id: 'otter', src: '/avatars/otter.webp', label: 'Otter' },
+  { id: 'capybara', src: '/avatars/capybara.webp', label: 'Capybara' },
+  { id: 'screwdriver', src: '/avatars/screwdriver.webp', label: 'Screwdriver' },
+];
+
+/**
+ * Fallback picture when the chosen source has nothing to show or its image
+ * fails to load. A built-in avatar, never the app logo.
+ */
+export const AVATAR_FALLBACK_SRC = '/avatars/penguin.webp';
+
+/** Whether an id still names a built-in avatar (guards persisted settings). */
+export function isBuiltinAvatarId(id: unknown): id is string {
+  return typeof id === 'string' && BUILTIN_AVATARS.some((avatar) => avatar.id === id);
+}
+
+/** Image source for a built-in avatar id, or null when the id is unknown. */
+export function builtinAvatarSrc(id: string): string | null {
+  return BUILTIN_AVATARS.find((avatar) => avatar.id === id)?.src ?? null;
+}
+
+/**
+ * The built-in avatar a user name maps to: FNV-1a over the trimmed, NFC-folded,
+ * lower-cased name, wrapped to the catalog length. Deterministic, so the same
+ * name always yields the same picture across sessions and releases (char codes
+ * are hashed as UTF-16 units, which is stable for the same string).
+ */
+export function builtinAvatarIdFor(userName: string): string {
+  const normalized = userName.trim().normalize('NFC').toLowerCase();
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < normalized.length; i++) {
+    hash ^= normalized.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return BUILTIN_AVATARS[hash % BUILTIN_AVATARS.length].id;
+}
+
+/** The built-in avatar a user name derives from — the default picture. */
+export function builtinAvatarSrcFor(userName: string): string {
+  return builtinAvatarSrc(builtinAvatarIdFor(userName)) ?? AVATAR_FALLBACK_SRC;
+}
+
+/** Fresh settings: a built-in avatar that follows the user name. */
+export const DEFAULT_AVATAR_SETTINGS: AvatarSettings = {
+  source: 'builtin',
+  builtinId: '',
+  email: '',
+  image: '',
+};
+
+/**
+ * Upgrade whatever is in storage to the current shape, so settings written by
+ * older releases keep working without a version field: anything that isn't an
+ * object becomes the defaults; the removed `logo` source — and any other
+ * unrecognized one — becomes `builtin`; a `builtinId` that no longer names an
+ * avatar is dropped, which puts the name-derived picture back in charge.
+ */
+export function normalizeAvatarSettings(raw: unknown): AvatarSettings {
+  if (!raw || typeof raw !== 'object') return DEFAULT_AVATAR_SETTINGS;
+  const value = raw as Record<string, unknown>;
+  const source =
+    value.source === 'gravatar' || value.source === 'upload' ? value.source : 'builtin';
+  return {
+    source,
+    builtinId: isBuiltinAvatarId(value.builtinId) ? value.builtinId : '',
+    email: typeof value.email === 'string' ? value.email : '',
+    image: typeof value.image === 'string' ? value.image : '',
+  };
+}
 
 /** Longest edge of an uploaded avatar in px — keeps the localStorage payload small. */
 export const AVATAR_UPLOAD_MAX = 512;
@@ -113,7 +203,7 @@ export function md5(message: string): string {
  * Gravatar URL for an email, or null when no email is configured.
  *
  * `d=404` asks Gravatar to fail for unknown emails so the `<img>` fires
- * `onerror` and the caller can swap in the Suwu logo instead of Gravatar's
+ * `onerror` and the caller can swap in a built-in avatar instead of Gravatar's
  * mystery-person placeholder.
  */
 export function gravatarUrl(email: string, size: number): string | null {
@@ -126,13 +216,21 @@ export function gravatarUrl(email: string, size: number): string | null {
 /**
  * Resolve the stored settings to an image source for an avatar of `size` CSS
  * pixels (Gravatar is fetched at 2×, capped at 512px, for sharpness on
- * retina displays). Anything unset or unavailable falls back to the logo.
+ * retina displays).
+ *
+ * `userName` drives the built-in source: with no explicit choice (`builtinId`
+ * empty) the picture is derived from the name, and it also backs every
+ * unavailable case — an empty upload, a Gravatar with no email, an id that no
+ * longer exists — so a failure degrades to a plausible avatar, never the logo.
  */
-export function resolveAvatarSrc(settings: AvatarSettings, size: number): string {
-  if (settings.source === 'upload') return settings.image || AVATAR_FALLBACK_SRC;
+export function resolveAvatarSrc(settings: AvatarSettings, size: number, userName = ''): string {
+  if (settings.source === 'upload') return settings.image || builtinAvatarSrcFor(userName);
   if (settings.source === 'gravatar')
-    return gravatarUrl(settings.email, size * 2) ?? AVATAR_FALLBACK_SRC;
-  return AVATAR_FALLBACK_SRC;
+    return gravatarUrl(settings.email, size * 2) ?? builtinAvatarSrcFor(userName);
+  if (settings.builtinId)
+    return builtinAvatarSrc(settings.builtinId) ?? builtinAvatarSrcFor(userName);
+  // `builtin`, plus anything unrecognized left over from older settings.
+  return builtinAvatarSrcFor(userName);
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

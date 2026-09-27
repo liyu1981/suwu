@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { cn } from '../lib/utils';
 import { AVATAR_FALLBACK_SRC, resolveAvatarSrc } from '../lib/avatar';
-import { avatarAtom } from '../store/settings';
+import { avatarAtom, userNameAtom } from '../store/settings';
 
 /**
- * The login-dialog avatar: the source chosen in System Settings (Gravatar or
- * an uploaded picture), circle-masked, with the Suwu logo as the fallback
- * whenever nothing is configured or the image fails to load.
+ * The login-dialog avatar: the source chosen in System Settings (a built-in
+ * picture, Gravatar, or an uploaded picture), circle-masked. The fallback is
+ * the built-in avatar derived from the user name — shown when nothing is
+ * configured or the image fails to load — so the app logo is never used as a
+ * user picture.
  */
 export function Avatar({
   size,
@@ -20,15 +22,19 @@ export function Avatar({
   alt?: string;
 }) {
   const settings = useAtomValue(avatarAtom);
-  const src = resolveAvatarSrc(settings, size);
+  const userName = useAtomValue(userNameAtom);
+  const src = resolveAvatarSrc(settings, size, userName);
   const [failed, setFailed] = useState(false);
 
-  // A new source gets a fresh chance before we give up and show the logo.
+  // A new source gets a fresh chance before we give up on it.
   useEffect(() => setFailed(false), [src]);
+
+  // If even the name-derived avatar is missing, one fixed picture ends the loop.
+  const shown = failed ? AVATAR_FALLBACK_SRC : src;
 
   return (
     <img
-      src={failed ? AVATAR_FALLBACK_SRC : src}
+      src={shown}
       alt={alt}
       width={size}
       height={size}

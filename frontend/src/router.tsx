@@ -13,6 +13,7 @@ import DBBrowserPage from './routes/DBBrowserPage';
 import CodeExplorerPage from './routes/CodeExplorerPage';
 import RestHelperPage from './routes/RestHelperPage';
 import ExtensionPage from './routes/ExtensionPage';
+import FolderSyncPage from './routes/FolderSyncPage';
 
 const rootRoute = createRootRoute();
 
@@ -107,6 +108,13 @@ const extensionRoute = createRoute({
   component: ExtensionPage,
 });
 
+// Full-space folder sync page, loaded inside each foldersync pane's iframe.
+const foldersyncRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/foldersync',
+  component: FolderSyncPage,
+});
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -121,6 +129,7 @@ const routeTree = rootRoute.addChildren([
   codeRoute,
   resthelperRoute,
   extensionRoute,
+  foldersyncRoute,
 ]);
 
 export const router = createRouter({ routeTree });

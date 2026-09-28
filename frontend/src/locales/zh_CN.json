@@ -365,7 +365,9 @@
     "resthelper": "REST 助手",
     "resthelperDesc": "调试 HTTP/REST 请求",
     "extension": "扩展",
-    "extensionDesc": "在容器磁贴中渲染 gqjs 扩展"
+    "extensionDesc": "在容器磁贴中渲染 gqjs 扩展",
+    "foldersync": "文件夹同步",
+    "foldersyncDesc": "将服务器文件夹镜像到本地文件夹"
   },
   "codeExplorer": {
     "search": {
@@ -518,5 +520,97 @@
   },
   "extension": {
     "configure": "尚未配置扩展。请在应用菜单中创建配置磁贴并选择扩展 id。"
+  },
+  "foldersync": {
+    "title": "文件夹同步",
+    "addJob": "新建任务",
+    "editJob": "编辑任务",
+    "deleteJob": "删除任务",
+    "start": "开始",
+    "stop": "停止",
+    "runNow": "立即同步一轮",
+    "save": "保存",
+    "cancel": "取消",
+    "loading": "加载中...",
+    "logEmpty": "暂无记录。点击“开始”启动同步。",
+    "detailTitle": "运行记录",
+    "mirrorBadge": "镜像",
+    "progress": "{{done}} / {{total}}",
+    "statsLine": "第 #{{cycle}} 轮 · 检查 {{checked}} · ↓{{pulled}} · −{{deleted}} · {{size}} · {{ms}} 毫秒",
+    "emptyTitle": "还没有同步任务",
+    "emptyBody": "新建一个任务，将服务器上的文件夹镜像到本机文件夹。",
+    "unsupportedTitle": "当前浏览器无法打开本地文件夹",
+    "unsupportedBody": "文件夹同步需要 File System Access API（Chrome、Edge 或 Opera）。本地文件夹由浏览器直接读写，不会发送到其他地方。",
+    "unsupportedShort": "当前浏览器不支持",
+    "localHint": "该文件夹仅用于本次同步，保留在本机。",
+    "fieldName": "名称",
+    "fieldNamePlaceholder": "项目镜像",
+    "fieldRemote": "服务器文件夹",
+    "fieldLocal": "本地文件夹",
+    "fieldLocalEmpty": "尚未选择文件夹",
+    "chooseFolder": "选择文件夹",
+    "fieldInterval": "同步间隔",
+    "fieldRemoveExtra": "镜像删除",
+    "removeExtraWarn": "本地存在但服务器上已删除的文件将被删除。",
+    "pickFailed": "无法打开文件夹选择器",
+    "handleStoreFailed": "无法记住所选文件夹",
+    "pickerUp": "上一级",
+    "pickerUse": "使用",
+    "pickerEmpty": "此目录下没有子文件夹",
+    "pickerError": "无法读取该文件夹",
+    "paramRemotePath": "远程文件夹",
+    "paramRemotePathDesc": "要镜像的服务器文件夹（用于预填任务编辑器）",
+    "paramInterval": "间隔（毫秒）",
+    "paramIntervalDesc": "同步周期间隔（毫秒），默认 5000",
+    "status": {
+      "idle": "空闲",
+      "starting": "启动中",
+      "preflight": "预检查",
+      "syncing": "同步中",
+      "cooldown": "监视中",
+      "error": "已停止"
+    },
+    "error": {
+      "truncated": "该文件夹过大或层级过深，无法安全镜像。请缩小范围或调整服务器限制。",
+      "network": "无法连接服务器。",
+      "unauthorized": "登录已过期，请重新登录。",
+      "not-found": "服务器上的文件夹已不存在。",
+      "server": "服务器拒绝了该请求。",
+      "local-io": "无法写入本地文件夹，请检查其权限。",
+      "no-handle": "已不再记住所选的本地文件夹，请重新选择。",
+      "unknown": "同步失败。"
+    },
+    "startDenied": {
+      "permission-denied": "未获得本地文件夹权限。请重新选择文件夹以授权。",
+      "meta-mismatch": "该本地文件夹已在镜像另一个服务器文件夹。",
+      "unsupported": "当前浏览器无法打开本地文件夹。",
+      "no-handle": "已不再记住所选的本地文件夹。请编辑任务并重新选择。"
+    },
+    "metaMismatch": {
+      "title": "该文件夹已镜像到其他位置",
+      "body": "本地文件夹“{{folder}}”中的 .suwu-sync.json 属于另一个服务器文件夹。",
+      "bodyGeneric": "本地文件夹中的 .suwu-sync.json 属于另一个服务器文件夹。",
+      "hint": "重置不会改动现有文件——下一轮会重新完整检查。也可自行删除 .suwu-sync.json 以重置且不同步。",
+      "reset": "重置并开始"
+    },
+    "log": {
+      "started": "已开始同步 {{path}}",
+      "stopped": "已停止同步",
+      "cycle": "第 #{{cycle}} 轮 · 预检查",
+      "preflight": "预检查：{{checked}} 个条目，{{changes}} 项变更",
+      "pull": "下载 {{rel}}（{{size}} 字节）",
+      "overwrite": "覆盖本地修改：{{rel}}",
+      "mkdir": "创建目录 {{rel}}",
+      "delete": "删除 {{rel}}（服务器上已不存在）",
+      "rmdir": "删除目录 {{rel}}（服务器上已不存在）",
+      "tooLarge": "跳过 {{rel}}（大于 64 MiB）",
+      "deletesDeferred": "推迟 {{count}} 项删除，等待下载完成",
+      "cycleDone": "本轮完成：↓{{pulled}} · −{{deleted}} · {{ms}} 毫秒",
+      "cycleFailed": "本轮失败：{{error}}",
+      "actionFailed": "{{rel}}：{{error}}",
+      "metaWriteFailed": "无法写入 .suwu-sync.json（{{error}}）",
+      "metaReset": "已重置该文件夹的 .suwu-sync.json",
+      "needsStart": "点击“开始”授权文件夹并同步一次"
+    }
   }
 }

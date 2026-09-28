@@ -43,6 +43,11 @@ export interface RestHelperSessionState {
   draft?: RestRequestDraft;
 }
 
+export interface FolderSyncSessionState {
+  /** Which job's detail is shown. Sync run state is never persisted. */
+  selectedJobId?: string;
+}
+
 /** Per-tile session state entry. */
 export interface TileEntry {
   tileType: string;

@@ -367,7 +367,9 @@
     "resthelper": "REST Helper",
     "resthelperDesc": "Investigate HTTP/REST requests",
     "extension": "Extension",
-    "extensionDesc": "Render a gqjs extension in a container tile"
+    "extensionDesc": "Render a gqjs extension in a container tile",
+    "foldersync": "Folder Sync",
+    "foldersyncDesc": "Mirror a server folder into a local folder"
   },
   "codeExplorer": {
     "search": {
@@ -520,5 +522,97 @@
   },
   "extension": {
     "configure": "No extension configured. Create a config tile in the App Menu and choose an extension id."
+  },
+  "foldersync": {
+    "title": "Folder Sync",
+    "addJob": "Add job",
+    "editJob": "Edit job",
+    "deleteJob": "Delete job",
+    "start": "Start",
+    "stop": "Stop",
+    "runNow": "Run one cycle now",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "logEmpty": "No activity yet. Press Start to begin syncing.",
+    "detailTitle": "Activity",
+    "mirrorBadge": "mirror",
+    "progress": "{{done}} / {{total}}",
+    "statsLine": "cycle #{{cycle}} · {{checked}} checked · ↓{{pulled}} · −{{deleted}} · {{size}} · {{ms}} ms",
+    "emptyTitle": "No sync jobs yet",
+    "emptyBody": "Add a job to mirror a folder on this server into a folder on your computer.",
+    "unsupportedTitle": "This browser cannot open local folders",
+    "unsupportedBody": "Folder Sync needs the File System Access API (Chrome, Edge or Opera). The local folder is read and written directly by the browser, never uploaded anywhere else.",
+    "unsupportedShort": "Not supported by this browser",
+    "localHint": "The folder is only used for this sync and stays on this computer.",
+    "fieldName": "Name",
+    "fieldNamePlaceholder": "Project mirror",
+    "fieldRemote": "Server folder",
+    "fieldLocal": "Local folder",
+    "fieldLocalEmpty": "No folder chosen",
+    "chooseFolder": "Choose folder",
+    "fieldInterval": "Sync interval",
+    "fieldRemoveExtra": "Mirror deletions",
+    "removeExtraWarn": "Files in the local folder that no longer exist on the server will be deleted.",
+    "pickFailed": "Could not open the folder picker",
+    "handleStoreFailed": "Could not remember the chosen folder",
+    "pickerUp": "Up",
+    "pickerUse": "Use",
+    "pickerEmpty": "No subfolders here",
+    "pickerError": "Could not read this folder",
+    "paramRemotePath": "Remote folder",
+    "paramRemotePathDesc": "Server folder to mirror (pre-fills the job editor)",
+    "paramInterval": "Interval (ms)",
+    "paramIntervalDesc": "Sync cycle interval in milliseconds (default 5000)",
+    "status": {
+      "idle": "Idle",
+      "starting": "Starting",
+      "preflight": "Pre-flight",
+      "syncing": "Syncing",
+      "cooldown": "Watching",
+      "error": "Stopped"
+    },
+    "error": {
+      "truncated": "That folder is too large or too deep to mirror safely. Narrow the folder or raise the server limits.",
+      "network": "Could not reach the server.",
+      "unauthorized": "Authentication expired. Sign in again.",
+      "not-found": "The server folder no longer exists.",
+      "server": "The server rejected the request.",
+      "local-io": "Could not write to the local folder. Check its permissions.",
+      "no-handle": "The chosen local folder is no longer remembered. Pick it again.",
+      "unknown": "Sync failed."
+    },
+    "startDenied": {
+      "permission-denied": "Permission to the local folder was denied. Pick it again to grant access.",
+      "meta-mismatch": "That local folder already mirrors a different server folder.",
+      "unsupported": "This browser cannot open local folders.",
+      "no-handle": "The chosen local folder is no longer remembered. Edit the job and pick it again."
+    },
+    "metaMismatch": {
+      "title": "Folder already mirrored elsewhere",
+      "body": "The local folder “{{folder}}” contains .suwu-sync.json for a different server folder.",
+      "bodyGeneric": "The local folder contains .suwu-sync.json for a different server folder.",
+      "hint": "Resetting keeps the files as they are — the next cycle re-checks them from scratch. Delete .suwu-sync.json yourself to reset without syncing.",
+      "reset": "Reset and start"
+    },
+    "log": {
+      "started": "Sync started for {{path}}",
+      "stopped": "Sync stopped",
+      "cycle": "cycle #{{cycle}} · pre-flight",
+      "preflight": "pre-flight: {{checked}} entries, {{changes}} changes",
+      "pull": "pull {{rel}} ({{size}} B)",
+      "overwrite": "overwrote local change: {{rel}}",
+      "mkdir": "created folder {{rel}}",
+      "delete": "deleted {{rel}} (not on server)",
+      "rmdir": "deleted folder {{rel}} (not on server)",
+      "tooLarge": "skipped {{rel}} (larger than 64 MiB)",
+      "deletesDeferred": "postponed {{count}} deletions until downloads succeed",
+      "cycleDone": "cycle done: ↓{{pulled}} · −{{deleted}} · {{ms}} ms",
+      "cycleFailed": "cycle failed: {{error}}",
+      "actionFailed": "{{rel}}: {{error}}",
+      "metaWriteFailed": "could not write .suwu-sync.json ({{error}})",
+      "metaReset": "reset .suwu-sync.json for this folder",
+      "needsStart": "press Start to grant folder access and sync once"
+    }
   }
 }

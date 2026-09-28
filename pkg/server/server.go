@@ -160,6 +160,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/api/sync/manifest" {
+		s.handleSyncManifest(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/file/rename" {
 		s.handleFileRename(w, r)
 		return

@@ -1,7 +1,8 @@
 <div class="doc-video"><video src="/assets/suwu-cli.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of suwu send, suwu forward, and suwu open commands posting to the web interface"></video></div>
-      </div>
+        <h2>Overview</h2>
+        <p>Every <code>suwu</code> subcommand talks to the running server over a local Unix socket, so a shell on the server can put things on your screen. Run <code>suwu help</code> for the full list, or <code>suwu help &lt;command&gt;</code> for one command's flags.</p>
+        <p>Commands that reach the server accept <code>--sock &lt;path&gt;</code> if the socket is not at the default <code>~/.suwu/suwu.sock</code> (override with <code>SUWU_SOCK_PATH</code>).</p>
 
-      <div class="prose">
         <h2><code>suwu send</code></h2>
         <p>Post a notification to the Suwu web UI from any terminal or script.</p>
 
@@ -11,20 +12,17 @@ suwu send "Build completed successfully"
 # Pipe stdin as the notification body
 echo "Tests passed" | suwu send
 
-# With a title
-suwu send --title "Deploy" "v2.1.0 deployed to production"
-
 # Pipe a file
-cat changelog.txt | suwu send --title "Changelog"</code></pre>
+cat changelog.txt | suwu send</code></pre>
 
-        <p>Notifications appear as a tile in the web UI with the title and body text. They persist until dismissed.</p>
+        <p>Notifications appear in the browser's notification panel. With no message argument, stdin is read to EOF and sent as one message, keeping internal newlines; one trailing newline is dropped. Messages are capped at 1 MiB of encoded JSON — an oversized one is rejected before anything is sent.</p>
 
         <h3>Use Cases</h3>
         <ul>
           <li><strong>Build notifications</strong> — append <code>suwu send "Build done"</code> to your build script.</li>
           <li><strong>CI/CD alerts</strong> — pipe pipeline output to <code>suwu send</code>.</li>
           <li><strong>Monitoring</strong> — send alerts when a health check fails.</li>
-          <li><strong>Long tasks</strong> — <code>make && suwu send "Make complete"</code>.</li>
+          <li><strong>Long tasks</strong> — <code>make &amp;&amp; suwu send "Make complete"</code>.</li>
         </ul>
 
         <h2><code>suwu forward</code></h2>
@@ -34,77 +32,116 @@ cat changelog.txt | suwu send --title "Changelog"</code></pre>
 suwu forward 3000
 
 # Forward to a different remote port
-suwu forward 8080:3000
+suwu forward 8080 3000
 
 # UDP forwarding
-suwu forward --udp 5353</code></pre>
+suwu forward --proto udp 5353
 
-        <p>See <a href="port-forwarding.html">Port Forwarding</a> for full details.</p>
+# List what is running, or stop one
+suwu forward --list
+suwu forward --stop 3000</code></pre>
+
+        <p>See <a href="port-forwarding.html">Port Forwarding</a> for the tile itself.</p>
 
         <h2><code>suwu open</code></h2>
-        <p>Open files, directories, or URLs in the Suwu web UI.</p>
+        <p>Open a file or directory in the running Suwu session — in the file browser or the viewer.</p>
 
-<pre><code># Open a directory in the file browser
-suwu open .
+<pre><code>suwu open .                  # a directory in the file browser
+suwu open README.md           # a file in the viewer
+suwu open ~/Documents/report.pdf</code></pre>
 
-# Open a file in the viewer
-suwu open README.md
+        <h2><code>suwu gitgraph</code> and <code>suwu diff</code></h2>
+        <p>Shorthands for the two review tiles:</p>
 
-# Open and watch for changes
-suwu open --watch server.log
+<pre><code>suwu gitgraph .              # the repository's commit graph
+suwu diff old.go new.go       # a side-by-side comparison</code></pre>
 
-# Open a git graph
-suwu open --git-graph .
+        <h2><code>suwu code</code></h2>
+        <p>Open files in the Code Explorer tile, with specific lines highlighted — the shortest path from a stack trace to the code it points at. Ranges are 1-based and inclusive.</p>
 
-# Open a diff
-suwu open --diff old.go new.go</code></pre>
+<pre><code># Open one file
+suwu code server.go
 
-        <h3>Options</h3>
+# Highlight a range
+suwu code server.go:400-460
 
-        <table class="shortcut-table">
-          <thead>
-            <tr>
-              <th>Flag</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>--watch</code></td>
-              <td>Auto-refresh when file changes</td>
-            </tr>
-            <tr>
-              <td><code>--git-graph</code></td>
-              <td>Open as git graph</td>
-            </tr>
-            <tr>
-              <td><code>--diff</code></td>
-              <td>Open as side-by-side diff</td>
-            </tr>
-            <tr>
-              <td><code>--tile TYPE</code></td>
-              <td>Force a specific tile type</td>
-            </tr>
-          </tbody>
-        </table>
+# Several ranges, in several files
+suwu code server.go:12,40-55 handler.go:7
 
-        <h2><code>suwu update</code></h2>
+# Root the explorer at a directory
+suwu code ./pkg</code></pre>
+
+        <h2><code>suwu gq</code></h2>
+        <p>Run a JavaScript file in a request-scoped QuickJS sandbox: a fresh isolate, scoped filesystem roots, an optional JSON input, and a hard deadline. It is the same runtime that renders <a href="extensions.html">extension</a> tiles.</p>
+
+<pre><code># Transform input into a JSON result
+suwu gq --input '{"n":21}' --print-result script.js
+
+# Read a file from a mounted root
+suwu gq --root /app=./src --print-result script.js
+
+# Call an API (loopback and private hosts need --allow-private)
+suwu gq --allow-net --print-result examples/gqjs/fetch.js
+
+# Machine-readable output
+suwu gq --result-file /tmp/out.json script.js</code></pre>
+
+        <p>Exit codes are meaningful: <code>0</code> success, <code>1</code> script error, <code>2</code> timeout, <code>3</code> output limit, <code>64</code> usage. See <a href="gqjs.html">gqjs Script Runner</a> for the script contract and the full flag list.</p>
+
+        <h2><code>suwu agent</code></h2>
+        <p>Detect the AI coding agents on this machine and install the <strong>suwu-tools</strong> skill into them, so an agent can drive your running Suwu session — open tiles, read output, post a notification — instead of guessing at a browser.</p>
+
+<pre><code>suwu agent                        # detect, then pick agents in a TUI
+suwu agent --list                 # show which agents were detected
+suwu agent --agent pi,opencode
+suwu agent --agent claude --global  # user-global skills instead of this repo
+suwu agent --print &gt; suwu-tools.md</code></pre>
+
+        <h2><code>suwu use</code></h2>
+        <p>Run a command with <code>DISPLAY</code> pointed at an X display the server can reach — the GUI-tool launcher for a headless box. A TUI asks which display to use when there is more than one.</p>
+
+<pre><code>suwu use xterm
+suwu use firefox
+suwu use chromium --new-window https://localhost:3000</code></pre>
+
+        <h2><code>suwu serve</code>, <code>suwu onboard</code>, and <code>suwu daemon</code></h2>
+        <p>Running the server, setting it up, and keeping it in the background:</p>
+
+<pre><code>suwu serve                       # HTTPS on :8181
+SERVER_MODE=http suwu serve      # HTTP on :8180
+SERVER_MODE=https+http suwu serve # both
+
+suwu onboard                      # interactive setup wizard
+suwu onboard --tls                # re-run one section only
+
+suwu daemon start                 # background process (data: ~/.suwu)
+suwu daemon status
+suwu daemon logs</code></pre>
+
+        <p>See <a href="../get-started.html">Get Started</a> for the setup walkthrough and <a href="security.html">Security &amp; Access</a> for modes, passwords, and tokens.</p>
+
+        <h2><code>suwu gencerts</code></h2>
+        <p>Generate the TLS pair used for HTTPS access — a local CA plus a leaf certificate for this machine. <code>suwu onboard</code> calls it for you; run it directly to issue certificates for extra hosts.</p>
+
+<pre><code>suwu gencerts
+suwu gencerts --hosts localhost,192.168.1.100
+suwu gencerts --out /tmp/certs --no-env</code></pre>
+
+        <h2><code>suwu upgrade</code></h2>
         <p>Update the Suwu binary to the latest release:</p>
 
-<pre><code>suwu update</code></pre>
+<pre><code>suwu upgrade            # upgrade if a newer version exists
+suwu upgrade --check    # just report
+suwu upgrade --force    # re-download even if up to date</code></pre>
 
-        <p>This downloads the latest release binary and replaces the current one. See <a href="../upgrading.html">Upgrading</a> for details.</p>
+        <p>If the daemon is running, it is stopped for the upgrade and started again afterwards. See <a href="../upgrading.html">Upgrading</a> for details.</p>
 
-        <h2><code>suwu auth</code></h2>
-        <p>Manage authentication:</p>
+        <h2><code>suwu background build</code></h2>
+        <p>Compile a WGSL entry shader — resolving its whole import graph — into the JavaScript module a custom WebGPU background needs. The compiler is embedded in the binary, so there is no Node toolchain to install.</p>
 
-<pre><code># Set a password
-suwu auth password
+<pre><code>suwu background build shaders/cosmos.wgsl &gt; shaders/cosmos.shader.js</code></pre>
 
-# Clear the password
-suwu auth clear</code></pre>
-
-        <p>See <a href="security.html">Security &amp; Access</a> for full details.</p>
+        <p>See <a href="backgrounds.html">Backgrounds</a> for the directory layout a background must have.</p>
 
         <div class="callout callout-success">
           <div class="callout-title">Tip</div>

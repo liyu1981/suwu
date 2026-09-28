@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Extensions — Suwu Docs</title>
+  <meta name="description" content="Add your own app tile with a sandboxed JavaScript extension." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+            <li><a href="/docs/features/public-access.html">Public Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+            <li><a href="/docs/features/db-browser.html">DB Browser</a></li>
+            <li><a href="/docs/features/folder-sync.html">Folder Sync</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+            <li><a href="/docs/features/rest-helper.html">REST Helper</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Extend</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/extensions.html" aria-current="page">Extensions</a></li>
+            <li><a href="/docs/features/gqjs.html">gqjs Script Runner</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+            <li><a href="/docs/features/backgrounds.html">Backgrounds</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Extensions</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Extensions</h1>
+        <p class="doc-lead">An extension is a small JavaScript program that returns an HTML page. It runs in a sandboxed QuickJS isolate, in its own process, behind a strict content policy — so you can add an app to your workspace without touching the server.</p>
+      </div>
+<div class="prose">
+<h2 id="overview">Overview</h2>
+        <p>An <strong>extension</strong> is a small JavaScript program that returns an HTML page, which Suwu renders inside a tile. Extensions are how you add an app to Suwu without touching Go or React: a script runs in a sandboxed <a href="gqjs.html">gqjs</a> QuickJS isolate — in its own process, with a deadline — and hands back a document.</p>
+        <p>Three example extensions ship with the repository and are meant to be copied into your data directory:</p>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Example</th>
+              <th>Shows</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>eye</strong></td>
+              <td>The smallest possible extension: a render stub plus a static asset, with configuration passed to the page through a <code>data-</code> attribute.</td>
+            </tr>
+            <tr>
+              <td><strong>note</strong></td>
+              <td>A pure client-side app — seven numbered sticky notes persisted in the browser's IndexedDB through the storage bridge, with no API and no network.</td>
+            </tr>
+            <tr>
+              <td><strong>hn-top-stories</strong></td>
+              <td>The full stack: an API route, a server-side <code>fetch</code>, an ES-module tree of static assets, and an htmx poll of the extension's own API.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="installing-an-extension">Installing an Extension</h2>
+        <p>Suwu never installs extensions for you. Copy one into your extensions directory — <code>$SUWU_VAR/extensions</code>, or <code>~/.suwu/extensions</code>:</p>
+
+<pre><code>cp -r examples/extensions/eye ~/.suwu/extensions/
+cp -r examples/extensions/note ~/.suwu/extensions/
+cp -r examples/extensions/hn-top-stories ~/.suwu/extensions/</code></pre>
+
+        <p>Then reload the browser tab. A directory becomes an extension as soon as it contains a valid <code>package.json</code> and an <code>index.js</code>:</p>
+
+<pre><code>&lt;dataDir&gt;/extensions/&lt;id&gt;/
+  package.json     # metadata — required
+  index.js         # render entry point — required, fixed name
+  public/          # client assets, when suwu.static declares it
+  *.js             # API handlers registered in suwu.api</code></pre>
+
+        <p>The <strong>id</strong> is the directory name, and it must match <code>^[a-z0-9][a-z0-9_-]{0,63}$</code>. The directory is also the extension's read-only <code>/ext/&lt;id&gt;</code> filesystem root, so an extension can bundle data next to its script.</p>
+
+        <h2 id="adding-an-extension-tile">Adding an Extension Tile</h2>
+        <p>The Extension tile is <strong>off by default</strong> — a fresh install does not advertise a tile with nothing configured. To use one:</p>
+        <ol>
+          <li>Open the <strong>App Menu</strong> and enable the <strong>Extension</strong> app.</li>
+          <li>Add a <strong>Custom App</strong>, choose the <strong>Extension</strong> plugin, and set the <code>id</code> parameter to the directory name (for example <code>eye</code>).</li>
+          <li>Add your own parameters if the extension declares any; they are passed straight through to the script.</li>
+          <li>Place the app in the grid like any other tile.</li>
+        </ol>
+        <p>A tile with no <code>id</code> shows a short hint instead of a blank frame — there is no in-tile picker.</p>
+
+        <h2 id="metadata-package-json">Metadata: <code>package.json</code></h2>
+        <p>npm-style fields live at the top level, and everything Suwu-specific lives under the <code>suwu</code> object. <code>name</code> falls back to the directory id, and everything except the file itself is optional:</p>
+
+<pre><code>{
+  "name": "Hacker News Top Stories",
+  "description": "The Hacker News front page as a broadsheet carousel",
+  "suwu": {
+    "static": "public",
+    "net": true,
+    "params": [
+      { "key": "size", "label": "Size", "description": "Eye radius in px", "defaultValue": "140" }
+    ],
+    "api": [
+      { "route": "/stories", "handler": "stories.js" }
+    ]
+  }
+}</code></pre>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>name</code> / <code>description</code></td>
+              <td>Human-readable identity, shown in the App Menu.</td>
+            </tr>
+            <tr>
+              <td><code>suwu.params</code></td>
+              <td>Documents the launch parameters so the App Menu can offer them. Extra query parameters are passed through regardless.</td>
+            </tr>
+            <tr>
+              <td><code>suwu.static</code></td>
+              <td>A directory of client assets served at <code>/gqjs/static/&lt;id&gt;/</code>. Must be a dedicated subtree — never <code>.</code> or the extension root.</td>
+            </tr>
+            <tr>
+              <td><code>suwu.api</code></td>
+              <td>Ordered route registrations, each <code>{ route, handler }</code>.</td>
+            </tr>
+            <tr>
+              <td><code>suwu.net</code></td>
+              <td>Opt-in to the network: enables <code>fetch()</code> inside the script.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Unknown fields (<code>version</code>, <code>dependencies</code>, …) are ignored. A malformed <code>package.json</code> fails the extension outright, so a broken registration can never half-serve.</p>
+
+        <h2 id="writing-index-js">Writing <code>index.js</code></h2>
+        <p>Define a <code>handler</code> function. It receives the request input and returns either an HTML string or an object:</p>
+
+<pre><code>function handler(input) {
+  const size = input.params?.size ?? "140";
+  return {
+    status: 200,                             // optional
+    contentType: "text/html; charset=utf-8",  // optional
+    body: `&lt;!doctype html&gt;&lt;html&gt;&lt;body&gt;
+      &lt;canvas data-size="${size}"&gt;&lt;/canvas&gt;
+    &lt;/body&gt;&lt;/html&gt;`,
+  };
+}</code></pre>
+
+        <p>The input carries the action (<code>"render"</code> or <code>"api"</code>), the extension id, the pane id, method, path, query, headers, and your tile parameters — plus <code>token</code>, the extension-scoped token described below. A non-2xx <code>status</code> is honoured; an invalid result produces a minimal error page and a server-side log line, never a stack trace in the browser.</p>
+        <p>The script runs once per request to produce the document — animation, pointer tracking, and everything else happens client-side in the page it returns.</p>
+
+        <h2 id="api-routes">API Routes</h2>
+        <p>Registered routes are served under <code>/gqjs/api/&lt;id&gt;/&lt;path&gt;</code> and are a <strong>pure data relay</strong>: the handler's result is returned byte-for-byte, never injected into a page.</p>
+        <ul>
+          <li>Routes are matched <strong>in declaration order; the first match wins</strong>, with a segment-wise prefix match. <code>/hello</code> therefore shadows <code>/hello/world</code>.</li>
+          <li><code>&lt;name&gt;</code> segments bind and are passed through as <code>pathParams</code>: <code>/note/&lt;id&gt;</code> matches <code>/note/42</code> and <code>/note/42/edit</code> with <code>id=42</code>.</li>
+          <li><code>/</code> is the catch-all root. No registration, no match, or a missing handler file all answer <code>404</code> — the API fails closed.</li>
+          <li>Methods are limited to <code>GET</code>, <code>HEAD</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, and <code>DELETE</code>; bodies are capped at 4 MiB, and a script that overruns its deadline returns <code>504</code>.</li>
+        </ul>
+        <p>Handlers see the request as JSON: <code>route</code>, <code>path</code>, <code>pathParams</code>, <code>method</code>, <code>query</code>, lowercased <code>headers</code>, and the body as text (or base64 when it is not valid UTF-8). They run through the same isolated child process as renders — read-only root, minimal environment, no network unless <code>suwu.net</code> says so.</p>
+
+        <h2 id="static-assets">Static Assets</h2>
+        <p><code>"suwu": { "static": "public" }</code> serves a directory at <code>/gqjs/static/&lt;id&gt;/&lt;path&gt;</code> for <code>GET</code>/<code>HEAD</code>, with an extension allow-list, no directory listings, no dotfiles, no traversal or symlink escapes, and an 8 MiB cap. Documents (HTML, SVG) are served with a strict <code>default-src 'none'</code> policy so opening one directly renders it inert.</p>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Static files are public</div>
+          <p>ES-module fetches from a sandboxed, opaque-origin page carry neither cookies nor tokens — a module's relative imports cannot carry one either. That is why <code>/gqjs/static/</code> is unauthenticated. <strong>Never put a secret under <code>public/</code>.</strong> Credentials travel through the authenticated render HTML only: an inline classic script or a <code>data-*</code> attribute such as <code>data-api="…?token=…"</code>, read by the static code at runtime.</p>
+        </div>
+
+        <h2 id="network-access">Network Access</h2>
+        <p>By default the script is networkless: <code>fetch()</code> rejects with <em>network access is disabled</em>. Set <code>"suwu": { "net": true }</code> to opt in. Even then, loopback, private, and link-local addresses (cloud metadata endpoints) stay blocked — a networked extension cannot reach your internal services from the server side.</p>
+
+        <h2 id="storage-focus-and-keyboard">Storage, Focus, and Keyboard</h2>
+        <ul>
+          <li><strong>Storage bridge</strong> — a sandboxed page has an opaque origin, so it has no web storage of its own. The <strong>note</strong> example persists through the trusted tile page instead, which stores values in its own IndexedDB under a key namespaced to that extension. The child chooses only a suffix, so it can never reach another extension's data, app settings, or the session.</li>
+          <li><strong>Focus and shortcuts</strong> — key events stop at frame boundaries, so Suwu injects a small relay into the rendered page: it reports focus changes and keystrokes up to the tile, and swallows the browser defaults for the families it forwards. <kbd>Alt</kbd> shortcuts work inside an extension tile exactly as they do in a terminal tile.</li>
+          <li><strong>Links</strong> — <code>target="_blank"</code> opens a normal tab with a real origin, and the page's own <code>sandbox</code> policy keeps such a document from reading the session cookie.</li>
+        </ul>
+
+        <h2 id="security-model-in-one-list">Security Model in One List</h2>
+        <ol>
+          <li>The app shell is authenticated with the session token. An extension is handed a <strong>token scoped to its own API only</strong> — it opens <code>/gqjs/api/&lt;id&gt;/*</code> and nothing else. An extension token is rejected everywhere under <code>/api/*</code>, and the session token is never issued to extension code.</li>
+          <li>Ids, paths, and handler files are validated and re-checked against the extension directory, symlinks included.</li>
+          <li>Every script runs as a fresh child process with a read-only root, a minimal environment, a deadline, and a concurrency cap — a crash or a runaway script cannot take down the server.</li>
+          <li>Rendered pages are served with a strict CSP, <code>nosniff</code>, and <code>no-store</code>, inside a sandboxed frame that is forced to an opaque origin.</li>
+        </ol>
+
+        <h2 id="related">Related</h2>
+        <ul>
+          <li><a href="gqjs.html">gqjs Script Runner</a> — the runtime behind extensions, usable on its own from the command line.</li>
+          <li><a href="backgrounds.html">Backgrounds</a> — the same pattern applied to WebGPU backgrounds.</li>
+        </ul>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/rest-helper.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">REST Helper</span>
+        </a>
+        <a href="/docs/features/gqjs.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">gqjs Script Runner</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#overview">Overview</a></li>
+<li><a href="#installing-an-extension">Installing an Extension</a></li>
+<li><a href="#adding-an-extension-tile">Adding an Extension Tile</a></li>
+<li><a href="#metadata-package-json">Metadata: package.json</a></li>
+<li><a href="#writing-index-js">Writing index.js</a></li>
+<li><a href="#api-routes">API Routes</a></li>
+<li><a href="#static-assets">Static Assets</a></li>
+<li><a href="#network-access">Network Access</a></li>
+<li><a href="#storage-focus-and-keyboard">Storage, Focus, and Keyboard</a></li>
+<li><a href="#security-model-in-one-list">Security Model in One List</a></li>
+<li><a href="#related">Related</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
+</body>
+</html>

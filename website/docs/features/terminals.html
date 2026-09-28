@@ -53,6 +53,7 @@
             <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
             <li><a href="/docs/features/terminals.html" aria-current="page">Terminals</a></li>
             <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+            <li><a href="/docs/features/public-access.html">Public Access</a></li>
           </ul>
         </div>
         <div class="doc-sidebar-group">
@@ -63,6 +64,7 @@
             <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
             <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
             <li><a href="/docs/features/db-browser.html">DB Browser</a></li>
+            <li><a href="/docs/features/folder-sync.html">Folder Sync</a></li>
           </ul>
         </div>
         <div class="doc-sidebar-group">
@@ -70,6 +72,14 @@
           <ul class="doc-sidebar-nav">
             <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
             <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+            <li><a href="/docs/features/rest-helper.html">REST Helper</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Extend</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/extensions.html">Extensions</a></li>
+            <li><a href="/docs/features/gqjs.html">gqjs Script Runner</a></li>
           </ul>
         </div>
         <div class="doc-sidebar-group">
@@ -96,9 +106,6 @@
       </div>
 <div class="prose">
 <div class="doc-video"><video src="/assets/agent-terminals.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of a full-featured terminal running an agent orchestrator"></video></div>
-      </div>
-
-      <div class="prose">
         <h2 id="what-you-get">What You Get</h2>
         <p>Every terminal tile in Suwu is a real PTY-backed shell running on the server. It's not a simulation — it's your actual <code>bash</code>, <code>zsh</code>, or <code>fish</code>, with:</p>
         <ul>
@@ -130,8 +137,12 @@
           <li>Background jobs completing.</li>
         </ul>
 
+        <h2 id="recovering-a-stuck-terminal">Recovering a Stuck Terminal</h2>
+        <p>Sometimes a full-screen TUI leaves the terminal in a state where nothing you type appears to do anything — the app is still drawing over the prompt, or an escape sequence was swallowed. Right-click the tile and choose <strong>Reset terminal</strong>: it clears the screen and re-synchronizes the display with the shell, without killing the session and without losing your scrollback.</p>
+
         <h2 id="agent-integration">Agent Integration</h2>
         <p>Suwu terminals are designed to work with agent orchestrators like <code>opencode</code>, <code>pi</code>, and <code>herdr</code>. Each terminal is a real PTY that agents can read from and write to, with proper signal handling and output streaming.</p>
+        <p>To go further, <code>suwu agent</code> installs the <strong>suwu-tools</strong> skill into the agents it finds on your machine, so they can open tiles, read output, and post notifications in your running Suwu session instead of guessing. See <a href="suwu-cli.html">Suwu CLI</a>.</p>
 
         <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
 
@@ -160,12 +171,8 @@
               <td><kbd>Shift</kbd>+<kbd>Page Down</kbd></td>
             </tr>
             <tr>
-              <td>Search in scrollback</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td>
-            </tr>
-            <tr>
-              <td>Reset terminal</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td>
+              <td>Selection mode</td>
+              <td><kbd>Alt</kbd>+<kbd>C</kbd></td>
             </tr>
           </tbody>
         </table>
@@ -175,6 +182,11 @@
 
 <pre><code># Use zsh instead of bash
 SHELL=/bin/zsh suwu serve</code></pre>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Stuck in a full-screen TUI and no context menu in sight? <kbd>Alt</kbd>+<kbd>C</kbd> toggles selection mode, and the reset action in the right-click menu clears the screen and re-syncs the display.</p>
+        </div>
 
 </div>
       <nav class="doc-nav" aria-label="Prev / Next">
@@ -195,6 +207,7 @@ SHELL=/bin/zsh suwu serve</code></pre>
 <li><a href="#what-you-get">What You Get</a></li>
 <li><a href="#session-persistence">Session Persistence</a></li>
 <li><a href="#notifications">Notifications</a></li>
+<li><a href="#recovering-a-stuck-terminal">Recovering a Stuck Terminal</a></li>
 <li><a href="#agent-integration">Agent Integration</a></li>
 <li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
 <li><a href="#shell-selection">Shell Selection</a></li>

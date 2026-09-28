@@ -1,9 +1,6 @@
 <div class="doc-video"><video src="/assets/appearance-i18n.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of font, theme, and language settings"></video></div>
-      </div>
-
-      <div class="prose">
         <h2>Opening Settings</h2>
-        <p>Click the gear icon in the header, or press <kbd>Ctrl</kbd>+<kbd>,</kbd> to open the settings panel.</p>
+        <p>Click the gear icon in the header to open the settings panel. The tabs are <strong>Notifications</strong>, <strong>Background</strong>, <strong>Header</strong>, <strong>Language</strong>, <strong>Spaces</strong>, <strong>Actions</strong>, and <strong>Account</strong>. Every preference is stored per browser, so a second device keeps its own.</p>
 
         <h2>Font Settings</h2>
         <ul>
@@ -46,8 +43,16 @@ SUWU_GLASS_ALPHA=0.3 suwu serve</code></pre>
         </div>
 
         <h2>Background</h2>
-        <p>The Appearance tab also chooses the full-viewport background behind your tiles, with a live preview. Options range from the default Ambient Blob to a looping video clip and GPU-rendered shader backgrounds, each with its own parameters.</p>
-        <p>See <a href="backgrounds.html">Backgrounds</a> for the full list, the video clip library, and performance and fallback notes.</p>
+        <p>The Background tab chooses the full-viewport background behind your tiles, with a live preview. Options range from the default Ambient Blob to a looping video clip and GPU-rendered shader backgrounds, each with its own parameters — and you can drop your own into <code>~/.suwu/background/webgpu/</code>.</p>
+        <p>See <a href="backgrounds.html">Backgrounds</a> for the full list, the video clip library, writing your own, and performance and fallback notes.</p>
+
+        <h2>Header Position</h2>
+        <p>The Header tab decides which edge of the window the app bar lives on:</p>
+        <ul>
+          <li><strong>Top</strong> (default) and <strong>Bottom</strong> — the familiar horizontal bar.</li>
+          <li><strong>Left</strong> and <strong>Right</strong> — a narrow vertical strip. The brand label reads at 90° while every icon stays upright, and the space and split menus open inward instead of downward.</li>
+        </ul>
+        <p>On the side docks the navigation group (spaces, splits) sits at the bottom of the strip and the menu and account controls at the top, and the notification panel anchors to the opposite side so it never covers the bar. A left rail is a good fit on a wide monitor; the top bar stays comfortable on a laptop.</p>
 
         <h2>Language</h2>
         <p>Suwu supports English and Chinese (Simplified) out of the box. The interface detects your browser's language preference automatically.</p>
@@ -59,7 +64,18 @@ SUWU_LANG=en suwu serve
 # Force Chinese
 SUWU_LANG=zh suwu serve</code></pre>
 
-        <p>You can also switch languages from the settings panel — the change takes effect immediately.</p>
+        <p>You can also switch languages from the <strong>Language</strong> tab in the settings panel — the change takes effect immediately.</p>
+
+        <h2>Your Name and Avatar</h2>
+        <p>The <strong>Account</strong> tab covers how you appear on the login screen, where there is no password field to look at — just a name and a picture.</p>
+        <ul>
+          <li><strong>User name</strong> — shown under your avatar. Press <strong>Random name</strong> to be given one, or type your own.</li>
+          <li><strong>Avatar source</strong> — a built-in avatar, a Gravatar derived from an email address, or an image you upload.</li>
+          <li><strong>Built-in avatars</strong> — a small set of animals and objects ships with Suwu. Leaving the source on <em>From user name</em> keeps the avatar in sync with the name; picking a picture pins it.</li>
+          <li><strong>Gravatar</strong> — fetched from gravatar.com using the MD5 hash of the email. The address itself never leaves your browser.</li>
+          <li><strong>Upload</strong> — downscaled to 512&nbsp;px and kept in this browser's local storage. It is never uploaded to the server.</li>
+        </ul>
+        <p>If the chosen source has nothing to show, or the image cannot be loaded, Suwu falls back to a built-in avatar rather than an empty frame.</p>
 
         <h2>Custom Themes</h2>
         <p>Create a custom theme by defining color tokens:</p>
@@ -85,34 +101,4 @@ SUWU_LANG=zh suwu serve</code></pre>
         <p>Place the file at <code>~/.config/suwu/theme.json</code> and it will appear in the theme selector.</p>
 
         <h2>Keyboard Shortcuts</h2>
-
-        <table class="shortcut-table">
-          <thead>
-            <tr>
-              <th>Action</th>
-              <th>Shortcut</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Open settings</td>
-              <td><kbd>Ctrl</kbd>+<kbd>,</kbd></td>
-            </tr>
-            <tr>
-              <td>Toggle fullscreen</td>
-              <td><kbd>F11</kbd></td>
-            </tr>
-            <tr>
-              <td>Zoom in</td>
-              <td><kbd>Ctrl</kbd>+<kbd>+</kbd></td>
-            </tr>
-            <tr>
-              <td>Zoom out</td>
-              <td><kbd>Ctrl</kbd>+<kbd>-</kbd></td>
-            </tr>
-            <tr>
-              <td>Reset zoom</td>
-              <td><kbd>Ctrl</kbd>+<kbd>0</kbd></td>
-            </tr>
-          </tbody>
-        </table>
+        <p>Window-manager and session shortcuts are all <kbd>Alt</kbd>-based. Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>/</kbd> in the browser for the searchable shortcut list, which always reflects the running build; <a href="tiling-wm.html">Tiling Window Manager</a> has the full table.</p>

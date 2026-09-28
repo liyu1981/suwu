@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>gqjs Script Runner — Suwu Docs</title>
+  <meta name="description" content="Run JavaScript in a request-scoped QuickJS sandbox with suwu gq." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+            <li><a href="/docs/features/public-access.html">Public Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+            <li><a href="/docs/features/db-browser.html">DB Browser</a></li>
+            <li><a href="/docs/features/folder-sync.html">Folder Sync</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+            <li><a href="/docs/features/rest-helper.html">REST Helper</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Extend</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/extensions.html">Extensions</a></li>
+            <li><a href="/docs/features/gqjs.html" aria-current="page">gqjs Script Runner</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+            <li><a href="/docs/features/backgrounds.html">Backgrounds</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">gqjs Script Runner</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>gqjs Script Runner</h1>
+        <p class="doc-lead"><code>suwu gq</code> runs one JavaScript file in a request-scoped QuickJS sandbox: a fresh isolate, scoped filesystem roots, an optional input payload, and a hard deadline. The same runtime that renders extension tiles.</p>
+      </div>
+<div class="prose">
+<h2 id="overview">Overview</h2>
+        <p><code>suwu gq</code> runs a single JavaScript file in a <strong>request-scoped QuickJS sandbox</strong> and prints what it produced. Each run gets a fresh isolate, an optional JSON input, capability-scoped filesystem roots, and a hard deadline — then the isolate is destroyed. There is no event loop and nothing is shared between runs.</p>
+        <p>It is the runtime behind <a href="extensions.html">extension tiles</a> (there, one script per HTTP request, in its own process) and it is a perfectly good command-line tool on its own: a small JSON transformer, a file-report generator, a health probe.</p>
+        <p>QuickJS runs on WebAssembly via <code>wazero</code>, so there is no CGO, no Node, and no system dependency — the whole engine ships inside the <code>suwu</code> binary.</p>
+
+        <h2 id="usage">Usage</h2>
+
+<pre><code>suwu gq [flags] &lt;script.js&gt;</code></pre>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Flag</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>--input &lt;json&gt;</code></td>
+              <td>Input payload, passed to the script as the global <code>input</code>.</td>
+            </tr>
+            <tr>
+              <td><code>--input-file &lt;file&gt;</code></td>
+              <td>Read the input payload from a file instead of the command line.</td>
+            </tr>
+            <tr>
+              <td><code>--root &lt;virtual=real&gt;</code></td>
+              <td>Mount a host directory inside the sandbox. Repeatable, e.g. <code>/app=./src</code>.</td>
+            </tr>
+            <tr>
+              <td><code>--ro</code></td>
+              <td>Make the filesystem read-only.</td>
+            </tr>
+            <tr>
+              <td><code>--cwd &lt;dir&gt;</code></td>
+              <td>Virtual working directory (default <code>/</code>).</td>
+            </tr>
+            <tr>
+              <td><code>--env &lt;KEY=VALUE&gt;</code></td>
+              <td>Set an environment variable. Repeatable.</td>
+            </tr>
+            <tr>
+              <td><code>--arg &lt;value&gt;</code></td>
+              <td>Append an entry to <code>process.argv</code>. Repeatable.</td>
+            </tr>
+            <tr>
+              <td><code>--timeout &lt;dur&gt;</code></td>
+              <td>Wall-clock deadline for the whole run (default <code>5s</code>).</td>
+            </tr>
+            <tr>
+              <td><code>--allow-net</code></td>
+              <td>Enable <code>fetch()</code> for http/https targets.</td>
+            </tr>
+            <tr>
+              <td><code>--allow-private</code></td>
+              <td>With <code>--allow-net</code>, also allow loopback and private addresses. Link-local addresses stay blocked.</td>
+            </tr>
+            <tr>
+              <td><code>--print-result</code></td>
+              <td>Print the script's result as JSON on stdout.</td>
+            </tr>
+            <tr>
+              <td><code>--result-file &lt;path&gt;</code></td>
+              <td>Write the JSON result to a file, for machine consumption.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="exit-codes">Exit Codes</h2>
+        <p>The exit status is meaningful, so <code>suwu gq</code> composes with shell scripts and CI:</p>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>0</code></td>
+              <td>Success.</td>
+            </tr>
+            <tr>
+              <td><code>1</code></td>
+              <td>Script or runtime error.</td>
+            </tr>
+            <tr>
+              <td><code>2</code></td>
+              <td>Timed out.</td>
+            </tr>
+            <tr>
+              <td><code>3</code></td>
+              <td>Output limit exceeded.</td>
+            </tr>
+            <tr>
+              <td><code>64</code></td>
+              <td>Usage error.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="script-contract">Script Contract</h2>
+        <p>If the script defines a global function named <code>handler</code>, it is called with the <code>input</code> value and its return value becomes the result. Otherwise the script's last expression is the result:</p>
+
+<pre><code>async function handler(input) {
+  const text = await fs.promises.readFile("/app/data.txt");
+  return { n: input.n, doubled: input.n * 2, text };
+}</code></pre>
+
+        <p>Available globals:</p>
+        <ul>
+          <li><code>input</code> — the JSON payload (<code>undefined</code> when none was given).</li>
+          <li><code>console</code> — <code>log</code>, <code>info</code>, <code>debug</code> to stdout; <code>warn</code>, <code>error</code> to stderr.</li>
+          <li><code>fs</code> — <code>readFileSync</code>, <code>writeFileSync</code>, <code>readdirSync</code>, <code>statSync</code>, <code>existsSync</code>, <code>mkdirSync</code>, <code>unlinkSync</code>, plus an <code>fs.promises</code> facade over the same calls. Paths are resolved against the mounted roots; anything outside them is denied.</li>
+          <li><code>path</code> — the usual POSIX helpers: <code>join</code>, <code>basename</code>, <code>dirname</code>, <code>extname</code>, <code>normalize</code>, <code>isAbsolute</code>, <code>resolve</code>, <code>relative</code>, plus <code>sep</code> and <code>delimiter</code>.</li>
+          <li><code>process</code> — <code>env</code>, <code>argv</code>, <code>cwd()</code>, <code>platform</code>, <code>pid</code>, <code>version</code>.</li>
+          <li><code>fetch</code> — only with <code>--allow-net</code>. A modern subset: <code>fetch</code>, <code>Headers</code>, and <code>Response</code> with <code>text()</code>, <code>json()</code>, and <code>arrayBuffer()</code>. No <code>XMLHttpRequest</code>, no WebSocket, no streaming bodies, no cookie jar.</li>
+        </ul>
+
+        <h2 id="examples">Examples</h2>
+        <p>The repository ships runnable samples under <code>examples/gqjs/</code>:</p>
+
+<pre><code># Print a result
+suwu gq --print-result examples/gqjs/handler.js
+
+# Feed it input and a filesystem root
+suwu gq --root /app=./examples/gqjs --input '{"n":21}' --print-result \
+  examples/gqjs/handler.js
+
+# Call an API (needs the network opt-in)
+suwu gq --allow-net --print-result examples/gqjs/fetch.js
+
+# Reach a local dev server (loopback stays blocked without this)
+suwu gq --allow-net --allow-private --print-result examples/gqjs/fetch.js
+
+# Hand the result to another program
+suwu gq --root /app=./examples/gqjs --input '{"n":21}' \
+  --result-file /tmp/result.json examples/gqjs/handler.js</code></pre>
+
+        <h2 id="limits">Limits</h2>
+        <ul>
+          <li><strong>Time</strong> — 5 seconds by default; a script that overruns is killed and the run exits <code>2</code>.</li>
+          <li><strong>Memory</strong> — a 64 MiB QuickJS heap, 1 MiB stack.</li>
+          <li><strong>Output</strong> — captured stdout and stderr are capped at 1 MiB in total.</li>
+          <li><strong>Response bodies</strong> — a single <code>fetch</code> body is capped at 4 MiB.</li>
+          <li><strong>Filesystem</strong> — nothing is visible until you mount it with <code>--root</code>, and traversal outside a root is refused.</li>
+          <li><strong>Network</strong> — off by default, and even with <code>--allow-net</code> loopback, private, and link-local addresses require <code>--allow-private</code> (link-local never).</li>
+        </ul>
+
+        <h2 id="where-it-runs">Where It Runs</h2>
+        <ul>
+          <li><a href="extensions.html">Extension tiles</a> — the server spawns <code>suwu gq</code> per request with a read-only root, a 5-second deadline, and a concurrency cap, then renders the returned HTML.</li>
+          <li><a href="backgrounds.html">WebGPU backgrounds</a> — the embedded WGSL compiler is the same QuickJS engine, exposed as <code>suwu background build</code>.</li>
+        </ul>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/extensions.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Extensions</span>
+        </a>
+        <a href="/docs/features/suwu-cli.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Suwu CLI</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#overview">Overview</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#exit-codes">Exit Codes</a></li>
+<li><a href="#script-contract">Script Contract</a></li>
+<li><a href="#examples">Examples</a></li>
+<li><a href="#limits">Limits</a></li>
+<li><a href="#where-it-runs">Where It Runs</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
+</body>
+</html>

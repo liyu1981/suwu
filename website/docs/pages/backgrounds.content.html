@@ -3,7 +3,7 @@
         <p>Backgrounds are pluggable: each declares its own tunable parameters, and some ship both a CPU and a WebGPU implementation. Suwu picks the GPU one when your browser supports WebGPU and falls back to the CPU one when it does not. A GPU-only background simply renders nothing on a browser without WebGPU.</p>
 
         <h2>Choosing a Background</h2>
-        <p>Open <strong>Settings</strong> (<kbd>Ctrl</kbd>+<kbd>,</kbd>) and switch to the <strong>Appearance</strong> tab:</p>
+        <p>Open <strong>Settings</strong> from the gear icon in the header and switch to the <strong>Background</strong> tab:</p>
         <ul>
           <li><strong>Live preview</strong> — a small preview above the selector shows exactly what the selected background looks like, sized to the current window's aspect ratio. It updates as soon as you change the selection or a parameter.</li>
           <li><strong>Primary selector</strong> — lists the backgrounds available to the shell. Engine-backed shader backgrounds are grouped under a single <strong>WebGPU</strong> entry.</li>
@@ -90,6 +90,42 @@
           <li><strong>Mask</strong> — a colour and opacity tint drawn over the video. The default is the same translucent white as the tile panel, so the tiles stay readable.</li>
         </ul>
         <p>Clips longer than 30 seconds are flagged as too long for a background. Decoding is done lazily with backpressure, so memory stays bounded regardless of clip length; load and codec failures are reported on the canvas itself.</p>
+
+        <h2 id="custom">Your Own Backgrounds</h2>
+        <p>WebGPU backgrounds are <strong>files, not compiled-in code</strong>. A background is just a directory, and dropping it into the data directory registers it — no rebuild, no plugin install. Five worked examples ship in the repository under <code>examples/background/webgpu/</code>:</p>
+
+<pre><code># install one (or all five)
+cp -r examples/background/webgpu/matrix-rain ~/.suwu/background/webgpu/
+
+# then reload the Suwu tab</code></pre>
+
+        <p>They appear in <strong>Settings → Background</strong> alongside the built-ins, each with its own label and parameters. A directory with the same id as a built-in <strong>overrides</strong> it, and deleting a directory unregisters the background (a stored selection then falls back to the ambient blob). Set <code>SUWU_BACKGROUNDS_DIR</code> to serve a background tree from somewhere else entirely — useful while developing one.</p>
+
+        <h3>Directory layout</h3>
+
+<pre><code>&lt;dataDir&gt;/background/webgpu/&lt;id&gt;/
+  background.json        # metadata and parameters — required
+  scene.js               # ESM module: export default create(api) -&gt; { start }
+  shaders/*.wgsl         # authored WGSL (entries have @fragment / @compute)
+  shaders/*.shader.js    # generated artifacts, committed alongside the WGSL</code></pre>
+
+        <ul>
+          <li><strong><code>background.json</code></strong> — <code>id</code> (must equal the directory name), <code>label</code>, <code>engine</code>, an optional <code>credit</code> block for ports, and a <code>params</code> array of <code>number</code>, <code>boolean</code>, <code>select</code>, <code>text</code>, or <code>color</code> controls. An invalid manifest is skipped, never fatal.</li>
+          <li><strong><code>scene.js</code></strong> — exports <code>create(api)</code> returning <code>{ start(ctx, params) }</code>. Everything the engine offers (the scene builders, the GPU background starter, storage and texture assets, the compute helpers) arrives through <code>api</code>; never import a bare specifier, because the browser cannot resolve one.</li>
+          <li><strong><code>shaders/*.shader.js</code></strong> — the compiled form of each WGSL entry. There is no WGSL resolver in the browser, so these artifacts are generated ahead of time and shipped with the background.</li>
+        </ul>
+
+        <h3>Compiling shaders</h3>
+        <p>The WGSL compiler is embedded in the <code>suwu</code> binary, so there is no Node toolchain to install. Compile every <strong>entry</strong> shader — any file with <code>@fragment</code> or <code>@compute</code> — and redirect it to its sibling:</p>
+
+<pre><code>suwu background build shaders/matrix.wgsl &gt; shaders/matrix.shader.js</code></pre>
+
+        <p>Imports are resolved for you (relative <code>.wgsl</code> files and the bundled standard library), so only entries need compiling; helper modules are inlined. Diagnostics go to stderr with a non-zero exit and nothing is written to stdout, which makes the <code>&gt;</code> redirect safe.</p>
+
+        <div class="callout">
+          <div class="callout-title">One more thing to know</div>
+          <p>Background modules are served as static files, so the manifest and scene files are reachable by anything that can reach the server. Keep anything sensitive out of a background directory — the only thing they should hold is shaders and a scene.</p>
+        </div>
 
         <h2>Performance</h2>
         <ul>

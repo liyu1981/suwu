@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Folder Sync — Suwu Docs</title>
+  <meta name="description" content="Mirror a folder on the server into a folder on your own computer." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+            <li><a href="/docs/features/public-access.html">Public Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+            <li><a href="/docs/features/db-browser.html">DB Browser</a></li>
+            <li><a href="/docs/features/folder-sync.html" aria-current="page">Folder Sync</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+            <li><a href="/docs/features/rest-helper.html">REST Helper</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Extend</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/extensions.html">Extensions</a></li>
+            <li><a href="/docs/features/gqjs.html">gqjs Script Runner</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+            <li><a href="/docs/features/backgrounds.html">Backgrounds</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">Folder Sync</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>Folder Sync</h1>
+        <p class="doc-lead">Mirror a folder on the Suwu server into a folder on your own computer — one way, server to local, re-checked every few seconds. No upload, no second shell, no <code>rsync</code>.</p>
+      </div>
+<div class="prose">
+<h2 id="overview">Overview</h2>
+        <p><strong>Folder Sync</strong> mirrors a folder on the Suwu server into a folder on your own computer, and keeps the local copy identical to the remote one. It is the tile to reach for when a build on the server produces artifacts you want to open in a local editor — or when you want the same tree to exist on your laptop without a second shell.</p>
+        <p>Sync is <strong>one-way: server → local</strong>. The server is always the source of truth, so there is nothing to reconcile and nothing to merge. The local folder is read and written directly by your browser through the File System Access API — files are never uploaded, zipped, or staged anywhere else.</p>
+
+        <h2 id="how-a-sync-cycle-works">How a Sync Cycle Works</h2>
+        <p>Each cycle has two phases:</p>
+        <ul>
+          <li><strong>Pre-flight</strong> — the server returns a manifest of the remote folder (paths, sizes, millisecond mtimes); the browser scans the local folder and diffs the two.</li>
+          <li><strong>Sync</strong> — the plan is applied: new and changed files are downloaded, new folders are created, and (optionally) local extras are removed.</li>
+        </ul>
+        <p>The default interval is <strong>5 seconds</strong>, and each cycle ends in a short <em>Watching</em> cooldown so an unchanged tree costs almost nothing. Locally edited files are overwritten by the server copy — always logged explicitly as <em>overwrote local change</em>, so nothing ever disappears silently.</p>
+
+        <h2 id="setting-up-a-job">Setting Up a Job</h2>
+        <ol>
+          <li>Open the <strong>App Menu</strong> (the grid button in the header) and add a <strong>Folder Sync</strong> app. The tile accepts two launch parameters, so you can pre-fill it from a custom app entry:
+            <ul>
+              <li><code>remotePath</code> — the server folder to mirror.</li>
+              <li><code>interval</code> — the cycle interval in milliseconds (default <code>5000</code>).</li>
+            </ul>
+          </li>
+          <li>In the tile, press <strong>Add job</strong> and give it a name.</li>
+          <li>Set the <strong>Server folder</strong> — pick it in the tile, or pre-fill it with <code>remotePath</code>.</li>
+          <li>Press <strong>Choose folder</strong> and pick the destination on your computer. The browser remembers the choice, so you normally do this once per job.</li>
+          <li>Leave <strong>Sync interval</strong> as-is unless you need faster or calmer syncing.</li>
+          <li>Press <strong>Start</strong>. The status chip walks through <em>Starting → Pre-flight → Syncing → Watching</em>.</li>
+        </ol>
+
+        <h2 id="mirror-deletions">Mirror Deletions</h2>
+        <p><strong>Mirror deletions</strong> is on by default. When it is on, a file or folder that exists locally but no longer exists on the server is deleted, which is what makes "the local folder always equals the server folder" literally true. Turn it off if the local folder also holds files of your own that you want to keep.</p>
+        <p>Deletions are applied only after the downloads of that cycle succeed — if a transfer fails, the deletions are postponed rather than run against a half-synced tree.</p>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">This deletes local files</div>
+          <p>With <strong>Mirror deletions</strong> on, anything removed on the server is removed locally. Keep the local folder dedicated to the mirror rather than pointing it at a directory that holds anything you would miss.</p>
+        </div>
+
+        <h2 id="the-sync-journal">The Sync Journal</h2>
+        <p>Each synced folder carries a small <code>.suwu-sync.json</code> file recording what has already been pulled. It is what stops the mirror from re-downloading the whole tree every cycle, and it is how Suwu knows which side changed.</p>
+        <ul>
+          <li><strong>One folder, one server folder.</strong> If <code>.suwu-sync.json</code> names a different server folder, the tile refuses to start and offers <strong>Reset and start</strong>. Resetting keeps your files; the next cycle simply re-checks everything from scratch.</li>
+          <li><strong>Deleting the file</strong> by hand is the way to force a full re-check without syncing first.</li>
+        </ul>
+
+        <h2 id="activity-log">Activity Log</h2>
+        <p>The tile keeps a running log of what each cycle did — pulled files with sizes, created folders, overwrites, deletions, skipped files, and cycle statistics such as <code>cycle #12 · 318 checked · ↓4 · −1 · 1.2 MB · 143 ms</code>. Use it to confirm that a build's output really arrived.</p>
+        <p>The tile toolbar has a <strong>Run one cycle now</strong> button, so you do not have to wait for the next tick while watching a build finish.</p>
+
+        <h2 id="requirements-and-limits">Requirements and Limits</h2>
+        <div class="callout">
+          <div class="callout-title">Chromium-based browsers</div>
+          <p>Folder Sync needs the File System Access API: <strong>Chrome, Edge, or Opera</strong>, on a secure context (HTTPS or <code>localhost</code>). Other browsers get a clear "not supported" state in the tile. Files larger than 64 MiB are skipped and logged rather than pulled.</p>
+        </div>
+        <p>Also worth knowing:</p>
+        <ul>
+          <li><strong>Sync runs only while the tile is open.</strong> There is no background daemon; closing the tile stops the loop. The <em>job configuration</em> is kept, so reopening the tile brings the jobs back idle, waiting for <strong>Start</strong>.</li>
+          <li><strong>Nothing is written to the server.</strong> The engine holds one read-only manifest endpoint; the server never learns about your local folder beyond the paths you browse.</li>
+          <li><strong>Permission can be revoked.</strong> Browsers re-ask for folder access periodically. If access is denied, the tile says so and asks you to pick the folder again.</li>
+        </ul>
+
+        <h2 id="related">Related</h2>
+        <ul>
+          <li><a href="dropbox.html">Dropbox</a> — the other direction: push a local file to the server.</li>
+          <li><a href="file-browser.html">File Browser</a> — browse the server side of the mirror.</li>
+          <li><a href="tiling-wm.html">Tiling Window Manager</a> — keep a sync tile next to the build it follows.</li>
+        </ul>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/db-browser.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">DB Browser</span>
+        </a>
+        <a href="/docs/features/git-graph.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Git Graph</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#overview">Overview</a></li>
+<li><a href="#how-a-sync-cycle-works">How a Sync Cycle Works</a></li>
+<li><a href="#setting-up-a-job">Setting Up a Job</a></li>
+<li><a href="#mirror-deletions">Mirror Deletions</a></li>
+<li><a href="#the-sync-journal">The Sync Journal</a></li>
+<li><a href="#activity-log">Activity Log</a></li>
+<li><a href="#requirements-and-limits">Requirements and Limits</a></li>
+<li><a href="#related">Related</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
+</body>
+</html>

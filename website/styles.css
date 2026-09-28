@@ -284,6 +284,22 @@ kbd {
   margin-bottom: var(--space-8);
 }
 
+.hero-links {
+  margin-bottom: var(--space-8);
+}
+
+.hero-links a {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 2px;
+}
+
+.hero-links a:hover {
+  border-bottom-color: var(--color-text);
+}
+
 .hero-badge {
   margin-bottom: var(--space-6);
 }
@@ -524,6 +540,17 @@ kbd {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: #8a8a82;
+}
+
+.feature-media-link {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.feature-media-link:hover {
+  border-bottom-color: var(--color-text);
 }
 
 .feature-media-video {

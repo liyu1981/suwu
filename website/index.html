@@ -42,6 +42,9 @@
           tiling terminal that keeps running when you don't — refresh, disconnect,
           come back tomorrow, pick up where you left off.
         </p>
+        <p class="hero-links">
+          <a href="docs/index.html">Browse the docs</a>
+        </p>
 
       </div>
     </section>
@@ -101,7 +104,7 @@
             <span class="feature-num" aria-hidden="true">03</span>
             <div class="feature-body">
               <h3>Convenient apps for everyday dev work</h3>
-              <p>A file browser with download, a file viewer with auto-refresh, a TCP/UDP port forwarder, and a database browser for SQLite, MySQL, and PostgreSQL — the small tools you'd otherwise reach for a second terminal or a GUI client, right in the grid next to your shells.</p>
+              <p>A file browser with download, a file viewer with auto-refresh, a TCP/UDP port forwarder, a database browser for SQLite, MySQL, and PostgreSQL, and a Postman-style REST helper that reaches <code>localhost</code> and your LAN from the server side — the small tools you'd otherwise reach for a second terminal or a GUI client, right in the grid next to your shells.</p>
             </div>
             <video class="feature-media-video" src="assets/everyday-apps.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the file browser, file viewer, and port forwarder tiles"></video>
           </li>
@@ -133,9 +136,37 @@
             <span class="feature-num" aria-hidden="true">07</span>
             <div class="feature-body">
               <h3>Install once, stay current</h3>
-              <p>Onboarding sets up your dev environment step by step, and <code>suwu update</code> keeps the binary fresh. No config files to babysit.</p>
+              <p>Onboarding sets up your dev environment step by step, and <code>suwu upgrade</code> keeps the binary fresh. No config files to babysit.</p>
             </div>
             <video class="feature-media-video" src="assets/onboard-update.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the onboarding checklist and suwu update command"></video>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">08</span>
+            <div class="feature-body">
+              <h3>Build output lands on your laptop</h3>
+              <p>Folder Sync mirrors a folder on the server into a folder on your own computer, one way and re-checked every few seconds — a local copy of what the build just produced, without a second shell or an <code>rsync</code> you have to remember.</p>
+            </div>
+            <div class="feature-media">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+              </span>
+              <span class="feature-media-label">Server → local</span>
+              <a class="feature-media-link" href="docs/features/folder-sync.html">Read the docs →</a>
+            </div>
+          </li>
+          <li class="feature-row">
+            <span class="feature-num" aria-hidden="true">09</span>
+            <div class="feature-body">
+              <h3>Your own apps, in a sandbox</h3>
+              <p>An extension is a small JavaScript program that returns an HTML page. It runs in a QuickJS isolate, in its own process, behind a strict content policy — with its own API routes, static assets, and a token that opens nothing but its own endpoints. Drop one in your data directory and it is an app tile.</p>
+            </div>
+            <div class="feature-media">
+              <span class="feature-media-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M12 12v9M4 7l8 5 8-5"/></svg>
+              </span>
+              <span class="feature-media-label">gqjs · sandboxed</span>
+              <a class="feature-media-link" href="docs/features/extensions.html">Read the docs →</a>
+            </div>
           </li>
         </ol>
       </div>

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>REST Helper — Suwu Docs</title>
+  <meta name="description" content="Build, send, and read HTTP requests from a tile on your server." />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600&family=Inconsolata:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/docs/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/#top" aria-label="Suwu home">
+        <span class="brand-name">Suwu</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#features">Features</a>
+        <a href="/docs/index.html">Docs</a>
+        <a href="/#install">Install</a>
+        <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="doc-page">
+<div class="doc-layout">
+    <aside class="doc-sidebar">
+      <div class="doc-sidebar-header">
+        <p class="doc-sidebar-title">Docs</p>
+        <button class="doc-sidebar-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation">
+          <span class="doc-sidebar-toggle-icon"></span>
+        </button>
+      </div>
+      <nav id="sidebar-nav" class="doc-sidebar-nav-wrap" aria-label="Docs sidebar">
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Overview</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/get-started.html">Get Started</a></li>
+            <li><a href="/docs/upgrading.html">Upgrading</a></li>
+            <li><a href="/docs/security-data.html">Security &amp; Data</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Core</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/tiling-wm.html">Tiling Window Manager</a></li>
+            <li><a href="/docs/features/terminals.html">Terminals</a></li>
+            <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+            <li><a href="/docs/features/public-access.html">Public Access</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Apps</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/file-browser.html">File Browser</a></li>
+            <li><a href="/docs/features/file-viewer.html">File Viewer</a></li>
+            <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
+            <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
+            <li><a href="/docs/features/db-browser.html">DB Browser</a></li>
+            <li><a href="/docs/features/folder-sync.html">Folder Sync</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Developer Tools</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
+            <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+            <li><a href="/docs/features/rest-helper.html" aria-current="page">REST Helper</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Extend</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/extensions.html">Extensions</a></li>
+            <li><a href="/docs/features/gqjs.html">gqjs Script Runner</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">CLI &amp; Configuration</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/suwu-cli.html">Suwu CLI</a></li>
+            <li><a href="/docs/features/appearance.html">Appearance &amp; i18n</a></li>
+            <li><a href="/docs/features/backgrounds.html">Backgrounds</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <div class="doc-main">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb">
+          <li><a href="/#top">Suwu</a></li>
+          <li><a href="/docs/index.html">Docs</a></li>
+          <li><span aria-current="page">REST Helper</span></li>
+        </ol>
+      </nav>
+      <div class="doc-header">
+        <h1>REST Helper</h1>
+        <p class="doc-lead">Build a request, send it from the server, and read the response as plain text, raw bytes, formatted JSON, or a compact summary written for an LLM — with history, collections, and a cookie jar kept in your browser.</p>
+      </div>
+<div class="prose">
+<h2 id="overview">Overview</h2>
+        <p><strong>REST Helper</strong> is a Postman-style tile for investigating HTTP endpoints on and around your server: build a request, send it, and read the response in whichever view helps — plain text, raw bytes, formatted JSON, or a compact summary written for an LLM.</p>
+        <p>The request is executed <strong>by the Suwu server, not by your browser</strong>. That is the point: a browser page cannot fetch arbitrary hosts (CORS, and Suwu's own <code>connect-src</code> policy), but the server can — so the helper reaches <code>localhost</code>, LAN hosts, and services behind your own auth, exactly the things you would otherwise have to <code>curl</code> in a second terminal.</p>
+
+        <h2 id="building-a-request">Building a Request</h2>
+        <ul>
+          <li><strong>Method</strong> — <code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>, <code>HEAD</code>, or <code>OPTIONS</code>.</li>
+          <li><strong>URL and query parameters</strong> — the query string is parsed into an editable table on blur, and editing the table rewrites the URL. Values are encoded for you.</li>
+          <li><strong>Headers</strong> — a table where each row can be enabled or disabled. Duplicate keys are preserved, which matters for <code>Set-Cookie</code>, repeated <code>Accept</code> values, and custom headers that appear twice.</li>
+          <li><strong>Body</strong> — <em>none</em>, <em>json</em>, <em>raw</em>, <em>form-data</em> (text plus base64 file parts), or <em>x-www-form-urlencoded</em>.</li>
+        </ul>
+
+        <h2 id="sending">Sending</h2>
+        <ul>
+          <li><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> sends the request.</li>
+          <li><kbd>Esc</kbd> cancels a request in flight — the outbound HTTP call is aborted with it.</li>
+        </ul>
+        <p>An HTTP 4xx or 5xx is a <em>valid</em> response, exactly like in a desktop client. Transport failures (DNS, refused connection, TLS, timeout) come back as a normal envelope with <code>status: 0</code> and a readable error kind, so the tile always has one response shape to render.</p>
+
+        <h2 id="reading-the-response">Reading the Response</h2>
+        <p>The response pane has five tabs — <strong>Body</strong>, <strong>LLM</strong>, <strong>Status</strong>, <strong>Headers</strong>, and <strong>Request</strong> — and the Body tab switches between four views:</p>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>View</th>
+              <th>What you get</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Auto</strong></td>
+              <td>Picks the best renderer for the content type: formatted JSON, image preview, HTML, or a binary download.</td>
+            </tr>
+            <tr>
+              <td><strong>Plain text</strong></td>
+              <td>The decoded body, wrapped and selectable.</td>
+            </tr>
+            <tr>
+              <td><strong>Raw</strong></td>
+              <td>Unformatted and unwrapped — byte-exact for text, base64 for binary.</td>
+            </tr>
+            <tr>
+              <td><strong>JSON</strong></td>
+              <td>Pretty-printed in a read-only editor with folding. Selected automatically for <code>application/json</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>LLM</strong></td>
+              <td>A compact markdown summary — method, final URL, status, duration, size, then the request and response headers and bodies. Bodies are truncated around 10&nbsp;KB on purpose: the goal is a token-friendly payload. <strong>Copy for LLM</strong> puts it on the clipboard.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>The status bar under the response shows status, elapsed time, body size, and whether the body was truncated. <strong>Copy</strong> and <strong>Download</strong> are always available, and <strong>Copy as cURL</strong> turns the current request into a command you can paste into a terminal.</p>
+
+        <h2 id="history-collections-and-cookies">History, Collections, and Cookies</h2>
+        <p>Everything the helper remembers lives in your browser's IndexedDB, not on the server — the backend is stateless.</p>
+        <ul>
+          <li><strong>History</strong> — every sent request, with its result. Re-open one to restore it, or <strong>duplicate</strong> it into a fresh request without the old response attached.</li>
+          <li><strong>Collections</strong> — save requests into folders and reuse them. Saved requests are the only ones persisted with their headers, so treat saved <code>Authorization</code> values as secrets.</li>
+          <li><strong>Cookies</strong> — a cookie jar that captures <code>Set-Cookie</code> from responses and attaches matching cookies to later requests. An explicit <code>Cookie</code> header always wins. You can also import the current origin's browser cookies, edit them by hand, or paste a cookie string for another host.</li>
+        </ul>
+        <p>JavaScript can only read cookies for the Suwu origin itself, so cookies belonging to other domains cannot be lifted from the browser — paste them instead.</p>
+
+        <h2 id="request-options">Request Options</h2>
+        <ul>
+          <li><strong>User-Agent mode</strong> — use the server default, replicate the browser's, or send a custom value.</li>
+          <li><strong>Timeout</strong> — bound how long a request may take.</li>
+          <li><strong>Redirects</strong> — follow or surface them.</li>
+          <li><strong>TLS verification</strong> — can be turned off for a local development server with a self-signed certificate.</li>
+          <li><strong>Cookies</strong> — capture responses into the jar, and attach the jar on send.</li>
+        </ul>
+
+        <h2 id="tips">Tips</h2>
+        <ul>
+          <li><strong>Pair it with a shell.</strong> The tile shows the request that was sent, so when a response surprises you, the <strong>Request</strong> tab is the fastest way to turn it into a <code>curl</code> command you can iterate on.</li>
+          <li><strong>Hand responses to an agent.</strong> The LLM view is deliberately token-efficient — pipe it into a prompt instead of pasting a wall of JSON.</li>
+          <li><strong>Save before you experiment.</strong> Collections are the cheapest way to keep a working request around while you change one header at a time.</li>
+        </ul>
+
+        <h2 id="related">Related</h2>
+        <ul>
+          <li><a href="db-browser.html">DB Browser</a> — the same shape, pointed at a database instead of an HTTP endpoint.</li>
+          <li><a href="security.html">Security &amp; Access</a> — the tile is behind the session token, like every other app.</li>
+        </ul>
+
+</div>
+      <nav class="doc-nav" aria-label="Prev / Next">
+        <a href="/docs/features/diff-viewer.html">
+          <span class="doc-nav-label">← Previous</span>
+          <span class="doc-nav-title">Diff Viewer</span>
+        </a>
+        <a href="/docs/features/extensions.html" class="doc-nav-next">
+          <span class="doc-nav-label">Next →</span>
+          <span class="doc-nav-title">Extensions</span>
+        </a>
+      </nav>
+    </div><!-- .doc-main -->
+    <aside class="doc-toc">
+      <nav aria-label="Table of contents">
+        <p class="doc-toc-title">On this page</p>
+        <ul class="doc-toc-list">
+<li><a href="#overview">Overview</a></li>
+<li><a href="#building-a-request">Building a Request</a></li>
+<li><a href="#sending">Sending</a></li>
+<li><a href="#reading-the-response">Reading the Response</a></li>
+<li><a href="#history-collections-and-cookies">History, Collections, and Cookies</a></li>
+<li><a href="#request-options">Request Options</a></li>
+<li><a href="#tips">Tips</a></li>
+<li><a href="#related">Related</a></li>
+        </ul>
+      </nav>
+    </aside>
+    </div><!-- .doc-layout -->
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <span class="footer-brand">Suwu</span>
+        <span class="footer-note">Make the remote shell enjoyable.</span>
+      </div>
+      <div class="footer-right">
+        <span class="footer-credit">Created by <a href="https://github.com/liyu1981" rel="noopener">@liyu1981</a></span>
+        <a class="footer-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
+        <span class="footer-year">© <span id="footer-year">2025</span></span>
+      </div>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Video lightbox">
+    <button class="lightbox-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="lightbox-video-wrap">
+      <video id="lightbox-video" controls playsinline></video>
+    </div>
+  </div>
+
+  <script src="/js/shared.js"></script>
+<script>
+(function() {
+  var toggle = document.querySelector('.doc-sidebar-toggle');
+  var nav = document.getElementById('sidebar-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', function() {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', !expanded);
+    nav.classList.toggle('is-open');
+  });
+})();
+</script>
+</body>
+</html>

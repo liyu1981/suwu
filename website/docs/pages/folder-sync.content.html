@@ -1,0 +1,65 @@
+<h2>Overview</h2>
+        <p><strong>Folder Sync</strong> mirrors a folder on the Suwu server into a folder on your own computer, and keeps the local copy identical to the remote one. It is the tile to reach for when a build on the server produces artifacts you want to open in a local editor — or when you want the same tree to exist on your laptop without a second shell.</p>
+        <p>Sync is <strong>one-way: server → local</strong>. The server is always the source of truth, so there is nothing to reconcile and nothing to merge. The local folder is read and written directly by your browser through the File System Access API — files are never uploaded, zipped, or staged anywhere else.</p>
+
+        <h2>How a Sync Cycle Works</h2>
+        <p>Each cycle has two phases:</p>
+        <ul>
+          <li><strong>Pre-flight</strong> — the server returns a manifest of the remote folder (paths, sizes, millisecond mtimes); the browser scans the local folder and diffs the two.</li>
+          <li><strong>Sync</strong> — the plan is applied: new and changed files are downloaded, new folders are created, and (optionally) local extras are removed.</li>
+        </ul>
+        <p>The default interval is <strong>5 seconds</strong>, and each cycle ends in a short <em>Watching</em> cooldown so an unchanged tree costs almost nothing. Locally edited files are overwritten by the server copy — always logged explicitly as <em>overwrote local change</em>, so nothing ever disappears silently.</p>
+
+        <h2>Setting Up a Job</h2>
+        <ol>
+          <li>Open the <strong>App Menu</strong> (the grid button in the header) and add a <strong>Folder Sync</strong> app. The tile accepts two launch parameters, so you can pre-fill it from a custom app entry:
+            <ul>
+              <li><code>remotePath</code> — the server folder to mirror.</li>
+              <li><code>interval</code> — the cycle interval in milliseconds (default <code>5000</code>).</li>
+            </ul>
+          </li>
+          <li>In the tile, press <strong>Add job</strong> and give it a name.</li>
+          <li>Set the <strong>Server folder</strong> — pick it in the tile, or pre-fill it with <code>remotePath</code>.</li>
+          <li>Press <strong>Choose folder</strong> and pick the destination on your computer. The browser remembers the choice, so you normally do this once per job.</li>
+          <li>Leave <strong>Sync interval</strong> as-is unless you need faster or calmer syncing.</li>
+          <li>Press <strong>Start</strong>. The status chip walks through <em>Starting → Pre-flight → Syncing → Watching</em>.</li>
+        </ol>
+
+        <h2>Mirror Deletions</h2>
+        <p><strong>Mirror deletions</strong> is on by default. When it is on, a file or folder that exists locally but no longer exists on the server is deleted, which is what makes "the local folder always equals the server folder" literally true. Turn it off if the local folder also holds files of your own that you want to keep.</p>
+        <p>Deletions are applied only after the downloads of that cycle succeed — if a transfer fails, the deletions are postponed rather than run against a half-synced tree.</p>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">This deletes local files</div>
+          <p>With <strong>Mirror deletions</strong> on, anything removed on the server is removed locally. Keep the local folder dedicated to the mirror rather than pointing it at a directory that holds anything you would miss.</p>
+        </div>
+
+        <h2>The Sync Journal</h2>
+        <p>Each synced folder carries a small <code>.suwu-sync.json</code> file recording what has already been pulled. It is what stops the mirror from re-downloading the whole tree every cycle, and it is how Suwu knows which side changed.</p>
+        <ul>
+          <li><strong>One folder, one server folder.</strong> If <code>.suwu-sync.json</code> names a different server folder, the tile refuses to start and offers <strong>Reset and start</strong>. Resetting keeps your files; the next cycle simply re-checks everything from scratch.</li>
+          <li><strong>Deleting the file</strong> by hand is the way to force a full re-check without syncing first.</li>
+        </ul>
+
+        <h2>Activity Log</h2>
+        <p>The tile keeps a running log of what each cycle did — pulled files with sizes, created folders, overwrites, deletions, skipped files, and cycle statistics such as <code>cycle #12 · 318 checked · ↓4 · −1 · 1.2 MB · 143 ms</code>. Use it to confirm that a build's output really arrived.</p>
+        <p>The tile toolbar has a <strong>Run one cycle now</strong> button, so you do not have to wait for the next tick while watching a build finish.</p>
+
+        <h2>Requirements and Limits</h2>
+        <div class="callout">
+          <div class="callout-title">Chromium-based browsers</div>
+          <p>Folder Sync needs the File System Access API: <strong>Chrome, Edge, or Opera</strong>, on a secure context (HTTPS or <code>localhost</code>). Other browsers get a clear "not supported" state in the tile. Files larger than 64 MiB are skipped and logged rather than pulled.</p>
+        </div>
+        <p>Also worth knowing:</p>
+        <ul>
+          <li><strong>Sync runs only while the tile is open.</strong> There is no background daemon; closing the tile stops the loop. The <em>job configuration</em> is kept, so reopening the tile brings the jobs back idle, waiting for <strong>Start</strong>.</li>
+          <li><strong>Nothing is written to the server.</strong> The engine holds one read-only manifest endpoint; the server never learns about your local folder beyond the paths you browse.</li>
+          <li><strong>Permission can be revoked.</strong> Browsers re-ask for folder access periodically. If access is denied, the tile says so and asks you to pick the folder again.</li>
+        </ul>
+
+        <h2>Related</h2>
+        <ul>
+          <li><a href="dropbox.html">Dropbox</a> — the other direction: push a local file to the server.</li>
+          <li><a href="file-browser.html">File Browser</a> — browse the server side of the mirror.</li>
+          <li><a href="tiling-wm.html">Tiling Window Manager</a> — keep a sync tile next to the build it follows.</li>
+        </ul>

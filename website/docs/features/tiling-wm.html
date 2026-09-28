@@ -53,6 +53,7 @@
             <li><a href="/docs/features/tiling-wm.html" aria-current="page">Tiling Window Manager</a></li>
             <li><a href="/docs/features/terminals.html">Terminals</a></li>
             <li><a href="/docs/features/security.html">Security &amp; Access</a></li>
+            <li><a href="/docs/features/public-access.html">Public Access</a></li>
           </ul>
         </div>
         <div class="doc-sidebar-group">
@@ -63,6 +64,7 @@
             <li><a href="/docs/features/port-forwarding.html">Port Forwarding</a></li>
             <li><a href="/docs/features/dropbox.html">Dropbox</a></li>
             <li><a href="/docs/features/db-browser.html">DB Browser</a></li>
+            <li><a href="/docs/features/folder-sync.html">Folder Sync</a></li>
           </ul>
         </div>
         <div class="doc-sidebar-group">
@@ -70,6 +72,14 @@
           <ul class="doc-sidebar-nav">
             <li><a href="/docs/features/git-graph.html">Git Graph</a></li>
             <li><a href="/docs/features/diff-viewer.html">Diff Viewer</a></li>
+            <li><a href="/docs/features/rest-helper.html">REST Helper</a></li>
+          </ul>
+        </div>
+        <div class="doc-sidebar-group">
+          <p class="doc-sidebar-title">Extend</p>
+          <ul class="doc-sidebar-nav">
+            <li><a href="/docs/features/extensions.html">Extensions</a></li>
+            <li><a href="/docs/features/gqjs.html">gqjs Script Runner</a></li>
           </ul>
         </div>
         <div class="doc-sidebar-group">
@@ -96,13 +106,11 @@
       </div>
 <div class="prose">
 <div class="doc-video"><video src="/assets/tiling-wm.mp4" autoplay loop muted playsinline preload="metadata" role="img" aria-label="Demo of the tiling window manager"></video></div>
-      </div>
-
-      <div class="prose">
         <h2 id="quick-start">Quick Start</h2>
         <p>Suwu opens with a single terminal tile. Use keyboard shortcuts or the mouse to split, rearrange, and manage your workspace. All layouts are persisted — close the browser, restart the server, your tiles stay.</p>
 
         <h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
+        <p>Every window-manager shortcut is <kbd>Alt</kbd>-based, so it never collides with the shell and readline bindings inside a terminal tile. They also work from inside a focused terminal, an app tile, or an <a href="extensions.html">extension</a> tile — the same list is always available with <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>/</kbd>.</p>
 
         <table class="shortcut-table">
           <thead>
@@ -113,44 +121,64 @@
           </thead>
           <tbody>
             <tr>
-              <td>Split horizontally</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td>
+              <td>Split right</td>
+              <td><kbd>Alt</kbd>+<kbd>Enter</kbd></td>
             </tr>
             <tr>
-              <td>Split vertically</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td>
+              <td>Split below</td>
+              <td><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd></td>
             </tr>
             <tr>
-              <td>Focus left</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></td>
+              <td>Focus left / right / up / down</td>
+              <td><kbd>Alt</kbd>+<kbd>Arrow</kbd></td>
             </tr>
             <tr>
-              <td>Focus right</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td>
+              <td>Focus next / previous pane</td>
+              <td><kbd>Alt</kbd>+<kbd>J</kbd> / <kbd>Alt</kbd>+<kbd>K</kbd></td>
             </tr>
             <tr>
-              <td>Focus up</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd></td>
+              <td>Move a tile</td>
+              <td><kbd>Alt</kbd>+<kbd>M</kbd>, then move and click</td>
             </tr>
             <tr>
-              <td>Focus down</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd></td>
+              <td>Swap with another tile</td>
+              <td><kbd>Alt</kbd>+<kbd>S</kbd>, then click a tile</td>
             </tr>
             <tr>
-              <td>Swap with neighbor</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd></td>
-            </tr>
-            <tr>
-              <td>Move tile</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Arrow</kbd></td>
+              <td>Toggle focus / fullscreen</td>
+              <td><kbd>Alt</kbd>+<kbd>F</kbd></td>
             </tr>
             <tr>
               <td>Close tile</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd></td>
+              <td><kbd>Alt</kbd>+<kbd>Q</kbd></td>
             </tr>
             <tr>
-              <td>Toggle fullscreen</td>
-              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td>
+              <td>Switch to space 1–9</td>
+              <td><kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd></td>
+            </tr>
+            <tr>
+              <td>Next / previous space</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td>
+            </tr>
+            <tr>
+              <td>Show / hide the spaces bar</td>
+              <td><kbd>Alt</kbd>+<kbd>L</kbd></td>
+            </tr>
+            <tr>
+              <td>Open the app menu</td>
+              <td><kbd>Alt</kbd>+<kbd>/</kbd></td>
+            </tr>
+            <tr>
+              <td>Show the shortcut list</td>
+              <td><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>/</kbd></td>
+            </tr>
+            <tr>
+              <td>Copy selection / paste</td>
+              <td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> · <kbd>Ctrl</kbd>+<kbd>V</kbd></td>
+            </tr>
+            <tr>
+              <td>Log out</td>
+              <td><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td>
             </tr>
           </tbody>
         </table>
@@ -158,10 +186,30 @@
         <h2 id="mouse-controls">Mouse Controls</h2>
         <ul>
           <li><strong>Click</strong> a tile to focus it.</li>
-          <li><strong>Click and drag</strong> a tile's title bar to move it.</li>
+          <li><strong>Drag the grip</strong> in a tile's hover toolbar to move it — see <a href="#drag-to-layout">Drag to Layout</a>.</li>
+          <li><strong>Hover tools</strong> — the top-right corner of a tile reveals drag, swap, focus, move-to-space, and close.</li>
+          <li><strong>Header split buttons</strong> — split the focused tile left, up, down, or right without touching the mouse over the grid.</li>
           <li><strong>Right-click</strong> a tile to open the context menu (split, close, change type).</li>
           <li><strong>Drag the border</strong> between tiles to resize.</li>
         </ul>
+
+        <h2 id="drag-to-layout">Drag to Layout</h2>
+        <p>Moving a tile is one gesture, not four commands. Press the grip in the tile's hover toolbar (or press <kbd>Alt</kbd>+<kbd>M</kbd> for the keyboard-driven version) and drag over another tile: the target shows exactly where the tile will land, and the change is committed on release.</p>
+        <ul>
+          <li><strong>Tile edge</strong> — the dragged tile becomes that half; the target takes the other. This splits, so a drop near an edge never leaves you with a tile the size of a postage stamp.</li>
+          <li><strong>Tile center</strong> — the two tiles swap places.</li>
+          <li><strong>Gutters and empty space</strong> — no drop, nothing changes.</li>
+          <li><strong><kbd>Esc</kbd></strong> cancels at any point, and so does releasing over no target.</li>
+        </ul>
+        <p>The preview is the layout you will get, not a generic highlight, and the reflow animates into place. The old <em>move left/right/up/down</em> commands and their chevron buttons are gone — the drag covers all of them.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Prefer the keyboard?</div>
+          <p><kbd>Alt</kbd>+<kbd>M</kbd> enters the same mode without a mouse: a full-viewport surface catches the pointer over tile iframes, so you move to highlight a drop zone and click to commit. <kbd>Alt</kbd>+<kbd>S</kbd> still does a straight swap, with every tile highlighted at once.</p>
+        </div>
+
+        <h2 id="spaces">Spaces</h2>
+        <p>The workspace holds multiple <strong>spaces</strong> — separate layouts you switch between without losing tiles. Jump with <kbd>Ctrl</kbd>+number, cycle with <kbd>Ctrl</kbd>+<kbd>Tab</kbd>, or pick one from the header's space control. Spaces you have not touched for a while are hidden away by themselves, and <kbd>Alt</kbd>+<kbd>L</kbd> collapses the bar entirely when you want the grid to fill the window.</p>
 
         <h2 id="layout-persistence">Layout Persistence</h2>
         <p>Your tile layout is saved server-side. This means:</p>
@@ -177,17 +225,28 @@
         </div>
 
         <h2 id="tile-types">Tile Types</h2>
-        <p>Every tile can host different content:</p>
+        <p>Every tile can host different content. Right-click any tile and select <strong>Change type</strong> to switch, or add tiles from the App Menu in the header:</p>
         <ul>
           <li><strong>Terminal</strong> — a full shell session (default).</li>
+          <li><strong>Code Explorer</strong> — a multi-tab editor over the server's files, with search and highlighted ranges.</li>
           <li><strong>File Browser</strong> — navigate and download files.</li>
           <li><strong>File Viewer</strong> — view files with syntax highlighting.</li>
           <li><strong>Port Forward</strong> — TCP/UDP forwarding status.</li>
           <li><strong>Dropbox</strong> — file upload/download.</li>
+          <li><strong>Folder Sync</strong> — mirror a server folder into a local one.</li>
+          <li><strong>DB Browser</strong> — query SQLite, MySQL, or PostgreSQL.</li>
+          <li><strong>REST Helper</strong> — build and send HTTP requests.</li>
           <li><strong>Git Graph</strong> — visual branch history.</li>
           <li><strong>Diff</strong> — side-by-side diffs.</li>
+          <li><strong>X Display</strong> — stream a remote X11 display.</li>
+          <li><strong>Extension</strong> — your own JavaScript app, if you have installed one.</li>
         </ul>
-        <p>Right-click any tile and select "Change type" to switch.</p>
+        <p>The App Menu also decides which apps appear in the <strong>New App</strong> picker and in what order, and lets you save a tile as a <strong>Custom App</strong> with its own label, icon description, and pre-filled parameters — a one-click "restart the dev stack" tile, for example.</p>
+
+        <h2 id="where-the-header-sits">Where the Header Sits</h2>
+        <p>The app header is movable. In <strong>Settings → Header</strong> you can dock it to the <strong>top</strong> (default), <strong>bottom</strong>, <strong>left</strong>, or <strong>right</strong> edge. On a side, the bar becomes a narrow vertical strip: labels read at 90° and every icon stays upright, and the space and split menus open inward. The notification panel follows the header to the opposite side so it never covers it.</p>
+        <p>The choice is stored per browser, so you can keep a left-hand rail on a wide monitor and a top bar on a laptop.</p>
+
 
 </div>
       <nav class="doc-nav" aria-label="Prev / Next">
@@ -208,8 +267,11 @@
 <li><a href="#quick-start">Quick Start</a></li>
 <li><a href="#keyboard-shortcuts">Keyboard Shortcuts</a></li>
 <li><a href="#mouse-controls">Mouse Controls</a></li>
+<li><a href="#drag-to-layout">Drag to Layout</a></li>
+<li><a href="#spaces">Spaces</a></li>
 <li><a href="#layout-persistence">Layout Persistence</a></li>
 <li><a href="#tile-types">Tile Types</a></li>
+<li><a href="#where-the-header-sits">Where the Header Sits</a></li>
         </ul>
       </nav>
     </aside>

@@ -18,11 +18,11 @@ come back tomorrow, pick up where you left off.
 
 ## Features
 
-1. **A tile-based window manager, by keyboard or mouse** — Split, focus, move,
-   and swap tiles with fast key bindings or a click and drag — whichever fits
-   the moment. Your sessions live in the layout: refresh the page, drop the
-   connection, even restart the server, and every tile comes back exactly as you
-   left it.
+1. **A tile-based window manager, by keyboard or mouse** — Split, focus, drag
+   tiles into place, and swap them with fast key bindings or a click and drag —
+   whichever fits the moment. Your sessions live in the layout: refresh the
+   page, drop the connection, even restart the server, and every tile comes
+   back exactly as you left it.
 
 2. **Full-featured terminals, perfect for agents** — Real shells with selection,
    copy/paste, scrollback, and notifications — comfortable for you, and a solid
@@ -30,26 +30,40 @@ come back tomorrow, pick up where you left off.
    many terminals at once.
 
 3. **Convenient apps for everyday dev work** — A file browser with download, a
-   file viewer with auto-refresh, and a TCP/UDP port forwarder — the small tools
+   file viewer with auto-refresh, a TCP/UDP port forwarder, a database browser
+   for SQLite, MySQL, and PostgreSQL, and a Postman-style REST helper that
+   reaches `localhost` and your LAN from the server side — the small tools
    you'd otherwise reach for a second terminal or a GUI client, right in the
    grid next to your shells.
 
 4. **From terminal to web, with suwu commands** — `suwu send` posts a
-   notification to your screen from any script — pipe stdin, set a title.
-   `suwu forward` opens a port-forwarding tile, `suwu open` resolves links and
-   actions on the remote machine. Long builds finish? You'll know.
+   notification to your screen from any script — pipe stdin in.
+   `suwu forward` opens a port-forwarding tile, `suwu open`, `suwu code`, and
+   `suwu diff` resolve files and actions on the remote machine. Long builds
+   finish? You'll know.
 
 5. **Reachable, but only by you** — Access works out of the box on localhost,
    your LAN, or over the internet behind a reverse proxy — with password
    authentication, per-run tokens, and one-command HTTPS.
 
 6. **Yours to tune** — Pick your font family and size, theme the colors, dial
-   in a glassy background alpha. The interface speaks English and Chinese out of
-   the box.
+   in a glassy background alpha, and dock the header to any edge. Choose a
+   full-viewport background — an ambient blob, a looping video clip, or a
+   WebGPU shader scene — and drop your own into the data directory. The
+   interface speaks English and Chinese out of the box.
 
 7. **Install once, stay current** — Onboarding sets up your dev environment step
-   by step, and `suwu update` keeps the binary fresh. No config files to
+   by step, and `suwu upgrade` keeps the binary fresh. No config files to
    babysit.
+
+8. **Build output lands on your laptop** — Folder Sync mirrors a folder on the
+   server into a folder on your own computer, one way and re-checked every few
+   seconds, straight from the browser.
+
+9. **Your own apps, in a sandbox** — An extension is a small JavaScript program
+   that returns an HTML page. It runs in a QuickJS isolate, in its own process,
+   with its own API routes, static assets, and an extension-scoped token.
+   `suwu gq` runs the same sandbox from the command line.
 
 ## Install
 

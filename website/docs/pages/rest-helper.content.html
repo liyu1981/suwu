@@ -1,0 +1,84 @@
+<h2>Overview</h2>
+        <p><strong>REST Helper</strong> is a Postman-style tile for investigating HTTP endpoints on and around your server: build a request, send it, and read the response in whichever view helps — plain text, raw bytes, formatted JSON, or a compact summary written for an LLM.</p>
+        <p>The request is executed <strong>by the Suwu server, not by your browser</strong>. That is the point: a browser page cannot fetch arbitrary hosts (CORS, and Suwu's own <code>connect-src</code> policy), but the server can — so the helper reaches <code>localhost</code>, LAN hosts, and services behind your own auth, exactly the things you would otherwise have to <code>curl</code> in a second terminal.</p>
+
+        <h2>Building a Request</h2>
+        <ul>
+          <li><strong>Method</strong> — <code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>, <code>HEAD</code>, or <code>OPTIONS</code>.</li>
+          <li><strong>URL and query parameters</strong> — the query string is parsed into an editable table on blur, and editing the table rewrites the URL. Values are encoded for you.</li>
+          <li><strong>Headers</strong> — a table where each row can be enabled or disabled. Duplicate keys are preserved, which matters for <code>Set-Cookie</code>, repeated <code>Accept</code> values, and custom headers that appear twice.</li>
+          <li><strong>Body</strong> — <em>none</em>, <em>json</em>, <em>raw</em>, <em>form-data</em> (text plus base64 file parts), or <em>x-www-form-urlencoded</em>.</li>
+        </ul>
+
+        <h2>Sending</h2>
+        <ul>
+          <li><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> sends the request.</li>
+          <li><kbd>Esc</kbd> cancels a request in flight — the outbound HTTP call is aborted with it.</li>
+        </ul>
+        <p>An HTTP 4xx or 5xx is a <em>valid</em> response, exactly like in a desktop client. Transport failures (DNS, refused connection, TLS, timeout) come back as a normal envelope with <code>status: 0</code> and a readable error kind, so the tile always has one response shape to render.</p>
+
+        <h2>Reading the Response</h2>
+        <p>The response pane has five tabs — <strong>Body</strong>, <strong>LLM</strong>, <strong>Status</strong>, <strong>Headers</strong>, and <strong>Request</strong> — and the Body tab switches between four views:</p>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>View</th>
+              <th>What you get</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Auto</strong></td>
+              <td>Picks the best renderer for the content type: formatted JSON, image preview, HTML, or a binary download.</td>
+            </tr>
+            <tr>
+              <td><strong>Plain text</strong></td>
+              <td>The decoded body, wrapped and selectable.</td>
+            </tr>
+            <tr>
+              <td><strong>Raw</strong></td>
+              <td>Unformatted and unwrapped — byte-exact for text, base64 for binary.</td>
+            </tr>
+            <tr>
+              <td><strong>JSON</strong></td>
+              <td>Pretty-printed in a read-only editor with folding. Selected automatically for <code>application/json</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>LLM</strong></td>
+              <td>A compact markdown summary — method, final URL, status, duration, size, then the request and response headers and bodies. Bodies are truncated around 10&nbsp;KB on purpose: the goal is a token-friendly payload. <strong>Copy for LLM</strong> puts it on the clipboard.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>The status bar under the response shows status, elapsed time, body size, and whether the body was truncated. <strong>Copy</strong> and <strong>Download</strong> are always available, and <strong>Copy as cURL</strong> turns the current request into a command you can paste into a terminal.</p>
+
+        <h2>History, Collections, and Cookies</h2>
+        <p>Everything the helper remembers lives in your browser's IndexedDB, not on the server — the backend is stateless.</p>
+        <ul>
+          <li><strong>History</strong> — every sent request, with its result. Re-open one to restore it, or <strong>duplicate</strong> it into a fresh request without the old response attached.</li>
+          <li><strong>Collections</strong> — save requests into folders and reuse them. Saved requests are the only ones persisted with their headers, so treat saved <code>Authorization</code> values as secrets.</li>
+          <li><strong>Cookies</strong> — a cookie jar that captures <code>Set-Cookie</code> from responses and attaches matching cookies to later requests. An explicit <code>Cookie</code> header always wins. You can also import the current origin's browser cookies, edit them by hand, or paste a cookie string for another host.</li>
+        </ul>
+        <p>JavaScript can only read cookies for the Suwu origin itself, so cookies belonging to other domains cannot be lifted from the browser — paste them instead.</p>
+
+        <h2>Request Options</h2>
+        <ul>
+          <li><strong>User-Agent mode</strong> — use the server default, replicate the browser's, or send a custom value.</li>
+          <li><strong>Timeout</strong> — bound how long a request may take.</li>
+          <li><strong>Redirects</strong> — follow or surface them.</li>
+          <li><strong>TLS verification</strong> — can be turned off for a local development server with a self-signed certificate.</li>
+          <li><strong>Cookies</strong> — capture responses into the jar, and attach the jar on send.</li>
+        </ul>
+
+        <h2>Tips</h2>
+        <ul>
+          <li><strong>Pair it with a shell.</strong> The tile shows the request that was sent, so when a response surprises you, the <strong>Request</strong> tab is the fastest way to turn it into a <code>curl</code> command you can iterate on.</li>
+          <li><strong>Hand responses to an agent.</strong> The LLM view is deliberately token-efficient — pipe it into a prompt instead of pasting a wall of JSON.</li>
+          <li><strong>Save before you experiment.</strong> Collections are the cheapest way to keep a working request around while you change one header at a time.</li>
+        </ul>
+
+        <h2>Related</h2>
+        <ul>
+          <li><a href="db-browser.html">DB Browser</a> — the same shape, pointed at a database instead of an HTTP endpoint.</li>
+          <li><a href="security.html">Security &amp; Access</a> — the tile is behind the session token, like every other app.</li>
+        </ul>

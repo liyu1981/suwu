@@ -1,0 +1,162 @@
+<h2>Overview</h2>
+        <p>An <strong>extension</strong> is a small JavaScript program that returns an HTML page, which Suwu renders inside a tile. Extensions are how you add an app to Suwu without touching Go or React: a script runs in a sandboxed <a href="gqjs.html">gqjs</a> QuickJS isolate — in its own process, with a deadline — and hands back a document.</p>
+        <p>Three example extensions ship with the repository and are meant to be copied into your data directory:</p>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Example</th>
+              <th>Shows</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>eye</strong></td>
+              <td>The smallest possible extension: a render stub plus a static asset, with configuration passed to the page through a <code>data-</code> attribute.</td>
+            </tr>
+            <tr>
+              <td><strong>note</strong></td>
+              <td>A pure client-side app — seven numbered sticky notes persisted in the browser's IndexedDB through the storage bridge, with no API and no network.</td>
+            </tr>
+            <tr>
+              <td><strong>hn-top-stories</strong></td>
+              <td>The full stack: an API route, a server-side <code>fetch</code>, an ES-module tree of static assets, and an htmx poll of the extension's own API.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Installing an Extension</h2>
+        <p>Suwu never installs extensions for you. Copy one into your extensions directory — <code>$SUWU_VAR/extensions</code>, or <code>~/.suwu/extensions</code>:</p>
+
+<pre><code>cp -r examples/extensions/eye ~/.suwu/extensions/
+cp -r examples/extensions/note ~/.suwu/extensions/
+cp -r examples/extensions/hn-top-stories ~/.suwu/extensions/</code></pre>
+
+        <p>Then reload the browser tab. A directory becomes an extension as soon as it contains a valid <code>package.json</code> and an <code>index.js</code>:</p>
+
+<pre><code>&lt;dataDir&gt;/extensions/&lt;id&gt;/
+  package.json     # metadata — required
+  index.js         # render entry point — required, fixed name
+  public/          # client assets, when suwu.static declares it
+  *.js             # API handlers registered in suwu.api</code></pre>
+
+        <p>The <strong>id</strong> is the directory name, and it must match <code>^[a-z0-9][a-z0-9_-]{0,63}$</code>. The directory is also the extension's read-only <code>/ext/&lt;id&gt;</code> filesystem root, so an extension can bundle data next to its script.</p>
+
+        <h2>Adding an Extension Tile</h2>
+        <p>The Extension tile is <strong>off by default</strong> — a fresh install does not advertise a tile with nothing configured. To use one:</p>
+        <ol>
+          <li>Open the <strong>App Menu</strong> and enable the <strong>Extension</strong> app.</li>
+          <li>Add a <strong>Custom App</strong>, choose the <strong>Extension</strong> plugin, and set the <code>id</code> parameter to the directory name (for example <code>eye</code>).</li>
+          <li>Add your own parameters if the extension declares any; they are passed straight through to the script.</li>
+          <li>Place the app in the grid like any other tile.</li>
+        </ol>
+        <p>A tile with no <code>id</code> shows a short hint instead of a blank frame — there is no in-tile picker.</p>
+
+        <h2>Metadata: <code>package.json</code></h2>
+        <p>npm-style fields live at the top level, and everything Suwu-specific lives under the <code>suwu</code> object. <code>name</code> falls back to the directory id, and everything except the file itself is optional:</p>
+
+<pre><code>{
+  "name": "Hacker News Top Stories",
+  "description": "The Hacker News front page as a broadsheet carousel",
+  "suwu": {
+    "static": "public",
+    "net": true,
+    "params": [
+      { "key": "size", "label": "Size", "description": "Eye radius in px", "defaultValue": "140" }
+    ],
+    "api": [
+      { "route": "/stories", "handler": "stories.js" }
+    ]
+  }
+}</code></pre>
+
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>name</code> / <code>description</code></td>
+              <td>Human-readable identity, shown in the App Menu.</td>
+            </tr>
+            <tr>
+              <td><code>suwu.params</code></td>
+              <td>Documents the launch parameters so the App Menu can offer them. Extra query parameters are passed through regardless.</td>
+            </tr>
+            <tr>
+              <td><code>suwu.static</code></td>
+              <td>A directory of client assets served at <code>/gqjs/static/&lt;id&gt;/</code>. Must be a dedicated subtree — never <code>.</code> or the extension root.</td>
+            </tr>
+            <tr>
+              <td><code>suwu.api</code></td>
+              <td>Ordered route registrations, each <code>{ route, handler }</code>.</td>
+            </tr>
+            <tr>
+              <td><code>suwu.net</code></td>
+              <td>Opt-in to the network: enables <code>fetch()</code> inside the script.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Unknown fields (<code>version</code>, <code>dependencies</code>, …) are ignored. A malformed <code>package.json</code> fails the extension outright, so a broken registration can never half-serve.</p>
+
+        <h2>Writing <code>index.js</code></h2>
+        <p>Define a <code>handler</code> function. It receives the request input and returns either an HTML string or an object:</p>
+
+<pre><code>function handler(input) {
+  const size = input.params?.size ?? "140";
+  return {
+    status: 200,                             // optional
+    contentType: "text/html; charset=utf-8",  // optional
+    body: `&lt;!doctype html&gt;&lt;html&gt;&lt;body&gt;
+      &lt;canvas data-size="${size}"&gt;&lt;/canvas&gt;
+    &lt;/body&gt;&lt;/html&gt;`,
+  };
+}</code></pre>
+
+        <p>The input carries the action (<code>"render"</code> or <code>"api"</code>), the extension id, the pane id, method, path, query, headers, and your tile parameters — plus <code>token</code>, the extension-scoped token described below. A non-2xx <code>status</code> is honoured; an invalid result produces a minimal error page and a server-side log line, never a stack trace in the browser.</p>
+        <p>The script runs once per request to produce the document — animation, pointer tracking, and everything else happens client-side in the page it returns.</p>
+
+        <h2>API Routes</h2>
+        <p>Registered routes are served under <code>/gqjs/api/&lt;id&gt;/&lt;path&gt;</code> and are a <strong>pure data relay</strong>: the handler's result is returned byte-for-byte, never injected into a page.</p>
+        <ul>
+          <li>Routes are matched <strong>in declaration order; the first match wins</strong>, with a segment-wise prefix match. <code>/hello</code> therefore shadows <code>/hello/world</code>.</li>
+          <li><code>&lt;name&gt;</code> segments bind and are passed through as <code>pathParams</code>: <code>/note/&lt;id&gt;</code> matches <code>/note/42</code> and <code>/note/42/edit</code> with <code>id=42</code>.</li>
+          <li><code>/</code> is the catch-all root. No registration, no match, or a missing handler file all answer <code>404</code> — the API fails closed.</li>
+          <li>Methods are limited to <code>GET</code>, <code>HEAD</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, and <code>DELETE</code>; bodies are capped at 4 MiB, and a script that overruns its deadline returns <code>504</code>.</li>
+        </ul>
+        <p>Handlers see the request as JSON: <code>route</code>, <code>path</code>, <code>pathParams</code>, <code>method</code>, <code>query</code>, lowercased <code>headers</code>, and the body as text (or base64 when it is not valid UTF-8). They run through the same isolated child process as renders — read-only root, minimal environment, no network unless <code>suwu.net</code> says so.</p>
+
+        <h2>Static Assets</h2>
+        <p><code>"suwu": { "static": "public" }</code> serves a directory at <code>/gqjs/static/&lt;id&gt;/&lt;path&gt;</code> for <code>GET</code>/<code>HEAD</code>, with an extension allow-list, no directory listings, no dotfiles, no traversal or symlink escapes, and an 8 MiB cap. Documents (HTML, SVG) are served with a strict <code>default-src 'none'</code> policy so opening one directly renders it inert.</p>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Static files are public</div>
+          <p>ES-module fetches from a sandboxed, opaque-origin page carry neither cookies nor tokens — a module's relative imports cannot carry one either. That is why <code>/gqjs/static/</code> is unauthenticated. <strong>Never put a secret under <code>public/</code>.</strong> Credentials travel through the authenticated render HTML only: an inline classic script or a <code>data-*</code> attribute such as <code>data-api="…?token=…"</code>, read by the static code at runtime.</p>
+        </div>
+
+        <h2>Network Access</h2>
+        <p>By default the script is networkless: <code>fetch()</code> rejects with <em>network access is disabled</em>. Set <code>"suwu": { "net": true }</code> to opt in. Even then, loopback, private, and link-local addresses (cloud metadata endpoints) stay blocked — a networked extension cannot reach your internal services from the server side.</p>
+
+        <h2>Storage, Focus, and Keyboard</h2>
+        <ul>
+          <li><strong>Storage bridge</strong> — a sandboxed page has an opaque origin, so it has no web storage of its own. The <strong>note</strong> example persists through the trusted tile page instead, which stores values in its own IndexedDB under a key namespaced to that extension. The child chooses only a suffix, so it can never reach another extension's data, app settings, or the session.</li>
+          <li><strong>Focus and shortcuts</strong> — key events stop at frame boundaries, so Suwu injects a small relay into the rendered page: it reports focus changes and keystrokes up to the tile, and swallows the browser defaults for the families it forwards. <kbd>Alt</kbd> shortcuts work inside an extension tile exactly as they do in a terminal tile.</li>
+          <li><strong>Links</strong> — <code>target="_blank"</code> opens a normal tab with a real origin, and the page's own <code>sandbox</code> policy keeps such a document from reading the session cookie.</li>
+        </ul>
+
+        <h2>Security Model in One List</h2>
+        <ol>
+          <li>The app shell is authenticated with the session token. An extension is handed a <strong>token scoped to its own API only</strong> — it opens <code>/gqjs/api/&lt;id&gt;/*</code> and nothing else. An extension token is rejected everywhere under <code>/api/*</code>, and the session token is never issued to extension code.</li>
+          <li>Ids, paths, and handler files are validated and re-checked against the extension directory, symlinks included.</li>
+          <li>Every script runs as a fresh child process with a read-only root, a minimal environment, a deadline, and a concurrency cap — a crash or a runaway script cannot take down the server.</li>
+          <li>Rendered pages are served with a strict CSP, <code>nosniff</code>, and <code>no-store</code>, inside a sandboxed frame that is forced to an opaque origin.</li>
+        </ol>
+
+        <h2>Related</h2>
+        <ul>
+          <li><a href="gqjs.html">gqjs Script Runner</a> — the runtime behind extensions, usable on its own from the command line.</li>
+          <li><a href="backgrounds.html">Backgrounds</a> — the same pattern applied to WebGPU backgrounds.</li>
+        </ul>

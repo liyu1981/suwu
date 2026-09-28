@@ -1,10 +1,11 @@
 /*
  * The Hacker News Daily — broadsheet stylesheet.
  *
- * Type follows the Suwu scale: Display 24 masthead, Heading 16 lead
- * headline, Body 14 rundown titles, Label 12 controls/kickers, Caption 11
- * deck, Micro 10 dateline/meta. System serif stack only — the render CSP
- * allows no font CDNs.
+ * Type: masthead Display 24, lead headline Display 24 (1.5x the old 16
+ * Heading, sized to be read across a tile), byline Heading 16 (1.45x the
+ * old Caption 11), rundown Caption 11 (0.8x Body), Label 12
+ * controls/kickers, Micro 10 dateline and column numerals. System serif
+ * stack only — the render CSP allows no font CDNs.
  */
 :root {
   --paper: #f7f3ea;
@@ -100,7 +101,7 @@ a:hover {
   margin: 0 0 4px;
 }
 .headline {
-  font-size: 16px;
+  font-size: 24px;
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -111,17 +112,25 @@ a:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* Byline — the whole line is the link to the Hacker News discussion, so it
+   wears a heavy accent underline instead of a separate "Discuss" row. */
 .deck {
-  font-size: 11px;
+  font-size: 16px;
+  line-height: 1.4;
   font-style: italic;
-  color: var(--muted);
+  color: var(--ink);
   margin: 0 0 8px;
 }
-.discuss {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: 0;
+.byline {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.byline:hover {
+  color: var(--accent);
+  text-decoration-thickness: 3px;
 }
 
 /* Controls — Label (12px) chips, visible disabled state. */
@@ -188,8 +197,11 @@ a:hover {
   list-style: none;
   margin: 0;
   padding: 0;
-  /* Exactly five visible rows: line (14px x 1.5) + padding (7px x 2) +
-     rule (1px), scaled with the font if the user zooms. Scrolls beyond. */
+  /* The whole block is deliberately secondary: 0.8x the body, so the
+     titles read as Caption 11 instead of competing with the lead. */
+  font-size: 0.8em;
+  /* Exactly five visible rows: line (1.5em) + padding (2 x 0.5em) +
+     rule (1px), all in em so the box tracks the font. Scrolls beyond. */
   max-height: calc(5 * (2.5em + 1px));
   overflow-y: auto;
   scrollbar-width: thin;
@@ -198,7 +210,7 @@ a:hover {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 7px 4px;
+  padding: 0.5em 4px;
   border-bottom: 1px solid var(--rule);
   cursor: pointer;
 }
@@ -210,7 +222,7 @@ a:hover {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 .rundown .rank {
-  font-size: 10px;
+  font-size: 0.9em;
   color: var(--muted);
   width: 2ch;
   text-align: right;
@@ -224,7 +236,7 @@ a:hover {
   text-overflow: ellipsis;
 }
 .rundown .pts {
-  font-size: 10px;
+  font-size: 0.9em;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);

@@ -27,7 +27,11 @@ function leadHTML(s, i) {
     '" target="_blank" rel="noopener">' +
     esc(s.title) +
     "</a></h2>" +
-    '<p class="deck">by ' +
+    // The byline is the discussion link: the separate "Discuss on Hacker
+    // News" row is gone, so the underlined line carries that affordance.
+    '<p class="deck"><a class="byline" href="' +
+    esc(discussion) +
+    '" target="_blank" rel="noopener">by ' +
     esc(s.author || "unknown") +
     " &middot; " +
     esc(String(s.score || 0)) +
@@ -35,10 +39,7 @@ function leadHTML(s, i) {
     esc(String(s.comments || 0)) +
     " comments" +
     (s.age ? " &middot; " + esc(ago(s.age)) : "") +
-    "</p>" +
-    '<p class="discuss"><a href="' +
-    esc(discussion) +
-    '" target="_blank" rel="noopener">Discuss on Hacker News</a></p>'
+    "</a></p>"
   );
 }
 

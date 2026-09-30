@@ -78,6 +78,9 @@ type Server struct {
 	// extRunner renders extensions; nil means run `suwu gq` in a child process.
 	// Tests inject a stub.
 	extRunner extensionRunner
+	// extLegacyWarned makes the one-time "move your extensions dir" warning
+	// fire at most once per server.
+	extLegacyWarned bool
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)

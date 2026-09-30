@@ -315,8 +315,23 @@ func (p *processRunner) gqArgs(entry, inputPath, resultPath string, net bool) []
 	return append(args, "--root", "/ext="+p.extDir, "--ro", entry)
 }
 
-// extensionDir is the resolved extensions directory for this server.
-func (s *Server) extensionDir() string { return extension.Dir(s.dataDir) }
+// extensionDir is the resolved extension directory for this server.
+//
+// It prefers <dataDir>/extension and falls back to the pre-rename
+// <dataDir>/extensions so upgrades keep listing hand-copied extensions; the
+// fallback is read-only and the user moves the directory themselves. The
+// resolution is two stats and runs per request, so an extension installed
+// while the server is up is picked up without a restart. When the legacy
+// directory still holds extensions, the migration hint is logged once.
+func (s *Server) extensionDir() string {
+	res := extension.ResolveDir(s.dataDir)
+	if res.LegacyPresent && !s.extLegacyWarned {
+		s.extLegacyWarned = true
+		slog.Warn("legacy extensions directory in use; move it to the current name",
+			"legacy", res.Dir, "current", extension.Dir(s.dataDir))
+	}
+	return res.Dir
+}
 
 // extensionRunnerOrDefault returns the configured runner (tests inject a stub).
 func (s *Server) extensionRunner() extensionRunner {

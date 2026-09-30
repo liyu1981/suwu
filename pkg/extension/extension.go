@@ -1,6 +1,6 @@
 // Package extension discovers and resolves gqjs-backed extensions that the
 // `extension` tile plugin renders. An extension is a directory under the Suwu
-// data dir's `extensions/` folder containing a required `package.json`
+// data dir's `extension/` folder containing a required `package.json`
 // (npm-style name/description at the top level, Suwu specifics under the
 // "suwu" object) and a hard-coded `index.js` entry point. Optional API
 // handlers are registered as ordered `{route, handler}` entries under
@@ -10,7 +10,7 @@
 // extension into network access for its scripts.
 //
 // Nothing is seeded automatically: installable examples live in the repo's
-// examples/extensions/ directory and are copied here by the user.
+// examples/extension/ directory and are installed with `suwu install`.
 package extension
 
 import (
@@ -22,6 +22,16 @@ import (
 	"sort"
 	"strings"
 )
+
+// DirName is the extension tree below the data dir: <dataDir>/extension.
+// It is singular to match the sibling `background` tree, and it is the prefix
+// an install archive is expected to carry (see docs/INSTALL_PLAN.md §7.1).
+const DirName = "extension"
+
+// LegacyDirName is the pre-0.1.12 name of the extension tree. It is read as a
+// compatibility fallback (ResolveDir) and never written: `suwu install` only
+// ever creates <dataDir>/extension.
+const LegacyDirName = "extensions"
 
 // EntryFile is the hard-coded render entry point filename inside an extension dir.
 const EntryFile = "index.js"
@@ -101,9 +111,52 @@ type Extension struct {
 	Entry string `json:"-"`
 }
 
-// Dir returns the extensions directory for a Suwu data directory.
-func Dir(dataDir string) string {
-	return filepath.Join(dataDir, "extensions")
+// Dir returns the extension directory for a Suwu data directory: the single
+// source of truth for where extensions live.
+func Dir(dataDir string) string { return filepath.Join(dataDir, DirName) }
+
+// LegacyDir returns the pre-rename extension directory. It is read-only: see
+// ResolveDir.
+func LegacyDir(dataDir string) string { return filepath.Join(dataDir, LegacyDirName) }
+
+// DirResolution says which extension directory a reader should use.
+type DirResolution struct {
+	// Dir is the directory to read extensions from.
+	Dir string
+	// Legacy is true when Dir is the pre-rename path, so the caller can warn.
+	Legacy bool
+	// LegacyPresent is true when the pre-rename directory still holds
+	// extensions, whether or not it is the one being read. It is the signal
+	// for the one-time "mv" hint.
+	LegacyPresent bool
+}
+
+// ResolveDir picks the extension directory to read: the current name when it
+// holds at least one resolvable extension, otherwise the legacy name when that
+// one does, otherwise the current name (so a fresh install creates it).
+//
+// The fallback exists because the released docs told users to copy extensions
+// into <dataDir>/extensions; without it, upgrading would silently stop listing
+// them. It is a compatibility read path, not a migration — nothing is ever
+// moved or written here.
+func ResolveDir(dataDir string) DirResolution {
+	current := Dir(dataDir)
+	res := DirResolution{Dir: current, LegacyPresent: hasExtension(LegacyDir(dataDir))}
+	// The legacy directory is reported even when the current one wins: it is
+	// the leftover that will silently stop being read.
+	if hasExtension(current) || !res.LegacyPresent {
+		return res
+	}
+	res.Dir = LegacyDir(dataDir)
+	res.Legacy = true
+	return res
+}
+
+// hasExtension reports whether dir exists and holds at least one resolvable
+// extension. An unreadable or absent directory is simply "no".
+func hasExtension(dir string) bool {
+	exts, err := List(dir)
+	return err == nil && len(exts) > 0
 }
 
 // ValidID reports whether id is a legal extension id.

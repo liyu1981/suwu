@@ -65,6 +65,11 @@ come back tomorrow, pick up where you left off.
    with its own API routes, static assets, and an extension-scoped token.
    `suwu gq` runs the same sandbox from the command line.
 
+10. **Installable extras** — `suwu install` puts backgrounds and extensions into
+    the data directory, from a picker over the first-party catalog or from a
+    zip. Archives are validated with the same resolvers the server uses, so a
+    broken install never lands.
+
 ## Install
 
 ```sh

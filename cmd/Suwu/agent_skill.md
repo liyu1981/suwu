@@ -110,6 +110,22 @@ suwu use xterm
 suwu use chromium --new-window https://example.com
 ```
 
+### `suwu install` — add a background or an extension
+
+Install into the Suwu data directory (`~/.suwu`). It needs no terminal when
+names are passed, so it is scriptable.
+
+```bash
+suwu install --list                          # what the catalog offers
+suwu install --github eye hn-top-stories     # install by id
+suwu install --github --kind background --all
+suwu install --extension ./eye.zip           # from a zip
+suwu install --extension ./eye.zip --dry-run # report only
+```
+
+An install is live after the browser tab reloads; no server restart is needed.
+Extensions still need a tile whose `id` matches, created in the App Menu.
+
 ## Common flags
 
 | Flag | Applies to | Meaning |
@@ -117,7 +133,9 @@ suwu use chromium --new-window https://example.com
 | `--sock <path>` | send, open, code, diff, gitgraph, forward, use | Notify socket path (default `~/.suwu/suwu.sock`) |
 | `--proto <tcp\|udp>` | forward | Protocol (default `tcp`) |
 | `--stop <port>` | forward | Stop the forward bound to that local port |
-| `--list` | forward | List active forwards |
+| `--list` | forward, install | List active forwards; list the install catalog |
+| `--force` | install | Replace an existing install of the same id |
+| `--dry-run` | install | Report what would be written, change nothing |
 
 ## Notes
 
@@ -127,4 +145,6 @@ suwu use chromium --new-window https://example.com
   server as absolute paths.
 - Prefer `suwu code <file>:<range>` over dumping a whole file when you want a
   human to review a specific hunk.
+- `suwu install` writes only under the data directory. Use `--dry-run` first if
+  you are not sure what an archive contains.
 - Run `suwu help <command>` for the full flag list of any tool.

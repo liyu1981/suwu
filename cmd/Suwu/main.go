@@ -140,6 +140,11 @@ func main() {
 			return
 		case "gq":
 			os.Exit(gqMain(os.Args[2:]))
+		case "install":
+			if err := installCmd(os.Args[2:]); err != nil {
+				log.Fatalf("install: %v", err)
+			}
+			return
 		case "background":
 			os.Exit(backgroundMain(os.Args[2:]))
 		default:
@@ -199,6 +204,10 @@ Usage:
   suwu gq [flags] <script.js>
                            run a JavaScript file in a request-scoped QuickJS
                            sandbox (see 'suwu help gq')
+  suwu install [flags] [<name>...]
+                           install a background or an extension into the data
+                           directory, from a zip or the GitHub catalog; bare
+                           'suwu install' opens a picker (see 'suwu help install')
   suwu background build <file.wgsl>
                            compile a background's WGSL graph to stdout
                            (see 'suwu help background')
@@ -416,6 +425,8 @@ Examples:
 		printAgentUsage()
 	case "gq":
 		fmt.Print(gqUsageText)
+	case "install":
+		printInstallUsage()
 	case "background":
 		printBackgroundUsage()
 	default:

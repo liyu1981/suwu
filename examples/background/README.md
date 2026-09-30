@@ -1,16 +1,22 @@
 # Example WebGPU backgrounds
 
-These are installable, external backgrounds. They live **outside** the binary:
-copy one into the Suwu data dir and the shell picks it up on reload — no
-rebuild.
+These are the **catalog** backgrounds. Install them from a terminal and the
+shell picks them up on reload — no rebuild:
 
 ```sh
-# install one (or all five)
-cp -r examples/background/webgpu/matrix-rain ~/.suwu/background/webgpu/
+# one, several, or all of them
+suwu install --github matrix-rain
+suwu install --github --kind background --all
 ```
 
-Then reload the Suwu tab. `System Settings → Background` lists it next to the
-builtin `seascape` and the CPU backgrounds.
+Everything lands in `~/.suwu/background/webgpu/<id>/` and appears in
+`System Settings → Background` next to the builtin `seascape` and the CPU
+backgrounds. `suwu install --background <file.zip>` does the same from a zip
+whose root is `background/webgpu/<id>/…`; a hand copy works too:
+
+```sh
+cp -r examples/background/webgpu/matrix-rain ~/.suwu/background/webgpu/
+```
 
 ## Layout
 

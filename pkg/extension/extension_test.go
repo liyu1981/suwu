@@ -233,9 +233,65 @@ func TestStaticPath(t *testing.T) {
 }
 
 func TestDir(t *testing.T) {
-	if got, want := Dir("/srv/suwu"), filepath.Join("/srv/suwu", "extensions"); got != want {
+	if got, want := Dir("/srv/suwu"), filepath.Join("/srv/suwu", "extension"); got != want {
 		t.Errorf("Dir = %q, want %q", got, want)
 	}
+	if got, want := LegacyDir("/srv/suwu"), filepath.Join("/srv/suwu", "extensions"); got != want {
+		t.Errorf("LegacyDir = %q, want %q", got, want)
+	}
+}
+
+// ── ResolveDir (the pre-rename fallback) ────────────────────────
+
+func TestResolveDir(t *testing.T) {
+	valid := `{"name":"Demo"}`
+	entry := "function handler() { return { body: '' }; }"
+
+	t.Run("current name wins", func(t *testing.T) {
+		root := t.TempDir()
+		writeExt(t, Dir(root), "a", valid, entry)
+		writeExt(t, LegacyDir(root), "b", valid, entry)
+		res := ResolveDir(root)
+		if res.Dir != Dir(root) || res.Legacy {
+			t.Errorf("Dir = %q legacy = %v, want the current name", res.Dir, res.Legacy)
+		}
+		if !res.LegacyPresent {
+			t.Error("LegacyPresent = false, want true (the leftover must warn)")
+		}
+	})
+
+	t.Run("falls back to legacy", func(t *testing.T) {
+		root := t.TempDir()
+		writeExt(t, LegacyDir(root), "b", valid, entry)
+		res := ResolveDir(root)
+		if !res.Legacy || res.Dir != LegacyDir(root) {
+			t.Errorf("Dir = %q legacy = %v, want the legacy name", res.Dir, res.Legacy)
+		}
+		if !res.LegacyPresent {
+			t.Error("LegacyPresent = false, want true")
+		}
+	})
+
+	t.Run("empty current name does not hide legacy", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.MkdirAll(Dir(root), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		writeExt(t, LegacyDir(root), "b", valid, entry)
+		if res := ResolveDir(root); !res.Legacy {
+			t.Errorf("Legacy = false, want true (an empty dir is not a reason to ignore legacy)")
+		}
+	})
+
+	t.Run("neither exists uses the current name", func(t *testing.T) {
+		res := ResolveDir(t.TempDir())
+		if res.Dir == LegacyDir(res.Dir) || filepath.Base(res.Dir) != DirName {
+			t.Errorf("Dir = %q, want the current name", res.Dir)
+		}
+		if res.Legacy || res.LegacyPresent {
+			t.Errorf("legacy = %v present = %v, want false/false", res.Legacy, res.LegacyPresent)
+		}
+	})
 }
 
 // ── API route registration ─────────────────────────────────────

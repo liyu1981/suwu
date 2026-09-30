@@ -107,7 +107,7 @@
 <div class="prose">
 <h2 id="overview">Overview</h2>
         <p>An <strong>extension</strong> is a small JavaScript program that returns an HTML page, which Suwu renders inside a tile. Extensions are how you add an app to Suwu without touching Go or React: a script runs in a sandboxed <a href="gqjs.html">gqjs</a> QuickJS isolate — in its own process, with a deadline — and hands back a document.</p>
-        <p>Three example extensions ship with the repository and are meant to be copied into your data directory:</p>
+        <p>Three example extensions ship in the repository, and they are the ones the install catalog offers:</p>
 
         <table class="shortcut-table">
           <thead>
@@ -133,15 +133,33 @@
         </table>
 
         <h2 id="installing-an-extension">Installing an Extension</h2>
-        <p>Suwu never installs extensions for you. Copy one into your extensions directory — <code>$SUWU_VAR/extensions</code>, or <code>~/.suwu/extensions</code>:</p>
+        <p>Suwu never installs extensions behind your back. From a terminal, let <code>suwu install</code> do it:</p>
 
-<pre><code>cp -r examples/extensions/eye ~/.suwu/extensions/
-cp -r examples/extensions/note ~/.suwu/extensions/
-cp -r examples/extensions/hn-top-stories ~/.suwu/extensions/</code></pre>
+<pre><code># open the picker (needs a terminal)
+suwu install
 
-        <p>Then reload the browser tab. A directory becomes an extension as soon as it contains a valid <code>package.json</code> and an <code>index.js</code>:</p>
+# or name them outright
+suwu install --github eye note hn-top-stories
 
-<pre><code>&lt;dataDir&gt;/extensions/&lt;id&gt;/
+# see what is on offer without installing
+suwu install --list
+
+# or install from a zip you were sent
+suwu install --extension eye.zip</code></pre>
+
+        <p>Everything lands in <code>$SUWU_VAR/extension/&lt;id&gt;/</code> (default <code>~/.suwu/extension/</code>) and is live after a <strong>tab reload</strong> — the server reads that directory per request, so nothing needs a restart. Installing over an existing id needs <code>--force</code>; <code>--dry-run</code> reports what would be written and changes nothing.</p>
+        <p>The same works from a checkout: zip one extension so the archive root is <code>extension/&lt;id&gt;/…</code> (a zip holding a single bare <code>&lt;id&gt;/…</code> directory is accepted too), or copy the directory by hand:</p>
+
+<pre><code>cp -r examples/extension/eye ~/.suwu/extension/</code></pre>
+
+        <div class="callout">
+          <div class="callout-title">The directory was renamed</div>
+          <p>The data directory used to be <code>~/.suwu/extensions</code> and is now <code>~/.suwu/extension</code>, matching <code>background</code>. The old name is still read when it holds extensions, so nothing disappears on upgrade — but <code>suwu install</code> only ever writes the new path. Move it yourself when convenient: <code>mv ~/.suwu/extensions ~/.suwu/extension</code>.</p>
+        </div>
+
+        <p>A directory becomes an extension as soon as it contains a valid <code>package.json</code> and an <code>index.js</code>:</p>
+
+<pre><code>&lt;dataDir&gt;/extension/&lt;id&gt;/
   package.json     # metadata — required
   index.js         # render entry point — required, fixed name
   public/          # client assets, when suwu.static declares it

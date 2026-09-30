@@ -182,16 +182,18 @@ suwu code ./pkg</code></pre>
         <p>Run a JavaScript file in a request-scoped QuickJS sandbox: a fresh isolate, scoped filesystem roots, an optional JSON input, and a hard deadline. It is the same runtime that renders <a href="extensions.html">extension</a> tiles.</p>
 
 <pre><code># Transform input into a JSON result
-suwu gq --input '{"n":21}' --print-result script.js
+printf 'function handler(i){return {doubled: i.n * 2};}' &gt; /tmp/double.js
+suwu gq --input '{"n":21}' --print-result /tmp/double.js
 
 # Read a file from a mounted root
-suwu gq --root /app=./src --print-result script.js
+suwu gq --root /app=./src --print-result /tmp/read.js
 
 # Call an API (loopback and private hosts need --allow-private)
-suwu gq --allow-net --print-result examples/gqjs/fetch.js
+suwu gq --allow-net --print-result /tmp/fetch.js
 
 # Machine-readable output
-suwu gq --result-file /tmp/out.json script.js</code></pre>
+suwu gq --result-file /tmp/out.json --input '{"n":21}' /tmp/double.js
+</code></pre>
 
         <p>Exit codes are meaningful: <code>0</code> success, <code>1</code> script error, <code>2</code> timeout, <code>3</code> output limit, <code>64</code> usage. See <a href="gqjs.html">gqjs Script Runner</a> for the script contract and the full flag list.</p>
 
@@ -243,6 +245,30 @@ suwu upgrade --force    # re-download even if up to date</code></pre>
 
         <p>If the daemon is running, it is stopped for the upgrade and started again afterwards. See <a href="../upgrading.html">Upgrading</a> for details.</p>
 
+        <h2 id="suwu-install"><code>suwu install</code></h2>
+        <p>Put a background or an extension into the data directory — from the first-party catalog or from a zip:</p>
+
+<pre><code># interactive picker (needs a terminal)
+suwu install
+
+# name them outright, or list the catalog
+suwu install --github eye note hn-top-stories
+suwu install --list
+
+# one kind, everything of that kind
+suwu install --github --kind background --all
+
+# from an archive; the zip root is extension/&lt;id&gt;/… or background/webgpu/&lt;id&gt;/…
+suwu install --extension eye.zip
+suwu install --background matrix-rain.zip
+
+# report without writing, or replace an existing install
+suwu install --extension eye.zip --dry-run
+suwu install --extension eye.zip --force</code></pre>
+
+        <p>Nothing needs a server restart: the extension and background registries are read from disk per request, so a tab reload is enough. A missing or duplicate name is reported with a pointer to <code>--list</code>, and a rate-limited GitHub API falls back to the cached catalog.</p>
+        <p>See <a href="extensions.html">Extensions</a> and <a href="backgrounds.html">Backgrounds</a> for what gets installed.</p>
+
         <h2 id="suwu-background-build"><code>suwu background build</code></h2>
         <p>Compile a WGSL entry shader — resolving its whole import graph — into the JavaScript module a custom WebGPU background needs. The compiler is embedded in the binary, so there is no Node toolchain to install.</p>
 
@@ -284,6 +310,7 @@ suwu upgrade --force    # re-download even if up to date</code></pre>
 <li><a href="#suwu-serve-suwu-onboard-and-suwu-daemon">suwu serve, suwu onboard, and suwu daemon</a></li>
 <li><a href="#suwu-gencerts">suwu gencerts</a></li>
 <li><a href="#suwu-upgrade">suwu upgrade</a></li>
+<li><a href="#suwu-install">suwu install</a></li>
 <li><a href="#suwu-background-build">suwu background build</a></li>
         </ul>
       </nav>

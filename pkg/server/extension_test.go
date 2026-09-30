@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -573,4 +574,95 @@ func getWithCookie(t *testing.T, rawURL, token string) int {
 	}
 	resp.Body.Close()
 	return resp.StatusCode
+}
+
+// TestExtensionsListResolvesExtensionDir pins the data-dir rename at the server
+// boundary: the list handler reads <dataDir>/extension, and still reads the
+// pre-rename <dataDir>/extensions when only that one exists.
+func TestExtensionsListResolvesExtensionDir(t *testing.T) {
+	listIDs := func(t *testing.T, srv *httptest.Server) []string {
+		t.Helper()
+		resp, err := http.Get(srv.URL + "/api/extensions?token=testtoken")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var payload struct {
+			Extensions []struct {
+				ID string `json:"id"`
+			} `json:"extensions"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		ids := make([]string, 0, len(payload.Extensions))
+		for _, e := range payload.Extensions {
+			ids = append(ids, e.ID)
+		}
+		return ids
+	}
+
+	newServer := func(t *testing.T, dataDir string) *httptest.Server {
+		t.Helper()
+		sessions, err := session.NewManager()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { sessions.Close() })
+		cfg := &auth.Config{
+			Token:        "testtoken",
+			BindHost:     "127.0.0.1",
+			AllowedHosts: []string{"localhost", "127.0.0.1", "::1"},
+		}
+		sub, err := fs.Sub(assets.FS, "web")
+		if err != nil {
+			t.Fatal(err)
+		}
+		srv := New(cfg, sub, sessions, nil, forward.NewManager(), dataDir)
+		ts := httptest.NewServer(srv.Handler())
+		t.Cleanup(ts.Close)
+		return ts
+	}
+
+	files := map[string]string{
+		"package.json": `{"name":"Demo"}`,
+		"index.js":     `function handler() { return "x"; }`,
+	}
+	write := func(t *testing.T, dir, id string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Join(dir, id), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		for name, body := range files {
+			if err := os.WriteFile(filepath.Join(dir, id, name), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	t.Run("current name", func(t *testing.T) {
+		dir := t.TempDir()
+		write(t, extension.Dir(dir), "new")
+		if ids := listIDs(t, newServer(t, dir)); len(ids) != 1 || ids[0] != "new" {
+			t.Errorf("ids = %v, want [new]", ids)
+		}
+	})
+
+	t.Run("legacy name is still read", func(t *testing.T) {
+		dir := t.TempDir()
+		write(t, extension.LegacyDir(dir), "old")
+		if ids := listIDs(t, newServer(t, dir)); len(ids) != 1 || ids[0] != "old" {
+			t.Errorf("ids = %v, want [old] from the legacy tree", ids)
+		}
+	})
+
+	t.Run("current name wins over legacy", func(t *testing.T) {
+		dir := t.TempDir()
+		write(t, extension.Dir(dir), "new")
+		write(t, extension.LegacyDir(dir), "old")
+		ids := listIDs(t, newServer(t, dir))
+		if len(ids) != 1 || ids[0] != "new" {
+			t.Errorf("ids = %v, want only [new]", ids)
+		}
+	})
 }

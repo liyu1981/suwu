@@ -1,17 +1,32 @@
 # Example extensions
 
-Suwu never installs extensions automatically — copy an example into your
-extensions directory (`$SUWU_VAR/extensions`, default `~/.suwu/extensions`):
+These are the extensions the **catalog** offers. Install them from a terminal:
 
 ```sh
-cp -r examples/extensions/eye ~/.suwu/extensions/
-cp -r examples/extensions/note ~/.suwu/extensions/
-cp -r examples/extensions/hn-top-stories ~/.suwu/extensions/
+suwu install --github eye note hn-top-stories
+```
+
+`suwu install` with no arguments opens a picker instead, and `--list` prints
+the catalog without installing anything. Everything lands in
+`$SUWU_VAR/extension/<id>/` (default `~/.suwu/extension/`) and is live after a
+tab reload — the server reads that directory per request, so nothing needs a
+restart.
+
+To install from a local checkout instead, zip one example (`suwu install
+--extension <file.zip>` expects `extension/<id>/…` inside the zip) or copy it
+by hand:
+
+```sh
+cp -r examples/extension/eye ~/.suwu/extension/
 ```
 
 Then enable the **extension** plugin in App Menu settings (it is off by
 default) and add an Extension tile whose `id` is the directory name
 (`eye`, `hn-top-stories`).
+
+> The data directory used to be called `extensions/`. It is still read when it
+> holds extensions, but `suwu install` only ever writes `extension/`; move it
+> yourself when you are ready.
 
 ## What each example demonstrates
 

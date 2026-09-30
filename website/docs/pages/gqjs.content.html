@@ -119,24 +119,47 @@
         </ul>
 
         <h2>Examples</h2>
-        <p>The repository ships runnable samples under <code>examples/gqjs/</code>:</p>
+        <p><code>suwu gq</code> takes a script path, so the only thing you need is a file. A script that defines a global <code>handler</code> returns that function's value; without one, the value of the script's last expression is the result.</p>
 
-<pre><code># Print a result
-suwu gq --print-result examples/gqjs/handler.js
+        <h3>Transform input into JSON</h3>
 
-# Feed it input and a filesystem root
-suwu gq --root /app=./examples/gqjs --input '{"n":21}' --print-result \
-  examples/gqjs/handler.js
+<pre><code>cat &gt; /tmp/double.js &lt;&lt;'EOF'
+function handler(input) {
+  return { n: input.n, doubled: input.n * 2 };
+}
+EOF
 
-# Call an API (needs the network opt-in)
-suwu gq --allow-net --print-result examples/gqjs/fetch.js
+suwu gq --input '{"n":21}' --print-result /tmp/double.js
+# {"n":21,"doubled":42}</code></pre>
 
-# Reach a local dev server (loopback stays blocked without this)
-suwu gq --allow-net --allow-private --print-result examples/gqjs/fetch.js
+        <h3>Read a file from a mounted root</h3>
+        <p>Nothing is visible until you mount it, and the guest path is the virtual one:</p>
 
-# Hand the result to another program
-suwu gq --root /app=./examples/gqjs --input '{"n":21}' \
-  --result-file /tmp/result.json examples/gqjs/handler.js</code></pre>
+<pre><code>cat &gt; /tmp/size.js &lt;&lt;'EOF'
+async function handler() {
+  const stat = await fs.promises.stat("/app/data.txt");
+  return { size: stat.size, mtimeMs: stat.mtimeMs };
+}
+EOF
+
+suwu gq --root /app=./data --print-result /tmp/size.js</code></pre>
+
+        <h3>Call an API</h3>
+        <p>The network is off unless you ask for it, and <code>--allow-private</code> is a separate decision:</p>
+
+<pre><code>cat &gt; /tmp/ping.js &lt;&lt;'EOF'
+const res = await fetch("https://example.com/", { headers: { "X-Suwu": "gqjs" } });
+({ status: res.status, contentType: res.headers.get("content-type") });
+EOF
+
+suwu gq --allow-net --print-result /tmp/ping.js
+suwu gq --allow-net --allow-private --print-result /tmp/ping.js   # loopback too</code></pre>
+
+        <h3>Feed another program</h3>
+
+<pre><code>suwu gq --result-file /tmp/out.json --input '{"n":21}' /tmp/double.js &amp;&amp; cat /tmp/out.json</code></pre>
+
+        <p>Top-level <code>await</code> works, so a script can be a sequence of host calls without a <code>handler</code> wrapper.</p>
 
         <h2>Limits</h2>
         <ul>

@@ -92,16 +92,26 @@
         <p>Clips longer than 30 seconds are flagged as too long for a background. Decoding is done lazily with backpressure, so memory stays bounded regardless of clip length; load and codec failures are reported on the canvas itself.</p>
 
         <h2 id="custom">Your Own Backgrounds</h2>
-        <p>WebGPU backgrounds are <strong>files, not compiled-in code</strong>. A background is just a directory, and dropping it into the data directory registers it — no rebuild, no plugin install. Five worked examples ship in the repository under <code>examples/background/webgpu/</code>:</p>
+        <p>WebGPU backgrounds are <strong>files, not compiled-in code</strong>. A background is just a directory, and installing it registers it — no rebuild, no plugin install. Five worked examples ship in the repository, and they are the ones the install catalog offers:</p>
 
-<pre><code># install one (or all five)
-cp -r examples/background/webgpu/matrix-rain ~/.suwu/background/webgpu/
+<pre><code># one, several, or all of them
+suwu install --github matrix-rain
+suwu install --github --kind background --all
 
-# then reload the Suwu tab</code></pre>
+# see the list first
+suwu install --list
 
-        <p>They appear in <strong>Settings → Background</strong> alongside the built-ins, each with its own label and parameters. A directory with the same id as a built-in <strong>overrides</strong> it, and deleting a directory unregisters the background (a stored selection then falls back to the ambient blob). Set <code>SUWU_BACKGROUNDS_DIR</code> to serve a background tree from somewhere else entirely — useful while developing one.</p>
+# or install from a zip whose root is background/webgpu/&lt;id&gt;/…
+suwu install --background matrix-rain.zip</code></pre>
+
+        <p>Everything lands in <code>~/.suwu/background/webgpu/&lt;id&gt;/</code> and appears in <strong>Settings → Background</strong> after a tab reload. From a checkout, a hand copy works too:</p>
+
+<pre><code>cp -r examples/background/webgpu/matrix-rain ~/.suwu/background/webgpu/</code></pre>
+
+        <p>Each background keeps its own label and parameters. A directory with the same id as a built-in <strong>overrides</strong> it, and deleting a directory unregisters the background (a stored selection then falls back to the ambient blob). Set <code>SUWU_BACKGROUNDS_DIR</code> to serve a background tree from somewhere else entirely — useful while developing one.</p>
 
         <h3>Directory layout</h3>
+        <p>A background directory looks like this:</p>
 
 <pre><code>&lt;dataDir&gt;/background/webgpu/&lt;id&gt;/
   background.json        # metadata and parameters — required

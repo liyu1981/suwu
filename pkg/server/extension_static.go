@@ -10,7 +10,7 @@ package server
 // (tokens, passwords, API keys) in them. Secrets travel through the
 // authenticated render HTML instead (a data-* attribute or an inline classic
 // script) and are read by the static code at runtime; see the canonical
-// data-api pattern in examples/extensions/hn-top-stories and
+// data-api pattern in examples/extension/hn-top-stories and
 // docs/EXTENSION_API_PLAN.md §2.8.
 
 import (

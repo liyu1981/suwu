@@ -195,8 +195,21 @@ export function hydrateExternalBackgrounds(): void {
  * Fetches the authoritative list, registers every background, caches it, and
  * bumps the revision. Never throws: a failed fetch keeps the cached set and
  * leaves the default background working.
+ *
+ * Concurrent calls share one request — the shell already fetches on mount, and
+ * the settings screen re-fetches when it opens.
  */
-export async function loadExternalBackgrounds(): Promise<void> {
+let inflight: Promise<void> | null = null;
+
+export function loadExternalBackgrounds(): Promise<void> {
+  if (inflight) return inflight;
+  inflight = fetchExternalBackgrounds().finally(() => {
+    inflight = null;
+  });
+  return inflight;
+}
+
+async function fetchExternalBackgrounds(): Promise<void> {
   try {
     const res = await authFetch(LIST_URL, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

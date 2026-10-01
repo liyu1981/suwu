@@ -25,6 +25,7 @@ import {
   readAvatarImage,
 } from '../../lib/avatar';
 import { randomUserName } from '../../lib/username';
+import { reloadExtensions } from '../../lib/extensions';
 import { Avatar } from '../Avatar';
 import { DiceIcon, RefreshIcon } from '../icons';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
@@ -35,6 +36,7 @@ import {
   DEFAULT_BACKGROUND_ID,
   getBackground,
   listBackgrounds,
+  loadExternalBackgrounds,
   resolveBackgroundParams,
   WEBGPU_ENGINE,
 } from '../background';
@@ -539,6 +541,19 @@ export default function SettingsView() {
   // while typing.
   useEffect(() => setAvatarEmail(avatar.email), [avatar.email]);
   useEffect(() => setUserNameDraft(userName), [userName]);
+
+  // Opening this screen is the moment to pick up anything installed since the
+  // tab loaded: `suwu install` writes into the data directory, and the server
+  // reads both registries per request, so one fetch each is all it takes. The
+  // background list is local and bumps the revision atom, which updates the
+  // selector below live; the extension list warms the cache the App Menu's id
+  // picker reads. Both are best-effort — a failure leaves the last known list.
+  useEffect(() => {
+    void loadExternalBackgrounds();
+    void reloadExtensions().catch(() => {
+      /* keep the cached list; the picker degrades to free text */
+    });
+  }, []);
 
   const commitUserName = () => {
     const next = userNameDraft.trim();

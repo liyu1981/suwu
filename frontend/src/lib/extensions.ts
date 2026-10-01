@@ -55,13 +55,27 @@ function loadExtensions(): Promise<Extension[]> {
 }
 
 /**
+ * Drop the session cache and fetch the list again.
+ *
+ * The list is cached for the lifetime of the document, so a background or
+ * extension installed from a terminal (`suwu install`) is invisible until
+ * something asks for a fresh copy. The settings screen does that when it
+ * opens; the App Menu's own reload button shares this path.
+ */
+export function reloadExtensions(): Promise<Extension[]> {
+  cached = null;
+  inflight = null;
+  return loadExtensions();
+}
+
+/**
  * Read-only list of registered extensions, fetched once per session.
  *
  * Used by the App Menu config editor to populate the extension `id` selector —
  * never by the tile itself. On failure `failed` is set so callers can fall
  * back to a plain text input.
  */
-export function useExtensions(): { items: Extension[]; failed: boolean } {
+export function useExtensions(): { items: Extension[]; failed: boolean; reload: () => void } {
   const [items, setItems] = useState<Extension[]>(cached ?? []);
   const [failed, setFailed] = useState(false);
 
@@ -80,12 +94,13 @@ export function useExtensions(): { items: Extension[]; failed: boolean } {
   }, []);
 
   const reload = useCallback(() => {
-    cached = null;
-    inflight = null;
-    loadExtensions()
-      .then((list) => setItems(list))
+    reloadExtensions()
+      .then((list) => {
+        setItems(list);
+        setFailed(false);
+      })
       .catch(() => setFailed(true));
   }, []);
 
-  return { items, failed, reload } as { items: Extension[]; failed: boolean };
+  return { items, failed, reload };
 }

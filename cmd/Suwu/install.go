@@ -547,13 +547,18 @@ func installSummary(ok, _ int, opt install.Options, kinds map[install.Kind]bool)
 	if notice := extensionLegacyNotice(opt.DataDir); notice != "" {
 		fmt.Print(notice)
 	}
-	fmt.Println("  Reload the Suwu tab to pick them up.")
+	// The settings screen re-reads both registries when it opens, so that is the
+	// cheapest way to see the result. A tab reload is only needed for a tile
+	// that was already open: its iframe, and a background's scene.js import,
+	// are cached per document.
+	fmt.Println("  Reopen System Settings to see them — it re-reads both lists on open.")
 	if kinds[install.KindExtension] {
 		fmt.Println("  Extensions: enable the Extension app in the App Menu, then add a tile with the id above.")
 	}
 	if kinds[install.KindBackground] {
-		fmt.Println("  Backgrounds: choose one in Settings → Background.")
+		fmt.Println("  Backgrounds: choose one under the Background tab.")
 	}
+	fmt.Println("  Only a tile that was already open needs a tab reload.")
 }
 
 // extensionLegacyNotice returns the migration hint when the pre-rename

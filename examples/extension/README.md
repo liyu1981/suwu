@@ -8,9 +8,9 @@ suwu install --github eye note hn-top-stories
 
 `suwu install` with no arguments opens a picker instead, and `--list` prints
 the catalog without installing anything. Everything lands in
-`$SUWU_VAR/extension/<id>/` (default `~/.suwu/extension/`) and is live after a
-tab reload — the server reads that directory per request, so nothing needs a
-restart.
+`$SUWU_VAR/extension/<id>/` (default `~/.suwu/extension/`) and the server
+reads that directory per request, so nothing needs a restart. The tab picks it
+up the next time you open System Settings, which re-reads the list.
 
 To install from a local checkout instead, zip one example (`suwu install
 --extension <file.zip>` expects `extension/<id>/…` inside the zip) or copy it

@@ -266,7 +266,7 @@ suwu install --background matrix-rain.zip
 suwu install --extension eye.zip --dry-run
 suwu install --extension eye.zip --force</code></pre>
 
-        <p>Nothing needs a server restart: the extension and background registries are read from disk per request, so a tab reload is enough. A missing or duplicate name is reported with a pointer to <code>--list</code>, and a rate-limited GitHub API falls back to the cached catalog.</p>
+        <p>Nothing needs a server restart: both registries are read from disk per request, so an install is live at once and <strong>opening System Settings</strong> re-reads the lists. Only a tile that was already open needs a tab reload. A missing or duplicate name is reported with a pointer to <code>--list</code>, and a rate-limited GitHub API falls back to the cached catalog.</p>
         <p>See <a href="extensions.html">Extensions</a> and <a href="backgrounds.html">Backgrounds</a> for what gets installed.</p>
 
         <h2 id="suwu-background-build"><code>suwu background build</code></h2>

@@ -40,7 +40,7 @@ suwu install --list
 # or install from a zip you were sent
 suwu install --extension eye.zip</code></pre>
 
-        <p>Everything lands in <code>$SUWU_VAR/extension/&lt;id&gt;/</code> (default <code>~/.suwu/extension/</code>) and is live after a <strong>tab reload</strong> — the server reads that directory per request, so nothing needs a restart. Installing over an existing id needs <code>--force</code>; <code>--dry-run</code> reports what would be written and changes nothing.</p>
+        <p>Everything lands in <code>$SUWU_VAR/extension/&lt;id&gt;/</code> (default <code>~/.suwu/extension/</code>) and is live from the server immediately — the extension registry is read from disk per request, so nothing needs a restart. The tab notices on its own the next time you <strong>open System Settings</strong>, which re-reads the list. Installing over an existing id needs <code>--force</code>; <code>--dry-run</code> reports what would be written and changes nothing.</p>
         <p>The same works from a checkout: zip one extension so the archive root is <code>extension/&lt;id&gt;/…</code> (a zip holding a single bare <code>&lt;id&gt;/…</code> directory is accepted too), or copy the directory by hand:</p>
 
 <pre><code>cp -r examples/extension/eye ~/.suwu/extension/</code></pre>

@@ -12,6 +12,7 @@
     "typecheck": "pnpm --dir frontend typecheck",
     "check:web": "pnpm --dir frontend check",
     "test": "go test ./...",
+    "test:ext": "node --test \"examples/extension/*/test/*.test.mjs\"",
     "vet": "go vet ./..."
   }
 }

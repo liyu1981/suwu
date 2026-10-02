@@ -34,6 +34,7 @@ import {
 import { getTilePlugin } from '../wm/tilePlugins';
 import { backgroundAtom, headerPositionAtom, isHeaderPosition } from '../store/settings';
 import { logout } from '../lib/api';
+import { initBackup } from '../lib/backup/client';
 
 /** Header bar thickness (matches py-1 + h-7 button height), used as the
  *  cross-axis size when the header is docked to the left or right. */
@@ -169,6 +170,13 @@ export default function AppShell() {
     void loadExternalBackgrounds();
   }, []);
   useIdleSpaces();
+
+  // Start the periodic settings backup, once the authenticated shell mounts.
+  // After a reload the data key is gone (it lives only in memory), so this is a
+  // no-op until the user re-enters the passphrase via Restore or Change.
+  useEffect(() => {
+    initBackup();
+  }, []);
 
   // Manual hide/show always supersedes an idle auto-hide.
   const toggleSpaces = useCallback(() => {

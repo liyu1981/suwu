@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"suwu/pkg/backup"
 	"suwu/pkg/update"
 )
 
@@ -20,6 +21,7 @@ func upgradeCmd(args []string) error {
 	if update.IsDevBuild() {
 		fmt.Println("Warning: running a dev build — skipping update check.")
 		fmt.Println("Build with version tag to enable self-updates.")
+		reportBackup()
 		return nil
 	}
 
@@ -38,6 +40,7 @@ func upgradeCmd(args []string) error {
 
 	if !update.IsNewer(current, latest) && !*force {
 		fmt.Println("Already up to date.")
+		reportBackup()
 		return nil
 	}
 
@@ -47,6 +50,7 @@ func upgradeCmd(args []string) error {
 		} else {
 			fmt.Println("Already up to date.")
 		}
+		reportBackup()
 		return nil
 	}
 
@@ -86,5 +90,39 @@ func upgradeCmd(args []string) error {
 	}
 
 	fmt.Println("Done.")
+	reportBackup()
 	return nil
+}
+
+// reportBackup tells the user whether an encrypted settings backup is present
+// in the data directory. Replacing the binary never touches it — the backup
+// lives beside the data, not inside the executable — and this line confirms
+// that after the upgrade, so an empty or unreadable backup directory is visible
+// here rather than at the next restore. It is informational only: a missing or
+// broken store must never fail an upgrade.
+func reportBackup() {
+	dataDir, err := installDataDir()
+	if err != nil || dataDir == "" {
+		return
+	}
+	store, err := backup.New(dataDir)
+	if err != nil {
+		return
+	}
+	summaries, err := store.Summarize()
+	if err != nil || len(summaries) == 0 {
+		return
+	}
+	var totalGen int
+	var totalBytes int64
+	var newest string
+	for _, s := range summaries {
+		totalGen += s.Generations
+		totalBytes += s.Bytes
+		if s.LatestMTime > newest {
+			newest = s.LatestMTime
+		}
+	}
+	fmt.Printf("Backup: %d generation(s) across %d slot(s), %s (latest %s)\n",
+		totalGen, len(summaries), humanBytes(totalBytes), newest)
 }

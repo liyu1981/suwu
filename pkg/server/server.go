@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"suwu/pkg/auth"
+	"suwu/pkg/backup"
 	"suwu/pkg/db"
 	"suwu/pkg/dropbox"
 	"suwu/pkg/forward"
@@ -75,6 +76,11 @@ type Server struct {
 	startedAt  time.Time
 	rateLimit  *RateLimiter
 	restLimit  *RateLimiter
+	// backupLimit budgets encrypted backup uploads, which the periodic
+	// autosave makes on a timer; backups and backupLimit are nil when the
+	// data directory is unusable.
+	backups     *backup.Store
+	backupLimit *RateLimiter
 	// extRunner renders extensions; nil means run `suwu gq` in a child process.
 	// Tests inject a stub.
 	extRunner extensionRunner
@@ -87,17 +93,34 @@ type Server struct {
 // and managing keyed PTY sessions through mgr.
 func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener, fwds *forward.Manager, dataDir string) *Server {
 	dbMgr := db.NewManager()
+	var backups *backup.Store
+	// An empty data dir means "not configured" (tests, embedded use); backups
+	// are then simply unavailable rather than written into the process's
+	// working directory.
+	if dataDir != "" {
+		store, err := backup.New(dataDir)
+		if err != nil {
+			// Backups are additive: an unusable data dir must not stop the
+			// server from serving the shell. The endpoints report it and the
+			// rest is unaffected.
+			slog.Error("backup store unavailable", "error", err)
+		} else {
+			backups = store
+		}
+	}
 	return &Server{
-		cfg:        cfg,
-		assets:     assetsFS,
-		sessions:   sessions,
-		notify:     nl,
-		forwards:   fwds,
-		dbSessions: dbMgr,
-		dataDir:    dataDir,
-		startedAt:  time.Now(),
-		rateLimit:  NewRateLimiter(),
-		restLimit:  newRateLimiter(restRateLimitMax),
+		cfg:         cfg,
+		assets:      assetsFS,
+		sessions:    sessions,
+		notify:      nl,
+		forwards:    fwds,
+		dbSessions:  dbMgr,
+		dataDir:     dataDir,
+		startedAt:   time.Now(),
+		rateLimit:   NewRateLimiter(),
+		restLimit:   newRateLimiter(restRateLimitMax),
+		backups:     backups,
+		backupLimit: newRateLimiter(backupWriteRateLimitMax),
 	}
 }
 
@@ -301,6 +324,21 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/server-info" {
 		s.handleServerInfo(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/backup" {
+		s.handleBackup(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/backup/meta" {
+		s.handleBackupMeta(w, r)
+		return
+	}
+
+	if r.URL.Path == "/api/backup/blob" {
+		s.handleBackupBlob(w, r)
 		return
 	}
 

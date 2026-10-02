@@ -28,6 +28,7 @@ import { randomUserName } from '../../lib/username';
 import { reloadExtensions } from '../../lib/extensions';
 import { Avatar } from '../Avatar';
 import { DiceIcon, RefreshIcon } from '../icons';
+import { BackupTab } from './BackupTab';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import {
@@ -685,6 +686,9 @@ export default function SettingsView() {
           <TabsPrimitive.Trigger value="account" className={tabBtn}>
             {t('settings.accountTab')}
           </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="backup" className={tabBtn}>
+            {t('settings.backupTab')}
+          </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="language" className={tabBtn}>
             {t('settings.language')}
           </TabsPrimitive.Trigger>
@@ -1067,6 +1071,19 @@ export default function SettingsView() {
 
             {avatarError && <p className="mt-2 text-[11px] text-red-400">{avatarError}</p>}
           </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="backup" className="min-w-0 flex-1">
+          <BackupTab
+            onRestored={() => {
+              // The store atoms and the WM layout are read at boot, so a
+              // restore needs a reload to be fully in effect. Ask rather than
+              // yank the page out from under the dialog.
+              if (window.confirm(t('settings.backupReloadPrompt'))) {
+                window.location.reload();
+              }
+            }}
+          />
         </TabsPrimitive.Content>
 
         <TabsPrimitive.Content value="language" className="min-w-0 flex-1">

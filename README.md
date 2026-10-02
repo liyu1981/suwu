@@ -70,6 +70,12 @@ come back tomorrow, pick up where you left off.
     zip. Archives are validated with the same resolvers the server uses, so a
     broken install never lands.
 
+11. **Your settings survive the browser** — System Settings → Backup keeps a
+    copy of your settings and extension data on the server, encrypted in the
+    browser with a passphrase the server never sees. It refreshes on a timer,
+    keeps the last ten versions, and a new browser comes back exactly as you
+    left it.
+
 ## Install
 
 ```sh

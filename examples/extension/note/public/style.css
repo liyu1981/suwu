@@ -370,7 +370,11 @@ body.compact-rail .tab {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
-/* The tick, revealed by the same spring value as the fill. */
+/* The tick, revealed by the same spring value as the fill.
+   Ink, not the paper colour: --p drives the fill to a fully opaque pastel, so
+   a tick drawn in var(--paper) would sit on a near-identical value and vanish
+   exactly when the item is ticked — the one moment it has to be legible. The
+   five papers are all pale, so the same near-black reads on every one. */
 .box::after {
   content: "";
   position: absolute;
@@ -378,7 +382,7 @@ body.compact-rail .tab {
   top: 3px;
   width: 4px;
   height: 8px;
-  border: solid var(--paper, #fff);
+  border: solid var(--ink);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg) scale(calc(0.4 + 0.6 * var(--p)));
   opacity: var(--p);

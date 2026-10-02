@@ -218,7 +218,9 @@ export default function DropboxPage() {
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [cleanupTarget, setCleanupTarget] = useState('');
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  const [revealPath, setRevealPath] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Set transparent background.
   useEffect(() => {
@@ -263,34 +265,68 @@ export default function DropboxPage() {
     loadSpace();
   }, [loadFiles, loadSpace]);
 
-  const uploadFile = useCallback(async (file: File) => {
+  // Upload returns the path the server actually stored. The name we sent is
+  // not authoritative: dropbox.Upload renames on a collision (`name_2.txt`),
+  // so revealing has to go by the path the server reports back.
+  const uploadFile = useCallback(async (file: File): Promise<string | null> => {
     const { signedFetch } = await fetchToken();
     const form = new FormData();
     form.append('file', file);
-    await signedFetch(`/api/dropbox/upload`, { method: 'POST', body: form });
+    const res = await signedFetch(`/api/dropbox/upload`, { method: 'POST', body: form });
+    if (!res.ok) return null;
+    try {
+      const data = (await res.json()) as { path?: string };
+      return data.path ?? null;
+    } catch {
+      return null;
+    }
   }, []);
 
   const uploadText = useCallback(
-    async (text: string) => {
+    async (text: string): Promise<string | null> => {
       const now = new Date();
       const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `paste_${ts}.txt`;
       const blob = new Blob([text], { type: 'text/plain' });
       const file = new File([blob], filename);
-      await uploadFile(file);
+      return uploadFile(file);
     },
     [uploadFile],
   );
+
+  // A freshly created file expands itself once the list has caught up: the
+  // row only exists after the reload, so the path is resolved against the new
+  // entries, then expanded and scrolled into view. Same shape as the gitgraph
+  // "go to parent commit" navigation.
+  useEffect(() => {
+    if (!revealPath) return;
+    const hit = entries.find((e) => e.path === revealPath);
+    if (!hit) return;
+    setExpandedFile(hit.name);
+    setRevealPath(null);
+    // A search that would hide the new file would make the reveal a no-op.
+    if (searchQuery && !hit.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      setSearchQuery('');
+    }
+  }, [entries, revealPath, searchQuery]);
+
+  useEffect(() => {
+    if (!expandedFile) return;
+    const row = listRef.current?.querySelector(`[data-file-name="${CSS.escape(expandedFile)}"]`);
+    row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [expandedFile, entries]);
 
   const handleFiles = useCallback(
     async (files: FileList | File[]) => {
       setUploading(true);
       try {
+        let created: string | null = null;
         for (const file of files) {
-          await uploadFile(file);
+          created = (await uploadFile(file)) ?? created;
         }
         await loadFiles();
         await loadSpace();
+        if (created) setRevealPath(created);
       } finally {
         setUploading(false);
       }
@@ -355,9 +391,10 @@ export default function DropboxPage() {
       if (filesToUpload.length > 0) {
         await handleFiles(filesToUpload);
       } else if (textContent !== null && textContent.trim() !== '') {
-        await uploadText(textContent);
+        const created = await uploadText(textContent);
         await loadFiles();
         await loadSpace();
+        if (created) setRevealPath(created);
       }
     },
     [handleFiles, uploadText, loadFiles, loadSpace],
@@ -430,7 +467,10 @@ export default function DropboxPage() {
         </div>
 
         {/* Content — left/right borders + inset shadow */}
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <div
+          ref={listRef}
+          className="min-h-0 flex-1 overflow-y-auto scrollbar-thin border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+        >
           {loading ? (
             <div className="flex h-full items-center justify-center text-[11px] text-white/40">
               {t('dropbox.loading')}
@@ -476,6 +516,7 @@ export default function DropboxPage() {
                   return (
                     <div
                       key={entry.name}
+                      data-file-name={entry.name}
                       className={`group rounded transition ${isExpanded ? 'bg-white/5' : 'hover:bg-white/5'}`}
                     >
                       {/* File row — clickable */}

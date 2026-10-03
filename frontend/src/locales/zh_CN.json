@@ -1,4 +1,16 @@
 {
+  "gitTabs": {
+    "tabs": "仓库标签页",
+    "new": "新建仓库标签页",
+    "close": "关闭仓库标签页",
+    "closeTab": "关闭 {{label}}",
+    "closeOthers": "关闭其他标签页",
+    "closeAll": "关闭全部标签页",
+    "select": "选择仓库标签页 {{index}}：{{label}}",
+    "selectEmpty": "选择新建的仓库标签页 {{index}}",
+    "noRepo": "未选择仓库",
+    "emptyHint": "在此打开一个仓库，或新建标签页同时跟踪多个仓库。"
+  },
   "gitCompare": {
     "commits": "提交列表",
     "tabs": "Git 图视图",

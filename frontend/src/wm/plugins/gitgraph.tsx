@@ -10,17 +10,26 @@ const toolBtn =
   'grid h-5 w-5 place-items-center rounded text-slate-300 transition glass-btn hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300';
 
 function GitGraphToolbar({ paneId }: ToolbarContext) {
+  const post = (message: Record<string, string>) => {
+    const iframe = document.querySelector(`iframe[data-pane="${paneId}"]`) as HTMLIFrameElement;
+    iframe?.contentWindow?.postMessage(message, '*');
+  };
   return (
     <>
       <button
         type="button"
-        onClick={() => {
-          // Refresh the git graph
-          const iframe = document.querySelector(
-            `iframe[data-pane="${paneId}"]`,
-          ) as HTMLIFrameElement;
-          iframe?.contentWindow?.postMessage({ type: 'gitgraph-refresh' }, '*');
-        }}
+        onClick={() => post({ type: 'gitgraph-new-tab' })}
+        aria-label="New repository tab"
+        title="New repository tab"
+        className={toolBtn}
+      >
+        <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={() => post({ type: 'gitgraph-refresh' })}
         aria-label="Refresh"
         title="Refresh git graph"
         className={toolBtn}

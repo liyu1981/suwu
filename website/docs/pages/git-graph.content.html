@@ -40,6 +40,27 @@ suwu open --git-graph /path/to/repo</code></pre>
           <p>Open Git Graph in a wide tile to see more branches at once. The graph adapts to the tile width.</p>
         </div>
 
+        <h2>Repository Tabs</h2>
+        <p>A Git Graph tile can track several repositories at once. Each tab is a
+        complete git graph for one repository — the commit list, the worktree
+        browser, the <em>All branches</em> toggle, expanded commit rows, the
+        comparison tabs and the auto-refresh interval are all per tab.</p>
+        <ul>
+          <li><strong>Add</strong> — click <strong>+</strong> at the right of the tab strip (or the <strong>+</strong> button in the tile toolbar) and pick a folder.</li>
+          <li><strong>Activate</strong> — click a tab, or press <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd>.</li>
+          <li><strong>Close</strong> — click <strong>×</strong>, middle-click a tab, right-click for <em>Close other tabs</em> / <em>Close all tabs</em>.</li>
+          <li><strong>Change repo</strong> — retargets the active tab; picking a repository that is already open switches to that tab instead of duplicating it.</li>
+        </ul>
+        <p>Closing the last tab leaves the tile on the folder picker, ready for a new repository.
+        Tabs, the active tab and each tab's view are restored with the session, so a reload or a
+        space switch brings back exactly what you had.</p>
+
+        <div class="callout callout-success">
+          <div class="callout-title">Tip</div>
+          <p>Only the active tab loads commits, so tracking a dozen repositories costs one request.
+          History beyond the first 100 commits is re-fetched when you switch back to a tab.</p>
+        </div>
+
         <h2>Keyboard Shortcuts</h2>
 
         <table class="shortcut-table">
@@ -65,6 +86,22 @@ suwu open --git-graph /path/to/repo</code></pre>
             <tr>
               <td>Close detail panel</td>
               <td><kbd>Esc</kbd></td>
+            </tr>
+            <tr>
+              <td>Select repository tab</td>
+              <td><kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd></td>
+            </tr>
+            <tr>
+              <td>Previous / next repository tab</td>
+              <td><kbd>Alt</kbd>+<kbd>[</kbd> / <kbd>Alt</kbd>+<kbd>]</kbd></td>
+            </tr>
+            <tr>
+              <td>New repository tab</td>
+              <td><kbd>Alt</kbd>+<kbd>T</kbd></td>
+            </tr>
+            <tr>
+              <td>Close repository tab</td>
+              <td><kbd>Alt</kbd>+<kbd>W</kbd></td>
             </tr>
           </tbody>
         </table>

@@ -1,8 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { WORKTREE_REF, type DiffTab } from './comparison';
+import { EMPTY_TREE_REF, WORKTREE_REF, type DiffTab } from './comparison';
+import { COMMITS_VIEW } from './repoTabs';
 
-export function GitGraphTabs({
+/**
+ * Comparison tab strip — the *inner* bar of a repo tab: `Commits` plus one tab
+ * per open base → target diff. The outer bar of repositories is `RepoTabBar`;
+ * ids here are namespaced `cmp-*` so the two tablists can coexist on a page.
+ */
+export function ComparisonTabs({
   tabs,
   active,
   onSelect,
@@ -21,14 +27,14 @@ export function GitGraphTabs({
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [active]);
   if (!tabs.length) return null;
-  const label = (ref: string) =>
-    ref === 'EMPTY'
+  const label = (rev: string) =>
+    rev === EMPTY_TREE_REF
       ? t('gitCompare.emptyTree')
-      : ref === WORKTREE_REF
+      : rev === WORKTREE_REF
         ? t('gitCompare.worktree')
-        : ref.slice(0, 7);
+        : rev.slice(0, 7);
   const all = [
-    { id: 'commits', label: t('gitCompare.commits') },
+    { id: COMMITS_VIEW, label: t('gitCompare.commits') },
     ...tabs.map((tab) => ({ id: tab.id, label: `${label(tab.base)} → ${label(tab.target)}` })),
   ];
   return (
@@ -59,8 +65,8 @@ export function GitGraphTabs({
           <button
             type="button"
             role="tab"
-            id={`git-tab-${index}`}
-            aria-controls={`git-panel-${index}`}
+            id={`cmp-tab-${index}`}
+            aria-controls={`cmp-panel-${index}`}
             aria-selected={active === tab.id}
             tabIndex={active === tab.id ? 0 : -1}
             className="px-3 py-2 text-xs outline-none hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400"

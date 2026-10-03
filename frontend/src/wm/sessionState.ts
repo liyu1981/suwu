@@ -14,14 +14,50 @@ export interface DropboxSessionState {
   sortBy?: 'name' | 'date' | 'size';
 }
 
+/** One repository tab of the Git Graph tile (see components/gitgraph/repoTabs). */
+export interface GitGraphTabState {
+  id: string;
+  repoPath: string | null;
+  branch: string;
+  selectedWorktree: string | null;
+  allBranches: boolean;
+  autoRefreshMs: number;
+  scrollPosition: number;
+  expandedIndex: number | null;
+  worktreeBrowserOpen: boolean;
+  comparisons: Array<{
+    id: string;
+    repoPath: string;
+    base: string;
+    target: string;
+    focusFile?: string;
+  }>;
+  activeView: string;
+}
+
 export interface GitGraphSessionState {
+  tabs: GitGraphTabState[];
+  activeTabId: string;
+  nextTabId: number;
+  /**
+   * Single-repo fields written by pre-multi-tab builds. Read once by
+   * `parseRepoTabs` to migrate old sessions; never written again.
+   */
+  /** @deprecated */
   repoPath?: string;
+  /** @deprecated */
   branch?: string;
+  /** @deprecated */
   expandedCommitIndex?: number | null;
+  /** @deprecated */
   scrollPosition?: number;
+  /** @deprecated */
   showRemoteBranches?: boolean;
+  /** @deprecated */
   selectedWorktree?: string | null;
+  /** @deprecated */
   allBranches?: boolean;
+  /** @deprecated */
   diffTabs?: Array<{
     id: string;
     repoPath: string;
@@ -29,6 +65,7 @@ export interface GitGraphSessionState {
     target: string;
     focusFile?: string;
   }>;
+  /** @deprecated */
   activeTab?: string;
 }
 

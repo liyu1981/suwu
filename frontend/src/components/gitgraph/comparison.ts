@@ -1,10 +1,11 @@
 import { authFetch } from '../../lib/api';
 
 /**
- * Pseudo-revision for uncommitted changes. The server diffs the working tree
- * against the comparison's base (HEAD) instead of resolving a commit.
+ * Ref helpers (`WORKTREE_REF`, `EMPTY_TREE_REF`, `comparisonId`) live in
+ * `./refs` so the tab model can use them without pulling in the fetch layer;
+ * they are re-exported here as the historical import site.
  */
-export const WORKTREE_REF = 'WORKTREE';
+export { EMPTY_TREE_REF, WORKTREE_REF, comparisonId } from './refs';
 
 export interface ComparisonFile {
   id: string;
@@ -46,10 +47,6 @@ export interface PatchHunk {
 export interface FilePatch {
   hunks: PatchHunk[];
   limited: boolean;
-}
-
-export function comparisonId(repoPath: string, base: string, target: string) {
-  return JSON.stringify([repoPath, base, target]);
 }
 
 export async function comparisonRequest<T>(

@@ -97,15 +97,19 @@ export default function FullTerminal() {
     [],
   );
 
-  const { sendRaw } = usePtySession(term, paneId);
+  const { sendRaw, refresh } = usePtySession(term, paneId);
 
   // Reset a terminal left in a bad state by a TUI app (hidden cursor,
   // alternate screen, mouse tracking, etc.). Resets the browser terminal and
-  // asks the server-side shell to reset its tty line discipline.
+  // asks the server-side shell to reset its tty line discipline. The server
+  // app has no way to notice a client-side wipe, so we then request a repaint
+  // (SIGWINCH) — this replaces the old "nudge the tile size and back" dance
+  // that was previously needed to make TUI apps like herdr redraw.
   const resetTerminal = useCallback(() => {
     term?.reset();
     sendRaw('reset\r');
-  }, [term, sendRaw]);
+    window.setTimeout(() => refresh(), 50);
+  }, [term, sendRaw, refresh]);
 
   useTermCopy(
     term,

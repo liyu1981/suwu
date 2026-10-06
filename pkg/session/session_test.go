@@ -194,3 +194,31 @@ func TestResizeAdoptedOnReattach(t *testing.T) {
 		t.Fatalf("restored screen missing marker after resize, got %q", snapshot)
 	}
 }
+
+func TestRefreshRepaintsForegroundApp(t *testing.T) {
+	mgr, err := NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Close()
+
+	client, _, _, err := mgr.Attach("refresh-test", 80, 24, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Detach()
+	client.Activate()
+
+	// A foreground child that traps SIGWINCH and prints a marker proves the
+	// signal reaches the foreground process group (not merely the shell),
+	// which is what lets a full-screen TUI repaint after a client reset.
+	client.Write([]byte("sh -c 'trap \"echo REFRESH-MARK-42\" WINCH; echo READY-42; sleep 5'\r"))
+	if !readUntil(t, client.Frames(), "READY-42", 8*time.Second) {
+		t.Fatal("foreground app never became ready")
+	}
+
+	client.Refresh()
+	if !readUntil(t, client.Frames(), "REFRESH-MARK-42", 8*time.Second) {
+		t.Fatal("SIGWINCH repaint marker not received")
+	}
+}

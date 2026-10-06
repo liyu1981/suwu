@@ -150,6 +150,12 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 					client.Resize(wsDimension(msg.Cols, int(cols), maxWSCols), wsDimension(msg.Rows, int(rows), maxWSRows))
 					continue
 				}
+				if msg.Type == "refresh" {
+					// Ask the foreground app to repaint at its current size so a
+					// client that just wiped its terminal (term.reset) rebuilds.
+					client.Refresh()
+					continue
+				}
 				if msg.Type == "ready" {
 					client.Activate()
 					continue

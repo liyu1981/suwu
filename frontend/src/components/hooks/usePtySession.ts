@@ -95,6 +95,9 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
   // Set to a sender while the effect is live so callers (e.g. a reset button)
   // can inject raw input into the PTY without going through xterm onData.
   const senderRef = useRef<((data: string) => boolean) | null>(null);
+  // Set to a control-message sender while the effect is live so callers can ask
+  // the server to repaint the PTY's foreground app (see resetTerminal).
+  const refreshRef = useRef<(() => boolean) | null>(null);
 
   useEffect(() => {
     if (!term) return;
@@ -126,6 +129,16 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       const ws = currentWs;
       if (!inputReady || !ws || ws.readyState !== WebSocket.OPEN) return false;
       ws.send(data);
+      return true;
+    };
+
+    // Ask the server to signal the foreground process group (SIGWINCH) so a
+    // full-screen TUI repaints at its current size. Used after the browser
+    // terminal is reset, which the server-side app cannot otherwise detect.
+    refreshRef.current = () => {
+      const ws = currentWs;
+      if (!inputReady || !ws || ws.readyState !== WebSocket.OPEN) return false;
+      ws.send(JSON.stringify({ type: 'refresh' }));
       return true;
     };
 
@@ -504,6 +517,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
     return () => {
       disposed = true;
       senderRef.current = null;
+      refreshRef.current = null;
       clearReconnectTimers();
       invalidateSocket();
       onData.dispose();
@@ -515,6 +529,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
   }, [term, paneId, setStatus, setMessage]);
 
   const sendRaw = useCallback((data: string) => senderRef.current?.(data) ?? false, []);
+  const refresh = useCallback(() => refreshRef.current?.() ?? false, []);
 
-  return { sendRaw };
+  return { sendRaw, refresh };
 }

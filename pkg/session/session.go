@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	libghostty "github.com/shintaoku/libghostty-go"
@@ -174,6 +175,24 @@ func (c *Client) Resize(cols, rows uint16) {
 		return
 	}
 	m.resizeLocked(c.s, cols, rows)
+}
+
+// Refresh asks the foreground app in this session's PTY to repaint by
+// signalling its process group with SIGWINCH. Unlike Resize it leaves the grid
+// untouched, so there is no reflow and nothing to undo. Full-screen TUIs
+// redraw on SIGWINCH; a shell at a prompt repaints its line. Used after a
+// client-side terminal reset (term.reset) wipes the browser screen, which the
+// server-side app would otherwise never notice.
+func (c *Client) Refresh() {
+	m := c.m
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if c.s.closed || c.s.client != c || !c.active || !c.ready {
+		return
+	}
+	if err := c.s.pty.SignalForeground(syscall.SIGWINCH); err != nil {
+		slog.Debug("session refresh signal failed", "key", c.s.key, "error", err)
+	}
 }
 
 func (c *Client) Detach() {

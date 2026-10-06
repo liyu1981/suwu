@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"syscall"
 
 	"github.com/creack/pty"
 )
@@ -67,6 +68,27 @@ func (s *Session) Write(p []byte) (int, error) {
 // Resize updates the PTY window size.
 func (s *Session) Resize(cols, rows uint16) error {
 	return pty.Setsize(s.ptmx, &pty.Winsize{Cols: cols, Rows: rows})
+}
+
+// SignalForeground sends sig to the foreground process group of the shell's
+// controlling terminal. Sending SIGWINCH this way asks whatever app currently
+// owns the screen (a full-screen TUI, or the shell's readline) to repaint at
+// its current size — without changing the PTY grid. This is what lets the
+// browser rebuild its screen after a client-side terminal reset, where the
+// server-side app otherwise has no reason to redraw.
+func (s *Session) SignalForeground(sig syscall.Signal) error {
+	if s.cmd == nil || s.cmd.Process == nil {
+		return errors.New("pty: session not started")
+	}
+	pid := s.cmd.Process.Pid
+	pgid := foregroundPgid(pid)
+	if pgid == 0 {
+		// Fall back to the shell's own process group; the shell is a session
+		// leader here, so its pgid equals its pid.
+		pgid = pid
+	}
+	// Negative pid targets the whole process group.
+	return syscall.Kill(-pgid, sig)
 }
 
 // Kill terminates the session and its shell.

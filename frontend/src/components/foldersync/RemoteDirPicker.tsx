@@ -2,9 +2,11 @@
  * Remote folder browser for the job editor. Lists server directories through
  * /api/files (same source as the file browser) and accepts a typed path.
  *
- * The two are one control: the loaded directory is the single source of truth.
- * Clicking a folder, going up, or typing a path all end up in `load()`, which
- * refreshes the listing, the current-path label and the text field together.
+ * Clicking a folder, going up, using a path, or opening the editor all
+ * navigate via `load()`, which makes the directory the single source of truth
+ * for the listing, the current-path label and the text field. Typing is
+ * different: the text is a path *prefix*, so it filters the parent by the last
+ * segment (`suggest()`) instead of requiring the typed path to already exist.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -14,23 +16,11 @@ import {
   fetchRemoteHome,
   type RemoteDirEntry,
 } from '../../lib/foldersync/remoteApi';
+import { joinPath, parentPath, splitPrefix } from '../../lib/foldersync/remotePath';
 import { btnPrimary, inputClass } from './styles';
 
 /** Debounce before a typed path is fetched, so a request is not sent per key. */
 const TYPED_PATH_DEBOUNCE_MS = 300;
-
-function joinPath(dir: string, name: string): string {
-  if (dir === '/' || dir === '') return `/${name}`;
-  return `${dir.replace(/\/+$/, '')}/${name}`;
-}
-
-function parentPath(dir: string): string {
-  if (dir === '/' || dir === '') return '/';
-  const trimmed = dir.replace(/\/+$/, '');
-  const idx = trimmed.lastIndexOf('/');
-  if (idx <= 0) return '/';
-  return trimmed.slice(0, idx);
-}
 
 export function RemoteDirPicker({
   value,
@@ -47,34 +37,37 @@ export function RemoteDirPicker({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   /** Last path we asked the server for — keeps typing from re-requesting it. */
-  const attemptedRef = useRef<string | null>(null);
+  const attemptedRef = useRef<string | null>(value.trim() || null);
+  /** Monotonic id so a slow response cannot overwrite a newer one. */
+  const requestSeq = useRef(0);
 
   /**
    * Navigates to a directory and syncs every surface: the listing, the
    * current-path label, the text field, and the job draft. A failed path
-   * leaves the field alone (the user keeps what they typed) and reports,
-   * unless it was an automatic follow of the text field — mid-typing an
-   * intermediate path must not flash an error.
+   * leaves the field alone (the user keeps what they typed) and reports.
+   * Mid-typing misses go through `suggest()` instead and stay silent.
    */
   const load = useCallback(
-    async (dir: string, options?: { silent?: boolean }) => {
+    async (dir: string) => {
       const target = dir.trim();
       if (!target) return;
       attemptedRef.current = target;
+      const seq = ++requestSeq.current;
       setLoading(true);
       setError(null);
       try {
-        setDirs(await listRemoteDirs(target));
+        const entries = await listRemoteDirs(target);
+        if (seq !== requestSeq.current) return;
+        setDirs(entries);
         setCurrent(target);
         setManual(target);
         onChange(target);
       } catch (err) {
+        if (seq !== requestSeq.current) return;
         setDirs([]);
-        if (!options?.silent) {
-          setError(err instanceof Error ? err.message : t('foldersync.pickerError'));
-        }
+        setError(err instanceof Error ? err.message : t('foldersync.pickerError'));
       } finally {
-        setLoading(false);
+        if (seq === requestSeq.current) setLoading(false);
       }
     },
     [onChange, t],
@@ -103,16 +96,43 @@ export function RemoteDirPicker({
     };
   }, []);
 
-  // Follow the text field: navigate once the user stops typing. A path we have
-  // already requested is skipped, so this never loops after a successful load.
+  // Follow the text field: after the user stops typing, list the directories
+  // that match what they typed as a path *prefix*. The typed value need not be
+  // an existing directory — typing "/home/yli/single" lists its parent and
+  // keeps every entry whose name starts with "single" (so "single-store",
+  // "singleton", … appear). A trailing slash means "open this directory".
+  // Explicit actions (clicking an entry, Up, Use, initial open) still navigate
+  // through load(). Silent: mid-typing misses must not flash an error.
+  const suggest = useCallback(async (typed: string) => {
+    attemptedRef.current = typed;
+    const seq = ++requestSeq.current;
+    setLoading(true);
+    setError(null);
+    const { dir, prefix } = splitPrefix(typed);
+    try {
+      const entries = await listRemoteDirs(dir);
+      if (seq !== requestSeq.current) return;
+      setDirs(prefix ? entries.filter((e) => e.name.startsWith(prefix)) : entries);
+      setCurrent(dir);
+    } catch {
+      if (seq !== requestSeq.current) return;
+      setDirs([]);
+    } finally {
+      if (seq === requestSeq.current) setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const typed = manual.trim();
     if (!typed || typed === attemptedRef.current) return;
     const timer = setTimeout(() => {
-      void load(typed, { silent: true });
+      // Re-check at fire time: the initial load() may have handled this path
+      // (and set attemptedRef) while the debounce was pending.
+      if (attemptedRef.current === typed) return;
+      void suggest(typed);
     }, TYPED_PATH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [manual, load]);
+  }, [manual, suggest]);
 
   return (
     <div className="flex flex-col gap-2">

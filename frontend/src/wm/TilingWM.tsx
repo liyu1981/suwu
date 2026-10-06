@@ -1494,6 +1494,13 @@ export default function TilingWM() {
           onAnimationEnd={() => removeGhost(g.key)}
         />
       ))}
+      {/* Per-space chrome (empty state + dividers). Panes are rendered in a
+          separate flat, keyed layer below, so that moving a tile between
+          spaces (focus mode, move-to-space) only moves its DOM node: the
+          iframe — and any in-flight state, such as a running folder sync — is
+          never torn down. Nesting panes inside per-space wrappers used to
+          unmount and recreate the iframe on every focus, which stopped the
+          sync engine (`stopAllEngines` runs on unmount). */}
       {spaces.map((space, si) => {
         const til = spaceTilings[si];
         const isActive = si === activeSpace;
@@ -1520,70 +1527,6 @@ export default function TilingWM() {
                 </button>
               </div>
             )}
-            {til.panes.map(({ id, x, y, w, h }) => {
-              const leaf = space.layout ? findLeaf(space.layout, id) : null;
-              const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
-              const pane = getPaneData<{ fontSize?: number; fontDefault?: number }>(space, id);
-              const fontSize = pane?.fontSize ?? fontPreset;
-              const fontDefault = pane?.fontDefault ?? fontPreset;
-              const plugin = tileType ? getTilePlugin(tileType) : undefined;
-              const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined;
-              const params = leaf?.type === 'leaf' ? leaf.params : undefined;
-
-              return (
-                <div
-                  key={id}
-                  className={`pane-anim pane-in absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
-                    isActive && focused === id
-                      ? 'border-[color-mix(in_oklch,white_45%,var(--background))]'
-                      : 'border-white/5'
-                  }`}
-                  style={{ left: x, top: y, width: w, height: h }}
-                  onMouseDown={() => {
-                    store.set(activeSpaceAtom, si);
-                    setFocused(id);
-                  }}
-                >
-                  {(plugin ?? getTilePlugin('empty'))?.render(id, {
-                    paneId: id,
-                    initialPath,
-                    onOpenPicker: setPickerPaneId,
-                    params,
-                  })}
-                  {isActive && (
-                    <TileTools
-                      paneId={id}
-                      fontSize={fontSize}
-                      fontDefault={fontDefault}
-                      setFontSize={(size) => setTileFontSize(id, size)}
-                      plugin={plugin}
-                      startDrag={startTileDrag}
-                      closeTile={closeTile}
-                      startSwap={startSwap}
-                      isFocused={focusState?.paneId === id}
-                      onToggleFocus={() => toggleFocus(id)}
-                      spaces={spaces.map((s, i) => {
-                        const tileIds = leaves(s.layout);
-                        const tileLabels = tileIds.map((id) => {
-                          const leaf = findLeaf(s.layout, id);
-                          const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
-                          return tileType ? (getTilePlugin(tileType)?.label ?? tileType) : 'Empty';
-                        });
-                        return {
-                          index: i,
-                          name: s.name,
-                          label: String(i),
-                          tileCount: tileIds.length,
-                          tileLabels,
-                        };
-                      })}
-                      activeSpaceIndex={activeSpace}
-                      onMoveToSpace={moveTileToSpace}
-                    />
-                  )}
-                </div>
-              );
-            })}
             {til.dividers.map((seg) => (
               <div
                 key={`${seg.splitId}-${seg.index}`}
@@ -1600,6 +1543,81 @@ export default function TilingWM() {
             ))}
           </div>
         );
+      })}
+      {/* Flat pane layer: one keyed list across every space. */}
+      {spaces.flatMap((space, si) => {
+        const til = spaceTilings[si];
+        const isActive = si === activeSpace;
+        return til.panes.map(({ id, x, y, w, h }) => {
+          const leaf = space.layout ? findLeaf(space.layout, id) : null;
+          const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
+          const pane = getPaneData<{ fontSize?: number; fontDefault?: number }>(space, id);
+          const fontSize = pane?.fontSize ?? fontPreset;
+          const fontDefault = pane?.fontDefault ?? fontPreset;
+          const plugin = tileType ? getTilePlugin(tileType) : undefined;
+          const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined;
+          const params = leaf?.type === 'leaf' ? leaf.params : undefined;
+
+          return (
+            <div
+              key={id}
+              className={`pane-anim pane-in absolute overflow-hidden rounded-[6px] border shadow-[0_8px_32px_rgb(0_0_0/0.25)] ${
+                isActive && focused === id
+                  ? 'border-[color-mix(in_oklch,white_45%,var(--background))]'
+                  : 'border-white/5'
+              }`}
+              style={{
+                left: x,
+                top: y,
+                width: w,
+                height: h,
+                display: isActive ? undefined : 'none',
+              }}
+              onMouseDown={() => {
+                store.set(activeSpaceAtom, si);
+                setFocused(id);
+              }}
+            >
+              {(plugin ?? getTilePlugin('empty'))?.render(id, {
+                paneId: id,
+                initialPath,
+                onOpenPicker: setPickerPaneId,
+                params,
+              })}
+              {isActive && (
+                <TileTools
+                  paneId={id}
+                  fontSize={fontSize}
+                  fontDefault={fontDefault}
+                  setFontSize={(size) => setTileFontSize(id, size)}
+                  plugin={plugin}
+                  startDrag={startTileDrag}
+                  closeTile={closeTile}
+                  startSwap={startSwap}
+                  isFocused={focusState?.paneId === id}
+                  onToggleFocus={() => toggleFocus(id)}
+                  spaces={spaces.map((s, i) => {
+                    const tileIds = leaves(s.layout);
+                    const tileLabels = tileIds.map((id) => {
+                      const leaf = findLeaf(s.layout, id);
+                      const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
+                      return tileType ? (getTilePlugin(tileType)?.label ?? tileType) : 'Empty';
+                    });
+                    return {
+                      index: i,
+                      name: s.name,
+                      label: String(i),
+                      tileCount: tileIds.length,
+                      tileLabels,
+                    };
+                  })}
+                  activeSpaceIndex={activeSpace}
+                  onMoveToSpace={moveTileToSpace}
+                />
+              )}
+            </div>
+          );
+        });
       })}
       {/* Tile drag overlay */}
       {dragSource && dropTarget && (

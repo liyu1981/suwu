@@ -80,10 +80,10 @@ export function FolderSyncPanel() {
   const states = useJobStates(jobs);
   const state = (selected ? states[selected.id] : undefined) ?? IDLE_STATE;
 
-  // Keep a selection alive as jobs come and go.
+  // Drop the expanded id when its job is deleted. Collapsing every task is a
+  // valid state, so never force one back open.
   useEffect(() => {
     if (selectedId && !jobs.some((job) => job.id === selectedId)) setSelectedId(null);
-    if (!selectedId && jobs.length > 0) setSelectedId(jobs[0].id);
   }, [jobs, selectedId]);
 
   useEffect(() => {
@@ -126,16 +126,19 @@ export function FolderSyncPanel() {
     [handleOutcome],
   );
 
-  // Toolbar "Run now" (postMessage from the parent window).
+  // Toolbar "Run now" (postMessage from the parent window). Targets the
+  // expanded job, or the first job when all tasks are collapsed, so the button
+  // never silently does nothing.
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string } | undefined;
       if (data?.type !== 'foldersync-run') return;
-      if (selected) void getEngine(selected).runNow();
+      const target = selected ?? jobs[0];
+      if (target) void getEngine(target).runNow();
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [selected]);
+  }, [selected, jobs]);
 
   // A custom app may open this tile with a remote folder pre-filled.
   const [prefill, setPrefill] = useState<Partial<SyncJobConfig> | null>(null);

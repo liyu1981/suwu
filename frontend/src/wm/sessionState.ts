@@ -81,7 +81,7 @@ export interface RestHelperSessionState {
 }
 
 export interface FolderSyncSessionState {
-  /** Which job's detail is shown. Sync run state is never persisted. */
+  /** Which job's activity log is expanded. Sync run state is never persisted. */
   selectedJobId?: string;
 }
 

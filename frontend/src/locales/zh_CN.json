@@ -604,6 +604,8 @@
     "loading": "加载中...",
     "logEmpty": "暂无记录。点击“开始”启动同步。",
     "detailTitle": "运行记录",
+    "showLog": "展开运行记录",
+    "hideLog": "收起运行记录",
     "mirrorBadge": "镜像",
     "progress": "{{done}} / {{total}}",
     "statsLine": "第 #{{cycle}} 轮 · 检查 {{checked}} · ↓{{pulled}} · −{{deleted}} · {{size}} · {{ms}} 毫秒",

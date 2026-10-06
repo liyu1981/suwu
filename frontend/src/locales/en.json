@@ -606,6 +606,8 @@
     "loading": "Loading...",
     "logEmpty": "No activity yet. Press Start to begin syncing.",
     "detailTitle": "Activity",
+    "showLog": "Show activity log",
+    "hideLog": "Hide activity log",
     "mirrorBadge": "mirror",
     "progress": "{{done}} / {{total}}",
     "statsLine": "cycle #{{cycle}} · {{checked}} checked · ↓{{pulled}} · −{{deleted}} · {{size}} · {{ms}} ms",

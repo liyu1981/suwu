@@ -2,9 +2,10 @@
  * Folder Sync tile panel.
  *
  * Manages the jobs (which server folder mirrors into which local folder),
- * starts/stops their engines, and shows the selected job's cycle stats and
- * activity log. Engine state is in memory only — closing the tile stops every
- * running job, and a reload brings each job back idle.
+ * starts/stops their engines, and shows each job's cycle stats and activity
+ * log inline when its row is expanded. Engine state is in memory only —
+ * closing the tile stops every running job, and a reload brings each job back
+ * idle.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -174,7 +175,6 @@ export function FolderSyncPanel() {
     [setStore],
   );
 
-  const stats = state.stats;
   const supported = supportsLocalFs();
 
   return (
@@ -224,18 +224,16 @@ export function FolderSyncPanel() {
             <p className="max-w-xs text-[11px] text-white/40">{t('foldersync.emptyBody')}</p>
           </div>
         ) : (
-          <>
-            {/* Job list */}
-            <div className="max-h-[45%] shrink-0 overflow-y-auto rounded-lg border border-white/[0.08] bg-white/[0.04] scrollbar-thin">
-              {jobs.map((job) => {
-                const isSelected = job.id === selectedId;
-                return (
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-white/[0.08] bg-white/[0.04] scrollbar-thin">
+            {jobs.map((job) => {
+              const expanded = job.id === selectedId;
+              return (
+                <div key={job.id} className="border-b border-white/[0.05] last:border-b-0">
                   <JobRow
-                    key={job.id}
                     job={job}
-                    selected={isSelected}
+                    expanded={expanded}
                     state={states[job.id] ?? null}
-                    onSelect={() => setSelectedId(job.id)}
+                    onToggle={() => setSelectedId(expanded ? null : job.id)}
                     onStart={() => startJob(job)}
                     onStop={() => getEngine(job).stop()}
                     onEdit={() => {
@@ -244,48 +242,11 @@ export function FolderSyncPanel() {
                     }}
                     onDelete={() => removeJob(job)}
                   />
-                );
-              })}
-            </div>
-
-            {/* Detail: cycle stats + activity log */}
-            {selected && (
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.04]">
-                <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-1.5">
-                  <span className={sectionLabel}>{t('foldersync.detailTitle')}</span>
-                  <div className="flex-1" />
-                  {state.progress && state.progress.total > 0 && (
-                    <span className="text-[10px] tabular-nums text-white/45">
-                      {t('foldersync.progress', {
-                        done: state.progress.done,
-                        total: state.progress.total,
-                      })}
-                    </span>
-                  )}
-                  {stats && (
-                    <span className="text-[10px] tabular-nums text-white/40">
-                      {t('foldersync.statsLine', {
-                        cycle: stats.cycle,
-                        checked: stats.checked,
-                        pulled: stats.pulled,
-                        deleted: stats.deleted,
-                        size: formatSize(stats.pulledBytes),
-                        ms: stats.durationMs,
-                      })}
-                    </span>
-                  )}
+                  {expanded && <JobActivity state={states[job.id] ?? IDLE_STATE} />}
                 </div>
-                {state.errorCode && state.status === 'error' && (
-                  <div className="shrink-0 px-3 py-1.5 text-[11px] text-red-400/85">
-                    {t(`foldersync.error.${state.errorCode}`)}
-                  </div>
-                )}
-                <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-                  <ActivityLog log={state.log} />
-                </div>
-              </div>
-            )}
-          </>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -342,18 +303,18 @@ export function FolderSyncPanel() {
 
 function JobRow({
   job,
-  selected,
+  expanded,
   state,
-  onSelect,
+  onToggle,
   onStart,
   onStop,
   onEdit,
   onDelete,
 }: {
   job: SyncJobConfig;
-  selected: boolean;
+  expanded: boolean;
   state: JobRuntimeState | null;
-  onSelect: () => void;
+  onToggle: () => void;
   onStart: () => void;
   onStop: () => void;
   onEdit: () => void;
@@ -365,17 +326,32 @@ function JobRow({
     <div
       role="button"
       tabIndex={0}
-      onClick={onSelect}
+      aria-expanded={expanded}
+      onClick={onToggle}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onSelect();
+          onToggle();
         }
       }}
-      className={`flex cursor-pointer items-center gap-2 border-b border-white/[0.05] px-2.5 py-2 transition-colors duration-150 last:border-b-0 ${
-        selected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.05]'
+      title={expanded ? t('foldersync.hideLog') : t('foldersync.showLog')}
+      className={`flex cursor-pointer items-center gap-2 px-2.5 py-2 transition-colors duration-150 ${
+        expanded ? 'bg-white/[0.08]' : 'hover:bg-white/[0.05]'
       }`}
     >
+      <svg
+        className={`h-3 w-3 shrink-0 text-white/35 transition-transform duration-150 ${
+          expanded ? 'rotate-90' : ''
+        }`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="m9 6 6 6-6 6" />
+      </svg>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm text-white/80">{job.name}</span>
@@ -442,6 +418,51 @@ function JobRow({
         >
           <span className="text-[10px]">🗑</span>
         </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A job's activity, rendered directly under its row when expanded. Keeps the
+ * log attached to the task it belongs to instead of a shared detail panel.
+ */
+function JobActivity({ state }: { state: JobRuntimeState }) {
+  const { t } = useTranslation();
+  const stats = state.stats;
+  return (
+    <div className="border-t border-white/[0.06] bg-black/25">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/[0.06] px-3 py-1.5">
+        <span className={sectionLabel}>{t('foldersync.detailTitle')}</span>
+        <div className="flex-1" />
+        {state.progress && state.progress.total > 0 && (
+          <span className="text-[10px] tabular-nums text-white/45">
+            {t('foldersync.progress', {
+              done: state.progress.done,
+              total: state.progress.total,
+            })}
+          </span>
+        )}
+        {stats && (
+          <span className="text-[10px] tabular-nums text-white/40">
+            {t('foldersync.statsLine', {
+              cycle: stats.cycle,
+              checked: stats.checked,
+              pulled: stats.pulled,
+              deleted: stats.deleted,
+              size: formatSize(stats.pulledBytes),
+              ms: stats.durationMs,
+            })}
+          </span>
+        )}
+      </div>
+      {state.errorCode && state.status === 'error' && (
+        <div className="border-b border-white/[0.06] px-3 py-1.5 text-[11px] text-red-400/85">
+          {t(`foldersync.error.${state.errorCode}`)}
+        </div>
+      )}
+      <div className="max-h-52 overflow-y-auto scrollbar-thin">
+        <ActivityLog log={state.log} />
       </div>
     </div>
   );

@@ -487,6 +487,7 @@
     "allSaved": "所有更改已保存",
     "closeTab": "关闭标签页",
     "reload": "重新加载",
+    "reloadConfirm": "放弃未保存的更改并从磁盘重新加载该文件？",
     "readOnly": "此文件在此处为只读。",
     "binary": "二进制文件 — 已禁用编辑",
     "tooLarge": "文件过大，无法编辑",

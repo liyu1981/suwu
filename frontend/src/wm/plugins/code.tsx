@@ -4,7 +4,7 @@
  */
 
 import i18n from '../../i18n';
-import { FolderOpenIcon, SearchIcon } from '../../components/icons';
+import { FolderOpenIcon, RefreshIcon, SearchIcon } from '../../components/icons';
 import { registerTilePlugin, type TileRenderContext, type ToolbarContext } from '../tilePlugins';
 
 const toolBtn =
@@ -39,6 +39,15 @@ function CodeToolbar({ paneId }: ToolbarContext) {
           <path d="M5.5 2v4h5V2" />
           <path d="M5 9h6v5H5z" />
         </svg>
+      </button>
+      <button
+        type="button"
+        onClick={() => post(paneId, 'code-reload')}
+        aria-label={i18n.t('codeExplorer.reload')}
+        title={i18n.t('codeExplorer.reload')}
+        className={toolBtn}
+      >
+        <RefreshIcon className="h-3.5 w-3.5" />
       </button>
       <button
         type="button"

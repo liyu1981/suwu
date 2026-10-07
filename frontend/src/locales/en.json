@@ -489,6 +489,7 @@
     "allSaved": "All changes saved",
     "closeTab": "Close tab",
     "reload": "Reload",
+    "reloadConfirm": "Discard unsaved changes and reload this file from disk?",
     "readOnly": "This file is read-only here.",
     "binary": "Binary file — editing disabled",
     "tooLarge": "File is too large to edit",

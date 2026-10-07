@@ -94,6 +94,8 @@ export function useCodeExplorer(
 
   const tabsRef = useRef<CodeTab[]>([]);
   tabsRef.current = tabs;
+  const dirtyRef = useRef<Record<string, boolean>>({});
+  dirtyRef.current = dirty;
   const editorOptions = useAtomValue(codeEditorSettingsAtom);
   const activeRef = useRef<string | null>(null);
   activeRef.current = activeId;
@@ -307,6 +309,9 @@ export function useCodeExplorer(
     if (!tabId) return;
     const tab = tabsRef.current.find((candidate) => candidate.id === tabId);
     if (!tab || tab.isNew) return;
+    // Reloading replaces the buffer wholesale, so unsaved edits would vanish
+    // without a word — ask first, exactly as closing the tab does.
+    if (dirtyRef.current[tabId] && !window.confirm(i18n.t('codeExplorer.reloadConfirm'))) return;
     try {
       const res = await authFetch(`/api/file?path=${encodeURIComponent(tab.path)}`, {
         cache: 'no-store',
@@ -334,6 +339,9 @@ export function useCodeExplorer(
       }));
     }
   }, []);
+
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
 
   const closeTab = useCallback(
     (id: string) => {
@@ -548,6 +556,7 @@ export function useCodeExplorer(
     const onMsg = (e: MessageEvent) => {
       const data = e.data as { type?: string } | undefined;
       if (data?.type === 'code-save') void saveRef.current();
+      else if (data?.type === 'code-reload') void reloadRef.current();
       else if (data?.type === 'code-open') setOpenSignal((value) => value + 1);
       else if (data?.type === 'code-search') setSearchSignal((value) => value + 1);
     };

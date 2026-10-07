@@ -245,6 +245,11 @@ frontend/            Vite + React + TypeScript + Tailwind v4
   machine's network.
 - Only run Suwu on networks and machines you trust.
 
+## Community
+
+Questions, tips, and show-and-tell: join the
+[Suwu community on Reddit](https://www.reddit.com/r/suwu/).
+
 ## License
 
 [Apache License 2.0](LICENSE)

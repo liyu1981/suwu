@@ -153,7 +153,7 @@ PAGES = [
     {
         "url": "/docs/features/git-graph.html",
         "title": "Git Graph — Suwu Docs",
-        "description": "Visualize branch history, commits, and merges in an interactive graph.",
+        "description": "Visualize branch history, commits, and merges in an interactive graph — with tabs for several repositories at once.",
         "lead": "Visualize branch history, commits, and merges in an interactive graph — see your repository's story at a glance.",
         "breadcrumb": "Git Graph",
         "active": "git-graph",
@@ -384,6 +384,7 @@ HEADER = """  <header class="site-header">
         <a href="/#features">Features</a>
         <a href="/docs/index.html">Docs</a>
         <a href="/#install">Install</a>
+        <a href="https://www.reddit.com/r/suwu/" rel="noopener">Reddit</a>
         <a class="nav-github" href="https://github.com/liyu1981/suwu" rel="noopener">GitHub</a>
       </nav>
     </div>

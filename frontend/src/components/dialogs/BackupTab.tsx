@@ -12,7 +12,9 @@ import {
   getBackupConfig,
   getBackupStatus,
   isEnabled,
+  isValidRecoveryCode,
   listGenerations,
+  normalizeRecoveryCode,
   resolveConflictOverwrite,
   restore,
   setCategories,
@@ -107,19 +109,37 @@ export function BackupTab({ onRestored }: Props) {
   const [restorePassphrase, setRestorePassphrase] = useState('');
   const [selectedGen, setSelectedGen] = useState<number | null>(null);
   const [restoreMode, setRestoreMode] = useState<RestoreMode>('merge');
+  // Restore with backup off: the recovery code picks a slot on the server and
+  // Find lists it. Nothing is uploaded from here until backup is enabled.
+  const [restoreCode, setRestoreCode] = useState(() => config.slot);
+  const [restoreSearched, setRestoreSearched] = useState(false);
 
   useEffect(() => subscribeBackup(setStatus), []);
 
-  // Refresh the generation list when the tab becomes enabled.
+  // Refresh this device's generation list when the tab becomes enabled. With
+  // backup off the restore box owns its own list (see the effect below and the
+  // Find button).
   useEffect(() => {
-    if (!enabled) {
-      setGenerations([]);
-      return;
-    }
+    if (!enabled) return;
     void listGenerations()
       .then(setGenerations)
       .catch(() => setGenerations([]));
   }, [enabled, status.gen]);
+
+  // Backup off, but this browser already knows a recovery code (it backed up
+  // here before, or was only switched off): list that slot's generations right
+  // away, so restoring is a passphrase away instead of a wall of “Enable
+  // backup”. Mount only — later edits to the code go through Find.
+  useEffect(() => {
+    if (enabled || !isValidRecoveryCode(config.slot)) return;
+    void listGenerations(normalizeRecoveryCode(config.slot))
+      .then((gens) => {
+        setGenerations(gens);
+        setSelectedGen(gens[0]?.gen ?? null);
+        setRestoreSearched(true);
+      })
+      .catch(() => {});
+  }, []);
 
   const intervalMinutes = Math.round(config.intervalMs / 60000);
 
@@ -197,12 +217,44 @@ export function BackupTab({ onRestored }: Props) {
     }
   };
 
-  const doRestore = async () => {
-    if (selectedGen === null) return;
+  // Lists the generations behind a typed recovery code. The slot need not be
+  // this browser's configured one and nothing is written: reading a backup and
+  // turning this browser's backup on are separate decisions.
+  const doFindGenerations = async () => {
+    const code = normalizeRecoveryCode(restoreCode);
+    if (!isValidRecoveryCode(code)) {
+      setError(t('settings.backupSlotInvalid'));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const payload = await fetchAndDecrypt(selectedGen, restorePassphrase);
+      const gens = await listGenerations(code);
+      setGenerations(gens);
+      setSelectedGen((prev) =>
+        prev !== null && gens.some((g) => g.gen === prev) ? prev : (gens[0]?.gen ?? null),
+      );
+      setRestoreSearched(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doRestore = async () => {
+    if (selectedGen === null) return;
+    // Enabled (including the conflict path) restores from this device's slot;
+    // with backup off the recovery code in the restore box picks the slot.
+    const slot = enabled ? config.slot : normalizeRecoveryCode(restoreCode);
+    if (!isValidRecoveryCode(slot)) {
+      setError(t('settings.backupSlotInvalid'));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const payload = await fetchAndDecrypt(selectedGen, restorePassphrase, slot);
       const summary = await previewRestore(payload, restoreMode);
       const confirmed = window.confirm(
         `${t('settings.backupRestoreSummary', {
@@ -280,6 +332,82 @@ export function BackupTab({ onRestored }: Props) {
 
   const maskedSlot = config.slot ? `${config.slot.slice(0, 4)}·····${config.slot.slice(-4)}` : '';
 
+  // The restore controls — generation picker, merge/replace, passphrase, and
+  // the Restore button — are the same in the enabled tab and in the restore
+  // box shown while backup is off.
+  const restoreControls = (
+    <>
+      <div className="mt-2 space-y-2">
+        <Select
+          value={selectedGen === null ? '' : String(selectedGen)}
+          onValueChange={(v) => setSelectedGen(Number(v))}
+        >
+          <SelectTrigger aria-label={t('settings.backupRestoreFrom')}>
+            <span>
+              {selectedGen === null
+                ? t('settings.backupRestorePick')
+                : t('settings.backupGeneration', { gen: selectedGen })}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            {generations.length === 0 && (
+              <SelectItem value="" disabled>
+                {t('settings.backupNoGenerations')}
+              </SelectItem>
+            )}
+            {generations.map((g) => (
+              <SelectItem key={g.gen} value={String(g.gen)}>
+                {t('settings.backupGeneration', { gen: g.gen })} · {formatBytes(g.size)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={restoreMode === 'merge'}
+            className={`${segBtn} ${restoreMode === 'merge' ? 'bg-white/10' : ''}`}
+            onClick={() => setRestoreMode('merge')}
+          >
+            {t('settings.backupModeMerge')}
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={restoreMode === 'replace'}
+            className={`${segBtn} ${restoreMode === 'replace' ? 'bg-white/10' : ''}`}
+            onClick={() => setRestoreMode('replace')}
+          >
+            {t('settings.backupModeReplace')}
+          </button>
+        </div>
+
+        <input
+          type="password"
+          value={restorePassphrase}
+          onChange={(e) => setRestorePassphrase(e.target.value)}
+          placeholder={t('settings.backupPassphrasePlaceholder')}
+          aria-label={t('settings.backupPassphraseTitle')}
+          autoComplete="current-password"
+          className={`${field} w-full`}
+        />
+
+        <button
+          type="button"
+          className={`${smallBtn} inline-flex items-center gap-1.5`}
+          onClick={doRestore}
+          disabled={busy || selectedGen === null || restorePassphrase.length < 8}
+        >
+          <RefreshIcon className="h-3.5 w-3.5" />
+          {t('settings.backupRestoreNow')}
+        </button>
+      </div>
+      <p className={sectionHint}>{t('settings.backupRestoreHint')}</p>
+    </>
+  );
+
   return (
     <div className="min-w-0 flex-1">
       {/* ── disabled (the default) ─────────────────────────────────────── */}
@@ -291,7 +419,10 @@ export function BackupTab({ onRestored }: Props) {
             <button
               type="button"
               className={`${smallBtn} mt-3 inline-flex items-center gap-1.5`}
-              onClick={() => setPassphraseMode('enable')}
+              onClick={() => {
+                setPassphraseMode('enable');
+                setError(null);
+              }}
               disabled={busy}
             >
               <UploadIcon className="h-3.5 w-3.5" />
@@ -347,6 +478,48 @@ export function BackupTab({ onRestored }: Props) {
               </div>
             </div>
           )}
+
+          {/* Restore — reachable with backup off. The recovery code only
+              reads the server, so a fresh or reinstalled browser can get its
+              data back without turning this browser's backup on. */}
+          <div className={`${section} mt-4`}>
+            <span className={sectionLabel}>{t('settings.backupRestore')}</span>
+            <p className={sectionHint}>{t('settings.backupRestoreNoEnableHint')}</p>
+            <div className="mt-2 space-y-2">
+              <input
+                type="text"
+                value={restoreCode}
+                onChange={(e) => {
+                  // A recovery code is a run of Crockford base32; normalize it
+                  // as it is typed and drop any list loaded for the old code.
+                  setRestoreCode(normalizeRecoveryCode(e.target.value));
+                  setGenerations([]);
+                  setSelectedGen(null);
+                  setRestoreSearched(false);
+                  setError(null);
+                }}
+                placeholder={t('settings.backupSlotTitle')}
+                aria-label={t('settings.backupSlotTitle')}
+                spellCheck={false}
+                autoComplete="off"
+                className={`${field} w-full font-mono`}
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className={`${smallBtn} inline-flex items-center gap-1.5`}
+                  onClick={() => void doFindGenerations()}
+                  disabled={busy}
+                >
+                  <RefreshIcon className="h-3.5 w-3.5" />
+                  {t('settings.backupFindGenerations')}
+                </button>
+              </div>
+            </div>
+            {restoreSearched && restoreControls}
+            {error && <p className="mt-2 text-[11px] text-red-300">{error}</p>}
+            {notice && <p className="mt-2 text-[11px] text-emerald-300">{notice}</p>}
+          </div>
         </>
       )}
 
@@ -575,74 +748,7 @@ export function BackupTab({ onRestored }: Props) {
           {/* Restore */}
           <div className={`${section} mt-4`}>
             <span className={sectionLabel}>{t('settings.backupRestore')}</span>
-            <div className="mt-2 space-y-2">
-              <Select
-                value={selectedGen === null ? '' : String(selectedGen)}
-                onValueChange={(v) => setSelectedGen(Number(v))}
-              >
-                <SelectTrigger aria-label={t('settings.backupRestoreFrom')}>
-                  <span>
-                    {selectedGen === null
-                      ? t('settings.backupRestorePick')
-                      : t('settings.backupGeneration', { gen: selectedGen })}
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {generations.length === 0 && (
-                    <SelectItem value="" disabled>
-                      {t('settings.backupNoGenerations')}
-                    </SelectItem>
-                  )}
-                  {generations.map((g) => (
-                    <SelectItem key={g.gen} value={String(g.gen)}>
-                      {t('settings.backupGeneration', { gen: g.gen })} · {formatBytes(g.size)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={restoreMode === 'merge'}
-                  className={`${segBtn} ${restoreMode === 'merge' ? 'bg-white/10' : ''}`}
-                  onClick={() => setRestoreMode('merge')}
-                >
-                  {t('settings.backupModeMerge')}
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={restoreMode === 'replace'}
-                  className={`${segBtn} ${restoreMode === 'replace' ? 'bg-white/10' : ''}`}
-                  onClick={() => setRestoreMode('replace')}
-                >
-                  {t('settings.backupModeReplace')}
-                </button>
-              </div>
-
-              <input
-                type="password"
-                value={restorePassphrase}
-                onChange={(e) => setRestorePassphrase(e.target.value)}
-                placeholder={t('settings.backupPassphrasePlaceholder')}
-                aria-label={t('settings.backupPassphraseTitle')}
-                autoComplete="current-password"
-                className={`${field} w-full`}
-              />
-
-              <button
-                type="button"
-                className={`${smallBtn} inline-flex items-center gap-1.5`}
-                onClick={doRestore}
-                disabled={busy || selectedGen === null || restorePassphrase.length < 8}
-              >
-                <RefreshIcon className="h-3.5 w-3.5" />
-                {t('settings.backupRestoreNow')}
-              </button>
-            </div>
-            <p className={sectionHint}>{t('settings.backupRestoreHint')}</p>
+            {restoreControls}
           </div>
 
           {/* Forget */}

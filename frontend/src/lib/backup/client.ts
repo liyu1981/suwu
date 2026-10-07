@@ -7,6 +7,11 @@
  * actually changed. The interval is a per-device setting and is never itself
  * backed up — how often one laptop syncs is not another machine's business.
  *
+ * **Reading a backup never requires turning backup on.** The restore box takes
+ * a recovery code and a passphrase, lists and downloads the server's
+ * generations, and applies them locally; nothing is uploaded from this browser
+ * unless the user later enables it.
+ *
  * The passphrase is never stored. The derived data key lives only in memory, so
  * after a page reload the timer stays idle until the user re-enters the
  * passphrase (via Restore or Change) — a backup tool cannot quietly hold a
@@ -123,6 +128,17 @@ function mintDeviceId(): string {
   return [...crypto.getRandomValues(new Uint8Array(16))]
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+/** Lowercases and trims a recovery code as it is typed or pasted. */
+export function normalizeRecoveryCode(code: string): string {
+  return code.trim().toLowerCase();
+}
+
+/** True when a recovery code is well-formed (26 Crockford base32 characters,
+ * matching pkg/backup's ValidSlot). */
+export function isValidRecoveryCode(code: string): boolean {
+  return SLOT_RE.test(normalizeRecoveryCode(code));
 }
 
 // ── state ──────────────────────────────────────────────────────────────
@@ -352,27 +368,32 @@ export async function backupNow(): Promise<BackupStatus> {
 
 // ── server queries ─────────────────────────────────────────────────────
 
-/** Reads the server's index for the current slot. */
-export async function fetchMeta(): Promise<Meta> {
-  const res = await authFetch(`/api/backup/meta?slot=${config.slot}`, { cache: 'no-store' });
+/** Reads the server's index for a slot (defaults to this browser's). */
+export async function fetchMeta(slot = config.slot): Promise<Meta> {
+  const res = await authFetch(`/api/backup/meta?slot=${encodeURIComponent(slot)}`, {
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error(`meta failed with HTTP ${res.status}`);
   return (await res.json()) as Meta;
 }
 
-/** Downloads one generation's container bytes. */
-export async function fetchBlob(gen: number): Promise<Uint8Array> {
-  const res = await authFetch(`/api/backup/blob?slot=${config.slot}&gen=${gen}`, {
+/** Downloads one generation's container bytes from `slot` (default: this
+ * browser's slot). */
+export async function fetchBlob(gen: number, slot = config.slot): Promise<Uint8Array> {
+  const res = await authFetch(`/api/backup/blob?slot=${encodeURIComponent(slot)}&gen=${gen}`, {
     cache: 'no-store',
   });
   if (!res.ok) throw new Error(`blob failed with HTTP ${res.status}`);
   return new Uint8Array(await res.arrayBuffer());
 }
 
-/** Lists the server's generations, newest first, and records the newest one as
- * the base for the next upload. */
-export async function listGenerations(): Promise<Generation[]> {
-  const meta = await fetchMeta();
-  lastSeenGen = meta.generations.length ? meta.generations[meta.generations.length - 1].gen : 0;
+/** Lists a slot's generations, newest first. When the slot is this browser's
+ * one, its newest generation also becomes the base for the next upload; a
+ * restore box pointed at another recovery code must not move that base. */
+export async function listGenerations(slot = config.slot): Promise<Generation[]> {
+  const meta = await fetchMeta(slot);
+  const newest = meta.generations.length ? meta.generations[meta.generations.length - 1].gen : 0;
+  if (slot === config.slot) lastSeenGen = newest;
   return [...meta.generations].sort((a, b) => b.gen - a.gen);
 }
 
@@ -382,12 +403,25 @@ export async function listGenerations(): Promise<Generation[]> {
  * Fetches a generation and decrypts it with the passphrase. Decrypting also
  * adopts the slot's data key, so a restore on a fresh browser lets subsequent
  * autosaves continue under the same key.
+ *
+ * The slot is adopted as well when it differs: the passphrase unwrapped this
+ * slot's key, which is proof the code is the user's own, so the browser ends up
+ * pointed at the backup it just restored. A browser that never called
+ * enable() (one restoring after a reinstall) then joins that same slot later
+ * instead of minting a second one — and backup stays off until asked.
  */
-export async function fetchAndDecrypt(gen: number, passphrase: string): Promise<Payload> {
-  const bytes = await fetchBlob(gen);
+export async function fetchAndDecrypt(
+  gen: number,
+  passphrase: string,
+  slot = config.slot,
+): Promise<Payload> {
+  const bytes = await fetchBlob(gen, slot);
   const { payload } = await decryptPayload(bytes, passphrase);
+  if (isValidRecoveryCode(slot) && slot !== config.slot) {
+    config.slot = slot;
+    writeConfig(config);
+  }
   // A browser that has just adopted the slot key can resume periodic backups.
-  // This is how a *new* browser — which never called enable() — gets one.
   if (isEnabled()) start();
   return payload;
 }

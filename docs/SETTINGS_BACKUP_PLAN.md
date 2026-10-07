@@ -337,6 +337,12 @@ the existing `rounded-[6px] border border-white/10 bg-black/20 p-3` +
 > with a passphrase only you know.
 > `[ Enable backup ]` · *Nothing is uploaded until you turn this on.*
 
+> **Restore** — a recovery-code field followed by the same generation picker /
+> passphrase / mode form. Restore never requires enabling backup: the code
+> only *reads* the server, and a browser that already knows its code lists the
+> generations on its own. A successful restore adopts the code, so a later
+> *Enable backup* joins that slot instead of minting a second one.
+
 **Enabled state** (`BackupTab.tsx`):
 
 | Row | Content |
@@ -353,7 +359,9 @@ the existing `rounded-[6px] border border-white/10 bg-black/20 p-3` +
 ### 6.2 Restore
 
 1. **Where from?** — a generation on this server (the picker lists them
-   newest-first with their size).
+   newest-first with their size). The form is the same with backup turned off:
+   there it sits behind a recovery code, so a fresh browser can restore before
+   it ever enables anything.
 2. **Passphrase** — typed into the restore form; a wrong one fails with
    "wrong passphrase, or the backup is damaged", because the two are
    cryptographically indistinguishable and the UI will not pretend otherwise.

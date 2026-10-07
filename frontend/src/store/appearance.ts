@@ -143,6 +143,14 @@ export const fileBrowserBgAtom = atomWithStorage<string>(
   FILE_BROWSER_BG_DEFAULT,
 );
 
+/**
+ * Near-opaque surface for tiles that are mostly dense text — file lists, sync
+ * logs, request/response bodies. The shared tile background sits at 80%, and
+ * an animated backdrop bleeding through that much costs readability. Tiles opt
+ * in through CommonTileContainer's `background` prop.
+ */
+export const DENSE_TILE_BG = 'rgba(22, 22, 25, 0.97)';
+
 // ── Diff view settings ──────────────────────────────────────────────
 
 /** Font families for the diff view — includes both mono and proportional. */

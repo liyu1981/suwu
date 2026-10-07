@@ -17,6 +17,7 @@ import {
 } from '../components/icons';
 import { fetchToken } from '../lib/api';
 import { dropboxZoomAtom } from '../store/zoom';
+import { DENSE_TILE_BG } from '../store/appearance';
 import type { DropboxSessionState } from '../wm/sessionState';
 
 interface DropboxEntry {
@@ -440,7 +441,7 @@ export default function DropboxPage() {
   );
 
   return (
-    <CommonTileContainer zoomAtom={dropboxZoomAtom} noPadding>
+    <CommonTileContainer zoomAtom={dropboxZoomAtom} noPadding background={DENSE_TILE_BG}>
       <div
         ref={containerRef}
         className="flex min-h-0 flex-1 flex-col"

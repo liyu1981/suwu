@@ -7,6 +7,7 @@ import {
   useTileSessionState,
 } from '../CommonTileContainer';
 import { resthelperZoomAtom } from '../../store/zoom';
+import { DENSE_TILE_BG } from '../../store/appearance';
 import { hostOf } from '../../lib/cookie-jar';
 import {
   newId,
@@ -27,9 +28,6 @@ import { useRestCollections } from './hooks/useRestCollections';
 import { useRestCookies } from './hooks/useRestCookies';
 import { useRestHistory } from './hooks/useRestHistory';
 import { useRestRequest } from './hooks/useRestRequest';
-
-/** Slightly more opaque than the shared tile background for legible request/response text. */
-const REST_TILE_BG = 'rgba(22, 22, 25, 0.97)';
 
 function cloneDraft(draft: RestRequestDraft): RestRequestDraft {
   return {
@@ -198,7 +196,7 @@ export function RestHelperPanel({ paneId }: { paneId?: string }) {
       paneId={paneId}
       zoomAtom={resthelperZoomAtom}
       noPadding
-      background={REST_TILE_BG}
+      background={DENSE_TILE_BG}
     >
       <div className="flex h-full min-h-0 flex-col">
         <header className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2">

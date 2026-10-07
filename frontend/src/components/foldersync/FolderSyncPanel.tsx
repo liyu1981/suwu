@@ -17,6 +17,7 @@ import {
   useTileSessionState,
 } from '../CommonTileContainer';
 import { folderSyncZoomAtom } from '../../store/zoom';
+import { DENSE_TILE_BG } from '../../store/appearance';
 import { folderSyncAtom } from '../../store/foldersync';
 import { getEngine, stopAllEngines } from '../../lib/foldersync/engine';
 import { supportsLocalFs } from '../../lib/foldersync/fs-access';
@@ -181,7 +182,7 @@ export function FolderSyncPanel() {
   const supported = supportsLocalFs();
 
   return (
-    <CommonTileContainer zoomAtom={folderSyncZoomAtom}>
+    <CommonTileContainer zoomAtom={folderSyncZoomAtom} background={DENSE_TILE_BG}>
       <div className="flex h-full min-h-0 flex-col gap-2">
         {/* Header — every control stays in the left cluster: the top-right
             224×48 corner belongs to TileTools, so nothing lands there. */}

@@ -67,6 +67,7 @@ fails CI when an artifact is missing or malformed.
 | hexagon-landscape | Shane — shadertoy.com/view/tdtyDs |
 | interactive-fluid | vgpu Interactive Fluid example — vgpu.sh |
 | matrix-rain | Suwu / vgpu example |
+| monomino-domino | Shane — shadertoy.com/view/l3sBzM |
 | rainforest | Inigo Quilez (iq) — shadertoy.com/view/4ttSWf, used with permission |
 
 Deleting a directory unregisters the background; a stored selection then falls

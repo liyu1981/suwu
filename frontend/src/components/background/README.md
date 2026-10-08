@@ -195,8 +195,8 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
   device lost after the surface is attached calls `ctx.onFatal`, and the hook
   remounts a fresh canvas (a canvas context type is permanent) with the GPU path
   disabled. `interactive-fluid`, `matrix-rain`, `atmospheric-landscape`,
-  `cosmos-in-crystal`, `hexagon-landscape`, `seascape` and `rainforest` are
-  GPU-only and have no CPU fallback.
+  `cosmos-in-crystal`, `hexagon-landscape`, `monomino-domino`, `seascape` and
+  `rainforest` are GPU-only and have no CPU fallback.
 - **Video** — the `video` family is CPU-only (canvas-2D). The user picks short
   clips in System Settings; each is copied into an OPFS library (`storage.ts`)
   with a ~2s thumbnail, and the selected one is demuxed/decoded with mediabunny
@@ -225,9 +225,10 @@ The engine-backed backgrounds (external `scene.js`, e.g.
   samplers, pass order, and per-frame `bindings`. `matrix-rain`, `seascape`,
   `atmospheric-landscape` and `rainforest` are little more than that descriptor
   plus their `.wgsl`; the shaders and their uniform structs are untouched.
-- `interactive-fluid` and `hexagon-landscape` use the same host but supply a
-  hand-written `GpuScene`: one owns a fixed-step compute simulation, the other
-  bakes its distance field and height map exactly once before the march.
+- `interactive-fluid`, `hexagon-landscape` and `monomino-domino` use the same
+  host but supply a hand-written `GpuScene`: a fixed-step compute simulation,
+  a one-off distance-field bake, and a per-frame back-buffer step that has to
+  be swapped under the march.
 - `time.ts` is one shared epoch for every GPU background (the Shadertoy `iTime`
   model): restarting a backend on a parameter change never snaps the animation
   back to `t = 0`. `size.ts` caps a render budget in megapixels.
@@ -273,6 +274,7 @@ reference of the same additive radial-gradient math, without a browser:
 pnpm --dir frontend bg:render           # blob: render offscreen, assert pixels, PNG
 pnpm --dir frontend bg:render:matrix    # matrix: render offscreen against a synthetic atlas
 pnpm --dir frontend bg:render:hexagon   # hexagon: bake + march offscreen, assert pixels, PNG
+pnpm --dir frontend bg:render:domino    # domino: back-buffer to a settled tiling, then march, PNG
 ```
 
 Each writes a `scripts/*-preview.png` for visual inspection.

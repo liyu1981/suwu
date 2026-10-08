@@ -64,6 +64,7 @@ fails CI when an artifact is missing or malformed.
 | --- | --- |
 | atmospheric-landscape | TekF — shadertoy.com/view/slVfD1 |
 | cosmos-in-crystal | nayk — shadertoy.com/view/MXccR4 |
+| hexagon-landscape | Shane — shadertoy.com/view/tdtyDs |
 | interactive-fluid | vgpu Interactive Fluid example — vgpu.sh |
 | matrix-rain | Suwu / vgpu example |
 | rainforest | Inigo Quilez (iq) — shadertoy.com/view/4ttSWf, used with permission |

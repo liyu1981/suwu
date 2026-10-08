@@ -26,6 +26,7 @@
     "check:write": "biome check src --write",
     "bg:render": "node scripts/render-ambient.mjs",
     "bg:render:matrix": "node scripts/render-matrix.mjs",
+    "bg:render:hexagon": "node scripts/render-hexagon.mjs",
     "bg:check": "node scripts/check-background-shaders.mjs",
     "wgsl:compiler": "node scripts/wgsl-compiler/build.mjs"
   },

@@ -40,6 +40,7 @@ export const REGISTRY: readonly Entry[] = [
   { category: 'settings', key: 'suwu:avatar' },
   { category: 'settings', key: 'suwu:username' },
   { category: 'settings', key: 'suwu:spaces-idle' },
+  { category: 'settings', key: 'suwu:fileviewer-theme' },
   // store/notifications.ts — history is the user's data and is backed up with
   // the rest of the settings (see the Backup tab for the toggle).
   { category: 'settings', key: 'suwu:notifications' },

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileViewer } from '@file-viewer/react';
+import { useAtom } from 'jotai';
+import { FileViewer, type ViewerEventHandler } from '@file-viewer/react';
 import standardPreset from '@file-viewer/preset-standard';
 import { authFetch } from '../lib/api';
+import { fileViewerThemeAtom } from '../store/settings';
 import { CommonTileContainer } from '../components/CommonTileContainer';
 import { RefreshIcon } from '../components/icons';
 import { setPageTransparent } from '../lib/constants';
@@ -18,6 +20,12 @@ import {
  *
  * Files are fetched with the stored Basic auth credentials and passed as a
  * Blob URL to the viewer component, since it cannot send custom headers.
+ *
+ * The day/night choice is the viewer toolbar's own toggle: each flip is
+ * persisted (fileViewerThemeAtom, localStorage) and fed back into the viewer's
+ * options, so every pane — including a later one — reopens on it. Keeping the
+ * options in sync matters: the wrapper applies `options` on every change, and a
+ * stale theme would flip the viewer back mid-session.
  */
 export default function FileViewerPage() {
   const paneRef = useRef<string | null>(null);
@@ -30,14 +38,28 @@ export default function FileViewerPage() {
   const dropdownState = useAutoRefreshDropdown();
   const abortRef = useRef<AbortController | null>(null);
 
+  // Day/night as last chosen in this (or another) file viewer pane.
+  const [viewerTheme, setViewerTheme] = useAtom(fileViewerThemeAtom);
+
   const viewerOptions = useMemo(
     () => ({
       preset: standardPreset,
       rendererMode: 'replace' as const,
-      theme: 'dark' as const,
+      theme: viewerTheme,
       toolbar: { position: 'bottom-right' as const },
     }),
-    [],
+    [viewerTheme],
+  );
+
+  // The toolbar toggle derives its next value from `options.theme` and emits
+  // the result; record it so the choice survives reloads and travels to the
+  // other panes (a stable identity also keeps the wrapper from re-applying
+  // unchanged options on every render).
+  const handleViewerEvent = useCallback<ViewerEventHandler>(
+    (event) => {
+      if (event.type === 'theme-change') setViewerTheme(event.payload);
+    },
+    [setViewerTheme],
   );
 
   const handleStateChange = useCallback((state: { error: unknown | null }) => {
@@ -238,6 +260,7 @@ export default function FileViewerPage() {
             url={fileUrl}
             filename={fileName ?? undefined}
             options={viewerOptions}
+            onEvent={handleViewerEvent}
             onStateChange={handleStateChange}
           />
         </div>

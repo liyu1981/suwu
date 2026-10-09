@@ -66,6 +66,19 @@ export const backgroundParamsAtom = atomWithStorage<
 export const webgpuBackgroundAtom = atomWithStorage<string>('suwu:webgpu-background', '');
 
 /**
+ * The light/dark mode the file viewer tile's own day/night toolbar toggle
+ * chose. Persisted in localStorage so every file viewer pane — they run in
+ * same-origin iframes — reopens with the last choice; defaults to dark, the
+ * mode the tile always shipped with.
+ */
+export type FileViewerTheme = 'light' | 'dark';
+
+export const fileViewerThemeAtom = atomWithStorage<FileViewerTheme>(
+  'suwu:fileviewer-theme',
+  'dark',
+);
+
+/**
  * Where the login-dialog avatar comes from, chosen in System Settings.
  * - `builtin` — a picture bundled with the server; the default. With no
  *   explicit pick (`builtinId` empty) the picture is derived from the user

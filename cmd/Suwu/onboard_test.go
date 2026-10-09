@@ -22,6 +22,7 @@ func TestDevelopmentToolCategoriesAndDefaults(t *testing.T) {
 		"fzf":   true,
 		"herdr": true,
 		"pi":    true,
+		"pig":   true,
 		"witr":  true,
 	}
 	wantAdvancedUnselected := map[string]bool{
@@ -39,6 +40,22 @@ func TestDevelopmentToolCategoriesAndDefaults(t *testing.T) {
 		if wantAdvancedUnselected[item.ID] && (item.Category != "advanced" || item.DefaultSelected) {
 			t.Errorf("%s should be an unselected advanced tool", item.ID)
 		}
+	}
+}
+
+// TestAdvancedDefaultsHint pins the multi-select's "selected by default" line
+// to the checklist. It used to be hardcoded text and went stale the moment a
+// default-selected tool was added; the hint is generated now, and this test
+// keeps the generated sentence honest.
+func TestAdvancedDefaultsHint(t *testing.T) {
+	items, err := loadChecklist()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := advancedDefaultsHint(items)
+	want := "fzf, herdr, pi, PiG, and witr are selected by default."
+	if got != want {
+		t.Errorf("advancedDefaultsHint() = %q, want %q", got, want)
 	}
 }
 

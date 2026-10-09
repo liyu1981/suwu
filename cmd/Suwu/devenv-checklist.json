@@ -150,6 +150,15 @@
     "install_cmd": "npm install -g @mariozechner/pi-coding-agent && asdf reshim"
   },
   {
+    "id": "pig",
+    "name": "PiG",
+    "category": "advanced",
+    "default_selected": true,
+    "description": "Faithful Pi code agent rewrite in Go (single binary, pi-in-go.dev)",
+    "check_binary": "pig",
+    "install_cmd": "curl -fsSL https://pi-in-go.dev/install.sh | sh"
+  },
+  {
     "id": "witr",
     "name": "witr",
     "category": "advanced",

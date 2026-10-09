@@ -372,6 +372,28 @@ func detectDevenvTools(items []checklistItem) map[string]bool {
 	return installed
 }
 
+// advancedDefaultsHint renders the multi-select's "selected by default" line
+// straight from the checklist, so a new default-selected tool (PiG, for
+// instance) can never leave the prompt text stale the way a hardcoded list
+// would. Names keep checklist order.
+func advancedDefaultsHint(items []checklistItem) string {
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.Category == "advanced" && !item.Hidden && item.DefaultSelected {
+			names = append(names, item.Name)
+		}
+	}
+	switch len(names) {
+	case 0:
+		return "Nothing is selected by default."
+	case 1:
+		return names[0] + " is selected by default."
+	default:
+		return strings.Join(names[:len(names)-1], ", ") + ", and " + names[len(names)-1] +
+			" are selected by default."
+	}
+}
+
 func collectDevenvPlan() (devenvPlan, error) {
 	items, err := loadChecklist()
 	if err != nil {
@@ -437,7 +459,7 @@ func collectDevenvPlan() (devenvPlan, error) {
 		form := huh.NewForm(huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Select advanced development tools to install").
-				Description("fzf, herdr, pi, and witr are selected by default.").
+				Description(advancedDefaultsHint(items)).
 				Options(advancedOptions...).
 				Value(&selected).
 				Filterable(true),

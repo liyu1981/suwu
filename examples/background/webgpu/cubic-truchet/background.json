@@ -1,0 +1,38 @@
+{
+  "id": "cubic-truchet",
+  "label": "Cubic Truchet",
+  "engine": "webgpu-render-engine",
+  "credit": {
+    "author": "Shane",
+    "url": "https://www.shadertoy.com/view/4lfcRl",
+    "license": "CC BY-NC-SA 3.0"
+  },
+  "params": [
+    {
+      "kind": "number",
+      "key": "speed",
+      "label": "Animation speed",
+      "hint": "Scales the camera flight, the view sway and the blinking lights. 0 freezes the scene.",
+      "default": 1,
+      "min": 0,
+      "max": 3,
+      "step": 0.05,
+      "decimals": 2,
+      "suffix": "×"
+    },
+    {
+      "kind": "select",
+      "key": "detail",
+      "label": "Detail",
+      "hint": "Higher detail renders more scene pixels — sharper, but heavier.",
+      "default": "high",
+      "options": [
+        { "value": "low", "label": "Low (0.4 MP)" },
+        { "value": "medium", "label": "Medium (1 MP)" },
+        { "value": "high", "label": "High (2 MP)" },
+        { "value": "ultra", "label": "Ultra (4 MP)" },
+        { "value": "native", "label": "Native (canvas)" }
+      ]
+    }
+  ]
+}

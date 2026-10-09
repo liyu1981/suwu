@@ -195,8 +195,9 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
   device lost after the surface is attached calls `ctx.onFatal`, and the hook
   remounts a fresh canvas (a canvas context type is permanent) with the GPU path
   disabled. `interactive-fluid`, `matrix-rain`, `atmospheric-landscape`,
-  `cosmos-in-crystal`, `hexagon-landscape`, `monomino-domino`, `seascape` and
-  `rainforest` are GPU-only and have no CPU fallback.
+  `cosmos-in-crystal`, `cubic-truchet`, `hexagon-landscape`,
+  `monomino-domino`, `seascape` and `rainforest` are GPU-only and have no CPU
+  fallback.
 - **Video** — the `video` family is CPU-only (canvas-2D). The user picks short
   clips in System Settings; each is copied into an OPFS library (`storage.ts`)
   with a ~2s thumbnail, and the selected one is demuxed/decoded with mediabunny
@@ -223,8 +224,9 @@ The engine-backed backgrounds (external `scene.js`, e.g.
 - `fragmentScene()` builds the common "effect → offscreen target (single or
   ping-pong) → post pass" pipeline from a descriptor: targets, assets, extra
   samplers, pass order, and per-frame `bindings`. `matrix-rain`, `seascape`,
-  `atmospheric-landscape` and `rainforest` are little more than that descriptor
-  plus their `.wgsl`; the shaders and their uniform structs are untouched.
+  `atmospheric-landscape`, `cosmos-in-crystal`, `rainforest` and
+  `cubic-truchet` are little more than that descriptor plus their `.wgsl`; the
+  shaders and their uniform structs are untouched.
 - `interactive-fluid`, `hexagon-landscape` and `monomino-domino` use the same
   host but supply a hand-written `GpuScene`: a fixed-step compute simulation,
   a one-off distance-field bake, and a per-frame back-buffer step that has to
@@ -275,6 +277,7 @@ pnpm --dir frontend bg:render           # blob: render offscreen, assert pixels,
 pnpm --dir frontend bg:render:matrix    # matrix: render offscreen against a synthetic atlas
 pnpm --dir frontend bg:render:hexagon   # hexagon: bake + march offscreen, assert pixels, PNG
 pnpm --dir frontend bg:render:domino    # domino: back-buffer to a settled tiling, then march, PNG
+pnpm --dir frontend bg:render:truchet   # truchet: march offscreen, assert tubes/bands/blink, PNG
 ```
 
 Each writes a `scripts/*-preview.png` for visual inspection.

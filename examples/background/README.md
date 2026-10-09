@@ -63,6 +63,7 @@ fails CI when an artifact is missing or malformed.
 | Background | Origin |
 | --- | --- |
 | atmospheric-landscape | TekF — shadertoy.com/view/slVfD1 |
+| cubic-truchet | Shane — shadertoy.com/view/4lfcRl |
 | cosmos-in-crystal | nayk — shadertoy.com/view/MXccR4 |
 | hexagon-landscape | Shane — shadertoy.com/view/tdtyDs |
 | interactive-fluid | vgpu Interactive Fluid example — vgpu.sh |

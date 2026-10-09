@@ -14,8 +14,26 @@ function PopoverContent({
   align = 'center',
   sideOffset = 4,
   children,
+  onWheel,
+  onTouchMove,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  // A modal Dialog locks scrolling with react-remove-scroll, whose
+  // document-level wheel/touchmove catcher cancels any event whose target
+  // sits outside its shards — and a portal renders on document.body, i.e.
+  // outside the dialog. That cancellation is what stopped the WebGPU
+  // background selector's option list from responding to the mouse wheel.
+  // Ending the event here keeps the popover's own overflow scrolling alive;
+  // nothing behind the portal loses anything, because the lock already
+  // hides the body scrollbar.
+  const passScroll = <E extends React.WheelEvent | React.TouchEvent>(
+    event: E,
+    handler?: (event: E) => void,
+  ) => {
+    handler?.(event);
+    event.stopPropagation();
+  };
+
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
@@ -32,6 +50,8 @@ function PopoverContent({
           className,
         )}
         {...props}
+        onWheel={(event) => passScroll(event, onWheel)}
+        onTouchMove={(event) => passScroll(event, onTouchMove)}
       >
         {children}
       </PopoverPrimitive.Content>

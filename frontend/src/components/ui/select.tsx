@@ -45,8 +45,22 @@ function SelectContent({
   className,
   children,
   position = 'popper',
+  onWheel,
+  onTouchMove,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  // Same modal-dialog scroll lock as PopoverContent: react-remove-scroll
+  // cancels wheel/touchmove events from portaled content (outside its
+  // shards), which would stop the option viewport from scrolling. End the
+  // event at the portal instead; the body stays locked either way.
+  const passScroll = <E extends React.WheelEvent | React.TouchEvent>(
+    event: E,
+    handler?: (event: E) => void,
+  ) => {
+    handler?.(event);
+    event.stopPropagation();
+  };
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -64,6 +78,8 @@ function SelectContent({
           className,
         )}
         {...props}
+        onWheel={(event) => passScroll(event, onWheel)}
+        onTouchMove={(event) => passScroll(event, onTouchMove)}
       >
         <SelectPrimitive.Viewport
           className={cn(

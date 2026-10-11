@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFetch } from '../lib/api';
 import { fileBrowserZoomAtom } from '../store/zoom';
+import { DENSE_TILE_BG } from '../store/appearance';
 import {
   CommonTileContainer,
   useTileSessionState,
@@ -527,7 +528,7 @@ export default function FileBrowserPage() {
   };
 
   return (
-    <CommonTileContainer zoomAtom={fileBrowserZoomAtom} noPadding>
+    <CommonTileContainer zoomAtom={fileBrowserZoomAtom} noPadding background={DENSE_TILE_BG}>
       <div className="flex min-h-0 flex-1 flex-col">
         {/* Toolbar — glass material, content scrolls under */}
         <div className="flex shrink-0 items-center gap-0.5 rounded-t-[6px] border-b border-white/[0.08] px-2.5 py-1.5 glass-control">

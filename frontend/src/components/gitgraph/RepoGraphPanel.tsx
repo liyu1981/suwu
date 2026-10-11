@@ -12,8 +12,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAtomValue } from 'jotai';
-import { fileBrowserBgAtom } from '../../store/appearance';
+import { DENSE_TILE_BG } from '../../store/appearance';
 import { GraphRenderer } from './GraphRenderer';
 import { useGitGraph } from './useGitGraph';
 import { RepoPicker } from './RepoPicker';
@@ -75,7 +74,6 @@ export function RepoGraphPanel({
   refreshToken: number;
 }) {
   const { t } = useTranslation();
-  const bgColor = useAtomValue(fileBrowserBgAtom);
   const scrollRef = useRef<HTMLDivElement>(null);
   const repoPath = tab.repoPath;
 
@@ -1045,7 +1043,10 @@ export function RepoGraphPanel({
               ref={scrollRef}
             >
               <div className="flex">
-                <div className="sticky left-0 z-10 shrink-0" style={{ backgroundColor: bgColor }}>
+                <div
+                  className="sticky left-0 z-10 shrink-0"
+                  style={{ backgroundColor: DENSE_TILE_BG }}
+                >
                   <GraphRenderer
                     commits={commits}
                     commitHead={commitHead}

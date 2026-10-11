@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CommonTileContainer } from '../components/CommonTileContainer';
 import { gitGraphZoomAtom } from '../store/zoom';
+import { DENSE_TILE_BG } from '../store/appearance';
 import { setPageTransparent } from '../lib/constants';
 import { RefreshIcon } from '../components/icons';
 import {
@@ -31,7 +32,7 @@ import { useTranslation } from 'react-i18next';
 
 export default function GitGraphPage() {
   return (
-    <CommonTileContainer zoomAtom={gitGraphZoomAtom} noPadding>
+    <CommonTileContainer zoomAtom={gitGraphZoomAtom} noPadding background={DENSE_TILE_BG}>
       <GitGraphContent />
     </CommonTileContainer>
   );

@@ -191,7 +191,17 @@ export default function DBBrowserPanel() {
                 </div>
                 <div className="min-h-0 flex-1">
                   {query.result && !query.error ? (
-                    <DataTable result={query.result} />
+                    query.result.columns.length > 0 ? (
+                      <DataTable result={query.result} />
+                    ) : (
+                      <div className="flex h-full items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02]">
+                        <div className="text-center text-[11px] text-white/50">
+                          {query.result.rowsAffected > 0
+                            ? t('dbbrowser.affectedRows', { count: query.result.rowsAffected })
+                            : t('dbbrowser.statementExecuted')}
+                        </div>
+                      </div>
+                    )
                   ) : query.error ? (
                     <div className="flex h-full items-center justify-center rounded-lg border border-red-500/20 bg-red-500/5 p-4">
                       <div className="max-w-md text-center text-[11px] text-red-400/80">

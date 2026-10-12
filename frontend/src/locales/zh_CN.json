@@ -586,7 +586,9 @@
     "copyCell": "复制",
     "newConnection": "新建连接",
     "recentConnections": "最近连接",
-    "noRecentConnections": "暂无最近连接"
+    "noRecentConnections": "暂无最近连接",
+    "affectedRows_other": "{{count}} 行受影响",
+    "statementExecuted": "语句执行成功"
   },
   "lang": {
     "en": "English",

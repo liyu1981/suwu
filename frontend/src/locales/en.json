@@ -588,7 +588,10 @@
     "copyCell": "Copy",
     "newConnection": "New Connection",
     "recentConnections": "Recent Connections",
-    "noRecentConnections": "No recent connections"
+    "noRecentConnections": "No recent connections",
+    "affectedRows_one": "{{count}} row affected",
+    "affectedRows_other": "{{count}} rows affected",
+    "statementExecuted": "Statement executed successfully"
   },
   "lang": {
     "en": "English",

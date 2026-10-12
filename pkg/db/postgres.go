@@ -24,7 +24,10 @@ func (d *PostgresDriver) Open(params ConnectionParams) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("postgres open: %w", err)
 	}
-	db.SetMaxOpenConns(10)
+	// One connection per session so session-scoped statements persist across
+	// Executes. With a larger pool, `SET search_path`/`SET timezone`/BEGIN land
+	// on an arbitrary connection and the next query may not see them.
+	db.SetMaxOpenConns(1)
 	return db, nil
 }
 

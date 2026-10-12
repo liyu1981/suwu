@@ -24,7 +24,10 @@ func (d *MySQLDriver) Open(params ConnectionParams) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mysql open: %w", err)
 	}
-	db.SetMaxOpenConns(10)
+	// One connection per session so session-scoped statements persist across
+	// Executes. With a larger pool, `SET search_path`/`SET @var`/BEGIN land on
+	// an arbitrary connection and the next query may not see them.
+	db.SetMaxOpenConns(1)
 	return db, nil
 }
 

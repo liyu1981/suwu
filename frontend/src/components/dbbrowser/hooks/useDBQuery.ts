@@ -1,9 +1,22 @@
 import { useCallback } from 'react';
 import { useAtom } from 'jotai';
-import { dbConnectionAtom, dbQueryAtom, type QueryResult } from '../../../store/dbbrowser';
+import {
+  dbConnectionAtom,
+  dbQueryAtom,
+  type ColumnMeta,
+  type QueryResult,
+} from '../../../store/dbbrowser';
 import { authFetch } from '../../../lib/api';
 
-interface ExecuteResponse extends QueryResult {}
+/**
+ * The server sends columns/rows as `null` for statements that produce no result
+ * set (UPDATE/INSERT/DELETE/SET/DDL). Normalize them to arrays at the single
+ * point results enter the store, so no consumer can crash on `.length` of null.
+ */
+interface ExecuteResponse extends Omit<QueryResult, 'columns' | 'rows'> {
+  columns?: ColumnMeta[] | null;
+  rows?: unknown[][] | null;
+}
 
 export function useDBQuery() {
   const [connection] = useAtom(dbConnectionAtom);
@@ -36,7 +49,12 @@ export function useDBQuery() {
           return;
         }
 
-        const result = (await res.json()) as ExecuteResponse;
+        const raw = (await res.json()) as ExecuteResponse;
+        const result: QueryResult = {
+          ...raw,
+          columns: raw.columns ?? [],
+          rows: raw.rows ?? [],
+        };
 
         if (result.error) {
           setQuery({ sql, result: null, loading: false, error: result.error });

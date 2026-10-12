@@ -163,18 +163,114 @@ func ExecuteQuery(db *sql.DB, query string) *QueryResult {
 	ctx, cancel := context.WithTimeout(context.Background(), QueryTimeout)
 	defer cancel()
 
-	// Detect if this is a SELECT-like query (returns rows) vs mutation.
-	trimmed := strings.TrimSpace(strings.ToUpper(query))
-	isSelect := strings.HasPrefix(trimmed, "SELECT") ||
-		strings.HasPrefix(trimmed, "SHOW") ||
-		strings.HasPrefix(trimmed, "DESCRIBE") ||
-		strings.HasPrefix(trimmed, "EXPLAIN") ||
-		strings.HasPrefix(trimmed, "WITH")
-
-	if isSelect {
-		return executeSelect(ctx, db, query, start)
+	if statementReturnsRows(query) {
+		return normalizeResult(executeSelect(ctx, db, query, start))
 	}
-	return executeMutation(ctx, db, query, start)
+	return normalizeResult(executeMutation(ctx, db, query, start))
+}
+
+// rowReturningStatements are the leading SQL keywords whose statements produce
+// a result set. Everything else runs through ExecContext, which is what exposes
+// RowsAffected and what drivers expect for mutations and session commands
+// (SET, BEGIN/COMMIT, most DDL).
+var rowReturningStatements = map[string]bool{
+	"SELECT":   true,
+	"SHOW":     true,
+	"DESCRIBE": true,
+	"DESC":     true,
+	"EXPLAIN":  true,
+	"WITH":     true, // CTEs, including data-modifying WITH ... RETURNING
+	"PRAGMA":   true, // SQLite pragmas return a result set
+	"VALUES":   true,
+	"TABLE":    true, // PostgreSQL shorthand for SELECT * FROM
+}
+
+// statementReturnsRows reports whether a statement should run with QueryContext
+// (result set) rather than ExecContext (rows affected).
+func statementReturnsRows(query string) bool {
+	stmt := stripLeadingComments(query)
+	if rowReturningStatements[firstKeyword(stmt)] {
+		return true
+	}
+	// INSERT/UPDATE/DELETE ... RETURNING produces rows on PostgreSQL and
+	// SQLite; running it through Exec would silently discard them.
+	return containsKeyword(stmt, "RETURNING")
+}
+
+// stripLeadingComments removes leading whitespace, `-- line` comments and
+// `/* block */` comments so the first keyword is not hidden behind one.
+func stripLeadingComments(query string) string {
+	s := query
+	for {
+		s = strings.TrimLeft(s, " \t\r\n")
+		switch {
+		case strings.HasPrefix(s, "--"):
+			i := strings.IndexByte(s, '\n')
+			if i < 0 {
+				return ""
+			}
+			s = s[i+1:]
+		case strings.HasPrefix(s, "/*"):
+			i := strings.Index(s, "*/")
+			if i < 0 {
+				return ""
+			}
+			s = s[i+2:]
+		default:
+			return s
+		}
+	}
+}
+
+// firstKeyword returns the first whitespace-delimited token, uppercased and cut
+// at the first separator. Empty when the statement has none.
+func firstKeyword(stmt string) string {
+	stmt = strings.TrimLeft(stmt, " \t\r\n")
+	end := strings.IndexFunc(stmt, func(r rune) bool {
+		return r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == ';' || r == '('
+	})
+	if end < 0 {
+		end = len(stmt)
+	}
+	return strings.ToUpper(strings.TrimSpace(stmt[:end]))
+}
+
+// containsKeyword reports whether word appears in stmt as a standalone
+// identifier, so a column named "returning_rate" does not match RETURNING.
+func containsKeyword(stmt, word string) bool {
+	upper := strings.ToUpper(stmt)
+	for i := 0; i+len(word) <= len(upper); {
+		rel := strings.Index(upper[i:], word)
+		if rel < 0 {
+			return false
+		}
+		start := i + rel
+		end := start + len(word)
+		beforeOK := start == 0 || !isIdentByte(upper[start-1])
+		afterOK := end == len(upper) || !isIdentByte(upper[end])
+		if beforeOK && afterOK {
+			return true
+		}
+		i = start + 1
+	}
+	return false
+}
+
+func isIdentByte(b byte) bool {
+	return b == '_' || (b >= '0' && b <= '9') || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
+}
+
+// normalizeResult enforces the JSON contract that columns and rows are always
+// arrays, never null. A mutation has no result set, and Go marshals a nil slice
+// as null, which broke every client that assumed `.rows.length`.
+func normalizeResult(r *QueryResult) *QueryResult {
+	if r.Columns == nil {
+		r.Columns = []ColumnMeta{}
+	}
+	if r.Rows == nil {
+		r.Rows = [][]interface{}{}
+	}
+	return r
 }
 
 func executeSelect(ctx context.Context, db *sql.DB, query string, start time.Time) *QueryResult {
@@ -266,6 +362,8 @@ func executeMutation(ctx context.Context, db *sql.DB, query string, start time.T
 		}
 	}
 	affected, _ := result.RowsAffected()
+	// Columns and Rows stay nil here; normalizeResult fills them with empty
+	// arrays so the JSON payload never carries null for a mutation.
 	return &QueryResult{
 		RowsAffected: affected,
 		Milliseconds: time.Since(start).Milliseconds(),

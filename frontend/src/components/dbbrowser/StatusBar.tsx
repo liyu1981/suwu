@@ -9,6 +9,8 @@ interface StatusBarProps {
 
 export default function StatusBar({ query, connected, onDisconnect }: StatusBarProps) {
   const { t } = useTranslation();
+  const result = query.result;
+  const hasRows = !!result && result.columns.length > 0;
 
   return (
     <div className="flex shrink-0 items-center gap-3 border-t border-white/[0.06] px-3 py-1.5 text-[10px]">
@@ -25,19 +27,24 @@ export default function StatusBar({ query, connected, onDisconnect }: StatusBarP
 
       {query.error && <span className="truncate text-red-400/80">{query.error}</span>}
 
-      {query.result && !query.error && (
+      {result && !query.error && (
         <>
-          <span className="tabular-nums text-white/40">
-            {query.result.rows.length} row{query.result.rows.length !== 1 ? 's' : ''}
-          </span>
-          <span className="tabular-nums text-white/30">{query.result.milliseconds}ms</span>
-          {query.result.truncated && (
+          {hasRows ? (
+            <span className="tabular-nums text-white/40">
+              {result.rows.length} row{result.rows.length !== 1 ? 's' : ''}
+            </span>
+          ) : (
+            <span className="tabular-nums text-white/40">
+              {result.rowsAffected > 0
+                ? t('dbbrowser.affectedRows', { count: result.rowsAffected })
+                : t('dbbrowser.statementExecuted')}
+            </span>
+          )}
+          <span className="tabular-nums text-white/30">{result.milliseconds}ms</span>
+          {result.truncated && (
             <span className="text-amber-400/80">
               {t('dbbrowser.truncateWarning', { max: '10,000' })}
             </span>
-          )}
-          {query.result.rowsAffected > 0 && (
-            <span className="text-white/40">{query.result.rowsAffected} affected</span>
           )}
         </>
       )}

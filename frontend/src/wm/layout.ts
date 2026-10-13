@@ -401,6 +401,27 @@ export function findNeighborRect(panes: PaneLayout[], id: string, dir: MoveDir):
   return best;
 }
 
+/**
+ * Pick which tile to focus after `closedId` is removed: the nearest tile above
+ * the closed one, else the nearest tile to its left, else '' (the caller falls
+ * back to the first remaining leaf). Uses the layout *before* the close because
+ * the closed leaf is already gone from the post-close tree.
+ */
+export function focusAfterClose(
+  root: LayoutNode | null,
+  closedId: string,
+  width: number,
+  height: number,
+): string {
+  if (!root || width <= 0 || height <= 0) return '';
+  const { panes } = computeTiling(root, width, height);
+  return (
+    findNeighborRect(panes, closedId, 'up')?.id ??
+    findNeighborRect(panes, closedId, 'left')?.id ??
+    ''
+  );
+}
+
 /** Apply `fn` to the children of the split with the given id. */
 export function updateSplitAt(
   root: LayoutNode,

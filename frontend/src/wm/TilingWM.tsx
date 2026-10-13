@@ -35,6 +35,7 @@ import {
   findNeighborRect,
   findLeaf,
   findSplit,
+  focusAfterClose,
   focusByOffset,
   getPaneData,
   leaves,
@@ -672,6 +673,23 @@ export default function TilingWM() {
     [store],
   );
 
+  // Measure the tiling viewport so pane rects can be laid out in px.
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [dragging, setDragging] = useState(false);
+  // Filled in once the keyboard drag handler exists; the WM shortcut dispatch
+  // (registered earlier) calls through this ref for Alt+M.
+  const startMoveRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Close a specific tile (hover ✕); Alt+Q closes the focused one.
   const closeTile = useCallback(
     (id: string) => {
@@ -692,7 +710,13 @@ export default function TilingWM() {
         nextSpaces[sourceIdx] = { ...nextSpaces[sourceIdx], layout: sourceLayout };
         store.set(spacesAtom, nextSpaces);
         store.set(activeSpaceAtom, sourceIdx);
-        store.set(focusedIdAtom, leaves(sourceLayout)[0] ?? '');
+        // Prefer the nearest surviving tile in the source layout, matching the
+        // ordinary close path; fall back to the first leaf.
+        const restoredFocus =
+          focusAfterClose(focus.sourceLayoutSnapshot, id, size.w, size.h) ||
+          leaves(sourceLayout)[0] ||
+          '';
+        store.set(focusedIdAtom, restoredFocus);
         store.set(focusAtom, null);
         // Skip the picker-open effect for the focus shift caused by this close.
         closeRefCount.current++;
@@ -702,12 +726,16 @@ export default function TilingWM() {
       const cur = store.get(layoutAtom);
       if (!cur) return;
       const next = closeAt(cur, id);
+      // Hand focus to the nearest surviving tile: the one above the closed
+      // tile, else the one to its left, else the first leaf. The pre-close
+      // rects are required because the closed leaf is gone from `next`.
+      const nextFocus = focusAfterClose(cur, id, size.w, size.h) || leaves(next)[0] || '';
       store.set(layoutAtom, next);
-      store.set(focusedIdAtom, leaves(next)[0] ?? '');
+      store.set(focusedIdAtom, nextFocus);
       // Skip the picker-open effect for the focus shift caused by this close.
       closeRefCount.current++;
     },
-    [store],
+    [store, size],
   );
 
   const close = useCallback(() => {
@@ -725,23 +753,6 @@ export default function TilingWM() {
     },
     [store],
   );
-
-  // Measure the tiling viewport so pane rects can be laid out in px.
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  const [dragging, setDragging] = useState(false);
-  // Filled in once the keyboard drag handler exists; the WM shortcut dispatch
-  // (registered earlier) calls through this ref for Alt+M.
-  const startMoveRef = useRef<() => void>(() => {});
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const focusDirection = useCallback(
     (dir: MoveDir) => {

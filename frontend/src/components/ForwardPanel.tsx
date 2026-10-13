@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CommonTileContainer } from './CommonTileContainer';
+import { DENSE_TILE_BG } from '../store/appearance';
 import { RefreshIcon } from './icons';
 import { forwardZoomAtom } from '../store/zoom';
 import { isLocalHost } from '../lib/format';
@@ -221,7 +222,7 @@ export default function ForwardPanel() {
     intPort !== '' && intPortValidation.valid && isLocalHost(intHost) && intPortOpen === false;
 
   return (
-    <CommonTileContainer zoomAtom={forwardZoomAtom} noPadding>
+    <CommonTileContainer zoomAtom={forwardZoomAtom} noPadding background={DENSE_TILE_BG}>
       <div className="flex h-full flex-col">
         {/* Header — glass material */}
         <div className="flex shrink-0 items-center rounded-t-[6px] border-b border-white/[0.06] px-3 py-2 glass-control">

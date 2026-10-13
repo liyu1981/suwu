@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { CommonTileContainer } from '../CommonTileContainer';
+import { DENSE_TILE_BG } from '../../store/appearance';
 import { dbbrowserZoomAtom } from '../../store/zoom';
 import { useDBSession } from './hooks/useDBSession';
 import { useDBQuery } from './hooks/useDBQuery';
@@ -108,7 +109,7 @@ export default function DBBrowserPanel() {
   const connected = !!connection;
 
   return (
-    <CommonTileContainer zoomAtom={dbbrowserZoomAtom} noPadding>
+    <CommonTileContainer zoomAtom={dbbrowserZoomAtom} noPadding background={DENSE_TILE_BG}>
       <div className="flex h-full flex-col">
         {/* Header */}
         <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2">

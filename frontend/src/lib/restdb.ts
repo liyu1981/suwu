@@ -14,7 +14,7 @@ const DB_NAME = 'suwu-rest-helper';
 const DB_VERSION = 1;
 
 /** Maximum number of history entries retained (oldest are pruned by timestamp). */
-export const MAX_HISTORY = 1000;
+const MAX_HISTORY = 1000;
 
 interface StoreSpec {
   keyPath: string;
@@ -122,7 +122,7 @@ export async function restClear(store: RestStore): Promise<void> {
   }
 }
 
-export async function restCount(store: RestStore): Promise<number> {
+async function restCount(store: RestStore): Promise<number> {
   try {
     return await tx<number>(store, 'readonly', (s) => s.count());
   } catch (error) {

@@ -33,7 +33,6 @@ import {
 import { canonicalJSON, sha256Base64 } from './container.ts';
 import { collect } from './collect.ts';
 import {
-  BackupConflictError,
   CATEGORIES,
   IDLE_STATUS,
   PAYLOAD_VERSION,
@@ -55,13 +54,13 @@ import {
 } from './crypto.ts';
 
 /** localStorage key holding the backup configuration (never backed up). */
-export const CONFIG_KEY = 'suwu:backup-config';
+const CONFIG_KEY = 'suwu:backup-config';
 
 /** The default autosave interval, in milliseconds (5 minutes). */
-export const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
+const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 /** Bounds the interval the user may pick. */
-export const MIN_INTERVAL_MS = 60 * 1000;
-export const MAX_INTERVAL_MS = 60 * 60 * 1000;
+const MIN_INTERVAL_MS = 60 * 1000;
+const MAX_INTERVAL_MS = 60 * 60 * 1000;
 
 /** 26 Crockford base32 characters (lowercase), matching pkg/backup. */
 const SLOT_CHARS = 'abcdefghijklmnopqrstuvwxyz234567';
@@ -295,10 +294,10 @@ export function initBackup(): void {
 
 /**
  * Runs one backup pass: collect, canonicalize, and upload only when the
- * payload changed since the last successful upload. Exposed for "Back up now"
- * and for tests.
+ * payload changed since the last successful upload. Used by "Back up now" and
+ * the autosave scheduler.
  */
-export async function tick(): Promise<BackupStatus> {
+async function tick(): Promise<BackupStatus> {
   if (!isEnabled() || !hasKey()) return status;
   if (running) return status;
   running = true;
@@ -369,7 +368,7 @@ export async function backupNow(): Promise<BackupStatus> {
 // ── server queries ─────────────────────────────────────────────────────
 
 /** Reads the server's index for a slot (defaults to this browser's). */
-export async function fetchMeta(slot = config.slot): Promise<Meta> {
+async function fetchMeta(slot = config.slot): Promise<Meta> {
   const res = await authFetch(`/api/backup/meta?slot=${encodeURIComponent(slot)}`, {
     cache: 'no-store',
   });
@@ -379,7 +378,7 @@ export async function fetchMeta(slot = config.slot): Promise<Meta> {
 
 /** Downloads one generation's container bytes from `slot` (default: this
  * browser's slot). */
-export async function fetchBlob(gen: number, slot = config.slot): Promise<Uint8Array> {
+async function fetchBlob(gen: number, slot = config.slot): Promise<Uint8Array> {
   const res = await authFetch(`/api/backup/blob?slot=${encodeURIComponent(slot)}&gen=${gen}`, {
     cache: 'no-store',
   });
@@ -462,11 +461,6 @@ export async function restore(payload: Payload, mode: RestoreMode): Promise<Appl
   return report;
 }
 
-/** True when the last failure was a slot conflict (another device wrote). */
-export function hasConflict(): boolean {
-  return status.conflict;
-}
-
 /**
  * Resolves a conflict in favour of this device: forgets the observed base and
  * writes over the other device's generation. The UI offers this as an explicit
@@ -477,5 +471,3 @@ export async function resolveConflictOverwrite(): Promise<BackupStatus> {
   lastPlaintextHash = null;
   return tick();
 }
-
-export { BackupConflictError };

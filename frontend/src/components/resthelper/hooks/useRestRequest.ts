@@ -7,17 +7,6 @@ import {
   type RestSendPayload,
 } from '../../../store/resthelper';
 
-export interface RestRequestController {
-  state: {
-    loading: boolean;
-    response: RestResponseData | null;
-    request: RestSendPayload | null;
-    sentAt: number;
-  };
-  execute: (payload: RestSendPayload) => Promise<RestResponseData | null>;
-  cancel: () => void;
-}
-
 function normalizeStatusText(status: number, statusText: string | undefined): string {
   if (!statusText) return '';
   const prefix = `${status} `;

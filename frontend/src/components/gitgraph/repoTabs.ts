@@ -139,7 +139,7 @@ function sanitizeComparison(raw: unknown): DiffTab | null {
 }
 
 /** Drop malformed comparisons and keep ids consistent with their refs. */
-export function sanitizeComparisons(raw: unknown): DiffTab[] {
+function sanitizeComparisons(raw: unknown): DiffTab[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
   const out: DiffTab[] = [];

@@ -35,7 +35,7 @@ function firstString(...values: unknown[]): string {
 }
 
 /** Pull the incremental content and reasoning text out of one chunk. */
-export function extractChunkText(json: unknown): { content: string; reasoning: string } {
+function extractChunkText(json: unknown): { content: string; reasoning: string } {
   if (!isRecord(json)) return { content: '', reasoning: '' };
 
   const choices = Array.isArray(json.choices) ? json.choices : [];
@@ -61,11 +61,6 @@ export function extractChunkText(json: unknown): { content: string; reasoning: s
     json.reasoning,
   );
   return { content, reasoning };
-}
-
-/** True when the content type should be treated as a stream. */
-export function isStreamContentType(contentType: string): boolean {
-  return /text\/event-stream|x-ndjson|ndjson|jsonl/i.test(contentType);
 }
 
 function parseRaw(raw: string, chunks: StreamChunk[]): void {

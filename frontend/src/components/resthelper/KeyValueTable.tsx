@@ -1,5 +1,4 @@
 import { CloseIcon, PlusIcon } from '../icons';
-import { newId } from '../../store/resthelper';
 
 export interface KeyValueRow {
   id: string;
@@ -95,8 +94,4 @@ export default function KeyValueTable<T extends KeyValueRow>({
       </div>
     </div>
   );
-}
-
-export function createHeaderRow() {
-  return { id: newId('h'), key: '', value: '', enabled: true };
 }

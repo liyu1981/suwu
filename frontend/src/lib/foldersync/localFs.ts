@@ -6,24 +6,14 @@
  * re-downloading it forever. See ../meta.ts.
  */
 
-import {
-  isNotFoundError,
-  pickDirectory,
-  queryPermission,
-  requestPermission,
-  supportsLocalFs,
-} from './fs-access';
+import { queryPermission, supportsLocalFs } from './fs-access';
 import { isMetaName } from './types';
 import { MAX_SYNC_DEPTH, MAX_SYNC_ENTRIES, type ManifestMap, type ScanResult } from './types';
 
-export { pickDirectory, queryPermission, requestPermission, supportsLocalFs };
+export { queryPermission, supportsLocalFs };
 
 function segments(rel: string): string[] {
   return rel.split('/').filter((s) => s.length > 0);
-}
-
-function depthOf(rel: string): number {
-  return rel.split('/').length;
 }
 
 /** Walks (and optionally creates) the directory chain of a relative path. */
@@ -104,19 +94,6 @@ export async function readLocalFile(root: FileSystemDirectoryHandle, rel: string
   return handle.getFile();
 }
 
-export async function localStat(
-  root: FileSystemDirectoryHandle,
-  rel: string,
-): Promise<{ size: number; mtimeMs: number } | null> {
-  try {
-    const file = await readLocalFile(root, rel);
-    return { size: file.size, mtimeMs: file.lastModified };
-  } catch (err) {
-    if (isNotFoundError(err)) return null;
-    throw err;
-  }
-}
-
 /**
  * Writes one mirrored file, creating parent directories on demand, and returns
  * the resulting `lastModified` for the journal.
@@ -166,5 +143,3 @@ export async function removeLocalDir(
   const dir = await dirHandleFor(root, segs.join('/'), false);
   await dir.removeEntry(name, { recursive });
 }
-
-export { depthOf };

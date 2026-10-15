@@ -28,7 +28,7 @@ export function cookieKey(cookie: Pick<JarCookie, 'domain' | 'path' | 'name'>): 
 }
 
 /** RFC 6265 §5.1.4 default-path algorithm. */
-export function defaultPath(pathname: string): string {
+function defaultPath(pathname: string): string {
   if (!pathname || !pathname.startsWith('/')) return '/';
   if (pathname === '/') return '/';
   const lastSlash = pathname.lastIndexOf('/');
@@ -49,7 +49,7 @@ function pathMatches(requestPath: string, cookiePath: string): boolean {
 }
 
 /** True when the cookie may be sent to `url` at time `now`. */
-export function cookieMatchesURL(cookie: JarCookie, url: string, now = Date.now()): boolean {
+function cookieMatchesURL(cookie: JarCookie, url: string, now = Date.now()): boolean {
   let parsed: URL;
   try {
     parsed = new URL(url);

@@ -28,7 +28,7 @@ interface VideoFileMeta {
 }
 
 /** Whether OPFS is available in this browser. */
-export function isOpfsAvailable(): boolean {
+function isOpfsAvailable(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.storage?.getDirectory === 'function';
 }
 

@@ -5,7 +5,7 @@ export interface SearchLocation {
   endColumn: number;
 }
 
-export interface SearchMatch extends SearchLocation {
+interface SearchMatch extends SearchLocation {
   preview: string;
   previewStart: number;
   previewEnd: number;

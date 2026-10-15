@@ -139,7 +139,7 @@ export const avatarAtom = atomWithStorage<AvatarSettings>(
 );
 
 /** localStorage key holding the account's display name. */
-export const USER_NAME_KEY = 'suwu:username';
+const USER_NAME_KEY = 'suwu:username';
 
 /**
  * The account's display name: shown under the avatar on the login dialog and
@@ -204,7 +204,7 @@ export interface SpacesIdleSettings {
 
 export const SPACES_IDLE_MIN_MINUTES = 1;
 export const SPACES_IDLE_MAX_MINUTES = 240;
-export const SPACES_IDLE_DEFAULT_MINUTES = 10;
+const SPACES_IDLE_DEFAULT_MINUTES = 10;
 
 export const spacesIdleAtom = atomWithStorage<SpacesIdleSettings>('suwu:spaces-idle', {
   enabled: false,

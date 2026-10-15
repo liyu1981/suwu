@@ -20,7 +20,7 @@ export type Category = 'settings' | 'ext' | 'layout';
 export const CATEGORIES: readonly Category[] = ['settings', 'ext', 'layout'] as const;
 
 /** Namespace tag for one backed-up item. */
-export type Namespace = 'ls' | 'ext';
+type Namespace = 'ls' | 'ext';
 
 /** One stored value, from either localStorage or an extension's IndexedDB. */
 export interface Item {
@@ -69,18 +69,6 @@ export interface PutResult {
   bytes: number;
 }
 
-/** Thrown when the server reports a newer generation in the same slot. */
-export class BackupConflictError extends Error {
-  currentGen: number;
-  currentMTime: string;
-  constructor(currentGen: number, currentMTime: string) {
-    super('a newer backup exists on the server');
-    this.name = 'BackupConflictError';
-    this.currentGen = currentGen;
-    this.currentMTime = currentMTime;
-  }
-}
-
 /** Thrown when decryption fails — wrong passphrase or damaged blob. */
 export class BackupDecryptError extends Error {
   constructor(message: string) {
@@ -98,7 +86,7 @@ export class BackupFormatError extends Error {
 }
 
 /** Live status the Settings UI renders. */
-export type BackupPhase = 'off' | 'idle' | 'backing-up' | 'error';
+type BackupPhase = 'off' | 'idle' | 'backing-up' | 'error';
 
 export interface BackupStatus {
   phase: BackupPhase;

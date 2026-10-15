@@ -156,27 +156,7 @@ export function findLeaf(root: LayoutNode | null, id: string): LayoutNode | null
   return null;
 }
 
-/** Replace the leaf `targetId` with a split containing it plus a new leaf. */
-export function splitAt(
-  root: LayoutNode,
-  targetId: string,
-  direction: Direction,
-  side: SplitSide = 'after',
-): LayoutNode {
-  const walk = (node: LayoutNode): LayoutNode => {
-    if (node.type === 'leaf') {
-      if (node.id !== targetId) return node;
-      const peer = createLeaf();
-      return side === 'before'
-        ? createSplit(direction, peer, node)
-        : createSplit(direction, node, peer);
-    }
-    return { ...node, children: node.children.map((c) => ({ ...c, node: walk(c.node) })) };
-  };
-  return walk(root);
-}
-
-/** Like splitAt but also returns the id of the newly created leaf. */
+/** Replace the leaf `targetId` with a split, returning the new leaf's id. */
 export function splitAtWithId(
   root: LayoutNode,
   targetId: string,
@@ -265,7 +245,7 @@ export type DropZone = 'swap' | 'top' | 'bottom' | 'left' | 'right';
  * Fraction of a pane's width/height occupied by the centered swap zone.
  * The remaining ring is split among the four edge zones.
  */
-export const DROP_INNER_RATIO = 0.65;
+const DROP_INNER_RATIO = 0.65;
 
 /**
  * Classify a point against a pane rect into a drop zone, or null when the
@@ -437,7 +417,7 @@ export function updateSplitAt(
 }
 
 /** Width of the draggable strip between two siblings, in px. */
-export const GUTTER = 8;
+const GUTTER = 8;
 
 /** Pixel-space rectangle relative to the tiling viewport. */
 export type Rect = { x: number; y: number; w: number; h: number };

@@ -76,7 +76,7 @@ export const dbSchemaAtom = atom<TableInfo[]>([]);
 const SAVED_CONNECTIONS_KEY = 'suwu_db_saved_connections';
 
 // Keep only the most recent N connections per driver type.
-export const MAX_SAVED_PER_DRIVER = 5;
+const MAX_SAVED_PER_DRIVER = 5;
 
 // A stable fingerprint used to deduplicate the same connection target.
 function connectionSignature(c: SavedConnection): string {

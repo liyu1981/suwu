@@ -15,7 +15,7 @@ export const ZOOM_MAX = 5; // 500%
 export const ZOOM_STEP = 0.25; // 25% steps
 
 /** Zoom used before anything is persisted. */
-export const ZOOM_DEFAULT = 1;
+const ZOOM_DEFAULT = 1;
 
 export const fileBrowserZoomAtom = atomWithStorage<number>('suwu.filebrowser-zoom', ZOOM_DEFAULT);
 export const dropboxZoomAtom = atomWithStorage<number>('suwu.dropbox-zoom', ZOOM_DEFAULT);

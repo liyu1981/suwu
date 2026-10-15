@@ -15,7 +15,7 @@ export interface DropboxSessionState {
 }
 
 /** One repository tab of the Git Graph tile (see components/gitgraph/repoTabs). */
-export interface GitGraphTabState {
+interface GitGraphTabState {
   id: string;
   repoPath: string | null;
   branch: string;
@@ -86,7 +86,7 @@ export interface FolderSyncSessionState {
 }
 
 /** Per-tile session state entry. */
-export interface TileEntry {
+interface TileEntry {
   tileType: string;
   state: Record<string, unknown>;
 }

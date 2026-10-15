@@ -29,9 +29,9 @@ import type { Category, Item } from './types.ts';
 import { canonicalJSON } from './container.ts';
 
 /** Per-item cap, matching the ext-store bridge (docs §4.8). */
-export const ITEM_MAX = 512_000;
+const ITEM_MAX = 512_000;
 /** Whole-plaintext cap before the largest items start being dropped. */
-export const TOTAL_MAX = 8 * 1024 * 1024;
+const TOTAL_MAX = 8 * 1024 * 1024;
 
 /** localStorage key holding the mtime/fingerprint shadow map. Never backed up. */
 export const MTIME_KEY = 'suwu:backup-mtimes';

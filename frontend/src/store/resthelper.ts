@@ -161,7 +161,7 @@ export function emptyFormEntry(partial: Partial<RestFormEntry> = {}): RestFormEn
   return { id: newId('f'), key: '', value: '', type: 'text', enabled: true, ...partial };
 }
 
-export function defaultDraft(): RestRequestDraft {
+function defaultDraft(): RestRequestDraft {
   return {
     method: 'GET',
     url: '',
@@ -173,7 +173,7 @@ export function defaultDraft(): RestRequestDraft {
   };
 }
 
-export const DEFAULT_OPTIONS: RestOptions = {
+const DEFAULT_OPTIONS: RestOptions = {
   userAgentMode: 'default',
   customUserAgent: '',
   timeoutMs: 30000,
@@ -197,7 +197,7 @@ export const restResponseAtom = atom<RestResponseState>({
   sentAt: 0,
 });
 
-export const DEFAULT_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+const DEFAULT_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 
 /** Stored responses larger than this keep status/headers but drop the body. */
 export const MAX_STORED_BODY_BYTES = 2 * 1024 * 1024;

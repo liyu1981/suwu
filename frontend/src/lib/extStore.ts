@@ -10,8 +10,8 @@
  * the store name, or the size cap.
  */
 
-export const EXT_STORE_DB = 'suwu-extension-ext';
-export const EXT_STORE = 'kv';
+const EXT_STORE_DB = 'suwu-extension-ext';
+const EXT_STORE = 'kv';
 /** Charset for the suffix an extension may choose. */
 export const EXT_KEY_RE = /^[A-Za-z0-9._-]{1,64}$/;
 /** JSON-serialized size cap per record (see §4.8). */
@@ -19,7 +19,7 @@ export const EXT_VALUE_MAX = 512_000;
 
 let extStoreDb: IDBDatabase | null = null;
 
-export function withExtStore(cb: (err: Error | null, db: IDBDatabase | null) => void): void {
+function withExtStore(cb: (err: Error | null, db: IDBDatabase | null) => void): void {
   if (extStoreDb) {
     cb(null, extStoreDb);
     return;
@@ -110,24 +110,6 @@ export function extStoreKeysAsync(): Promise<string[]> {
       }
     });
   });
-}
-
-/**
- * Reads one extension's full record set as `<key> -> value`. Used by the backup
- * collector to snapshot one extension at a time.
- */
-export async function extStoreReadAllForExtension(
-  extId: string,
-): Promise<Array<[string, unknown]>> {
-  const prefix = `suwu:ext/${extId}/`;
-  const keys = await extStoreKeysAsync();
-  const mine = keys.filter((k) => k.startsWith(prefix));
-  const out: Array<[string, unknown]> = [];
-  for (const fullKey of mine) {
-    const value = await extStoreGetAsync(fullKey);
-    if (value !== undefined) out.push([fullKey.slice(prefix.length), value]);
-  }
-  return out;
 }
 
 /** Writes one extension record back (used when applying a restored backup). */

@@ -2,38 +2,24 @@
 import './ambient-blob';
 import './video';
 
-export { BackgroundCanvas, type BackgroundCanvasProps } from './BackgroundCanvas';
-export { BackgroundPreview, type BackgroundPreviewProps } from './BackgroundPreview';
-export { fitPreviewBox } from './preview-size';
+export { BackgroundCanvas } from './BackgroundCanvas';
+export { BackgroundPreview } from './BackgroundPreview';
 export { DEFAULT_BACKGROUND_ID, WEBGPU_ENGINE } from './constants';
-export { startBackground, type StartBackgroundOptions } from './select';
-export { getBackground, listBackgrounds, registerBackground } from './registry';
+export { getBackground, listBackgrounds } from './registry';
 export {
   backgroundsRevisionAtom,
   hydrateExternalBackgrounds,
   loadExternalBackgrounds,
 } from './external';
-export {
-  defaultBackgroundParams,
-  resolveBackgroundParams,
-} from './params';
+export { resolveBackgroundParams } from './params';
 export type {
-  BackendKind,
   BackgroundBooleanParam,
   BackgroundColorParam,
-  BackgroundContext,
-  BackgroundCredit,
-  BackgroundDefinition,
-  BackgroundEngine,
   BackgroundFileListParam,
-  BackgroundHandle,
-  BackgroundModule,
   BackgroundNumberParam,
   BackgroundParam,
   BackgroundParamValue,
-  BackgroundSelectOption,
   BackgroundSelectParam,
-  BackgroundStarter,
   BackgroundStoredFile,
   BackgroundTextParam,
 } from './types';

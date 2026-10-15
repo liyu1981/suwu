@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["go", "air", "check"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "website/js/*.js",
+        "pkg/gqjs/*.js",
+        "pkg/wgsl/*.js",
+        "backgrounds/**/*.js",
+        "examples/**/*.js"
+      ]
+    },
+    "frontend": {
+      "entry": [
+        "index.html",
+        "scripts/**/*.mjs",
+        "scripts/wgsl-compiler/entry.js",
+        "scripts/wgsl-compiler/shims/*.js",
+        "src/components/background/webgpu/webgpu-render-engine/index.ts"
+      ],
+      "ignoreDependencies": [
+        "@file-viewer/renderer-pdf",
+        "@fontsource-variable/noto-sans-sc",
+        "pdfjs-dist"
+      ]
+    }
+  }
+}

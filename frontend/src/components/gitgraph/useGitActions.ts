@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { authFetch } from '../../lib/api';
 
-export type GitAction =
+type GitAction =
   | 'create-branch'
   | 'checkout-branch'
   | 'delete-branch'

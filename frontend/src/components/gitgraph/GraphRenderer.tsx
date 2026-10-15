@@ -262,5 +262,3 @@ function GraphVertex({ node, commit, onClick, onHover }: GraphVertexProps) {
     </g>
   );
 }
-
-export default GraphRenderer;

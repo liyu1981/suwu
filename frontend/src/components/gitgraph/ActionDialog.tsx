@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, Fragment } from 'react';
 
-export type DialogInputType = 'text' | 'checkbox' | 'select' | 'radio';
+type DialogInputType = 'text' | 'checkbox' | 'select' | 'radio';
 
 export interface DialogInput {
   type: DialogInputType;

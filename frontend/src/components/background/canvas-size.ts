@@ -12,7 +12,7 @@
  */
 
 /** Logical CSS size of a canvas, from its layout box. Clamped to ≥1px. */
-export function layoutSize(canvas: HTMLCanvasElement): [number, number] {
+function layoutSize(canvas: HTMLCanvasElement): [number, number] {
   return [
     Math.max(1, Math.round(canvas.clientWidth)),
     Math.max(1, Math.round(canvas.clientHeight)),

@@ -1,5 +1,5 @@
 // Re-export shared icons used by WM components.
-export { CloseIcon, CopyIcon, ResetFontSizeIcon, SwapIcon } from '../components/icons';
+export { CloseIcon, ResetFontSizeIcon, SwapIcon } from '../components/icons';
 
 /** Grip handle for dragging a tile into a new layout position. */
 export function GripIcon() {

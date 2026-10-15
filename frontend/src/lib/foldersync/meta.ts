@@ -12,16 +12,7 @@
  */
 
 import { isNotFoundError } from './fs-access';
-import {
-  isMetaName,
-  META_NAME,
-  META_PLUGIN,
-  META_VERSION,
-  type FileMetaEntry,
-  type SyncMeta,
-} from './types';
-
-export { isMetaName, META_NAME, META_VERSION, META_PLUGIN };
+import { META_NAME, META_PLUGIN, META_VERSION, type FileMetaEntry, type SyncMeta } from './types';
 
 /** Refuse to parse an absurd meta file rather than blowing up the engine. */
 const MAX_META_BYTES = 64 * 1024 * 1024;

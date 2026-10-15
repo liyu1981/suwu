@@ -16,13 +16,6 @@ export const LINE_HEIGHT_STEP = 0.1;
 export const LINE_HEIGHT_DEFAULT = 1.2;
 
 /**
- * Active terminal font size, shared across the parent page and every /term
- * pane iframe: each document runs this atomWithStorage, and localStorage
- * storage events keep them in sync whenever any writer changes it.
- */
-export const fontSizeAtom = atomWithStorage<number>('suwu.term-font-size', FONT_DEFAULT);
-
-/**
  * Persisted default, used by new sessions and the Reset action. Changed only
  * through the Settings dialog.
  */
@@ -34,7 +27,7 @@ export function clampFont(n: number): number {
 
 /**
  * Active terminal line height, shared across the parent page and every /term
- * pane iframe via localStorage sync (same pattern as fontSizeAtom).
+ * pane iframe via localStorage sync.
  */
 export const lineHeightAtom = atomWithStorage<number>('suwu.term-line-height', LINE_HEIGHT_DEFAULT);
 

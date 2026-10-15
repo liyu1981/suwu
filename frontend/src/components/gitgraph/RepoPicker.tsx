@@ -327,5 +327,3 @@ function ChevronRightIcon() {
     </svg>
   );
 }
-
-export default RepoPicker;

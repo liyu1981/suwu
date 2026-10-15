@@ -115,17 +115,9 @@ export function categoryForKey(key: string): Category | null {
   return prefixMatch;
 }
 
-/** Whether a localStorage key participates in the backup. */
-export function isBackedUp(key: string): boolean {
-  return categoryForKey(key) !== null;
-}
-
 /**
  * The storage key prefix under which each extension's records live in
  * IndexedDB (`suwu:ext/<id>/<key>`, forced by ExtensionPage.tsx). Mirrors the
  * bridge in docs/EXTENSION_TILE_PLAN.md §4.8.
  */
 export const EXT_KEY_PREFIX = 'suwu:ext/';
-
-/** The categories, in display order. */
-export const CATEGORY_ORDER: readonly Category[] = ['settings', 'ext', 'layout'] as const;

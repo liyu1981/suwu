@@ -13,7 +13,7 @@ export const FONT_FAMILIES = [
 ] as const;
 
 /** Default terminal font family stack. */
-export const FONT_FAMILY_DEFAULT = FONT_FAMILIES[0].value;
+const FONT_FAMILY_DEFAULT = FONT_FAMILIES[0].value;
 
 /**
  * Full terminal theme — maps to xterm.js ITheme plus a background with alpha
@@ -121,8 +121,7 @@ export function themeToXtermTheme(t: TerminalTheme): ITheme {
 /**
  * Terminal appearance settings, shared across the parent page and every /term
  * pane iframe: each document runs these atomWithStorage atoms, and localStorage
- * storage events keep them in sync whenever any writer changes them (same
- * pattern as fontSizeAtom in store/fonts).
+ * storage events keep them in sync whenever any writer changes them.
  */
 export const fontFamilyAtom = atomWithStorage<string>('suwu.term-font-family', FONT_FAMILY_DEFAULT);
 
@@ -163,7 +162,7 @@ export const DIFF_FONT_FAMILIES = [
   { label: 'Courier New', value: `'Courier New', monospace` },
 ] as const;
 
-export const DIFF_FONT_FAMILY_DEFAULT = DIFF_FONT_FAMILIES[0].value;
+const DIFF_FONT_FAMILY_DEFAULT = DIFF_FONT_FAMILIES[0].value;
 
 export const diffFontFamilyAtom = atomWithStorage<string>(
   'suwu.diff-font-family',

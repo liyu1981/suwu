@@ -4,18 +4,18 @@
  * Original: https://github.com/mhutchie/vscode-git-graph
  */
 
-export interface Point {
+interface Point {
   readonly x: number;
   readonly y: number;
 }
 
-export interface GraphLine {
+interface GraphLine {
   readonly p1: Point;
   readonly p2: Point;
   readonly lockedFirst: boolean;
 }
 
-export interface PlacedLine {
+interface PlacedLine {
   readonly p1: { x: number; y: number };
   readonly p2: { x: number; y: number };
   readonly isCommitted: boolean;
@@ -52,7 +52,7 @@ export interface MuteConfig {
   commitsNotAncestorsOfHead: boolean;
 }
 
-export interface GraphNode {
+interface GraphNode {
   id: number;
   hash: string;
   x: number;
@@ -63,7 +63,7 @@ export interface GraphNode {
   isCommitted: boolean;
 }
 
-export interface GraphEdge {
+interface GraphEdge {
   path: string;
   color: string;
   isCommitted: boolean;
@@ -346,7 +346,7 @@ class Vertex {
 }
 
 /* Graph Class */
-export class Graph {
+class Graph {
   private config: GraphConfig;
   private muteConfig: MuteConfig;
   private vertices: Vertex[] = [];

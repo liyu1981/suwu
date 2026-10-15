@@ -59,7 +59,7 @@ interface ExternalCredit {
   license?: string;
 }
 
-export interface ExternalManifest {
+interface ExternalManifest {
   id: string;
   label?: string;
   engine?: string;

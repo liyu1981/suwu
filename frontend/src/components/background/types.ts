@@ -47,7 +47,7 @@ export interface BackgroundHandle {
  * Starts a backend. The params bag is opaque to the subsystem — each
  * background resolves its own typed params from it.
  */
-export type BackgroundStarter = (
+type BackgroundStarter = (
   ctx: BackgroundContext,
   params?: Record<string, unknown>,
 ) => Promise<BackgroundHandle>;
@@ -87,7 +87,7 @@ export interface BackgroundBooleanParam extends BackgroundParamBase {
 }
 
 /** One choice of a `select` parameter. */
-export interface BackgroundSelectOption {
+interface BackgroundSelectOption {
   readonly value: string;
   readonly label: string;
 }

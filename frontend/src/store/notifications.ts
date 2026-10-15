@@ -7,7 +7,7 @@ export interface CodeFileSpec {
 }
 
 /** Action payload variants emitted by the `suwu` CLI. */
-export type NotificationPayload =
+type NotificationPayload =
   | { type: 'dir' | 'file' | 'gitgraph'; path: string }
   | { type: 'diff'; file1: string; file2: string }
   | {

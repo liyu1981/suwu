@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Popover, PopoverTrigger, PopoverContent } from './popover';
 import { cn } from '@/lib/utils';
 
-export interface ComboboxItem {
+interface ComboboxItem {
   /** Display label. */
   label: string;
   /** Stored value. */

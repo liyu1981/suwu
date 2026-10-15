@@ -137,7 +137,7 @@ function findLeafOfType(root: LayoutNode | null, tileType: string): LayoutNode |
  * Open (or focus) a port-forwarding tile in the current space.
  * If a forward tile already exists, focus it instead of duplicating.
  */
-export function openForward(store: Store): string | null {
+function openForward(store: Store): string | null {
   const spaces = store.get(spacesAtom);
   const idx = store.get(activeSpaceAtom);
   const root = spaces[idx]?.layout ?? null;
@@ -161,7 +161,7 @@ export function openForward(store: Store): string | null {
 /**
  * Open a git graph tile navigated to the given repository path.
  */
-export function openGitGraph(path: string, store: Store): string | null {
+function openGitGraph(path: string, store: Store): string | null {
   const leafId = doSplit(store);
   if (!leafId) return null;
   setTypeAndFocus(store, leafId, 'gitgraph');
@@ -173,7 +173,7 @@ export function openGitGraph(path: string, store: Store): string | null {
 /**
  * Open a diff tile comparing two files.
  */
-export function openDiff(file1: string, file2: string, store: Store): string | null {
+function openDiff(file1: string, file2: string, store: Store): string | null {
   const leafId = doSplit(store);
   if (!leafId) return null;
   setTypeAndFocus(store, leafId, 'diff');
@@ -201,7 +201,7 @@ export function openDiff(file1: string, file2: string, store: Store): string | n
  * ranges. `dir` is the tile's default directory (the first file's base dir,
  * or the directory itself for `suwu code <dir>`). Always a fresh tile — no reuse.
  */
-export function openCode(files: CodeFileSpec[], store: Store, dir?: string): string | null {
+function openCode(files: CodeFileSpec[], store: Store, dir?: string): string | null {
   const leafId = doSplit(store);
   if (!leafId) return null;
   const params: Record<string, string> = { files: JSON.stringify(files) };

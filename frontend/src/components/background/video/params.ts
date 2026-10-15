@@ -2,14 +2,14 @@ import type { BackgroundParam } from '../types';
 import { VIDEO_CROSSFADE_SECONDS } from './video-cpu/loop';
 import { clearVideoFile, listVideoFiles, storeVideoFile } from './video-cpu/storage';
 
-export type VideoFit = 'cover' | 'stretch';
+type VideoFit = 'cover' | 'stretch';
 
-export const VIDEO_DEFAULT_SOURCE = '';
-export const VIDEO_DEFAULT_FIT: VideoFit = 'cover';
-export const VIDEO_DEFAULT_SPEED = 1;
+const VIDEO_DEFAULT_SOURCE = '';
+const VIDEO_DEFAULT_FIT: VideoFit = 'cover';
+const VIDEO_DEFAULT_SPEED = 1;
 // Default mask matches the translucent `.apple-panel` background (white 10%).
-export const VIDEO_DEFAULT_MASK_COLOR = '#ffffff';
-export const VIDEO_DEFAULT_MASK_OPACITY = 0.1;
+const VIDEO_DEFAULT_MASK_COLOR = '#ffffff';
+const VIDEO_DEFAULT_MASK_OPACITY = 0.1;
 
 /** Clips longer than this are flagged as too long for a background. */
 export const VIDEO_MAX_DURATION_SECONDS = 30;

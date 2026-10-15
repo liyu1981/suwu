@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { authFetch } from './api';
 
 /** One launch parameter documented by an extension's package.json. */
-export interface ExtensionParam {
+interface ExtensionParam {
   key: string;
   label?: string;
   description?: string;
@@ -10,7 +10,7 @@ export interface ExtensionParam {
 }
 
 /** One API route an extension registers under /gqjs/api/<id>/. */
-export interface ExtensionAPIRoute {
+interface ExtensionAPIRoute {
   route: string;
   handler: string;
 }

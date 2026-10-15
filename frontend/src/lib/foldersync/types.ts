@@ -46,7 +46,7 @@ export function isMetaName(rel: string): boolean {
 }
 
 /** One side's view of a file or directory, keyed by root-relative path. */
-export interface FileRecord {
+interface FileRecord {
   rel: string;
   isDir: boolean;
   size: number;
@@ -139,6 +139,6 @@ export interface JobRuntimeState {
   log: ActivityEvent[];
 }
 
-export type StartReason = 'permission-denied' | 'meta-mismatch' | 'unsupported' | 'no-handle';
+type StartReason = 'permission-denied' | 'meta-mismatch' | 'unsupported' | 'no-handle';
 
 export type StartOutcome = { ok: true } | { ok: false; reason: StartReason };

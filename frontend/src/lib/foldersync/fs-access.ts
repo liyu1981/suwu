@@ -7,12 +7,12 @@
  * comes from lib.dom.
  */
 
-export interface PermissionCapableHandle {
+interface PermissionCapableHandle {
   queryPermission?(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
   requestPermission?(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
 }
 
-export type DirectoryHandle = FileSystemDirectoryHandle & PermissionCapableHandle;
+type DirectoryHandle = FileSystemDirectoryHandle & PermissionCapableHandle;
 
 interface PickerWindow {
   showDirectoryPicker?(options?: {

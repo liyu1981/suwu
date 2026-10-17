@@ -16,6 +16,22 @@ Your real shell, in a browser tab. Suwu gives agents and humans alike a
 tiling terminal that keeps running when you don't — refresh, disconnect,
 come back tomorrow, pick up where you left off.
 
+## Demos
+
+Short captures of Suwu in daily use. Click a preview to watch the full clip on
+[r/suwu](https://www.reddit.com/r/suwu/).
+
+| | |
+|:--:|:--:|
+| [![Eye candy & themes](https://external-preview.redd.it/Y3FtMTUwY2hreXZoMYO5Xt8ZHikUSf9dacHcCiisI57m8WrBfl-zEBPgM2VJ.png?width=640&crop=smart&auto=webp&s=7eba762fc581b45f19511865d2a41433f260df2d)](https://www.reddit.com/r/suwu/comments/1x81fb7/eye_candy_is_important_for_daily_use_so_suwu/) | [![Built-in git graph](https://external-preview.redd.it/aTV4bTZqenBlbHZoMeZDKt9FKfOUkj3nnON9FV1-C0Vvan5VeoCmRkqNqUpB.png?width=640&crop=smart&auto=webp&s=0a356b23f4248b2c1ec5daa5b195fe147fc15c25)](https://www.reddit.com/r/suwu/comments/1x6gacy/suwus_built_in_git_graph_make_it_easy_to_view_git/) |
+| **Eye candy & themes** | **Built-in git graph** |
+| [![REST helper](https://external-preview.redd.it/Z2Z1OHplbHVqZXZoMVBWhHTGRXGsJNaYClFtkkgdEUpE0cpDBM0XNLqLLWkH.png?width=640&crop=smart&auto=webp&s=c9f4f1c96d99629d7ae4f91348222a4c4ba3e782)](https://www.reddit.com/r/suwu/comments/1x5msvb/rest_helper_in_suwu_is_a_postman_clone_and/) | [![Database browser](https://external-preview.redd.it/cHB3Z294Y2toNnZoMS7AMLQ_6_3mNhJrCx_t6INfGic4D1s2IfP_Eq01e122.png?width=640&crop=smart&auto=webp&s=ab065f7dcc3f70b401a739bbdda77601f42faa93)](https://www.reddit.com/r/suwu/comments/1x4pa4r/in_the_middle_want_to_manually_inspect_the/) |
+| **REST helper** | **Database browser** |
+| [![Agent code review](https://external-preview.redd.it/eDlqeTdrZmJwMHZoMXlxQg2wO_dTBkIRAb6eBEdcr5HxhutxlFKUK-HfMuAe.png?width=640&crop=smart&auto=webp&s=326095f2997197e46568fd7a3b6a8c89819e718b)](https://www.reddit.com/r/suwu/comments/1x3ytvx/with_suwu_telling_agent_to_find_relevant_code/) | [![X11 app forwarding](https://external-preview.redd.it/N3hmYnE4YzBwcXVoMd59BH6kB0S2nyr6BsFaPiru5tw3FFErjHHpcsspIOTA.png?width=640&crop=smart&auto=webp&s=2b41cf179db6b7244e862e1ff53f627c068be876)](https://www.reddit.com/r/suwu/comments/1x2vcoi/not_just_terminalweb_apps_suwu_can_forwarding_x11/) |
+| **Agent code review** | **X11 app forwarding** |
+| [![Daily remote workflow](https://external-preview.redd.it/M29hYW13N3VhZnVoMcEwqjep3nD10QVdRETnWqTiyQk8eHcLBlRLTNHMBG9u.png?width=640&crop=smart&auto=webp&s=fc57fe10c227a898445288e0631679d38dcd72c6)](https://www.reddit.com/r/suwu/comments/1x1idt2/this_is_how_i_daily_work_with_suwu_on_a_remote/) | [![Intro to Suwu](https://external-preview.redd.it/KcHIka1ofQIjM6dh3XhcHzrNP4jS9QD_rTdiepPQTJc.jpeg?width=320&crop=smart&auto=webp&s=f61c0f7a6b775bebe793ea898c817a1f58286c81)](https://www.reddit.com/r/suwu/comments/1wzszpo/intro_suwu_an_omachy_like_experience_in_your_web/) |
+| **Daily remote workflow** | **Intro to Suwu** |
+
 ## Features
 
 1. **A tile-based window manager, by keyboard or mouse** — Split, focus, drag

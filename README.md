@@ -254,3 +254,13 @@ Questions, tips, and show-and-tell: join the
 ## License
 
 [Apache License 2.0](LICENSE)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=liyu1981%2Fsuwu&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=liyu1981/suwu&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=liyu1981/suwu&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=liyu1981/suwu&type=date&legend=top-left" />
+ </picture>
+</a>

@@ -53,6 +53,7 @@ function coerceParam(param: BackgroundParam, value: BackgroundParamValue): Backg
     case 'text':
       return typeof value === 'string' ? value.slice(0, param.maxLength ?? 2048) : param.default;
     case 'fileList':
+    case 'liveWallpapers':
       return typeof value === 'string' ? value : param.default;
     case 'color':
       return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)

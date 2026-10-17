@@ -1,6 +1,7 @@
 // Register in-bundle backgrounds (side-effect imports).
 import './ambient-blob';
 import './video';
+import './2d-lives';
 
 export { BackgroundCanvas } from './BackgroundCanvas';
 export { BackgroundPreview } from './BackgroundPreview';
@@ -16,6 +17,10 @@ export type {
   BackgroundBooleanParam,
   BackgroundColorParam,
   BackgroundFileListParam,
+  BackgroundLiveWallpaperPage,
+  BackgroundLiveWallpaperParam,
+  BackgroundLiveWallpaperProvider,
+  BackgroundLiveWallpaperResult,
   BackgroundNumberParam,
   BackgroundParam,
   BackgroundParamValue,

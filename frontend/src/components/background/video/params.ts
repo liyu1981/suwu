@@ -28,18 +28,12 @@ export interface VideoParams {
   maskOpacity: number;
 }
 
-export const VIDEO_PARAMS: readonly BackgroundParam[] = [
-  {
-    kind: 'fileList',
-    key: 'source',
-    label: 'Video clips',
-    accept: 'video/mp4,video/webm,video/x-matroska,video/*',
-    hint: 'Stored in this browser. Short, muted clips work best.',
-    default: VIDEO_DEFAULT_SOURCE,
-    store: storeVideoFile,
-    list: listVideoFiles,
-    clear: clearVideoFile,
-  },
+/**
+ * The playback parameters shared with other video-backed backgrounds (see the
+ * `2d-lives` family). They only depend on the `source` key, so any background
+ * that stores a clip in OPFS can reuse them and the video renderer as-is.
+ */
+export const VIDEO_PLAYBACK_PARAMS: readonly BackgroundParam[] = [
   {
     kind: 'select',
     key: 'fit',
@@ -84,6 +78,21 @@ export const VIDEO_PARAMS: readonly BackgroundParam[] = [
     step: 0.01,
     format: (value) => `${Math.round(value * 100)}%`,
   },
+];
+
+export const VIDEO_PARAMS: readonly BackgroundParam[] = [
+  {
+    kind: 'fileList',
+    key: 'source',
+    label: 'Video clips',
+    accept: 'video/mp4,video/webm,video/x-matroska,video/*',
+    hint: 'Stored in this browser. Short, muted clips work best.',
+    default: VIDEO_DEFAULT_SOURCE,
+    store: storeVideoFile,
+    list: listVideoFiles,
+    clear: clearVideoFile,
+  },
+  ...VIDEO_PLAYBACK_PARAMS,
 ];
 
 function isFit(value: unknown): value is VideoFit {

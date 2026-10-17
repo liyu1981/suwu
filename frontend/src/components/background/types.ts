@@ -141,6 +141,57 @@ export interface BackgroundFileListParam extends BackgroundParamBase {
   readonly clear: (id: string) => Promise<void>;
 }
 
+/** Identity and attribution of a live-wallpaper provider. */
+export interface BackgroundLiveWallpaperProvider {
+  readonly id: string;
+  readonly label: string;
+  readonly credit?: BackgroundCredit;
+}
+
+/** One live-wallpaper search result returned by a provider. */
+export interface BackgroundLiveWallpaperResult {
+  /** Provider-scoped id; only the provider can turn it into a file. */
+  readonly id: string;
+  readonly title: string;
+  readonly pageUrl: string;
+  /** Thumbnail URL, loaded directly from the provider's origin. */
+  readonly thumbnailUrl: string;
+  /** Optional resolution label, e.g. `1920x1080`. */
+  readonly resolution?: string;
+}
+
+/** One page of live-wallpaper search results. */
+export interface BackgroundLiveWallpaperPage {
+  readonly items: readonly BackgroundLiveWallpaperResult[];
+  readonly page: number;
+  readonly hasMore: boolean;
+}
+
+/**
+ * A remote live-wallpaper browser. The provider catalogue and the search /
+ * download calls live on the server (a third-party origin sends no CORS
+ * headers, so the browser cannot fetch it directly); the frontend renders the
+ * UI and hands the downloaded bytes to `list`/`clear` for OPFS persistence.
+ */
+export interface BackgroundLiveWallpaperParam extends BackgroundParamBase {
+  readonly kind: 'liveWallpapers';
+  readonly default: string;
+  /** Registered providers to choose between. */
+  readonly providers: () => Promise<readonly BackgroundLiveWallpaperProvider[]>;
+  /** Search one provider; the result ids are passed back to `download`. */
+  readonly search: (
+    provider: string,
+    query: string,
+    page: number,
+  ) => Promise<BackgroundLiveWallpaperPage>;
+  /** Download a result into the library and resolve to the id to store. */
+  readonly download: (provider: string, result: BackgroundLiveWallpaperResult) => Promise<string>;
+  /** List downloaded wallpapers (with thumbnails) for the picker. */
+  readonly list: () => Promise<BackgroundStoredFile[]>;
+  /** Remove a downloaded wallpaper by id. */
+  readonly clear: (id: string) => Promise<void>;
+}
+
 /** Colour parameter, rendered as a colour picker. Stored as `#rrggbb`. */
 export interface BackgroundColorParam extends BackgroundParamBase {
   readonly kind: 'color';
@@ -158,6 +209,7 @@ export type BackgroundParam =
   | BackgroundSelectParam
   | BackgroundTextParam
   | BackgroundFileListParam
+  | BackgroundLiveWallpaperParam
   | BackgroundColorParam;
 
 /** A named background with an optional CPU backend and an optional GPU backend. */

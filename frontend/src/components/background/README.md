@@ -18,6 +18,7 @@ components/background/
   BackgroundPreview.tsx       # small in-dialog preview (same hook, own canvas)
   canvas-size.ts              # CPU backends size from the canvas layout box
   preview-size.ts             # fitPreviewBox(): aspect-preserving preview box math
+  opfs-library.ts             # shared OPFS clip library (one directory per family)
 
   ambient-blob/               # background family: canvas-2D (fallback) + WebGPU
     index.ts                  # definition + registry entry (backend-agnostic)
@@ -30,10 +31,20 @@ components/background/
     index.ts                  # definition + params schema (file, fit, speed, mask)
     params.ts                 # typed params + resolveVideoParams() + caps
     video-cpu/
-      renderer.ts             # mediabunny playback loop, reduced motion, error overlay
+      index.ts                # start = createVideoBackground({ readSource: readVideoBlob })
+      renderer.ts             # shared video renderer factory (mediabunny, reduced motion)
       loop.ts                 # crossfade-loop timing (window + blend progress)
-      storage.ts              # OPFS clip library (store/list/read/clear, thumbnails)
+      storage.ts              # OPFS clip library 'suwu-background-videos'
       fit.ts                  # cover source rect
+
+  2d-lives/                   # background family: remote wallpapers (id: 2d-lives)
+    index.ts                  # definition; cpu = ./lives-cpu
+    params.ts                 # browse param + shared playback params (no crossfade)
+    providers.ts              # provider-agnostic client for /api/lives2d
+    filename.ts               # pure Content-Disposition / fallback filename helpers
+    storage.ts                # OPFS wallpaper library 'suwu-background-2d-lives'
+    lives-cpu/
+      index.ts                # start = createVideoBackground({ readSource: readLiveBlob })
 
   webgpu/                     # the shared WebGPU engine (shipped, not a background)
     webgpu-render-engine/     # host + declarative pass pipeline
@@ -210,6 +221,43 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
   beginning (source-over blending, so the mix is exactly
   `outgoing·(1−p) + incoming·p`), hiding the jump at the loop point; it is off
   by default and skipped for clips shorter than 4s.
+- **2D Lives** — the `2d-lives` family is the shared video renderer with a
+  remote source instead of a file picker. Its `source` parameter is a
+  `liveWallpapers` browser: it lists the providers registered on the server,
+  searches one, and downloads a result through `GET /api/lives2d/media`. The
+  bytes go into the family's **own** OPFS directory
+  (`suwu-background-2d-lives`), so a downloaded wallpaper never appears in the
+  Video clip picker and vice versa; both libraries share the format and code in
+  `opfs-library.ts`, but not their contents. The playback parameters come from
+  `video/params.ts` with the **Smooth loop** switch removed — wallpapers are
+  authored to loop — and the CPU backend is `lives-cpu/`, which calls the same
+  `createVideoBackground()` factory with `readLiveBlob`. The renderer is one
+  shared chunk; only the source reader and the empty-state copy differ.
+
+  Search results render as a two-column grid of 16:9 preview cards — clicking a
+  card downloads it into OPFS and makes it the active wallpaper.
+
+### Live-wallpaper providers (2D Lives)
+
+The frontend never names a site. Providers are **server-side adapters**
+(`pkg/lives2d`): a provider implements `Search(ctx, query, page)` and
+`Resolve(ctx, id)` and registers itself from an `init` in its own package
+(`pkg/lives2d/moewalls` is the reference adapter, blank-imported by
+`pkg/server/lives2d.go`). The server exposes them generically:
+
+```
+GET /api/lives2d/providers                 # { providers: [{id,label,credit}] }
+GET /api/lives2d/search?provider=&q=&page= # SearchPage JSON
+GET /api/lives2d/media?provider=&id=       # resolve + stream the media file
+```
+
+The adapters run the network calls and HTML parsing, which is what makes the
+feature possible at all (the wallpaper sites send no CORS headers). Thumbnails
+are loaded by the browser directly from the site, so only the search page and
+the media file travel through Suwu. Upgrading, replacing or adding a site is a
+change under `pkg/lives2d/`; the frontend, its `liveWallpapers` parameter and
+the OPFS library stay untouched. To add one, implement `lives2d.Provider`,
+register it in `init()`, and blank-import the package in `pkg/server/lives2d.go`.
 
 ### WebGPU render engine
 

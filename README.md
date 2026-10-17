@@ -48,9 +48,10 @@ come back tomorrow, pick up where you left off.
 
 6. **Yours to tune** — Pick your font family and size, theme the colors, dial
    in a glassy background alpha, and dock the header to any edge. Choose a
-   full-viewport background — an ambient blob, a looping video clip, or a
-   WebGPU shader scene — and drop your own into the data directory. The
-   interface speaks English and Chinese out of the box.
+   full-viewport background — an ambient blob, a looping video clip, a 2D
+   live wallpaper downloaded from a provider like MoeWalls, or a WebGPU shader
+   scene — and drop your own into the data directory. The interface speaks
+   English and Chinese out of the box.
 
 7. **Install once, stay current** — Onboarding sets up your dev environment step
    by step, and `suwu upgrade` keeps the binary fresh. No config files to

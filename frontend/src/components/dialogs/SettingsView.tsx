@@ -45,6 +45,9 @@ import type {
   BackgroundBooleanParam,
   BackgroundColorParam,
   BackgroundFileListParam,
+  BackgroundLiveWallpaperParam,
+  BackgroundLiveWallpaperProvider,
+  BackgroundLiveWallpaperResult,
   BackgroundNumberParam,
   BackgroundParam,
   BackgroundParamValue,
@@ -261,22 +264,12 @@ function formatSize(bytes: number): string {
 }
 
 /**
- * Library of persisted files: thumbnail, name and size per entry, with
- * Use/Clear actions and an Add button. The selected id is the stored value.
+ * Shared list state for a persisted-file library (`fileList` /
+ * `liveWallpapers`): the stored files, their object URLs, and a refresh.
  */
-function FileListField({
-  param,
-  value,
-  onChange,
-}: {
-  param: BackgroundFileListParam;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
+function useStoredFiles(param: Pick<BackgroundFileListParam, 'list'>) {
   const [files, setFiles] = useState<BackgroundStoredFile[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -306,6 +299,98 @@ function FileListField({
       for (const url of Object.values(urls)) URL.revokeObjectURL(url);
     };
   }, [files]);
+
+  return { files, thumbUrls, loading, error, setError, refresh };
+}
+
+/** Rows of a persisted-file library, with Use/Clear actions per entry. */
+function StoredFileRows({
+  files,
+  thumbUrls,
+  value,
+  busy,
+  emptyLabel,
+  onUse,
+  onClear,
+}: {
+  files: BackgroundStoredFile[];
+  thumbUrls: Record<string, string>;
+  value: string;
+  busy: boolean;
+  emptyLabel: string;
+  onUse: (id: string) => void;
+  onClear: (id: string) => void;
+}) {
+  return (
+    <div className="mt-2 space-y-1.5">
+      {files.length === 0 && (
+        <p className="rounded border border-dashed border-white/10 px-2 py-3 text-center text-[11px] text-muted-foreground">
+          {emptyLabel}
+        </p>
+      )}
+      {files.map((file) => {
+        const active = file.id === value;
+        return (
+          <div
+            key={file.id}
+            className={`flex items-center gap-2 rounded border p-1.5 ${
+              active ? 'border-sky-400/50 bg-sky-400/10' : 'border-white/10 bg-black/20'
+            }`}
+          >
+            <div className="h-10 w-16 shrink-0 overflow-hidden rounded bg-black/40">
+              {thumbUrls[file.id] ? (
+                <img src={thumbUrls[file.id]} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="grid h-full w-full place-items-center text-[9px] text-white/30">
+                  no preview
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs text-popover-foreground" title={file.name}>
+                {file.name}
+              </div>
+              <div className="text-[11px] text-muted-foreground">{formatSize(file.size)}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onUse(file.id)}
+              disabled={busy || active}
+              className={`${smallBtn} ${active ? 'text-sky-300' : ''}`}
+            >
+              {active ? 'In use' : 'Use'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onClear(file.id)}
+              disabled={busy}
+              className={`${smallBtn} text-red-300 hover:bg-red-500/15`}
+            >
+              Clear
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Library of persisted files: thumbnail, name and size per entry, with
+ * Use/Clear actions and an Add button. The selected id is the stored value.
+ */
+function FileListField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundFileListParam;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const { files, thumbUrls, loading, error, setError, refresh } = useStoredFiles(param);
 
   const add = async (list: FileList | null): Promise<void> => {
     const file = list?.[0];
@@ -349,59 +434,19 @@ function FileListField({
         </button>
       </div>
 
-      <div className="mt-2 space-y-1.5">
-        {loading && (
-          <p className="px-2 py-3 text-center text-[11px] text-muted-foreground">Loading…</p>
-        )}
-        {!loading && files.length === 0 && (
-          <p className="rounded border border-dashed border-white/10 px-2 py-3 text-center text-[11px] text-muted-foreground">
-            No clips stored yet.
-          </p>
-        )}
-        {files.map((file) => {
-          const active = file.id === value;
-          return (
-            <div
-              key={file.id}
-              className={`flex items-center gap-2 rounded border p-1.5 ${
-                active ? 'border-sky-400/50 bg-sky-400/10' : 'border-white/10 bg-black/20'
-              }`}
-            >
-              <div className="h-10 w-16 shrink-0 overflow-hidden rounded bg-black/40">
-                {thumbUrls[file.id] ? (
-                  <img src={thumbUrls[file.id]} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="grid h-full w-full place-items-center text-[9px] text-white/30">
-                    no preview
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs text-popover-foreground" title={file.name}>
-                  {file.name}
-                </div>
-                <div className="text-[11px] text-muted-foreground">{formatSize(file.size)}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onChange(file.id)}
-                disabled={busy || active}
-                className={`${smallBtn} ${active ? 'text-sky-300' : ''}`}
-              >
-                {active ? 'In use' : 'Use'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void remove(file.id)}
-                disabled={busy}
-                className={`${smallBtn} text-red-300 hover:bg-red-500/15`}
-              >
-                Clear
-              </button>
-            </div>
-          );
-        })}
-      </div>
+      {loading ? (
+        <p className="mt-2 px-2 py-3 text-center text-[11px] text-muted-foreground">Loading…</p>
+      ) : (
+        <StoredFileRows
+          files={files}
+          thumbUrls={thumbUrls}
+          value={value}
+          busy={busy}
+          emptyLabel="No clips stored yet."
+          onUse={onChange}
+          onClear={(id) => void remove(id)}
+        />
+      )}
 
       <input
         ref={inputRef}
@@ -411,6 +456,243 @@ function FileListField({
         onChange={(e) => void add(e.target.files)}
       />
       {param.hint && <p className={sectionHint}>{param.hint}</p>}
+      {error && <p className="mt-1 text-[11px] text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Remote live-wallpaper browser: pick a provider, search it, download a result
+ * into OPFS, and choose from the downloaded library. Provider-specific work
+ * (search, resolve, download) lives behind the parameter's callbacks.
+ */
+function LiveWallpaperField({
+  param,
+  value,
+  onChange,
+}: {
+  param: BackgroundLiveWallpaperParam;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [providers, setProviders] = useState<BackgroundLiveWallpaperProvider[]>([]);
+  const [provider, setProvider] = useState('');
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<BackgroundLiveWallpaperResult[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const { files, thumbUrls, loading, error, setError, refresh } = useStoredFiles(param);
+
+  useEffect(() => {
+    let cancelled = false;
+    void param
+      .providers()
+      .then((list) => {
+        if (cancelled) return;
+        setProviders([...list]);
+        setProvider((current) => current || list[0]?.id || '');
+      })
+      .catch((providerError) => {
+        if (!cancelled) {
+          setSearchError(
+            providerError instanceof Error ? providerError.message : String(providerError),
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [param]);
+
+  const runSearch = async (nextPage: number, append: boolean): Promise<void> => {
+    const trimmed = query.trim();
+    if (!trimmed || !provider) return;
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const result = await param.search(provider, trimmed, nextPage);
+      setResults((prev) => (append ? [...prev, ...result.items] : [...result.items]));
+      setPage(result.page);
+      setHasMore(result.hasMore);
+    } catch (searchFailure) {
+      setSearchError(
+        searchFailure instanceof Error ? searchFailure.message : String(searchFailure),
+      );
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const download = async (result: BackgroundLiveWallpaperResult): Promise<void> => {
+    setBusyId(result.id);
+    setActionError(null);
+    try {
+      const id = await param.download(provider, result);
+      onChange(id);
+      await refresh();
+    } catch (downloadError) {
+      setActionError(
+        downloadError instanceof Error ? downloadError.message : String(downloadError),
+      );
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const remove = async (id: string): Promise<void> => {
+    try {
+      await param.clear(id);
+      if (value === id) onChange('');
+      await refresh();
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : String(clearError));
+    }
+  };
+
+  const activeProvider = providers.find((p) => p.id === provider);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <span className={sectionLabel}>{param.label}</span>
+        {providers.length > 1 && (
+          <select
+            value={provider}
+            onChange={(e) => {
+              setProvider(e.target.value);
+              setResults([]);
+              setHasMore(false);
+            }}
+            aria-label="Wallpaper provider"
+            className="h-7 rounded border border-white/10 bg-black/30 px-1.5 text-xs text-popover-foreground outline-none focus:border-sky-400/60"
+          >
+            {providers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        )}
+        {providers.length === 1 && (
+          <span className="text-[11px] text-muted-foreground">{providers[0].label}</span>
+        )}
+      </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          type="search"
+          value={query}
+          placeholder="Search wallpapers…"
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void runSearch(1, false);
+          }}
+          className="h-8 min-w-0 flex-1 rounded border border-white/10 bg-black/30 px-2 text-xs text-popover-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-sky-400/60 focus:ring-1 focus:ring-sky-400/30"
+        />
+        <button
+          type="button"
+          onClick={() => void runSearch(1, false)}
+          disabled={searching || !query.trim() || !provider}
+          className={smallBtn}
+        >
+          {searching ? 'Searching…' : 'Search'}
+        </button>
+      </div>
+
+      {results.length > 0 && (
+        <div className="mt-2 grid grid-cols-2 gap-1.5">
+          {results.map((result) => {
+            const saving = busyId === result.id;
+            return (
+              <button
+                key={result.id}
+                type="button"
+                onClick={() => void download(result)}
+                disabled={busyId !== ''}
+                title={result.title}
+                className="group overflow-hidden rounded border border-white/10 bg-black/20 text-left outline-none transition-colors hover:border-sky-400/50 focus-visible:ring-1 focus-visible:ring-sky-400/60 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <div className="aspect-video w-full overflow-hidden bg-black/40">
+                  <img
+                    src={result.thumbnailUrl}
+                    alt=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="p-1.5">
+                  <div
+                    className="truncate text-[11px] text-popover-foreground"
+                    title={result.title}
+                  >
+                    {result.title}
+                  </div>
+                  <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>{result.resolution}</span>
+                    <span className="text-sky-300">{saving ? 'Saving…' : 'Download'}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => void runSearch(page + 1, true)}
+              disabled={searching || busyId !== ''}
+              className={`${smallBtn} col-span-2 w-full`}
+            >
+              {searching ? 'Loading…' : 'Load more'}
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center justify-between">
+        <span className={sectionLabel}>Downloaded</span>
+      </div>
+      {loading ? (
+        <p className="mt-2 px-2 py-3 text-center text-[11px] text-muted-foreground">Loading…</p>
+      ) : (
+        <StoredFileRows
+          files={files}
+          thumbUrls={thumbUrls}
+          value={value}
+          busy={busyId !== ''}
+          emptyLabel="No wallpapers downloaded yet."
+          onUse={onChange}
+          onClear={(id) => void remove(id)}
+        />
+      )}
+
+      {activeProvider?.credit && (
+        <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          <span>Source:</span>
+          {activeProvider.credit.url ? (
+            <a
+              href={activeProvider.credit.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-sky-400/80 underline decoration-sky-400/30 underline-offset-2 transition-colors hover:text-sky-300"
+            >
+              {activeProvider.credit.author}
+            </a>
+          ) : (
+            <span className="text-popover-foreground">{activeProvider.credit.author}</span>
+          )}
+          {activeProvider.credit.license && <span>· {activeProvider.credit.license}</span>}
+        </p>
+      )}
+      {param.hint && <p className={sectionHint}>{param.hint}</p>}
+      {searchError && <p className="mt-1 text-[11px] text-red-400">{searchError}</p>}
+      {actionError && <p className="mt-1 text-[11px] text-red-400">{actionError}</p>}
       {error && <p className="mt-1 text-[11px] text-red-400">{error}</p>}
     </div>
   );
@@ -503,6 +785,14 @@ function BackgroundParamField({
     case 'fileList':
       return (
         <FileListField
+          param={param}
+          value={typeof value === 'string' ? value : param.default}
+          onChange={onChange}
+        />
+      );
+    case 'liveWallpapers':
+      return (
+        <LiveWallpaperField
           param={param}
           value={typeof value === 'string' ? value : param.default}
           onChange={onChange}

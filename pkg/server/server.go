@@ -24,6 +24,7 @@ import (
 	"suwu/pkg/db"
 	"suwu/pkg/dropbox"
 	"suwu/pkg/forward"
+	"suwu/pkg/lives2d"
 	"suwu/pkg/notify"
 	"suwu/pkg/session"
 )
@@ -36,20 +37,30 @@ import (
 //   - `img-src` allows Gravatar so the login dialog can show the user-configured
 //     avatar; the built-in avatars (embedded from frontend/public/avatars) and
 //     the local logo are same-origin, so anything unset or failed to load
-//     degrades to a built-in avatar
+//     degrades to a built-in avatar. It also allows the image origins declared
+//     by the live-wallpaper providers (2D Lives) so search thumbnails render.
 //   - Frame ancestors blocked (no framing by other pages)
-const csp = "default-src 'self'; " +
-	"script-src 'self'; " +
-	"style-src 'self' 'unsafe-inline'; " +
-	"connect-src 'self' ws: wss: blob:; " +
-	"img-src 'self' data: blob: https://*.gravatar.com; " +
-	"media-src 'self' blob:; " +
-	"font-src 'self'; " +
-	"object-src 'none'; " +
-	"frame-ancestors 'self'; " +
-	"base-uri 'self'; " +
-	"form-action 'self'; " +
-	"frame-src 'self'"
+//
+// Image origins come from the registered providers, so a new provider only
+// needs to implement ImageOrigins — no edit here.
+func cspPolicy() string {
+	imgSrc := "img-src 'self' data: blob: https://*.gravatar.com"
+	for _, origin := range lives2d.ImageOrigins() {
+		imgSrc += " " + origin
+	}
+	return "default-src 'self'; " +
+		"script-src 'self'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"connect-src 'self' ws: wss: blob:; " +
+		imgSrc + "; " +
+		"media-src 'self' blob:; " +
+		"font-src 'self'; " +
+		"object-src 'none'; " +
+		"frame-ancestors 'self'; " +
+		"base-uri 'self'; " +
+		"form-action 'self'; " +
+		"frame-src 'self'"
+}
 
 var mimeTypes = map[string]string{
 	".html": "text/html",
@@ -76,6 +87,7 @@ type Server struct {
 	startedAt  time.Time
 	rateLimit  *RateLimiter
 	restLimit  *RateLimiter
+	livesLimit *RateLimiter
 	// backupLimit budgets encrypted backup uploads, which the periodic
 	// autosave makes on a timer; backups and backupLimit are nil when the
 	// data directory is unusable.
@@ -119,6 +131,7 @@ func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify
 		startedAt:   time.Now(),
 		rateLimit:   NewRateLimiter(),
 		restLimit:   newRateLimiter(restRateLimitMax),
+		livesLimit:  newRateLimiter(livesRateLimitMax),
 		backups:     backups,
 		backupLimit: newRateLimiter(backupWriteRateLimitMax),
 	}
@@ -322,6 +335,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(r.URL.Path, lives2dRoutePrefix) {
+		s.handleLives2D(w, r)
+		return
+	}
+
 	if r.URL.Path == "/api/server-info" {
 		s.handleServerInfo(w, r)
 		return
@@ -438,7 +456,7 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 	}
 	// Security headers (CSP set only on HTML documents to avoid blocking WebSocket upgrades)
 	if path.Ext(name) == ".html" {
-		w.Header().Set("Content-Security-Policy", csp)
+		w.Header().Set("Content-Security-Policy", cspPolicy())
 	}
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
@@ -460,8 +478,9 @@ type tokenBucket struct {
 }
 
 const rateLimitWindow = time.Minute
-const rateLimitMax = 60      // max requests per window for destructive ops
-const restRateLimitMax = 240 // max outbound REST helper requests per window
+const rateLimitMax = 60       // max requests per window for destructive ops
+const restRateLimitMax = 240  // max outbound REST helper requests per window
+const livesRateLimitMax = 120 // max outbound live-wallpaper requests per window
 
 func NewRateLimiter() *RateLimiter {
 	return newRateLimiter(rateLimitMax)
@@ -551,6 +570,17 @@ func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request
 	if strings.HasPrefix(r.URL.Path, "/api/rest/") {
 		if !s.restLimit.Allow(cfg.Token) {
 			slog.Warn("rest rate limit exceeded", "path", r.URL.Path, "remote", r.RemoteAddr)
+			writePlain(w, http.StatusTooManyRequests, "Rate limit exceeded")
+			return false
+		}
+		return true
+	}
+
+	// The live-wallpaper endpoints also fetch third-party origins on the user's
+	// behalf, so they get their own outbound budget.
+	if strings.HasPrefix(r.URL.Path, lives2dRoutePrefix) {
+		if !s.livesLimit.Allow(cfg.Token) {
+			slog.Warn("lives2d rate limit exceeded", "path", r.URL.Path, "remote", r.RemoteAddr)
 			writePlain(w, http.StatusTooManyRequests, "Rate limit exceeded")
 			return false
 		}

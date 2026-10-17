@@ -30,6 +30,7 @@ const (
 	ActionMerge          GitAction = "merge"
 	ActionRebase         GitAction = "rebase"
 	ActionDropCommit     GitAction = "drop-commit"
+	ActionPushCommit     GitAction = "push-commit"
 
 	// Tag actions
 	ActionAddTag    GitAction = "add-tag"
@@ -114,6 +115,8 @@ func (s *Server) handleGitAction(w http.ResponseWriter, r *http.Request) {
 		err = actionRebase(req.Path, req.Params)
 	case ActionDropCommit:
 		err = actionDropCommit(req.Path, req.Params)
+	case ActionPushCommit:
+		err = actionPushCommit(req.Path, req.Params)
 
 	// Tag actions
 	case ActionAddTag:
@@ -369,6 +372,75 @@ func actionDropCommit(repoPath string, p map[string]string) error {
 	// Rebase onto parent^ to drop the commit
 	_, err = git(repoPath, "rebase", "--onto", parent+"^", parent, hash)
 	return err
+}
+
+// actionPushCommit pushes a commit to a remote. The caller may pin a local
+// branch (pushing the branch, which carries the commit) and/or a remote branch;
+// with neither, the commit's tracking branch is used. An untracked commit with
+// only a remote branch is pushed by hash to refs/heads/<remoteBranch>.
+func actionPushCommit(repoPath string, p map[string]string) error {
+	hash := strings.TrimSpace(p["hash"])
+	if hash == "" {
+		return fmt.Errorf("commit hash is required")
+	}
+	localBranch := strings.TrimSpace(p["localBranch"])
+	remote := strings.TrimSpace(p["remote"])
+	remoteBranch := strings.TrimSpace(p["remoteBranch"])
+
+	if localBranch == "" && remoteBranch == "" {
+		info, err := getGitPushInfo(repoPath, hash)
+		if err != nil {
+			return err
+		}
+		if !info.Suggested.Tracking {
+			return fmt.Errorf("commit %s is not tracking a remote branch", shortHash(hash))
+		}
+		localBranch = info.Suggested.LocalBranch
+		remote = info.Suggested.Remote
+		remoteBranch = info.Suggested.RemoteBranch
+	}
+
+	if err := validatePushName("remote", remote); err != nil {
+		return err
+	}
+	if err := validatePushName("branch", remoteBranch); err != nil {
+		return err
+	}
+	if remote == "" {
+		remote = "origin"
+	}
+
+	args := []string{"push"}
+	if localBranch != "" {
+		refspec := localBranch
+		if remoteBranch != "" && remoteBranch != localBranch {
+			refspec = localBranch + ":refs/heads/" + remoteBranch
+		}
+		if p["setUpstream"] == "true" {
+			args = append(args, "-u")
+		}
+		args = append(args, remote, refspec)
+	} else {
+		if remoteBranch == "" {
+			return fmt.Errorf("a remote branch is required for an untracked commit")
+		}
+		args = append(args, remote, hash+":refs/heads/"+remoteBranch)
+	}
+
+	_, err := git(repoPath, args...)
+	return err
+}
+
+// validatePushName rejects values that git would read as an option, so a user
+// text field can never smuggle a flag into the push command line.
+func validatePushName(kind, value string) error {
+	if value == "" {
+		return nil
+	}
+	if strings.HasPrefix(value, "-") || strings.ContainsAny(value, " \t\n") {
+		return fmt.Errorf("invalid %s name %q", kind, value)
+	}
+	return nil
 }
 
 // ── Tag actions ───────────────────────────────────────────────────────

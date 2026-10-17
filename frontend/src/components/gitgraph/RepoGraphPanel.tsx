@@ -60,6 +60,33 @@ interface GitCommitDetails {
   fileChanges: GitFileChange[];
 }
 
+interface GitPushBranch {
+  name: string;
+  tip: string;
+  tipMatches: boolean;
+  current: boolean;
+  contains: boolean;
+  upstream: string;
+  remote: string;
+  remoteBranch: string;
+}
+
+interface GitPushSuggestion {
+  localBranch: string;
+  remote: string;
+  remoteBranch: string;
+  tracking: boolean;
+  reason: string;
+}
+
+interface GitPushInfo {
+  hash: string;
+  currentBranch: string;
+  branches: GitPushBranch[];
+  remotes: string[];
+  suggested: GitPushSuggestion;
+}
+
 export function RepoGraphPanel({
   tab,
   onPatch,
@@ -269,6 +296,88 @@ export function RepoGraphPanel({
 
   const { execute: gitAction } = useGitActions(repoPath ?? '.');
 
+  // Run the push-commit action and surface a failure in a dialog (push errors —
+  // rejecting non-fast-forward, auth, no remote — are common and worth showing).
+  const runPush = useCallback(
+    async (
+      commit: GitCommit,
+      target: { localBranch?: string; remote: string; remoteBranch: string },
+    ) => {
+      try {
+        await gitAction('push-commit', { hash: commit.hash, ...target });
+        refresh();
+      } catch (err) {
+        setDialog({
+          title: 'Push Failed',
+          message: err instanceof Error ? err.message : String(err),
+          actionLabel: 'OK',
+          onAction: () => {},
+        });
+      }
+    },
+    [gitAction, refresh],
+  );
+
+  // Push a commit: straight to its tracking branch, or — when it is not
+  // tracked — through a dialog that suggests a remote branch to edit.
+  const pushCommit = useCallback(
+    async (commit: GitCommit) => {
+      let info: GitPushInfo;
+      try {
+        info = await fetchJson<GitPushInfo>(
+          `/api/git/push-info?path=${encodeURIComponent(activePath)}&hash=${encodeURIComponent(commit.hash)}`,
+        );
+      } catch (err) {
+        setDialog({
+          title: 'Push Failed',
+          message: err instanceof Error ? err.message : String(err),
+          actionLabel: 'OK',
+          onAction: () => {},
+        });
+        return;
+      }
+
+      const { suggested } = info;
+      if (suggested.tracking && suggested.localBranch) {
+        void runPush(commit, {
+          localBranch: suggested.localBranch,
+          remote: suggested.remote,
+          remoteBranch: suggested.remoteBranch,
+        });
+        return;
+      }
+
+      const remoteOptions = info.remotes.map((name) => ({ label: name, value: name }));
+      setDialog({
+        title: 'Push Commit',
+        message: `Commit <b>${commit.hash.slice(0, 7)}</b> is not tracking a remote branch. Choose where to push it:`,
+        inputs: [
+          remoteOptions.length > 0
+            ? {
+                type: 'select',
+                name: 'Remote',
+                options: remoteOptions,
+                defaultValue: suggested.remote || remoteOptions[0].value,
+              }
+            : { type: 'text', name: 'Remote', defaultValue: suggested.remote || 'origin' },
+          {
+            type: 'text',
+            name: 'Branch',
+            defaultValue: suggested.remoteBranch || suggested.localBranch,
+            info: 'The remote branch will point at this commit.',
+          },
+        ],
+        actionLabel: 'Push',
+        onAction: (v) => {
+          const branch = String(v['Branch']).trim();
+          if (!branch) return;
+          void runPush(commit, { remote: String(v['Remote']), remoteBranch: branch });
+        },
+      });
+    },
+    [activePath, runPush],
+  );
+
   // Open a commit in the side-by-side viewer. Uncommitted changes are not a
   // commit, so they open directly against HEAD (their parent) instead of the
   // compare dialog — and only that comparison is offered for them.
@@ -354,6 +463,10 @@ export function RepoGraphPanel({
           },
         ],
         [
+          {
+            label: 'Push Commit...',
+            onClick: () => void pushCommit(commit),
+          },
           {
             label: 'Checkout',
             onClick: () => {
@@ -493,7 +606,7 @@ export function RepoGraphPanel({
       ];
       setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
     },
-    [gitAction, refresh, activePath, t, openCommitDiff],
+    [gitAction, refresh, activePath, t, openCommitDiff, pushCommit],
   );
 
   const showBranchContextMenu = useCallback(

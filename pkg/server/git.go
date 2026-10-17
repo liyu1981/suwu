@@ -47,6 +47,42 @@ type GitStash struct {
 	Message  string `json:"message"`
 }
 
+// GitPushBranch describes one local branch that could carry a commit to a
+// remote. Upstream/Remote/RemoteBranch are empty when the branch does not track
+// a remote.
+type GitPushBranch struct {
+	Name         string `json:"name"`
+	Tip          string `json:"tip"`
+	TipMatches   bool   `json:"tipMatches"`
+	Current      bool   `json:"current"`
+	Contains     bool   `json:"contains"`
+	Upstream     string `json:"upstream"`
+	Remote       string `json:"remote"`
+	RemoteBranch string `json:"remoteBranch"`
+}
+
+// GitPushSuggestion is the default push target for a commit.
+type GitPushSuggestion struct {
+	// LocalBranch to push (empty when the commit is on no local branch).
+	LocalBranch string `json:"localBranch"`
+	Remote      string `json:"remote"`
+	// RemoteBranch is the remote-tracking branch, or the suggested new name.
+	RemoteBranch string `json:"remoteBranch"`
+	// Tracking reports whether the suggestion comes from a configured upstream,
+	// in which case no dialog is needed.
+	Tracking bool   `json:"tracking"`
+	Reason   string `json:"reason"`
+}
+
+// GitPushInfo describes how a commit can be pushed to a remote.
+type GitPushInfo struct {
+	Hash          string            `json:"hash"`
+	CurrentBranch string            `json:"currentBranch"`
+	Branches      []GitPushBranch   `json:"branches"`
+	Remotes       []string          `json:"remotes"`
+	Suggested     GitPushSuggestion `json:"suggested"`
+}
+
 // GitCommitDetails represents detailed commit information
 type GitCommitDetails struct {
 	GitCommit
@@ -449,6 +485,33 @@ func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// handleGitPushInfo handles GET /api/git/push-info — where a commit would be
+// pushed (its tracking branch, or a suggested remote branch).
+func (s *Server) handleGitPushInfo(w http.ResponseWriter, r *http.Request) {
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeGitError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	repoPath := r.URL.Query().Get("path")
+	if repoPath == "" {
+		repoPath = "."
+	}
+	hash := strings.TrimSpace(r.URL.Query().Get("hash"))
+
+	info, err := getGitPushInfo(repoPath, hash)
+	if err != nil {
+		slog.Error("failed to get push info", "error", err, "path", repoPath, "hash", hash)
+		writeGitError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
 }
 
 // getGitCommits fetches commits from a git repository
@@ -894,4 +957,152 @@ func getGitBranches(repoPath string) ([]string, string, error) {
 	}
 
 	return branches, current, nil
+}
+
+// getGitPushInfo inspects how a commit relates to local branches and their
+// upstreams, and suggests a push target. A branch that tracks a remote yields
+// Tracking=true (push it directly); otherwise the caller picks a remote branch.
+func getGitPushInfo(repoPath, hash string) (*GitPushInfo, error) {
+	if hash == "" {
+		return nil, fmt.Errorf("commit hash is required")
+	}
+	if _, err := git(repoPath, "cat-file", "-e", hash+"^{commit}"); err != nil {
+		return nil, fmt.Errorf("commit %s was not found", hash)
+	}
+
+	current := ""
+	if out, err := git(repoPath, "branch", "--show-current"); err == nil {
+		current = strings.TrimSpace(out)
+	}
+
+	// Which local branches contain the commit?
+	contains := map[string]bool{}
+	if out, err := git(repoPath, "branch", "--contains", hash, "--format=%(refname:short)"); err == nil {
+		for _, line := range strings.Split(out, "\n") {
+			if name := strings.TrimSpace(line); name != "" {
+				contains[name] = true
+			}
+		}
+	}
+
+	// Every local branch, with its tip and upstream.
+	const refFormat = "%(refname:short)|%(objectname)|%(upstream:short)|%(upstream:remotename)|%(upstream:remoteref)"
+	refOut, err := git(repoPath, "for-each-ref", "--format="+refFormat, "refs/heads/")
+	if err != nil {
+		return nil, err
+	}
+	branches := []GitPushBranch{}
+	for _, line := range strings.Split(refOut, "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 5)
+		for len(parts) < 5 {
+			parts = append(parts, "")
+		}
+		name, tip := parts[0], parts[1]
+		upstream, remote, remoteRef := parts[2], parts[3], parts[4]
+		remoteBranch := strings.TrimPrefix(remoteRef, "refs/heads/")
+		if remoteBranch == "" && upstream != "" && remote != "" {
+			remoteBranch = strings.TrimPrefix(upstream, remote+"/")
+		}
+		branches = append(branches, GitPushBranch{
+			Name:         name,
+			Tip:          tip,
+			TipMatches:   tip == hash,
+			Current:      name == current,
+			Contains:     contains[name],
+			Upstream:     upstream,
+			Remote:       remote,
+			RemoteBranch: remoteBranch,
+		})
+	}
+
+	remotes := []string{}
+	if out, err := git(repoPath, "remote"); err == nil {
+		for _, line := range strings.Split(out, "\n") {
+			if name := strings.TrimSpace(line); name != "" {
+				remotes = append(remotes, name)
+			}
+		}
+	}
+	defaultRemote := "origin"
+	if len(remotes) > 0 {
+		defaultRemote = remotes[0]
+	}
+
+	return &GitPushInfo{
+		Hash:          hash,
+		CurrentBranch: current,
+		Branches:      branches,
+		Remotes:       remotes,
+		Suggested:     choosePushSuggestion(branches, current, defaultRemote, hash),
+	}, nil
+}
+
+// choosePushSuggestion picks the best branch to carry the commit to a remote:
+// the current branch or one whose tip is the commit, preferring a branch that
+// already tracks a remote.
+func choosePushSuggestion(branches []GitPushBranch, current, defaultRemote, hash string) GitPushSuggestion {
+	suggest := func(b GitPushBranch, tracking bool, reason string) GitPushSuggestion {
+		remote, remoteBranch := b.Remote, b.RemoteBranch
+		if !tracking {
+			if remote == "" {
+				remote = defaultRemote
+			}
+			if remoteBranch == "" {
+				remoteBranch = b.Name
+			}
+		}
+		return GitPushSuggestion{
+			LocalBranch:  b.Name,
+			Remote:       remote,
+			RemoteBranch: remoteBranch,
+			Tracking:     tracking,
+			Reason:       reason,
+		}
+	}
+
+	ranked := []struct {
+		match  func(GitPushBranch) bool
+		tracks bool
+		reason string
+	}{
+		{func(b GitPushBranch) bool { return b.Current && b.Contains && b.Upstream != "" }, true, "current-tracking"},
+		{func(b GitPushBranch) bool { return b.TipMatches && b.Upstream != "" }, true, "tip-tracking"},
+		{func(b GitPushBranch) bool { return b.Contains && b.Upstream != "" }, true, "contains-tracking"},
+		{func(b GitPushBranch) bool { return b.Current && b.Contains }, false, "current"},
+		{func(b GitPushBranch) bool { return b.TipMatches }, false, "tip"},
+		{func(b GitPushBranch) bool { return b.Contains }, false, "contains"},
+	}
+	for _, r := range ranked {
+		for _, b := range branches {
+			if r.match(b) {
+				return suggest(b, r.tracks, r.reason)
+			}
+		}
+	}
+
+	// The commit is on no local branch (e.g. only fetched): suggest a new
+	// remote branch named after the current branch or the commit.
+	branch := current
+	remoteBranch := branch
+	if remoteBranch == "" {
+		remoteBranch = "commit-" + shortHash(hash)
+	}
+	return GitPushSuggestion{
+		LocalBranch:  "",
+		Remote:       defaultRemote,
+		RemoteBranch: remoteBranch,
+		Tracking:     false,
+		Reason:       "none",
+	}
+}
+
+// shortHash abbreviates a commit hash for display.
+func shortHash(hash string) string {
+	if len(hash) > 7 {
+		return hash[:7]
+	}
+	return hash
 }

@@ -16,6 +16,7 @@ type GitAction =
   | 'merge'
   | 'rebase'
   | 'drop-commit'
+  | 'push-commit'
   | 'add-tag'
   | 'delete-tag'
   | 'push-tag'

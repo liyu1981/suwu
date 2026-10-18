@@ -284,6 +284,11 @@ function describeError(error: unknown): string {
 export interface VideoBackgroundOptions {
   /** Read the stored clip by id from the family's OPFS library. */
   readSource: (id: string) => Promise<File | null>;
+  /**
+   * Ids to rotate through when the Auto rotate param is on (2D Lives). Omit for
+   * a background that only ever shows one clip (Video).
+   */
+  listSources?: () => Promise<string[]>;
   /** Title drawn when no clip is selected. */
   title?: string;
   /** Hint drawn under the title when no clip is selected. */
@@ -291,6 +296,18 @@ export interface VideoBackgroundOptions {
   /** Hint drawn when the selected id no longer resolves. */
   missingHint?: string;
 }
+
+/** A decoded clip ready to be swapped in as the active playback. */
+interface PreparedSource {
+  playback: Playback;
+  input: Input;
+  duration: number;
+}
+
+type PrepareResult =
+  | { kind: 'ready'; source: PreparedSource }
+  | { kind: 'error'; lines: string[] }
+  | { kind: 'skip' };
 
 /**
  * Build the canvas-2D + WebCodecs video renderer shared by the Video and 2D
@@ -329,6 +346,13 @@ export function createVideoBackground(options: VideoBackgroundOptions): Backgrou
     let input: Input | null = null;
     let warning: string | null = null;
     let warningUntil = 0;
+
+    // Auto-rotation state: the sources to cycle through, the current index, and
+    // the pending timer. The list starts with the selected clip so turning
+    // rotation on does not immediately jump away from it.
+    const sourceIds: string[] = [];
+    let rotateIndex = 0;
+    let rotateTimer: number | null = null;
 
     const render: RenderCtx = {
       context,
@@ -432,37 +456,37 @@ export function createVideoBackground(options: VideoBackgroundOptions): Backgrou
 
     resize();
 
-    const run = async (): Promise<void> => {
-      if (!config.source) {
-        showMessage([title, emptyHint]);
-        return;
+    // ── Source loading + rotation ─────────────────────────────────────────
+    // A source is prepared in isolation and then activated by swapping it in,
+    // so auto-rotation never blanks the background while the next wallpaper
+    // decodes: the previous frame stays until the new playback is ready.
+    const clearRotation = (): void => {
+      if (rotateTimer !== null) {
+        window.clearTimeout(rotateTimer);
+        rotateTimer = null;
       }
-      if (typeof VideoDecoder === 'undefined') {
-        showMessage(['WebCodecs is not supported', 'This browser cannot decode video.']);
-        return;
-      }
+    };
 
-      showMessage(['Loading video…']);
+    const prepare = async (id: string): Promise<PrepareResult> => {
+      const file = await options.readSource(id);
+      if (disposed) return { kind: 'skip' };
+      if (!file) return { kind: 'error', lines: ['File not found', missingHint] };
 
-      const file = await options.readSource(config.source);
-      if (disposed) return;
-      if (!file) {
-        showMessage(['File not found', missingHint]);
-        return;
-      }
-
+      let nextInput: Input;
       let track: InputVideoTrack | null;
       try {
-        input = new Input({ formats: INPUT_FORMATS, source: new BlobSource(file) });
-        track = await input.getPrimaryVideoTrack();
+        nextInput = new Input({ formats: INPUT_FORMATS, source: new BlobSource(file) });
+        track = await nextInput.getPrimaryVideoTrack();
       } catch (error) {
-        showMessage(['Could not read the video', describeError(error)]);
-        return;
+        return { kind: 'error', lines: ['Could not read the video', describeError(error)] };
       }
-      if (disposed) return;
+      if (disposed) {
+        nextInput.dispose();
+        return { kind: 'skip' };
+      }
       if (!track) {
-        showMessage(['No video track', 'The file has no video stream.']);
-        return;
+        nextInput.dispose();
+        return { kind: 'error', lines: ['No video track', 'The file has no video stream.'] };
       }
 
       let decodable = false;
@@ -471,23 +495,23 @@ export function createVideoBackground(options: VideoBackgroundOptions): Backgrou
       } catch {
         decodable = false;
       }
+      if (disposed) {
+        nextInput.dispose();
+        return { kind: 'skip' };
+      }
       if (!decodable) {
         const codec = await track.getCodecParameterString().catch(() => null);
-        showMessage(['Video codec not supported', codec ?? 'unknown']);
-        return;
+        nextInput.dispose();
+        return { kind: 'error', lines: ['Video codec not supported', codec ?? 'unknown'] };
       }
-      if (disposed) return;
 
       const [duration, baseTimestamp] = await Promise.all([
         track.computeDuration().catch(() => 0),
         track.getFirstTimestamp().catch(() => 0),
       ]);
-      if (disposed) return;
-
-      if (duration > VIDEO_MAX_DURATION_SECONDS) {
-        warning = `Long clip (${duration.toFixed(0)}s) — backgrounds are meant for short loops.`;
-        warningUntil = performance.now() + 8000;
-        console.info('[video]', warning);
+      if (disposed) {
+        nextInput.dispose();
+        return { kind: 'skip' };
       }
 
       const sink = new VideoSampleSink(track);
@@ -495,22 +519,113 @@ export function createVideoBackground(options: VideoBackgroundOptions): Backgrou
         const sample = await sink.getSample(baseTimestamp).catch(() => null);
         if (disposed) {
           sample?.close();
+          nextInput.dispose();
+          return { kind: 'skip' };
+        }
+        return {
+          kind: 'ready',
+          source: { playback: createStaticPlayback(sample, render), input: nextInput, duration },
+        };
+      }
+      const loop = createLoopPlayback(
+        sink,
+        baseTimestamp,
+        duration,
+        render,
+        config.crossfade,
+        (error) => {
+          console.warn('[video] playback error', error);
+        },
+      );
+      return { kind: 'ready', source: { playback: loop, input: nextInput, duration } };
+    };
+
+    const activate = (source: PreparedSource): void => {
+      playback?.dispose();
+      input?.dispose();
+      playback = source.playback;
+      input = source.input;
+      if (source.duration > VIDEO_MAX_DURATION_SECONDS) {
+        warning = `Long clip (${source.duration.toFixed(0)}s) — backgrounds are meant for short loops.`;
+        warningUntil = performance.now() + 8000;
+        console.info('[video]', warning);
+      } else {
+        warning = null;
+      }
+      if (!reducedMotion) start();
+    };
+
+    const scheduleRotation = (): void => {
+      clearRotation();
+      if (disposed || sourceIds.length < 2) return;
+      const intervalMs = Math.max(1, config.rotateMinutes) * 60_000;
+      rotateTimer = window.setTimeout(() => {
+        rotateTimer = null;
+        if (disposed) return;
+        rotateIndex = (rotateIndex + 1) % sourceIds.length;
+        void rotateOnce();
+      }, intervalMs);
+    };
+
+    const rotateOnce = async (): Promise<void> => {
+      const id = sourceIds[rotateIndex];
+      const result = await prepare(id);
+      if (result.kind === 'ready') activate(result.source);
+      else if (result.kind === 'error') console.warn('[video] rotation skipped', id, result.lines);
+      if (!disposed) scheduleRotation();
+    };
+
+    const run = async (): Promise<void> => {
+      if (typeof VideoDecoder === 'undefined') {
+        showMessage(['WebCodecs is not supported', 'This browser cannot decode video.']);
+        return;
+      }
+
+      // Auto rotate (2D Lives): cycle through every wallpaper in the library,
+      // starting from the selected one. Off under reduced motion, which shows a
+      // single static frame.
+      const listSources = options.listSources;
+      if (config.rotate && !reducedMotion && listSources) {
+        let ids: string[] = [];
+        try {
+          ids = await listSources();
+        } catch (error) {
+          console.warn('[video] could not list sources for rotation', error);
+        }
+        if (disposed) return;
+        sourceIds.length = 0;
+        sourceIds.push(...ids.filter((id) => !!id));
+        if (sourceIds.length === 0) {
+          showMessage([title, emptyHint]);
           return;
         }
-        playback = createStaticPlayback(sample, render);
-      } else {
-        playback = createLoopPlayback(
-          sink,
-          baseTimestamp,
-          duration,
-          render,
-          config.crossfade,
-          (error) => {
-            console.warn('[video] playback error', error);
-          },
-        );
-        start();
+        const startIndex = sourceIds.indexOf(config.source);
+        rotateIndex = startIndex >= 0 ? startIndex : 0;
+
+        showMessage(['Loading video…']);
+        const result = await prepare(sourceIds[rotateIndex]);
+        if (result.kind === 'skip') return;
+        if (result.kind === 'error') {
+          showMessage(result.lines);
+          return;
+        }
+        activate(result.source);
+        scheduleRotation();
+        return;
       }
+
+      if (!config.source) {
+        showMessage([title, emptyHint]);
+        return;
+      }
+      showMessage(['Loading video…']);
+      const result = await prepare(config.source);
+      if (result.kind === 'skip') return;
+      if (result.kind === 'error') {
+        showMessage(result.lines);
+        return;
+      }
+      activate(result.source);
     };
 
     void run();
@@ -519,6 +634,7 @@ export function createVideoBackground(options: VideoBackgroundOptions): Backgrou
       backend: 'cpu',
       dispose() {
         disposed = true;
+        clearRotation();
         stop();
         playback?.dispose();
         playback = null;

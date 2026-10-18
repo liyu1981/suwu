@@ -1,5 +1,5 @@
 import type { BackgroundParam } from '../types';
-import { VIDEO_PLAYBACK_PARAMS } from '../video/params';
+import { VIDEO_PLAYBACK_PARAMS, VIDEO_ROTATE_MINUTES_DEFAULT } from '../video/params';
 import {
   downloadLiveWallpaper,
   listLiveWallpaperProviders,
@@ -17,6 +17,9 @@ import { clearLiveFile, listLiveFiles } from './storage';
  * wallpapers are authored to loop, so the crossfade is unnecessary. The source
  * is the only other difference, which is what lets both families run the same
  * renderer.
+ *
+ * **Auto rotate** cycles through every downloaded wallpaper on a timer; the
+ * renderer reads the library through its `listSources` option.
  */
 export const LIVES_PARAMS: readonly BackgroundParam[] = [
   {
@@ -30,6 +33,23 @@ export const LIVES_PARAMS: readonly BackgroundParam[] = [
     download: downloadLiveWallpaper,
     list: listLiveFiles,
     clear: clearLiveFile,
+  },
+  {
+    kind: 'boolean',
+    key: 'rotate',
+    label: 'Auto rotate',
+    hint: 'Cycle through every downloaded wallpaper.',
+    default: false,
+  },
+  {
+    kind: 'number',
+    key: 'rotateMinutes',
+    label: 'Rotate every',
+    default: VIDEO_ROTATE_MINUTES_DEFAULT,
+    min: 1,
+    max: 120,
+    step: 1,
+    format: (value) => `${value} min`,
   },
   ...VIDEO_PLAYBACK_PARAMS.filter((param) => param.key !== 'crossfade'),
 ];

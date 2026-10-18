@@ -237,6 +237,14 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
   Search results render as a two-column grid of 16:9 preview cards — clicking a
   card downloads it into OPFS and makes it the active wallpaper.
 
+  **Auto rotate** cycles through every downloaded wallpaper every *Rotate every*
+  minutes. `lives-cpu/` feeds the shared renderer a `listSources` callback
+  (the library's ids); the renderer prepares the next clip in isolation and
+  swaps it in when ready, so the previous frame stays on screen until the new
+  one decodes — no blank flash between wallpapers. A wallpaper that fails to
+  decode is skipped and rotation continues. Rotation is disabled under reduced
+  motion.
+
 ### Live-wallpaper providers (2D Lives)
 
 The frontend never names a site. Providers are **server-side adapters**

@@ -14,6 +14,11 @@ const VIDEO_DEFAULT_MASK_OPACITY = 0.1;
 /** Clips longer than this are flagged as too long for a background. */
 export const VIDEO_MAX_DURATION_SECONDS = 30;
 
+/** Default minutes between auto-rotations. */
+export const VIDEO_ROTATE_MINUTES_DEFAULT = 10;
+const VIDEO_ROTATE_MINUTES_MIN = 1;
+const VIDEO_ROTATE_MINUTES_MAX = 120;
+
 /** User-facing parameters for the Video background. */
 export interface VideoParams {
   /** Stored id of the selected clip; the bytes live in OPFS. */
@@ -26,6 +31,10 @@ export interface VideoParams {
   maskColor: string;
   /** Opacity of the tint, 0 (off) to 1. */
   maskOpacity: number;
+  /** Cycle through every clip in the family library (2D Lives). */
+  rotate: boolean;
+  /** Minutes each clip stays on screen before rotating. */
+  rotateMinutes: number;
 }
 
 /**
@@ -107,6 +116,8 @@ export function resolveVideoParams(params?: Record<string, unknown>): VideoParam
   const crossfade = params?.crossfade;
   const maskColor = params?.maskColor;
   const maskOpacity = params?.maskOpacity;
+  const rotate = params?.rotate;
+  const rotateMinutes = params?.rotateMinutes;
   return {
     source: typeof source === 'string' ? source : VIDEO_DEFAULT_SOURCE,
     fit: isFit(fit) ? fit : VIDEO_DEFAULT_FIT,
@@ -123,5 +134,10 @@ export function resolveVideoParams(params?: Record<string, unknown>): VideoParam
       typeof maskOpacity === 'number' && Number.isFinite(maskOpacity)
         ? Math.min(1, Math.max(0, maskOpacity))
         : VIDEO_DEFAULT_MASK_OPACITY,
+    rotate: typeof rotate === 'boolean' ? rotate : false,
+    rotateMinutes:
+      typeof rotateMinutes === 'number' && Number.isFinite(rotateMinutes)
+        ? Math.min(VIDEO_ROTATE_MINUTES_MAX, Math.max(VIDEO_ROTATE_MINUTES_MIN, rotateMinutes))
+        : VIDEO_ROTATE_MINUTES_DEFAULT,
   };
 }

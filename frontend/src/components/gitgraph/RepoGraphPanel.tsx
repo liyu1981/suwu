@@ -296,8 +296,18 @@ export function RepoGraphPanel({
 
   const { execute: gitAction } = useGitActions(repoPath ?? '.');
 
-  // Run the push-commit action and surface a failure in a dialog (push errors —
-  // rejecting non-fast-forward, auth, no remote — are common and worth showing).
+  // Surface a failed action in a dialog (push/pull errors — non-fast-forward,
+  // auth, no remote — are common and worth showing).
+  const showActionError = useCallback((title: string, err: unknown) => {
+    setDialog({
+      title,
+      message: err instanceof Error ? err.message : String(err),
+      actionLabel: 'OK',
+      onAction: () => {},
+    });
+  }, []);
+
+  // Run the push-commit action.
   const runPush = useCallback(
     async (
       commit: GitCommit,
@@ -307,15 +317,10 @@ export function RepoGraphPanel({
         await gitAction('push-commit', { hash: commit.hash, ...target });
         refresh();
       } catch (err) {
-        setDialog({
-          title: 'Push Failed',
-          message: err instanceof Error ? err.message : String(err),
-          actionLabel: 'OK',
-          onAction: () => {},
-        });
+        showActionError('Push Failed', err);
       }
     },
-    [gitAction, refresh],
+    [gitAction, refresh, showActionError],
   );
 
   // Push a commit: straight to its tracking branch, or — when it is not
@@ -328,12 +333,7 @@ export function RepoGraphPanel({
           `/api/git/push-info?path=${encodeURIComponent(activePath)}&hash=${encodeURIComponent(commit.hash)}`,
         );
       } catch (err) {
-        setDialog({
-          title: 'Push Failed',
-          message: err instanceof Error ? err.message : String(err),
-          actionLabel: 'OK',
-          onAction: () => {},
-        });
+        showActionError('Push Failed', err);
         return;
       }
 
@@ -376,6 +376,79 @@ export function RepoGraphPanel({
       });
     },
     [activePath, runPush],
+  );
+
+  // Pull a branch: update the chosen local branch from its remote. A branch that
+  // is not checked out here is fast-forwarded in place (the backend decides), so
+  // pulling never merges an unrelated branch into the current one.
+  const runPull = useCallback(
+    async (target: { localBranch: string; remote: string; remoteBranch: string }) => {
+      try {
+        await gitAction('pull-branch', target);
+        refresh();
+      } catch (err) {
+        showActionError('Pull Failed', err);
+      }
+    },
+    [gitAction, refresh, showActionError],
+  );
+
+  // Pull the remote of the branch(es) containing a commit. One branch pulls
+  // straight away; several open a chooser.
+  const pullCommit = useCallback(
+    async (commit: GitCommit) => {
+      let info: GitPushInfo;
+      try {
+        info = await fetchJson<GitPushInfo>(
+          `/api/git/push-info?path=${encodeURIComponent(activePath)}&hash=${encodeURIComponent(commit.hash)}`,
+        );
+      } catch (err) {
+        showActionError('Pull Failed', err);
+        return;
+      }
+
+      const containing = info.branches.filter((b) => b.contains);
+      if (containing.length === 0) {
+        setDialog({
+          title: 'Pull',
+          message: `No local branch contains commit <b>${commit.hash.slice(0, 7)}</b>.`,
+          actionLabel: 'OK',
+          onAction: () => {},
+        });
+        return;
+      }
+
+      const targetFor = (b: GitPushBranch) => ({
+        localBranch: b.name,
+        remote: b.remote || info.remotes[0] || 'origin',
+        remoteBranch: b.remoteBranch || b.name,
+      });
+
+      if (containing.length === 1) {
+        void runPull(targetFor(containing[0]));
+        return;
+      }
+
+      const preferred = containing.find((b) => b.current) ?? containing[0];
+      setDialog({
+        title: 'Pull Branch',
+        message: `Commit <b>${commit.hash.slice(0, 7)}</b> is on ${containing.length} branches. Which one should pull from its remote?`,
+        inputs: [
+          {
+            type: 'select',
+            name: 'Branch',
+            options: containing.map((b) => ({ label: b.name, value: b.name })),
+            defaultValue: preferred.name,
+          },
+        ],
+        actionLabel: 'Pull',
+        onAction: (v) => {
+          const branch = containing.find((b) => b.name === String(v['Branch']));
+          if (branch) void runPull(targetFor(branch));
+        },
+      });
+    },
+    [activePath, runPull, showActionError],
   );
 
   // Open a commit in the side-by-side viewer. Uncommitted changes are not a
@@ -466,6 +539,10 @@ export function RepoGraphPanel({
           {
             label: 'Push Commit...',
             onClick: () => void pushCommit(commit),
+          },
+          {
+            label: 'Pull...',
+            onClick: () => void pullCommit(commit),
           },
           {
             label: 'Checkout',
@@ -606,7 +683,7 @@ export function RepoGraphPanel({
       ];
       setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
     },
-    [gitAction, refresh, activePath, t, openCommitDiff, pushCommit],
+    [gitAction, refresh, activePath, t, openCommitDiff, pushCommit, pullCommit],
   );
 
   const showBranchContextMenu = useCallback(

@@ -240,8 +240,38 @@ func actionPushBranch(repoPath string, p map[string]string) error {
 }
 
 func actionPullBranch(repoPath string, p map[string]string) error {
-	remote := p["remote"]
-	branch := p["branch"]
+	remote := strings.TrimSpace(p["remote"])
+
+	// Commit-context pull: bring a specific local branch up to date with its
+	// remote. That branch is often not the one checked out here.
+	if localBranch := strings.TrimSpace(p["localBranch"]); localBranch != "" {
+		remoteBranch := strings.TrimSpace(p["remoteBranch"])
+		if remoteBranch == "" {
+			remoteBranch = localBranch
+		}
+		if remote == "" {
+			remote = "origin"
+		}
+		if err := validatePushName("remote", remote); err != nil {
+			return err
+		}
+		if err := validatePushName("branch", remoteBranch); err != nil {
+			return err
+		}
+
+		current, _ := git(repoPath, "branch", "--show-current")
+		if strings.TrimSpace(current) == localBranch {
+			// Checked out here: a real pull (fetch + merge).
+			_, err := git(repoPath, "pull", remote, remoteBranch)
+			return err
+		}
+		// Not checked out: fast-forward the local branch ref in place.
+		_, err := git(repoPath, "fetch", remote, remoteBranch+":refs/heads/"+localBranch)
+		return err
+	}
+
+	// Legacy: pull into the current branch.
+	branch := strings.TrimSpace(p["branch"])
 	if remote == "" {
 		remote = "origin"
 	}

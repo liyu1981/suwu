@@ -47,10 +47,11 @@ Short captures of Suwu in daily use. Click a preview to watch the full clip on
 
 3. **Convenient apps for everyday dev work** — A file browser with download, a
    file viewer with auto-refresh, a TCP/UDP port forwarder, a database browser
-   for SQLite, MySQL, and PostgreSQL, and a Postman-style REST helper that
-   reaches `localhost` and your LAN from the server side — the small tools
-   you'd otherwise reach for a second terminal or a GUI client, right in the
-   grid next to your shells.
+   for SQLite, MySQL, and PostgreSQL, a side-by-side SFTP client for moving
+   files to a remote machine, and a Postman-style REST helper that reaches
+   `localhost` and your LAN from the server side — the small tools you'd
+   otherwise reach for a second terminal or a GUI client, right in the grid
+   next to your shells.
 
 4. **From terminal to web, with suwu commands** — `suwu send` posts a
    notification to your screen from any script — pipe stdin in.

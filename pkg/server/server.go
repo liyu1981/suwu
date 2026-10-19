@@ -27,6 +27,7 @@ import (
 	"suwu/pkg/lives2d"
 	"suwu/pkg/notify"
 	"suwu/pkg/session"
+	"suwu/pkg/sftp"
 )
 
 // CSP is the Content-Security-Policy applied to all HTML responses.
@@ -83,6 +84,7 @@ type Server struct {
 	notify     *notify.Listener
 	forwards   *forward.Manager
 	dbSessions *db.Manager
+	sftpMgr    *sftp.Manager
 	dataDir    string
 	startedAt  time.Time
 	rateLimit  *RateLimiter
@@ -127,6 +129,7 @@ func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify
 		notify:      nl,
 		forwards:    fwds,
 		dbSessions:  dbMgr,
+		sftpMgr:     sftp.NewManager(),
 		dataDir:     dataDir,
 		startedAt:   time.Now(),
 		rateLimit:   NewRateLimiter(),
@@ -142,9 +145,22 @@ func (s *Server) StartDBCleanup() {
 	s.dbSessions.StartCleanupLoop(context.Background())
 }
 
+// StartSFTPCleanup starts the background cleanup loop for idle SFTP sessions.
+func (s *Server) StartSFTPCleanup() {
+	s.sftpMgr.StartCleanupLoop(context.Background())
+}
+
 // CloseDBCloses closes all active database sessions.
+// CloseDB closes all database sessions.
 func (s *Server) CloseDB() {
 	s.dbSessions.CloseAll()
+}
+
+// CloseSFTP closes every SFTP session and stops the idle-cleanup loop.
+func (s *Server) CloseSFTP() {
+	if s.sftpMgr != nil {
+		s.sftpMgr.Close()
+	}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -337,6 +353,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if strings.HasPrefix(r.URL.Path, "/api/rest/") {
 		s.handleRESTHelper(w, r)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, sftpRoutePrefix) {
+		s.handleSftp(w, r)
 		return
 	}
 

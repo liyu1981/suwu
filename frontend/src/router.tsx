@@ -14,6 +14,7 @@ import CodeExplorerPage from './routes/CodeExplorerPage';
 import RestHelperPage from './routes/RestHelperPage';
 import ExtensionPage from './routes/ExtensionPage';
 import FolderSyncPage from './routes/FolderSyncPage';
+import SftpPage from './routes/SftpPage';
 
 const rootRoute = createRootRoute();
 
@@ -115,6 +116,13 @@ const foldersyncRoute = createRoute({
   component: FolderSyncPage,
 });
 
+// Full-space SFTP page, loaded inside each sftp pane's iframe.
+const sftpRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/sftp',
+  component: SftpPage,
+});
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -130,6 +138,7 @@ const routeTree = rootRoute.addChildren([
   resthelperRoute,
   extensionRoute,
   foldersyncRoute,
+  sftpRoute,
 ]);
 
 export const router = createRouter({ routeTree });

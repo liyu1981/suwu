@@ -20,6 +20,7 @@ const COLOR_MAP: Record<string, { bg: string; text: string; letter: string }> = 
   resthelper: { bg: 'bg-rose-500/20', text: 'text-rose-400', letter: 'R' },
   extension: { bg: 'bg-teal-500/20', text: 'text-teal-400', letter: 'E' },
   foldersync: { bg: 'bg-fuchsia-500/20', text: 'text-fuchsia-400', letter: 'S' },
+  sftp: { bg: 'bg-blue-500/20', text: 'text-blue-400', letter: 'S' },
 };
 
 const DEFAULT_COLORS = { bg: 'bg-white/10', text: 'text-white/40', letter: '' };

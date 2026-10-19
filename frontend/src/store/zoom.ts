@@ -29,6 +29,7 @@ export const codeZoomAtom = atomWithStorage<number>('suwu.code-zoom', ZOOM_DEFAU
 export const resthelperZoomAtom = atomWithStorage<number>('suwu.resthelper-zoom', ZOOM_DEFAULT);
 export const extensionZoomAtom = atomWithStorage<number>('suwu.extension-zoom', ZOOM_DEFAULT);
 export const folderSyncZoomAtom = atomWithStorage<number>('suwu.foldersync-zoom', ZOOM_DEFAULT);
+export const sftpZoomAtom = atomWithStorage<number>('suwu.sftp-zoom', ZOOM_DEFAULT);
 
 export function clampZoom(n: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(n * 4) / 4));

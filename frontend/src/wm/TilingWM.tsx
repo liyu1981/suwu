@@ -87,6 +87,7 @@ import './plugins/code';
 import './plugins/resthelper';
 import './plugins/extension';
 import './plugins/foldersync';
+import './plugins/sftp';
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +

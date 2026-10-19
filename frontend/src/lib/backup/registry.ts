@@ -69,6 +69,8 @@ export const REGISTRY: readonly Entry[] = [
   { category: 'settings', key: 'suwu.code-editor-settings' },
   // store/dbbrowser.ts — saved DB connection labels (no passwords are stored).
   { category: 'settings', key: 'suwu_db_saved_connections' },
+  // store/sftp.ts — saved SFTP connection targets (no passwords/keys stored).
+  { category: 'settings', key: 'suwu:sftp-connections' },
 
   // ── layout ──────────────────────────────────────────────────────────────
   // wm/atoms.ts — spaces (layout tree + pane data) and the active space index.
@@ -99,6 +101,9 @@ export const DENY: readonly string[] = [
   // Transient UI geometry, not a user setting: the DB browser's column width
   // is a pane-local layout tweak with no cross-device meaning.
   'suwu_db_schema_width',
+  // The SFTP tile's pane split and bottom-panel height, for the same reason.
+  'suwu_sftp_left_pct',
+  'suwu_sftp_bottom_height',
   // The pre-migration single-layout key. wm/atoms.ts wraps it into the first
   // space and removes it on load, so restoring it would resurrect dead data.
   'tiling-layout',

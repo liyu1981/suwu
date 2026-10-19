@@ -600,6 +600,7 @@ func run() error {
 
 	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager, dataDir)
 	srv.StartDBCleanup()
+	srv.StartSFTPCleanup()
 
 	handler := srv.Handler()
 
@@ -685,6 +686,7 @@ func run() error {
 	xdisplay.StopDisplay() // kill Xorg first — don't orphan it
 	server.CloseAll()
 	srv.CloseDB()
+	srv.CloseSFTP()
 	sessions.Close()
 	notifyListener.Close()
 	forwardManager.StopAll()

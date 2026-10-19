@@ -250,7 +250,7 @@ backends use `canvas-size.ts` and a `ResizeObserver`.
 The frontend never names a site. Providers are **server-side adapters**
 (`pkg/lives2d`): a provider implements `Search(ctx, query, page)` and
 `Resolve(ctx, id)` and registers itself from an `init` in its own package
-(`pkg/lives2d/moewalls` is the reference adapter, blank-imported by
+(`pkg/lives2d/moewalls` and `pkg/lives2d/motionbgs`, blank-imported by
 `pkg/server/lives2d.go`). The server exposes them generically:
 
 ```

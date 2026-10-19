@@ -21,6 +21,7 @@ import (
 
 	"suwu/pkg/lives2d"
 	_ "suwu/pkg/lives2d/moewalls"
+	_ "suwu/pkg/lives2d/motionbgs"
 )
 
 const lives2dRoutePrefix = "/api/lives2d/"

@@ -47,6 +47,20 @@ export async function listBrowserDir(handle: FileSystemDirectoryHandle): Promise
   return items;
 }
 
+/** Walk a virtual path (relative to the picked root) into a handle stack. */
+export async function resolveBrowserPath(
+  root: FileSystemDirectoryHandle,
+  path: string,
+): Promise<FileSystemDirectoryHandle[]> {
+  const stack = [root];
+  let current = root;
+  for (const segment of path.split('/').filter(Boolean)) {
+    current = await current.getDirectoryHandle(segment);
+    stack.push(current);
+  }
+  return stack;
+}
+
 export function getBrowserDir(
   handle: FileSystemDirectoryHandle,
   name: string,

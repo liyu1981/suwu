@@ -1,4 +1,4 @@
-import { type MouseEvent as ReactMouseEvent, type ReactNode, useState } from 'react';
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TOOLBAR_BTN } from '../../lib/constants';
 import { formatSize } from '../../lib/format';
@@ -13,6 +13,51 @@ export type PaneState =
   | { kind: 'disconnected' }
   | { kind: 'connecting'; error: string | null }
   | { kind: 'connected' };
+
+/** Editable path bar: type a path, press Enter to navigate, Esc to cancel. */
+function AddressBar({ path, onNavigate }: { path: string; onNavigate: (path: string) => void }) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(path);
+
+  useEffect(() => {
+    if (!editing) setDraft(path);
+  }, [path, editing]);
+
+  return (
+    <input
+      value={editing ? draft : path}
+      onFocus={(e) => {
+        setDraft(path);
+        setEditing(true);
+        e.currentTarget.select();
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        setDraft(path);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const next = draft.trim();
+          setEditing(false);
+          if (next && next !== path) onNavigate(next);
+          e.currentTarget.blur();
+        } else if (e.key === 'Escape') {
+          setEditing(false);
+          setDraft(path);
+          e.currentTarget.blur();
+        }
+      }}
+      spellCheck={false}
+      autoComplete="off"
+      aria-label={t('sftp.path')}
+      title={path}
+      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 font-mono text-[11px] text-white/40 outline-none transition-colors placeholder:text-white/20 focus:border-sky-400/40 focus:bg-white/[0.05] focus:text-white/80"
+    />
+  );
+}
 
 /**
  * One side of the SFTP tile. The pane owns its endpoint kind (Suwu / SFTP /
@@ -43,6 +88,7 @@ export function FilePane({
   onRefresh,
   onDropFiles,
   onContextMenu,
+  onNavigate,
 }: {
   kind: EndpointKind;
   state: PaneState;
@@ -77,6 +123,8 @@ export function FilePane({
   onDropFiles?: (files: File[]) => void;
   /** Right-click on a row (item) or on empty space (null). */
   onContextMenu?: (event: ReactMouseEvent<HTMLElement>, item: PaneItem | null) => void;
+  /** Navigate straight to a typed path. */
+  onNavigate: (path: string) => void;
 }) {
   const { t } = useTranslation();
   const [dragOver, setDragOver] = useState(false);
@@ -165,12 +213,7 @@ export function FilePane({
             >
               <RefreshIcon />
             </button>
-            <span
-              className="min-w-0 flex-1 truncate px-1 font-mono text-[11px] text-white/40"
-              title={path}
-            >
-              {path}
-            </span>
+            <AddressBar path={path} onNavigate={onNavigate} />
           </div>
 
           {actions && (

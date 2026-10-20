@@ -533,6 +533,26 @@ export default function SftpPanel() {
     [update],
   );
 
+  const navigatePane = useCallback(
+    (pane: PaneSide, target: string) => {
+      const model = live(pane);
+      if (model.kind === 'browser') {
+        const root = model.browserStack[0];
+        if (!root) return;
+        const normalized = api.normalizePath(target);
+        void bfs
+          .resolveBrowserPath(root, normalized)
+          .then((stack) => update(pane, { browserStack: stack, entries: [], selected: null }))
+          .catch((error) => notify(`Cannot open ${normalized}: ${describe(error)}`, 'error'));
+        return;
+      }
+      const base = target.startsWith('/') ? target : api.joinPath(model.path, target);
+      const normalized = api.normalizePath(base);
+      if (normalized !== model.path) update(pane, { path: normalized });
+    },
+    [update, notify],
+  );
+
   // ── Operations ───────────────────────────────────────────────────────
 
   const run = useCallback(
@@ -1004,6 +1024,7 @@ export default function SftpPanel() {
         onRefresh={() => void loadPane(pane, model.path)}
         onDropFiles={(files) => uploadDroppedFiles(pane, files)}
         onContextMenu={(event, item) => showContextMenu(pane, event, item)}
+        onNavigate={(target) => navigatePane(pane, target)}
       />
     );
   };

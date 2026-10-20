@@ -354,6 +354,17 @@ export function joinPath(parent: string, name: string): string {
   return `${parent.replace(/\/+$/, '')}/${name}`;
 }
 
+/** Collapse `.`/`..` and duplicate slashes into an absolute POSIX path. */
+export function normalizePath(input: string): string {
+  const parts: string[] = [];
+  for (const segment of input.split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') parts.pop();
+    else parts.push(segment);
+  }
+  return `/${parts.join('/')}`;
+}
+
 /** The parent of a POSIX-style path (root stays root). */
 export function parentPath(path: string): string {
   const clean = path.replace(/\/+$/, '');

@@ -753,6 +753,7 @@
     "overwriteMany": "{{count}} 个文件已存在，且大小或日期不同。是否覆盖？",
     "overwrite": "覆盖",
     "incoming": "新文件",
-    "existing": "现有文件"
+    "existing": "现有文件",
+    "path": "路径"
   }
 }

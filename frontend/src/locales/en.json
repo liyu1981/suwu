@@ -756,6 +756,7 @@
     "overwriteMany": "{{count}} file(s) already exist with a different size or date. Overwrite them?",
     "overwrite": "Overwrite",
     "incoming": "Incoming",
-    "existing": "Existing"
+    "existing": "Existing",
+    "path": "Path"
   }
 }

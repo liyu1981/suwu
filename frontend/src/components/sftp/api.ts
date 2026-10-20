@@ -284,6 +284,7 @@ export async function serverTransfer(params: {
   destSession?: string;
   destinationPath: string;
   recursive: boolean;
+  overwrite?: boolean;
 }): Promise<void> {
   await postJson('/api/sftp/transfer', {
     sourceKind: params.sourceKind,
@@ -293,7 +294,7 @@ export async function serverTransfer(params: {
     destSession: params.destSession,
     destinationPath: params.destinationPath,
     recursive: params.recursive,
-    overwrite: false,
+    overwrite: params.overwrite === true,
   });
 }
 

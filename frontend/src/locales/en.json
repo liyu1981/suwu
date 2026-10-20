@@ -750,6 +750,12 @@
     "noTransfers": "No transfers yet",
     "noLog": "No messages yet",
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "overwriteTitle": "File already exists",
+    "overwriteMessage": "“{{name}}” already exists with a different size or date. Overwrite it?",
+    "overwriteMany": "{{count}} file(s) already exist with a different size or date. Overwrite them?",
+    "overwrite": "Overwrite",
+    "incoming": "Incoming",
+    "existing": "Existing"
   }
 }

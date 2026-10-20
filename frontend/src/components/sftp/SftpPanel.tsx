@@ -1,4 +1,5 @@
 import {
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -16,6 +17,9 @@ import {
   type SavedSftpConnection,
 } from '../../store/sftp';
 import { PlusIcon, SwapIcon, TrashIcon } from '../icons';
+import { formatSize } from '../../lib/format';
+import { ContextMenu, type ContextMenuItem } from './ContextMenu';
+import { formatModTime, sameModTime } from './format';
 import * as api from './api';
 import type { ConnectParams, EndpointKind, PaneItem, RemoteConnection } from './api';
 import * as bfs from './browserFs';
@@ -74,6 +78,18 @@ type DialogState =
 
 type PaneSide = 'left' | 'right';
 
+type ConflictPrompt =
+  | {
+      kind: 'single';
+      name: string;
+      incomingSize: number;
+      incomingTime: string;
+      existingSize: number;
+      existingTime: string;
+      resolve: (overwrite: boolean) => void;
+    }
+  | { kind: 'many'; count: number; resolve: (overwrite: boolean) => void };
+
 export default function SftpPanel() {
   const { t } = useTranslation();
   const [savedConnections, setSavedConnections] = useAtom(sftpSavedConnectionsAtom);
@@ -83,6 +99,12 @@ export default function SftpPanel() {
 
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [conflict, setConflict] = useState<ConflictPrompt | null>(null);
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    items: ContextMenuItem[][];
+  } | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: 'info' | 'error' } | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
@@ -263,6 +285,32 @@ export default function SftpPanel() {
       }
     },
     [reconnect],
+  );
+
+  /** List the destination pane's current directory (for collision checks). */
+  const listDestination = useCallback(
+    async (pane: PaneSide): Promise<PaneItem[]> => {
+      const model = live(pane);
+      if (model.kind === 'browser') {
+        const handle = model.browserStack[model.browserStack.length - 1];
+        return handle ? bfs.listBrowserDir(handle) : [];
+      }
+      const { entries } = await withExpiryRetry(pane, () => endpointFor(pane).list(model.path));
+      return entries;
+    },
+    [endpointFor, withExpiryRetry],
+  );
+
+  const askOverwrite = useCallback(
+    (info: Omit<Extract<ConflictPrompt, { kind: 'single' }>, 'kind' | 'resolve'>) =>
+      new Promise<boolean>((resolve) => setConflict({ kind: 'single', ...info, resolve })),
+    [],
+  );
+
+  const askOverwriteMany = useCallback(
+    (count: number) =>
+      new Promise<boolean>((resolve) => setConflict({ kind: 'many', count, resolve })),
+    [],
   );
 
   // ── Loading ──────────────────────────────────────────────────────────
@@ -585,6 +633,38 @@ export default function SftpPanel() {
       const initial = live(from).entries.find((e) => e.name === live(from).selected);
       if (!initial) return;
 
+      // Files: skip identical copies, prompt when an existing file differs.
+      let overwrite = false;
+      if (!initial.isDir) {
+        setBusy(true);
+        try {
+          const existing = (await listDestination(dstPane)).find((e) => e.name === initial.name);
+          if (existing && !existing.isDir) {
+            if (existing.size === initial.size && sameModTime(existing.modTime, initial.modTime)) {
+              pushLog(`${initial.name} is already up to date`, 'info');
+              return;
+            }
+            const ok = await askOverwrite({
+              name: initial.name,
+              incomingSize: initial.size,
+              incomingTime: initial.modTime,
+              existingSize: existing.size,
+              existingTime: existing.modTime,
+            });
+            if (!ok) {
+              pushLog(`Skipped ${initial.name}`, 'info');
+              return;
+            }
+            overwrite = true;
+          }
+        } catch (error) {
+          // A broken check should not block the copy; the transfer reports it.
+          pushLog(`Could not check ${initial.name}: ${describe(error)}`, 'error');
+        } finally {
+          setBusy(false);
+        }
+      }
+
       const direction = `${paneLabel(live(from))} → ${paneLabel(live(dstPane))}`;
       const usesProgress = live(from).kind === 'browser' || live(dstPane).kind === 'browser';
       const transferId = addTransfer(
@@ -643,6 +723,7 @@ export default function SftpPanel() {
             destSession: sessionOf(dstPane),
             destinationPath: dst.path,
             recursive: item.isDir,
+            overwrite,
           });
         } finally {
           if (poll !== undefined) {
@@ -695,50 +776,81 @@ export default function SftpPanel() {
       if (files.length === 0) return;
       if (live(pane).kind === 'browser' && live(pane).browserStack.length === 0) return;
 
-      const total = files.reduce((sum, file) => sum + file.size, 0);
-      const transferId = addTransfer(
-        files.length === 1 ? files[0].name : `${files.length} files`,
-        `→ ${paneLabel(live(pane))}`,
-        total,
-      );
-      pushLog(`Uploading ${files.length} file(s) …`);
       setBusy(true);
-
-      const execute = async () => {
-        const model = live(pane);
-        let loadedBase = 0;
-        const onProgress = (loaded: number, fileTotal: number) => {
-          patchTransfer(transferId, { loaded: loadedBase + loaded, total: total || fileTotal });
-        };
-        if (model.kind === 'browser') {
-          const handle = model.browserStack[model.browserStack.length - 1];
-          if (!handle) throw new Error('no folder selected');
-          for (const file of files) {
-            await bfs.writeBrowserFile(handle, file.name, file);
-            loadedBase += file.size;
-            onProgress(0, 0);
-          }
-          return;
-        }
-        for (const file of files) {
-          await withExpiryRetry(pane, () =>
-            endpointFor(pane).upload(model.path, file.name, file, onProgress),
-          );
-          loadedBase += file.size;
-          onProgress(0, 0);
-        }
-      };
-
       void (async () => {
         try {
-          await execute();
-          patchTransfer(transferId, { state: 'done', loaded: total || 1, total: total || 1 });
-          pushLog(`Uploaded ${files.length} file(s)`, 'success');
-          void loadPane(pane, live(pane).path);
-        } catch (error) {
-          patchTransfer(transferId, { state: 'error', message: describe(error) });
-          pushLog(`Upload failed: ${describe(error)}`, 'error');
-          notify(describe(error), 'error');
+          // Collision check: skip identical files, ask once for the rest.
+          let accepted = files;
+          try {
+            const existing = await listDestination(pane);
+            const map = new Map(existing.map((entry) => [entry.name, entry] as const));
+            const identical: File[] = [];
+            const conflicts: File[] = [];
+            for (const file of files) {
+              const entry = map.get(file.name);
+              if (!entry || entry.isDir) continue;
+              const same =
+                entry.size === file.size &&
+                sameModTime(entry.modTime, new Date(file.lastModified).toISOString());
+              if (same) identical.push(file);
+              else conflicts.push(file);
+            }
+            for (const file of identical) {
+              pushLog(`Skipped ${file.name} (already up to date)`, 'info');
+            }
+            accepted = files.filter((file) => !identical.includes(file));
+            if (conflicts.length > 0) {
+              const ok = await askOverwriteMany(conflicts.length);
+              if (!ok) accepted = accepted.filter((file) => !conflicts.includes(file));
+            }
+          } catch (error) {
+            pushLog(`Could not check existing files: ${describe(error)}`, 'error');
+          }
+          if (accepted.length === 0) return;
+
+          const total = accepted.reduce((sum, file) => sum + file.size, 0);
+          const transferId = addTransfer(
+            accepted.length === 1 ? accepted[0].name : `${accepted.length} files`,
+            `→ ${paneLabel(live(pane))}`,
+            total,
+          );
+          pushLog(`Uploading ${accepted.length} file(s) …`);
+
+          const execute = async () => {
+            const model = live(pane);
+            let loadedBase = 0;
+            const onProgress = (loaded: number, fileTotal: number) => {
+              patchTransfer(transferId, { loaded: loadedBase + loaded, total: total || fileTotal });
+            };
+            if (model.kind === 'browser') {
+              const handle = model.browserStack[model.browserStack.length - 1];
+              if (!handle) throw new Error('no folder selected');
+              for (const file of accepted) {
+                await bfs.writeBrowserFile(handle, file.name, file);
+                loadedBase += file.size;
+                onProgress(0, 0);
+              }
+              return;
+            }
+            for (const file of accepted) {
+              await withExpiryRetry(pane, () =>
+                endpointFor(pane).upload(model.path, file.name, file, onProgress),
+              );
+              loadedBase += file.size;
+              onProgress(0, 0);
+            }
+          };
+
+          try {
+            await execute();
+            patchTransfer(transferId, { state: 'done', loaded: total || 1, total: total || 1 });
+            pushLog(`Uploaded ${accepted.length} file(s)`, 'success');
+            void loadPane(pane, live(pane).path);
+          } catch (error) {
+            patchTransfer(transferId, { state: 'error', message: describe(error) });
+            pushLog(`Upload failed: ${describe(error)}`, 'error');
+            notify(describe(error), 'error');
+          }
         } finally {
           setBusy(false);
         }
@@ -755,6 +867,8 @@ export default function SftpPanel() {
       loadPane,
       withExpiryRetry,
       endpointFor,
+      listDestination,
+      askOverwriteMany,
     ],
   );
 
@@ -762,6 +876,46 @@ export default function SftpPanel() {
     setLogs([]);
     setTransfers((prev) => prev.filter((item) => item.state === 'running'));
   }, []);
+
+  const showContextMenu = useCallback(
+    (pane: PaneSide, event: ReactMouseEvent<HTMLElement>, item: PaneItem | null) => {
+      const zoom = Number.parseFloat(document.documentElement.style.zoom) || 1;
+      const model = live(pane);
+      const other = live(pane === 'left' ? 'right' : 'left');
+      const canReceive = other.kind !== 'browser' || other.browserStack.length > 0;
+      const canUp = model.kind === 'browser' ? model.browserStack.length > 1 : model.path !== '/';
+      const items: ContextMenuItem[][] = [
+        [
+          {
+            label: pane === 'left' ? t('sftp.copyRight') : t('sftp.copyLeft'),
+            disabled: busy || !item || !canReceive,
+            onClick: () => void transfer(pane),
+          },
+        ],
+        [
+          {
+            label: t('sftp.rename'),
+            disabled: !item || model.kind === 'browser',
+            onClick: () => item && setDialog({ pane, kind: 'rename', name: item.name }),
+          },
+          {
+            label: t('sftp.delete'),
+            danger: true,
+            disabled: !item,
+            onClick: () =>
+              item && setDialog({ pane, kind: 'delete', name: item.name, isDir: item.isDir }),
+          },
+        ],
+        [
+          { label: t('sftp.newFolder'), onClick: () => setDialog({ pane, kind: 'newFolder' }) },
+          { label: t('sftp.refresh'), onClick: () => void loadPane(pane, model.path) },
+          { label: t('sftp.up'), disabled: !canUp, onClick: () => upPane(pane) },
+        ],
+      ];
+      setMenu({ x: event.clientX / zoom, y: event.clientY / zoom, items });
+    },
+    [busy, transfer, loadPane, upPane, t],
+  );
 
   // ── Pane actions ─────────────────────────────────────────────────────
 
@@ -849,6 +1003,7 @@ export default function SftpPanel() {
         onUp={() => upPane(pane)}
         onRefresh={() => void loadPane(pane, model.path)}
         onDropFiles={(files) => uploadDroppedFiles(pane, files)}
+        onContextMenu={(event, item) => showContextMenu(pane, event, item)}
       />
     );
   };
@@ -916,6 +1071,49 @@ export default function SftpPanel() {
           danger
           onConfirm={confirmDelete}
           onCancel={() => setDialog(null)}
+        />
+      )}
+
+      {menu && (
+        <ContextMenu
+          items={menu.items}
+          position={{ x: menu.x, y: menu.y }}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
+      {conflict && (
+        <ConfirmDialog
+          title={t('sftp.overwriteTitle')}
+          message={
+            conflict.kind === 'single' ? (
+              <div className="space-y-1.5">
+                <p>{t('sftp.overwriteMessage', { name: conflict.name })}</p>
+                <div className="space-y-0.5 text-[11px] text-white/40">
+                  <p>
+                    {t('sftp.incoming')}: {formatModTime(conflict.incomingTime)} ·{' '}
+                    {formatSize(conflict.incomingSize)}
+                  </p>
+                  <p>
+                    {t('sftp.existing')}: {formatModTime(conflict.existingTime)} ·{' '}
+                    {formatSize(conflict.existingSize)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              t('sftp.overwriteMany', { count: conflict.count })
+            )
+          }
+          confirmLabel={t('sftp.overwrite')}
+          danger
+          onConfirm={() => {
+            conflict.resolve(true);
+            setConflict(null);
+          }}
+          onCancel={() => {
+            conflict.resolve(false);
+            setConflict(null);
+          }}
         />
       )}
 

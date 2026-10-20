@@ -747,6 +747,12 @@
     "noTransfers": "暂无传输",
     "noLog": "暂无日志",
     "collapse": "收起",
-    "expand": "展开"
+    "expand": "展开",
+    "overwriteTitle": "文件已存在",
+    "overwriteMessage": "“{{name}}” 已存在，且大小或日期不同。是否覆盖？",
+    "overwriteMany": "{{count}} 个文件已存在，且大小或日期不同。是否覆盖？",
+    "overwrite": "覆盖",
+    "incoming": "新文件",
+    "existing": "现有文件"
   }
 }

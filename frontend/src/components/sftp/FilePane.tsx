@@ -1,7 +1,8 @@
-import { type ReactNode, useState } from 'react';
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TOOLBAR_BTN } from '../../lib/constants';
-import { formatDate, formatSize } from '../../lib/format';
+import { formatSize } from '../../lib/format';
+import { formatModTime } from './format';
 import { ChevronUpIcon, FileIcon, FolderIcon, RefreshIcon, UploadIcon } from '../icons';
 import type { EndpointKind, PaneItem } from './api';
 import type { SavedSftpConnection } from '../../store/sftp';
@@ -41,6 +42,7 @@ export function FilePane({
   onUp,
   onRefresh,
   onDropFiles,
+  onContextMenu,
 }: {
   kind: EndpointKind;
   state: PaneState;
@@ -73,6 +75,8 @@ export function FilePane({
   onUp: () => void;
   onRefresh: () => void;
   onDropFiles?: (files: File[]) => void;
+  /** Right-click on a row (item) or on empty space (null). */
+  onContextMenu?: (event: ReactMouseEvent<HTMLElement>, item: PaneItem | null) => void;
 }) {
   const { t } = useTranslation();
   const [dragOver, setDragOver] = useState(false);
@@ -175,7 +179,14 @@ export function FilePane({
             </div>
           )}
 
-          <div className="scrollbar-thin min-h-0 flex-1 overflow-auto">
+          <div
+            className="scrollbar-thin min-h-0 flex-1 overflow-auto"
+            onContextMenu={(e) => {
+              if (e.target !== e.currentTarget) return;
+              e.preventDefault();
+              onContextMenu?.(e, null);
+            }}
+          >
             {loading && (
               <p className="px-3 py-4 text-center text-xs text-white/30">{t('sftp.loading')}</p>
             )}
@@ -194,6 +205,12 @@ export function FilePane({
                     type="button"
                     onClick={() => onSelect(item.name)}
                     onDoubleClick={() => onOpen(item)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelect(item.name);
+                      onContextMenu?.(e, item);
+                    }}
                     className={`flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-sm transition-colors ${
                       active ? 'bg-sky-500/15 text-white/90' : 'text-white/70 hover:bg-white/[0.04]'
                     }`}
@@ -203,8 +220,8 @@ export function FilePane({
                     <span className="w-16 shrink-0 text-right text-[11px] text-white/30">
                       {item.isDir ? '' : formatSize(item.size)}
                     </span>
-                    <span className="w-20 shrink-0 text-right text-[11px] text-white/25">
-                      {item.modTime ? formatDate(item.modTime, t) : ''}
+                    <span className="w-32 shrink-0 text-right text-[11px] tabular-nums text-white/25">
+                      {formatModTime(item.modTime)}
                     </span>
                   </button>
                 );

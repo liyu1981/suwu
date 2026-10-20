@@ -25,8 +25,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// IdleTimeout closes sessions that have not been used for a while.
-const IdleTimeout = 30 * time.Minute
+// IdleTimeout closes sessions that have not been used for a while. It is
+// generous so a long transfer is not reaped mid-copy; the tile also reconnects
+// automatically if a session does expire.
+const IdleTimeout = 2 * time.Hour
 
 // dialTimeout bounds the initial SSH handshake.
 const dialTimeout = 20 * time.Second

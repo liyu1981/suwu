@@ -29,9 +29,16 @@ const actionBtn =
 
 const BOTTOM_MIN = 84;
 const BOTTOM_DEFAULT = 170;
+/** How many times an expired session is re-dialled before giving up. */
+const RECONNECT_ATTEMPTS = 3;
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** The server reports a closed/cleaned-up session with this message. */
+function isExpiredSession(error: unknown): boolean {
+  return /session not found or expired/i.test(describe(error));
 }
 
 interface PaneModel {
@@ -65,6 +72,8 @@ type DialogState =
   | { pane: 'left' | 'right'; kind: 'rename'; name: string }
   | { pane: 'left' | 'right'; kind: 'delete'; name: string; isDir: boolean };
 
+type PaneSide = 'left' | 'right';
+
 export default function SftpPanel() {
   const { t } = useTranslation();
   const [savedConnections, setSavedConnections] = useAtom(sftpSavedConnectionsAtom);
@@ -97,6 +106,23 @@ export default function SftpPanel() {
   });
   const leftPctRef = useRef(leftPct);
   const splitRef = useRef<HTMLDivElement>(null);
+
+  // Latest pane data for async flows (state setters alone are stale in callbacks).
+  const modelsRef = useRef<{ left: PaneModel; right: PaneModel }>({ left, right });
+  useEffect(() => {
+    modelsRef.current = { left, right };
+  }, [left, right]);
+
+  // Credentials are kept in memory (never persisted) so an expired session can
+  // be re-dialled silently. Cleared on disconnect / endpoint change.
+  const credsRef = useRef<{ left: ConnectParams | null; right: ConnectParams | null }>({
+    left: null,
+    right: null,
+  });
+  const connRef = useRef<{ left: RemoteConnection | null; right: RemoteConnection | null }>({
+    left: null,
+    right: null,
+  });
 
   const notify = useCallback((message: string, tone: 'info' | 'error' = 'info') => {
     setToast({ message, tone });
@@ -162,17 +188,88 @@ export default function SftpPanel() {
     window.addEventListener('pointerup', onUp);
   }, []);
 
-  const update = useCallback((pane: 'left' | 'right', patch: Partial<PaneModel>) => {
+  const update = useCallback((pane: PaneSide, patch: Partial<PaneModel>) => {
     const setter = pane === 'left' ? setLeft : setRight;
     setter((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const modelFor = (pane: 'left' | 'right') => (pane === 'left' ? left : right);
+  const modelFor = (pane: PaneSide) => (pane === 'left' ? left : right);
+  const live = (pane: PaneSide) => modelsRef.current[pane];
+
+  const sessionOf = (pane: PaneSide) =>
+    connRef.current[pane]?.sessionId ?? modelsRef.current[pane].connection?.sessionId;
+
+  /** Endpoint for a pane, reading the live connection (so reconnect is picked up). */
+  const endpointFor = useCallback((pane: PaneSide): api.PaneEndpoint => {
+    const model = modelsRef.current[pane];
+    if (model.kind === 'remote') {
+      const conn = connRef.current[pane] ?? model.connection;
+      if (!conn) throw new Error('session not found or expired');
+      return api.paneEndpoint('remote', conn.sessionId);
+    }
+    return api.paneEndpoint(model.kind);
+  }, []);
+
+  /** Re-dial a remote pane with its retained credentials. */
+  const reconnect = useCallback(
+    async (pane: PaneSide): Promise<RemoteConnection | null> => {
+      const creds = credsRef.current[pane];
+      if (!creds) return null;
+      for (let attempt = 1; attempt <= RECONNECT_ATTEMPTS; attempt++) {
+        try {
+          const conn = await api.connectRemote(creds);
+          connRef.current[pane] = conn;
+          update(pane, {
+            connection: conn,
+            state: { kind: 'connected' },
+            path: live(pane).path || conn.home,
+            error: null,
+          });
+          pushLog(`Reconnected to ${conn.user}@${conn.host}`, 'success');
+          return conn;
+        } catch (error) {
+          if (attempt === RECONNECT_ATTEMPTS) {
+            connRef.current[pane] = null;
+            update(pane, {
+              connection: null,
+              state: { kind: 'connecting', error: describe(error) },
+              entries: [],
+              selected: null,
+              path: '',
+            });
+            pushLog(`Reconnect failed: ${describe(error)}`, 'error');
+            return null;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+        }
+      }
+      return null;
+    },
+    [update, pushLog],
+  );
+
+  /** Run an operation, reconnecting and retrying once if the session expired. */
+  const withExpiryRetry = useCallback(
+    async <T,>(pane: PaneSide, fn: () => Promise<T>): Promise<T> => {
+      try {
+        return await fn();
+      } catch (error) {
+        const model = live(pane);
+        if (model.kind === 'remote' && credsRef.current[pane] && isExpiredSession(error)) {
+          const conn = await reconnect(pane);
+          if (conn) return await fn();
+        }
+        throw error;
+      }
+    },
+    [reconnect],
+  );
 
   // ── Loading ──────────────────────────────────────────────────────────
 
   const loadPane = useCallback(
-    async (pane: 'left' | 'right', model: PaneModel, path: string) => {
+    async (pane: PaneSide, path: string) => {
+      const model = live(pane);
       update(pane, { loading: true, error: null });
       try {
         let entries: PaneItem[];
@@ -185,8 +282,7 @@ export default function SftpPanel() {
           }
           entries = await bfs.listBrowserDir(handle);
         } else {
-          const endpoint = api.paneEndpoint(model.kind, model.connection?.sessionId);
-          const res = await endpoint.list(path);
+          const res = await withExpiryRetry(pane, () => endpointFor(pane).list(path));
           entries = res.entries;
           resolved = res.path || path;
         }
@@ -196,7 +292,7 @@ export default function SftpPanel() {
         pushLog(`List failed: ${describe(error)}`, 'error');
       }
     },
-    [update, pushLog],
+    [update, pushLog, withExpiryRetry, endpointFor],
   );
 
   useEffect(() => {
@@ -224,7 +320,7 @@ export default function SftpPanel() {
     } else if (!left.path) {
       return;
     }
-    void loadPane('left', left, left.path);
+    void loadPane('left', left.path);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leftKey]);
 
@@ -235,19 +331,21 @@ export default function SftpPanel() {
     } else if (!right.path) {
       return;
     }
-    void loadPane('right', right, right.path);
+    void loadPane('right', right.path);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rightKey]);
 
   // ── Kind changes ─────────────────────────────────────────────────────
 
   const changeKind = useCallback(
-    (pane: 'left' | 'right', kind: EndpointKind) => {
-      const model = modelFor(pane);
+    (pane: PaneSide, kind: EndpointKind) => {
+      const model = live(pane);
       if (model.kind === kind) return;
       if (model.kind === 'remote' && model.connection) {
         void api.disconnectRemote(model.connection.sessionId);
       }
+      credsRef.current[pane] = null;
+      connRef.current[pane] = null;
       update(pane, {
         kind,
         state: kind === 'remote' ? { kind: 'disconnected' } : { kind: 'connected' },
@@ -259,8 +357,7 @@ export default function SftpPanel() {
         path: '',
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [left, right, update],
+    [update],
   );
 
   useEffect(() => {
@@ -280,10 +377,12 @@ export default function SftpPanel() {
   // ── Connect / disconnect ─────────────────────────────────────────────
 
   const connect = useCallback(
-    async (pane: 'left' | 'right', params: ConnectParams) => {
+    async (pane: PaneSide, params: ConnectParams) => {
       update(pane, { state: { kind: 'connecting', error: null } });
       try {
         const conn = await api.connectRemote(params);
+        credsRef.current[pane] = params;
+        connRef.current[pane] = conn;
         update(pane, {
           connection: conn,
           state: { kind: 'connected' },
@@ -309,12 +408,14 @@ export default function SftpPanel() {
   );
 
   const disconnect = useCallback(
-    async (pane: 'left' | 'right') => {
-      const model = modelFor(pane);
+    async (pane: PaneSide) => {
+      const model = live(pane);
       if (model.connection) {
         await api.disconnectRemote(model.connection.sessionId);
         pushLog(`Disconnected from ${model.connection.user}@${model.connection.host}`, 'info');
       }
+      credsRef.current[pane] = null;
+      connRef.current[pane] = null;
       update(pane, {
         connection: null,
         state: { kind: 'disconnected' },
@@ -324,8 +425,7 @@ export default function SftpPanel() {
         error: null,
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [left, right, update, pushLog],
+    [update, pushLog],
   );
 
   const forgetConnection = useCallback(
@@ -334,7 +434,7 @@ export default function SftpPanel() {
   );
 
   const pickBrowserFolder = useCallback(
-    async (pane: 'left' | 'right') => {
+    async (pane: PaneSide) => {
       try {
         const handle = await bfs.pickDirectory();
         update(pane, { browserStack: [handle], entries: [], selected: null });
@@ -348,9 +448,9 @@ export default function SftpPanel() {
   // ── Navigation ───────────────────────────────────────────────────────
 
   const openItem = useCallback(
-    async (pane: 'left' | 'right', item: PaneItem) => {
+    async (pane: PaneSide, item: PaneItem) => {
       if (!item.isDir) return;
-      const model = modelFor(pane);
+      const model = live(pane);
       if (model.kind === 'browser') {
         const handle = model.browserStack[model.browserStack.length - 1];
         if (!handle) return;
@@ -364,13 +464,12 @@ export default function SftpPanel() {
       }
       update(pane, { path: api.joinPath(model.path, item.name) });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [left, right, update, notify],
+    [update, notify],
   );
 
   const upPane = useCallback(
-    (pane: 'left' | 'right') => {
-      const model = modelFor(pane);
+    (pane: PaneSide) => {
+      const model = live(pane);
       if (model.kind === 'browser') {
         if (model.browserStack.length > 1) {
           update(pane, {
@@ -383,8 +482,7 @@ export default function SftpPanel() {
       }
       if (model.path && model.path !== '/') update(pane, { path: api.parentPath(model.path) });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [left, right, update],
+    [update],
   );
 
   // ── Operations ───────────────────────────────────────────────────────
@@ -405,25 +503,24 @@ export default function SftpPanel() {
     [notify, pushLog],
   );
 
-  const endpointFor = (model: PaneModel) =>
-    api.paneEndpoint(model.kind, model.connection?.sessionId);
-
   const confirmNewFolder = (name: string) => {
     if (!dialog || dialog.kind !== 'newFolder') return;
     const pane = dialog.pane;
-    const model = modelFor(pane);
     void run(
       async () => {
+        const model = live(pane);
         if (model.kind === 'browser') {
           const handle = model.browserStack[model.browserStack.length - 1];
           if (!handle) throw new Error('no folder selected');
           await bfs.makeBrowserDir(handle, name);
         } else {
-          await endpointFor(model).mkdir(api.joinPath(model.path, name));
+          await withExpiryRetry(pane, () =>
+            endpointFor(pane).mkdir(api.joinPath(model.path, name)),
+          );
         }
       },
       () => {
-        void loadPane(pane, model, model.path);
+        void loadPane(pane, live(pane).path);
         pushLog(`Created folder ${name}`, 'success');
       },
     );
@@ -432,15 +529,17 @@ export default function SftpPanel() {
   const confirmRename = (newName: string) => {
     if (!dialog || dialog.kind !== 'rename') return;
     const pane = dialog.pane;
-    const model = modelFor(pane);
     void run(
       async () => {
+        const model = live(pane);
         if (model.kind === 'browser')
           throw new Error('rename is not supported in a browser folder');
-        await endpointFor(model).rename(api.joinPath(model.path, dialog.name), newName);
+        await withExpiryRetry(pane, () =>
+          endpointFor(pane).rename(api.joinPath(model.path, dialog.name), newName),
+        );
       },
       () => {
-        void loadPane(pane, model, model.path);
+        void loadPane(pane, live(pane).path);
         pushLog(`Renamed ${dialog.name} to ${newName}`, 'success');
       },
     );
@@ -449,19 +548,21 @@ export default function SftpPanel() {
   const confirmDelete = () => {
     if (!dialog || dialog.kind !== 'delete') return;
     const pane = dialog.pane;
-    const model = modelFor(pane);
     void run(
       async () => {
+        const model = live(pane);
         if (model.kind === 'browser') {
           const handle = model.browserStack[model.browserStack.length - 1];
           if (!handle) throw new Error('no folder selected');
           await bfs.removeBrowserEntry(handle, dialog.name, dialog.isDir);
         } else {
-          await endpointFor(model).remove(api.joinPath(model.path, dialog.name));
+          await withExpiryRetry(pane, () =>
+            endpointFor(pane).remove(api.joinPath(model.path, dialog.name)),
+          );
         }
       },
       () => {
-        void loadPane(pane, model, model.path);
+        void loadPane(pane, live(pane).path);
         pushLog(`Deleted ${dialog.name}`, 'success');
       },
     );
@@ -479,25 +580,27 @@ export default function SftpPanel() {
         : t('sftp.modeSuwu');
 
   const transfer = useCallback(
-    async (from: 'left' | 'right') => {
-      const src = modelFor(from);
-      const dstPane = from === 'left' ? 'right' : 'left';
-      const dst = modelFor(dstPane);
-      const item = src.entries.find((e) => e.name === src.selected);
-      if (!item) return;
+    async (from: PaneSide) => {
+      const dstPane: PaneSide = from === 'left' ? 'right' : 'left';
+      const initial = live(from).entries.find((e) => e.name === live(from).selected);
+      if (!initial) return;
 
-      const srcPath = api.joinPath(src.path, item.name);
-      const direction = `${paneLabel(src)} → ${paneLabel(dst)}`;
-      const usesProgress = src.kind === 'browser' || dst.kind === 'browser';
+      const direction = `${paneLabel(live(from))} → ${paneLabel(live(dstPane))}`;
+      const usesProgress = live(from).kind === 'browser' || live(dstPane).kind === 'browser';
       const transferId = addTransfer(
-        item.name,
+        initial.name,
         direction,
-        usesProgress && !item.isDir ? item.size : 0,
+        usesProgress && !initial.isDir ? initial.size : 0,
       );
-      pushLog(`Copying ${item.name} (${direction}) …`);
+      pushLog(`Copying ${initial.name} (${direction}) …`);
 
-      setBusy(true);
-      try {
+      let poll: number | undefined;
+
+      const execute = async () => {
+        const src = live(from);
+        const dst = live(dstPane);
+        const item = src.entries.find((e) => e.name === initial.name) ?? initial;
+        const srcPath = api.joinPath(src.path, item.name);
         const onProgress = (loaded: number, total: number) => {
           patchTransfer(transferId, { loaded, total: total || 0 });
         };
@@ -507,100 +610,131 @@ export default function SftpPanel() {
           if (!handle) throw new Error('no folder selected');
           if (dst.kind === 'browser')
             throw new Error('browser-to-browser copy is not supported yet');
-          await api.copyBrowserToEndpoint(handle, item, endpointFor(dst), dst.path, onProgress);
-        } else if (dst.kind === 'browser') {
+          await api.copyBrowserToEndpoint(handle, item, endpointFor(dstPane), dst.path, onProgress);
+          return;
+        }
+        if (dst.kind === 'browser') {
           const dstHandle = dst.browserStack[dst.browserStack.length - 1];
           if (!dstHandle) throw new Error('no folder selected');
-          await api.copyEndpointToBrowser(endpointFor(src), srcPath, item, dstHandle, onProgress);
-        } else {
-          // Server-side copy: there is no byte stream in this page, so poll
-          // the destination file size for single-file progress.
-          let poll: number | undefined;
-          if (!item.isDir && item.size > 0) {
-            patchTransfer(transferId, { total: item.size });
-            const destEndpoint = endpointFor(dst);
-            poll = window.setInterval(() => {
-              void destEndpoint
-                .list(dst.path)
-                .then(({ entries }) => {
-                  const found = entries.find((entry) => entry.name === item.name);
-                  if (found) {
-                    patchTransfer(transferId, { loaded: Math.min(found.size, item.size) });
-                  }
-                })
-                .catch(() => undefined);
-            }, 700);
-          }
-          try {
-            await api.serverTransfer({
-              sourceKind: src.kind,
-              sourceSession: src.connection?.sessionId,
-              sourcePath: srcPath,
-              destinationKind: dst.kind,
-              destSession: dst.connection?.sessionId,
-              destinationPath: dst.path,
-              recursive: item.isDir,
-            });
-          } finally {
-            if (poll !== undefined) window.clearInterval(poll);
-          }
+          await api.copyEndpointToBrowser(endpointFor(from), srcPath, item, dstHandle, onProgress);
+          return;
         }
 
-        patchTransfer(transferId, { state: 'done', loaded: item.size || 1, total: item.size || 1 });
-        pushLog(`Copied ${item.name}`, 'success');
-        notify(t('sftp.copied', { name: item.name }));
-        void loadPane(dstPane, dst, dst.path);
+        // Server-side copy: no byte stream here, so poll the destination size.
+        if (!item.isDir && item.size > 0) {
+          patchTransfer(transferId, { total: item.size });
+          const destEndpoint = endpointFor(dstPane);
+          poll = window.setInterval(() => {
+            void destEndpoint
+              .list(dst.path)
+              .then(({ entries }) => {
+                const found = entries.find((entry) => entry.name === item.name);
+                if (found) patchTransfer(transferId, { loaded: Math.min(found.size, item.size) });
+              })
+              .catch(() => undefined);
+          }, 700);
+        }
+        try {
+          await api.serverTransfer({
+            sourceKind: src.kind,
+            sourceSession: sessionOf(from),
+            sourcePath: srcPath,
+            destinationKind: dst.kind,
+            destSession: sessionOf(dstPane),
+            destinationPath: dst.path,
+            recursive: item.isDir,
+          });
+        } finally {
+          if (poll !== undefined) {
+            window.clearInterval(poll);
+            poll = undefined;
+          }
+        }
+      };
+
+      setBusy(true);
+      try {
+        try {
+          await execute();
+        } catch (error) {
+          if (!isExpiredSession(error)) throw error;
+          // A pane's session expired mid-way: re-dial the remote sides and retry.
+          let reconnected = false;
+          for (const side of ['left', 'right'] as const) {
+            if (live(side).kind === 'remote' && credsRef.current[side]) {
+              if (await reconnect(side)) reconnected = true;
+            }
+          }
+          if (!reconnected) throw error;
+          await execute();
+        }
+
+        patchTransfer(transferId, {
+          state: 'done',
+          loaded: initial.size || 1,
+          total: initial.size || 1,
+        });
+        pushLog(`Copied ${initial.name}`, 'success');
+        notify(t('sftp.copied', { name: initial.name }));
+        void loadPane(dstPane, live(dstPane).path);
       } catch (error) {
         patchTransfer(transferId, { state: 'error', message: describe(error) });
         pushLog(`Copy failed: ${describe(error)}`, 'error');
         notify(describe(error), 'error');
       } finally {
+        if (poll !== undefined) window.clearInterval(poll);
         setBusy(false);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [left, right, addTransfer, patchTransfer, pushLog, notify, t, loadPane],
+    [left, right, addTransfer, patchTransfer, pushLog, notify, t, loadPane, endpointFor, reconnect],
   );
 
   const uploadDroppedFiles = useCallback(
-    (pane: 'left' | 'right', files: File[]) => {
-      const model = modelFor(pane);
+    (pane: PaneSide, files: File[]) => {
       if (files.length === 0) return;
-      if (model.kind === 'browser' && model.browserStack.length === 0) return;
+      if (live(pane).kind === 'browser' && live(pane).browserStack.length === 0) return;
 
       const total = files.reduce((sum, file) => sum + file.size, 0);
       const transferId = addTransfer(
         files.length === 1 ? files[0].name : `${files.length} files`,
-        `→ ${paneLabel(model)}`,
+        `→ ${paneLabel(live(pane))}`,
         total,
       );
       pushLog(`Uploading ${files.length} file(s) …`);
       setBusy(true);
+
+      const execute = async () => {
+        const model = live(pane);
+        let loadedBase = 0;
+        const onProgress = (loaded: number, fileTotal: number) => {
+          patchTransfer(transferId, { loaded: loadedBase + loaded, total: total || fileTotal });
+        };
+        if (model.kind === 'browser') {
+          const handle = model.browserStack[model.browserStack.length - 1];
+          if (!handle) throw new Error('no folder selected');
+          for (const file of files) {
+            await bfs.writeBrowserFile(handle, file.name, file);
+            loadedBase += file.size;
+            onProgress(0, 0);
+          }
+          return;
+        }
+        for (const file of files) {
+          await withExpiryRetry(pane, () =>
+            endpointFor(pane).upload(model.path, file.name, file, onProgress),
+          );
+          loadedBase += file.size;
+          onProgress(0, 0);
+        }
+      };
+
       void (async () => {
         try {
-          let loadedBase = 0;
-          const onProgress = (loaded: number, fileTotal: number) => {
-            patchTransfer(transferId, { loaded: loadedBase + loaded, total: total || fileTotal });
-          };
-          if (model.kind === 'browser') {
-            const handle = model.browserStack[model.browserStack.length - 1];
-            if (!handle) throw new Error('no folder selected');
-            for (const file of files) {
-              await bfs.writeBrowserFile(handle, file.name, file);
-              loadedBase += file.size;
-              onProgress(0, 0);
-            }
-          } else {
-            const endpoint = endpointFor(model);
-            for (const file of files) {
-              await endpoint.upload(model.path, file.name, file, onProgress);
-              loadedBase += file.size;
-              onProgress(0, 0);
-            }
-          }
+          await execute();
           patchTransfer(transferId, { state: 'done', loaded: total || 1, total: total || 1 });
           pushLog(`Uploaded ${files.length} file(s)`, 'success');
-          void loadPane(pane, model, model.path);
+          void loadPane(pane, live(pane).path);
         } catch (error) {
           patchTransfer(transferId, { state: 'error', message: describe(error) });
           pushLog(`Upload failed: ${describe(error)}`, 'error');
@@ -611,7 +745,17 @@ export default function SftpPanel() {
       })();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [left, right, addTransfer, patchTransfer, pushLog, notify, loadPane],
+    [
+      left,
+      right,
+      addTransfer,
+      patchTransfer,
+      pushLog,
+      notify,
+      loadPane,
+      withExpiryRetry,
+      endpointFor,
+    ],
   );
 
   const clearPanel = useCallback(() => {
@@ -621,7 +765,7 @@ export default function SftpPanel() {
 
   // ── Pane actions ─────────────────────────────────────────────────────
 
-  const paneActions = (pane: 'left' | 'right') => {
+  const paneActions = (pane: PaneSide) => {
     const model = modelFor(pane);
     const selected = model.entries.find((e) => e.name === model.selected);
     const other = modelFor(pane === 'left' ? 'right' : 'left');
@@ -672,7 +816,7 @@ export default function SftpPanel() {
     );
   };
 
-  const renderPane = (pane: 'left' | 'right') => {
+  const renderPane = (pane: PaneSide) => {
     const model = modelFor(pane);
     const browserPath =
       model.kind === 'browser'
@@ -703,7 +847,7 @@ export default function SftpPanel() {
         onSelect={(name) => update(pane, { selected: name })}
         onOpen={(item) => void openItem(pane, item)}
         onUp={() => upPane(pane)}
-        onRefresh={() => void loadPane(pane, model, model.path)}
+        onRefresh={() => void loadPane(pane, model.path)}
         onDropFiles={(files) => uploadDroppedFiles(pane, files)}
       />
     );

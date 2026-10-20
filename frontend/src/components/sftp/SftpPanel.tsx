@@ -155,7 +155,7 @@ export default function SftpPanel() {
   const pushLog = useCallback((message: string, tone: LogLine['tone'] = 'info') => {
     const id = ++logSeq.current;
     const time = new Date().toLocaleTimeString([], { hour12: false });
-    setLogs((prev) => [...prev.slice(-299), { id, time, message, tone }]);
+    setLogs((prev) => [{ id, time, message, tone }, ...prev].slice(0, 300));
   }, []);
 
   const addTransfer = useCallback((name: string, detail: string, total: number) => {

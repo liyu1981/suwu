@@ -88,6 +88,11 @@ func main() {
 				log.Fatalf("onboard: %v", err)
 			}
 			return
+		case "install-to":
+			if err := installToCmd(os.Args[2:]); err != nil {
+				log.Fatalf("install-to: %v", err)
+			}
+			return
 		case "daemon":
 			if err := daemon(os.Args[2:]); err != nil {
 				log.Fatalf("daemon: %v", err)
@@ -192,6 +197,11 @@ Usage:
   suwu onboard [--server|--password|--tls|--runtime|--tools|--shell]
                            interactive setup wizard; pass section flags to
                            update only those parts of the configuration
+  suwu install-to [--port <n>] [--identity <file>] <user>@<host>
+                           copy this binary to a remote machine and run its
+                           onboarding wizard over SSH; the transfer is refused
+                           when the platforms do not match (see
+                           'suwu help install-to')
   suwu daemon {start|stop|restart|status|logs}
                            manage a background daemon (default data: ~/.suwu)
   suwu upgrade [--check] [--force]
@@ -368,6 +378,8 @@ Examples:
 `)
 	case "onboard":
 		printOnboardUsage()
+	case "install-to":
+		printInstallToUsage()
 	case "daemon":
 		fmt.Print(`Usage: suwu daemon <command>
 

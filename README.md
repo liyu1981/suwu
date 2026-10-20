@@ -120,6 +120,20 @@ suwu onboard --shell      # shell integration
 Section runs prompt only for that part, show the resulting configuration, and
 leave every other setting as it is on disk. Flags can be combined.
 
+To set up a second machine from here, `suwu install-to` copies this binary to
+it over SSH and runs the remote onboarding wizard with this terminal attached:
+
+```sh
+suwu install-to alice@192.168.0.5
+suwu install-to --port 2222 --identity ~/.ssh/suwu_ed25519 deploy@server.lan
+```
+
+The transfer is refused when the remote platform does not match this binary
+(`uname -sm` vs. GOOS/GOARCH); on a match the file lands in
+`~/.local/bin/suwu`. Authentication uses the ssh-agent, `~/.ssh` keys, or a
+password prompt on this terminal. The SSH connection closes when the wizard
+finishes or on any error.
+
 ## Requirements
 
 - Go 1.27.1+

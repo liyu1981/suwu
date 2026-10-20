@@ -647,19 +647,42 @@ func collectOnboardAuth(plan *onboardPlan) error {
 		return nil
 	}
 	var password, confirm string
-	form = huh.NewForm(huh.NewGroup(
-		huh.NewInput().Title("Set a connection password").Description("Use at least 12 characters.").EchoMode(huh.EchoModePassword).Value(&password),
-		huh.NewInput().Title("Confirm password").EchoMode(huh.EchoModePassword).Value(&confirm),
-	)).WithTheme(tuiTheme())
-	if err := form.Run(); err != nil {
-		return fmt.Errorf("password prompt: %w", err)
-	}
-	password = strings.TrimSpace(password)
-	if len(password) < 12 {
-		return fmt.Errorf("password must be at least 12 characters")
-	}
-	if password != confirm {
-		return fmt.Errorf("passwords do not match")
+	description := "At least 12 characters is recommended."
+	for {
+		form = huh.NewForm(huh.NewGroup(
+			huh.NewInput().Title("Set a connection password").Description(description).EchoMode(huh.EchoModePassword).Value(&password),
+			huh.NewInput().Title("Confirm password").EchoMode(huh.EchoModePassword).Value(&confirm),
+		)).WithTheme(tuiTheme())
+		if err := form.Run(); err != nil {
+			return fmt.Errorf("password prompt: %w", err)
+		}
+		password = strings.TrimSpace(password)
+		if password != confirm {
+			return fmt.Errorf("passwords do not match")
+		}
+		// 12 characters is a suggestion, not a rule: a shorter password is
+		// accepted after the user explicitly confirms it.
+		if len(password) >= 12 {
+			break
+		}
+		var useShort bool
+		confirmForm := huh.NewForm(huh.NewGroup(
+			huh.NewConfirm().
+				Title("Short password").
+				Description(fmt.Sprintf("Only %d character(s) — 12 or more is recommended. Really use it?", len(password))).
+				Affirmative("Use it anyway").
+				Negative("Choose again").
+				Value(&useShort),
+		)).WithTheme(tuiTheme())
+		if err := confirmForm.Run(); err != nil {
+			return fmt.Errorf("short password confirmation: %w", err)
+		}
+		if !useShort {
+			description = "Type a different password (at least 12 characters is recommended)."
+			confirm = ""
+			continue
+		}
+		break
 	}
 	plan.password = password
 	plan.authHash = hashPassword(password)

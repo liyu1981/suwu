@@ -25,10 +25,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// IdleTimeout closes sessions that have not been used for a while. It is
-// generous so a long transfer is not reaped mid-copy; the tile also reconnects
-// automatically if a session does expire.
-const IdleTimeout = 2 * time.Hour
+// IdleTimeout closes sessions that have not been used for a while. The tile
+// heartbeats an open connection (see Session.KeepAlive), so a live tile never
+// expires; the timeout only reaps sessions whose page was closed.
+const IdleTimeout = 30 * time.Minute
 
 // dialTimeout bounds the initial SSH handshake.
 const dialTimeout = 20 * time.Second
@@ -258,6 +258,15 @@ func (s *Session) idleFor() time.Duration {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return time.Since(s.lastUsed)
+}
+
+// KeepAlive resets the idle timer and sends an SSH keepalive so the remote and
+// any NAT/firewall between here and it see traffic on an otherwise idle link.
+// wantReply is false so a server that does not answer cannot block this call.
+func (s *Session) KeepAlive() error {
+	s.touch()
+	_, _, err := s.sshClient.SendRequest("keepalive@openssh.com", false, nil)
+	return err
 }
 
 func (s *Session) close() {

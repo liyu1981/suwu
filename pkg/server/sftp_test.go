@@ -87,3 +87,45 @@ func TestCleanUploadRel(t *testing.T) {
 		t.Fatalf("traversal escaped: %q", got)
 	}
 }
+
+func TestSftpPostRoutesReadSessionFromBody(t *testing.T) {
+	ts, _, _ := extTestServerDir(t, nil)
+	post := func(path, body string) int {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, ts.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer testtoken")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		return resp.StatusCode
+	}
+
+	// The session travels in the JSON body. An unknown id must reach the
+	// manager (404) rather than fail with "session is required" (400).
+	for _, route := range []string{"/api/sftp/mkdir", "/api/sftp/rename", "/api/sftp/delete"} {
+		if status := post(route, `{"session":"nope","path":"/x","newName":"y"}`); status != http.StatusNotFound {
+			t.Errorf("%s: status %d, want 404", route, status)
+		}
+		if status := post(route, `{"path":"/x","newName":"y"}`); status != http.StatusBadRequest {
+			t.Errorf("%s: missing session gave %d, want 400", route, status)
+		}
+	}
+
+	// Ping reads the query parameter.
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/sftp/ping?session=nope", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("ping unknown session: status %d, want 404", resp.StatusCode)
+	}
+}

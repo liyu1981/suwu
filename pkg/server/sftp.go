@@ -61,6 +61,8 @@ func (s *Server) handleSftp(w http.ResponseWriter, r *http.Request) {
 		s.handleSftpDownload(w, r)
 	case "upload":
 		s.handleSftpUpload(w, r)
+	case "ping":
+		s.handleSftpPing(w, r)
 	case "copy":
 		s.handleSftpCopy(w, r)
 	case "transfer":
@@ -122,6 +124,23 @@ func (s *Server) handleSftpDisconnect(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (s *Server) handleSftpPing(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	session, ok := s.sftpSession(w, r)
+	if !ok {
+		return
+	}
+	if err := session.KeepAlive(); err != nil {
+		writeSftpError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (s *Server) handleSftpList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
@@ -150,15 +169,16 @@ func (s *Server) handleSftpMkdir(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	session, ok := s.sftpSession(w, r)
-	if !ok {
-		return
-	}
 	var req struct {
-		Path string `json:"path"`
+		Session string `json:"session"`
+		Path    string `json:"path"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Path) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is required"})
+		return
+	}
+	session, ok := s.sftpSessionByID(w, req.Session)
+	if !ok {
 		return
 	}
 	if err := session.Mkdir(req.Path); err != nil {
@@ -174,11 +194,8 @@ func (s *Server) handleSftpRename(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	session, ok := s.sftpSession(w, r)
-	if !ok {
-		return
-	}
 	var req struct {
+		Session string `json:"session"`
 		Path    string `json:"path"`
 		NewName string `json:"newName"`
 	}
@@ -188,6 +205,10 @@ func (s *Server) handleSftpRename(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.ContainsAny(req.NewName, "/\\") {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "newName must not contain a path separator"})
+		return
+	}
+	session, ok := s.sftpSessionByID(w, req.Session)
+	if !ok {
 		return
 	}
 	newPath := path.Join(path.Dir(req.Path), req.NewName)
@@ -204,15 +225,16 @@ func (s *Server) handleSftpDelete(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	session, ok := s.sftpSession(w, r)
-	if !ok {
-		return
-	}
 	var req struct {
-		Path string `json:"path"`
+		Session string `json:"session"`
+		Path    string `json:"path"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Path) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path is required"})
+		return
+	}
+	session, ok := s.sftpSessionByID(w, req.Session)
+	if !ok {
 		return
 	}
 	if err := session.Remove(req.Path); err != nil {
@@ -337,9 +359,14 @@ func (s *Server) handleSftpCopy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// sftpSession resolves the ?session= parameter (or a JSON body, for POSTs).
+// sftpSession resolves the ?session= parameter (GET/ping routes).
 func (s *Server) sftpSession(w http.ResponseWriter, r *http.Request) (*sftp.Session, bool) {
-	id := strings.TrimSpace(r.URL.Query().Get("session"))
+	return s.sftpSessionByID(w, r.URL.Query().Get("session"))
+}
+
+// sftpSessionByID resolves a body-supplied session id (POST routes).
+func (s *Server) sftpSessionByID(w http.ResponseWriter, id string) (*sftp.Session, bool) {
+	id = strings.TrimSpace(id)
 	if id == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "session is required"})
 		return nil, false

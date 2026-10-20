@@ -232,8 +232,14 @@ export default function SftpPanel() {
     return api.paneEndpoint(model.kind);
   }, []);
 
+  // One in-flight reconnect per pane, shared by the heartbeat and operations.
+  const reconnectRef = useRef<{
+    left: Promise<RemoteConnection | null> | null;
+    right: Promise<RemoteConnection | null> | null;
+  }>({ left: null, right: null });
+
   /** Re-dial a remote pane with its retained credentials. */
-  const reconnect = useCallback(
+  const doReconnect = useCallback(
     async (pane: PaneSide): Promise<RemoteConnection | null> => {
       const creds = credsRef.current[pane];
       if (!creds) return null;
@@ -269,6 +275,38 @@ export default function SftpPanel() {
     },
     [update, pushLog],
   );
+
+  const reconnect = useCallback(
+    (pane: PaneSide): Promise<RemoteConnection | null> => {
+      const existing = reconnectRef.current[pane];
+      if (existing) return existing;
+      const promise = doReconnect(pane);
+      reconnectRef.current[pane] = promise;
+      void promise.finally(() => {
+        if (reconnectRef.current[pane] === promise) reconnectRef.current[pane] = null;
+      });
+      return promise;
+    },
+    [doReconnect],
+  );
+
+  // Keep live sessions alive while the tile is mounted: every minute reset the
+  // server's idle timer and ping the SSH link. If the server already reaped the
+  // session, reconnect with the retained credentials.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      for (const side of ['left', 'right'] as const) {
+        const conn = connRef.current[side];
+        if (!conn) continue;
+        void api.pingRemote(conn.sessionId).catch((error) => {
+          if (isExpiredSession(error) && credsRef.current[side]) {
+            void reconnect(side);
+          }
+        });
+      }
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [reconnect]);
 
   /** Run an operation, reconnecting and retrying once if the session expired. */
   const withExpiryRetry = useCallback(

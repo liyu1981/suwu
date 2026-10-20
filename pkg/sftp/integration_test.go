@@ -139,6 +139,11 @@ func TestSessionOperations(t *testing.T) {
 		t.Fatal("empty home")
 	}
 
+	// A keepalive round-trips without error.
+	if err := session.KeepAlive(); err != nil {
+		t.Fatalf("keepalive: %v", err)
+	}
+
 	// mkdir + list
 	if err := session.Mkdir("docs"); err != nil {
 		t.Fatalf("mkdir: %v", err)

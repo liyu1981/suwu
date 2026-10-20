@@ -141,6 +141,15 @@ export async function connectRemote(params: ConnectParams): Promise<RemoteConnec
   return (await res.json()) as RemoteConnection;
 }
 
+/** Heartbeat a live session (resets its idle timer and pings the SSH link). */
+export async function pingRemote(sessionId: string): Promise<void> {
+  const res = await authFetch(`/api/sftp/ping?session=${encodeURIComponent(sessionId)}`, {
+    method: 'POST',
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(await errorFrom(res));
+}
+
 export async function disconnectRemote(sessionId: string): Promise<void> {
   await postJson('/api/sftp/disconnect', { session: sessionId }).catch(() => undefined);
 }

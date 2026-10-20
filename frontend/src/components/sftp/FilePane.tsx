@@ -67,6 +67,8 @@ function AddressBar({ path, onNavigate }: { path: string; onNavigate: (path: str
 export function FilePane({
   kind,
   state,
+  reconnecting,
+  onCancelReconnect,
   path,
   entries,
   loading,
@@ -92,6 +94,9 @@ export function FilePane({
 }: {
   kind: EndpointKind;
   state: PaneState;
+  /** An auto-reconnect is running; show the Stop control. */
+  reconnecting: boolean;
+  onCancelReconnect: () => void;
   path: string;
   entries: PaneItem[];
   loading: boolean;
@@ -173,6 +178,21 @@ export function FilePane({
           ))}
         </div>
       </div>
+
+      {/* Reconnect-in-progress banner with a Stop button */}
+      {reconnecting && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.04] bg-sky-500/10 px-3 py-1.5 text-[11px] text-sky-200/90">
+          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-sky-400" />
+          <span className="min-w-0 flex-1 truncate">{t('sftp.reconnecting')}</span>
+          <button
+            type="button"
+            onClick={onCancelReconnect}
+            className="shrink-0 rounded border border-white/15 bg-black/30 px-2 py-0.5 text-[11px] text-white/70 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400/60"
+          >
+            {t('sftp.stopReconnect')}
+          </button>
+        </div>
+      )}
 
       {kind === 'remote' && state.kind !== 'connected' ? (
         <ConnectionForm

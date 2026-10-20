@@ -757,6 +757,9 @@
     "overwrite": "Overwrite",
     "incoming": "Incoming",
     "existing": "Existing",
-    "path": "Path"
+    "path": "Path",
+    "reconnecting": "Reconnecting…",
+    "stopReconnect": "Stop",
+    "reconnectStopped": "Reconnect stopped. Check the host and credentials, then connect again."
   }
 }

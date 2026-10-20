@@ -754,6 +754,9 @@
     "overwrite": "覆盖",
     "incoming": "新文件",
     "existing": "现有文件",
-    "path": "路径"
+    "path": "路径",
+    "reconnecting": "重新连接中…",
+    "stopReconnect": "停止",
+    "reconnectStopped": "已停止重连。请检查主机和凭据后重新连接。"
   }
 }

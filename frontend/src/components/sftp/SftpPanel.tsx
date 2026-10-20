@@ -55,6 +55,8 @@ interface PaneModel {
   loading: boolean;
   error: string | null;
   selected: string | null;
+  /** An auto-reconnect loop is running (its Stop button lives in the pane). */
+  reconnecting: boolean;
 }
 
 function initialPane(kind: EndpointKind): PaneModel {
@@ -68,6 +70,7 @@ function initialPane(kind: EndpointKind): PaneModel {
     loading: false,
     error: null,
     selected: null,
+    reconnecting: false,
   };
 }
 
@@ -238,42 +241,91 @@ export default function SftpPanel() {
     right: Promise<RemoteConnection | null> | null;
   }>({ left: null, right: null });
 
+  // Cancellation token of that loop: the pane's Stop button flips it so a
+  // wrong host/credential does not keep retrying for 3 more attempts.
+  const reconnectCancelRef = useRef<{
+    left: { cancelled: boolean } | null;
+    right: { cancelled: boolean } | null;
+  }>({ left: null, right: null });
+
   /** Re-dial a remote pane with its retained credentials. */
   const doReconnect = useCallback(
     async (pane: PaneSide): Promise<RemoteConnection | null> => {
       const creds = credsRef.current[pane];
       if (!creds) return null;
-      for (let attempt = 1; attempt <= RECONNECT_ATTEMPTS; attempt++) {
-        try {
-          const conn = await api.connectRemote(creds);
-          connRef.current[pane] = conn;
-          update(pane, {
-            connection: conn,
-            state: { kind: 'connected' },
-            path: live(pane).path || conn.home,
-            error: null,
-          });
-          pushLog(`Reconnected to ${conn.user}@${conn.host}`, 'success');
-          return conn;
-        } catch (error) {
-          if (attempt === RECONNECT_ATTEMPTS) {
-            connRef.current[pane] = null;
+      const token = { cancelled: false };
+      reconnectCancelRef.current[pane] = token;
+      update(pane, { reconnecting: true, error: null });
+      try {
+        for (let attempt = 1; attempt <= RECONNECT_ATTEMPTS; attempt++) {
+          if (token.cancelled) return null;
+          try {
+            const conn = await api.connectRemote(creds);
+            if (token.cancelled) {
+              // Stopped while the handshake was in flight: honour the cancel.
+              void api.disconnectRemote(conn.sessionId);
+              return null;
+            }
+            connRef.current[pane] = conn;
             update(pane, {
-              connection: null,
-              state: { kind: 'connecting', error: describe(error) },
-              entries: [],
-              selected: null,
-              path: '',
+              connection: conn,
+              state: { kind: 'connected' },
+              path: live(pane).path || conn.home,
+              error: null,
             });
-            pushLog(`Reconnect failed: ${describe(error)}`, 'error');
-            return null;
+            pushLog(`Reconnected to ${conn.user}@${conn.host}`, 'success');
+            return conn;
+          } catch (error) {
+            if (token.cancelled) return null;
+            if (attempt === RECONNECT_ATTEMPTS) {
+              connRef.current[pane] = null;
+              update(pane, {
+                connection: null,
+                state: { kind: 'connecting', error: describe(error) },
+                entries: [],
+                selected: null,
+                path: '',
+              });
+              pushLog(`Reconnect failed: ${describe(error)}`, 'error');
+              return null;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+            if (token.cancelled) return null;
           }
-          await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
         }
+        return null;
+      } finally {
+        if (reconnectCancelRef.current[pane] === token) {
+          reconnectCancelRef.current[pane] = null;
+        }
+        update(pane, { reconnecting: false });
       }
-      return null;
     },
     [update, pushLog],
+  );
+
+  /** Stop a running reconnect loop and return the pane to the login form. */
+  const cancelReconnect = useCallback(
+    (pane: PaneSide) => {
+      const token = reconnectCancelRef.current[pane];
+      if (token) token.cancelled = true;
+      reconnectCancelRef.current[pane] = null;
+      // Forget the credentials so the heartbeat cannot silently retry with the
+      // input the user just cancelled; they re-enter it in the form.
+      credsRef.current[pane] = null;
+      connRef.current[pane] = null;
+      update(pane, {
+        connection: null,
+        state: { kind: 'disconnected' },
+        reconnecting: false,
+        entries: [],
+        path: '',
+        selected: null,
+        error: t('sftp.reconnectStopped'),
+      });
+      pushLog('Reconnect stopped.', 'info');
+    },
+    [update, pushLog, t],
   );
 
   const reconnect = useCallback(
@@ -427,6 +479,8 @@ export default function SftpPanel() {
     (pane: PaneSide, kind: EndpointKind) => {
       const model = live(pane);
       if (model.kind === kind) return;
+      const running = reconnectCancelRef.current[pane];
+      if (running) running.cancelled = true;
       if (model.kind === 'remote' && model.connection) {
         void api.disconnectRemote(model.connection.sessionId);
       }
@@ -441,6 +495,7 @@ export default function SftpPanel() {
         selected: null,
         error: null,
         path: '',
+        reconnecting: false,
       });
     },
     [update],
@@ -496,6 +551,9 @@ export default function SftpPanel() {
   const disconnect = useCallback(
     async (pane: PaneSide) => {
       const model = live(pane);
+      const running = reconnectCancelRef.current[pane];
+      if (running) running.cancelled = true;
+      reconnectCancelRef.current[pane] = null;
       if (model.connection) {
         await api.disconnectRemote(model.connection.sessionId);
         pushLog(`Disconnected from ${model.connection.user}@${model.connection.host}`, 'info');
@@ -1041,6 +1099,8 @@ export default function SftpPanel() {
       <FilePane
         kind={model.kind}
         state={model.state}
+        reconnecting={model.reconnecting}
+        onCancelReconnect={() => cancelReconnect(pane)}
         path={browserPath}
         entries={model.entries}
         loading={model.loading}

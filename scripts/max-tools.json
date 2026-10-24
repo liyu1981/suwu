@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "tools": [
+    {
+      "name": "rg",
+      "version": "15.2.0",
+      "license": "Unlicense/MIT",
+      "archive": "tar.gz",
+      "extract": "rg",
+      "assets": {
+        "amd64": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz",
+        "arm64": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-unknown-linux-musl.tar.gz"
+      },
+      "sha256": {
+        "amd64": "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c",
+        "arm64": "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915"
+      }
+    },
+    {
+      "name": "fzf",
+      "version": "0.74.5",
+      "license": "MIT",
+      "archive": "tar.gz",
+      "extract": "fzf",
+      "assets": {
+        "amd64": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-linux_amd64.tar.gz",
+        "arm64": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-linux_arm64.tar.gz"
+      },
+      "sha256": {
+        "amd64": "d47d7f882972c7d674dbbba998ffa4116e68379616ffac7695d0671e9a722c5f",
+        "arm64": "cf058001da21724a469b714a29cf4aab9cbe860d218a0d6c1b5b661efad7784c"
+      }
+    },
+    {
+      "name": "asdf",
+      "version": "0.20.2",
+      "license": "MIT",
+      "archive": "tar.gz",
+      "extract": "asdf",
+      "assets": {
+        "amd64": "https://github.com/asdf-vm/asdf/releases/download/v0.20.2/asdf-v0.20.2-linux-amd64.tar.gz",
+        "arm64": "https://github.com/asdf-vm/asdf/releases/download/v0.20.2/asdf-v0.20.2-linux-arm64.tar.gz"
+      },
+      "sha256": {
+        "amd64": "6d45e6fab12f50a259b5643adf06a2e77af30a87300b4402440eda09af467a6d",
+        "arm64": "356e135a608bdfba34038c1f18c4b82434d7b6d546e30dbf372c61baaa2f442c"
+      }
+    },
+    {
+      "name": "witr",
+      "version": "0.3.4",
+      "license": "Apache-2.0",
+      "archive": "none",
+      "extract": "witr",
+      "assets": {
+        "amd64": "https://github.com/pranshuparmar/witr/releases/download/v0.3.4/witr-linux-amd64",
+        "arm64": "https://github.com/pranshuparmar/witr/releases/download/v0.3.4/witr-linux-arm64"
+      },
+      "docs": {
+        "witr.1": "https://github.com/pranshuparmar/witr/releases/download/v0.3.4/witr.1"
+      },
+      "sha256": {
+        "amd64": "d99098c61002f9b8a5337977d527dbe8ee29453f2a62c531038ea2749ea738eb",
+        "arm64": "ecd737fcca418026514ed45a6ad06ecc2e02997e1b75ed6e7100ac8cc69eee54"
+      }
+    },
+    {
+      "name": "pig",
+      "version": "0.5.3",
+      "license": "MIT",
+      "archive": "tar.gz",
+      "extract": "pig",
+      "keep": [
+        "LICENSES",
+        "NOTICE",
+        "THIRD_PARTY_NOTICES.md"
+      ],
+      "assets": {
+        "amd64": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-linux-amd64.tar.gz",
+        "arm64": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-linux-arm64.tar.gz"
+      },
+      "sha256": {
+        "amd64": "1e45e5e591a06d087587d5f09d2b6d61673a1e262cb2609e6189defffd5ae7ec",
+        "arm64": "c94acaa8b2a5d3d2b1f59e679f70bba6762dc7a01655369b2ffc40fb9be4552b"
+      }
+    },
+    {
+      "name": "herdr",
+      "version": "0.9.5",
+      "license": "Apache-2.0",
+      "archive": "none",
+      "extract": "herdr",
+      "assets": {
+        "amd64": "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64",
+        "arm64": "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-aarch64"
+      },
+      "sha256": {
+        "amd64": "14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d",
+        "arm64": "17d7536f2da50859523680ef279dffcac8e4a235f4e46fe8da6c2ec44141897c"
+      }
+    }
+  ]
+}

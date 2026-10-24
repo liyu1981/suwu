@@ -32,3 +32,11 @@ __pycache__/
 
 # Logs
 *.log
+
+# suwu-max build output and generated payload
+/build/
+/cmd/SuwuMax/bundle/bundle.tar.gz
+/cmd/SuwuMax/bundle/manifest.json
+
+# release/build output
+/dist/

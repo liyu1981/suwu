@@ -68,6 +68,14 @@ jobs:
             -o suwu \
             ./cmd/Suwu
 
+      - name: Build suwu-max bundle
+        run: |
+          ./scripts/build-max.sh \
+            --skip-frontend \
+            --goos "${{ matrix.goos }}" \
+            --goarch "${{ matrix.goarch }}" \
+            --version "${{ steps.version.outputs.version }}"
+
       - name: Package release archive
         run: |
           mkdir -p dist

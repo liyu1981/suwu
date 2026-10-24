@@ -2,10 +2,11 @@
   "name": "suwu",
   "version": "0.1.13",
   "private": true,
-  "description": "Suwu — standalone Go server + Vite/React frontend for the xterm.js terminal emulator",
+  "description": "Suwu \u2014 standalone Go server + Vite/React frontend for the xterm.js terminal emulator",
   "scripts": {
     "build": "pnpm run build:web && go build -ldflags \"-s -w -X suwu/pkg/version.Version=$(node -p 'require(\"./package.json\").version')\" -o suwu ./cmd/Suwu",
     "build:web": "pnpm --dir frontend build",
+    "build:max": "pnpm run build:web && ./scripts/build-max.sh --skip-frontend",
     "start": "pnpm run build && ./suwu serve",
     "dev": "air -c .air.toml",
     "dev:web": "pnpm --dir frontend dev",

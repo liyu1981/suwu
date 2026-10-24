@@ -9,7 +9,9 @@
     "select": "Select repository tab {{index}}: {{label}}",
     "selectEmpty": "Select new repository tab {{index}}",
     "noRepo": "No repository",
-    "emptyHint": "Open a repository here, or add a tab to track several at once."
+    "emptyHint": "Open a repository here, or add a tab to track several at once.",
+    "pushing": "Pushing commit…",
+    "pulling": "Pulling branch…"
   },
   "gitCompare": {
     "commits": "Commits",

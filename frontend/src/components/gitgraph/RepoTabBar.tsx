@@ -20,6 +20,7 @@ export function RepoTabBar({
   onCloseOthers,
   onCloseAll,
   onNew,
+  working,
 }: {
   tabs: RepoTab[];
   activeId: string;
@@ -28,6 +29,8 @@ export function RepoTabBar({
   onCloseOthers: (id: string) => void;
   onCloseAll: () => void;
   onNew: () => void;
+  /** Tab id → activity label while a push/pull is running. */
+  working?: Record<string, string>;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -82,6 +85,7 @@ export function RepoTabBar({
       >
         {tabs.map((tab, index) => {
           const selected = tab.id === activeId;
+          const busy = working?.[tab.id];
           return (
             <div
               key={tab.id}
@@ -95,12 +99,17 @@ export function RepoTabBar({
                 aria-controls="repo-panel"
                 aria-selected={selected}
                 tabIndex={selected ? 0 : -1}
-                className="max-w-40 truncate px-3 py-2 text-xs outline-none hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400"
-                title={tab.repoPath ?? t('gitTabs.noRepo')}
+                className="flex max-w-40 items-center gap-1.5 px-3 py-2 text-xs outline-none hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400"
+                aria-busy={busy ? true : undefined}
+                title={
+                  busy
+                    ? `${tab.repoPath ?? t('gitTabs.noRepo')} — ${busy}`
+                    : (tab.repoPath ?? t('gitTabs.noRepo'))
+                }
                 aria-label={
-                  tab.repoPath
+                  (tab.repoPath
                     ? t('gitTabs.select', { index: index + 1, label: tab.repoPath })
-                    : t('gitTabs.selectEmpty', { index: index + 1 })
+                    : t('gitTabs.selectEmpty', { index: index + 1 })) + (busy ? ` — ${busy}` : '')
                 }
                 onClick={() => onSelect(tab.id)}
                 // Middle click closes, like every other tab strip.
@@ -110,7 +119,13 @@ export function RepoTabBar({
                   if (tabs.length > 1) onClose(tab.id);
                 }}
               >
-                {labels[index] || t('gitTabs.noRepo')}
+                {busy && (
+                  <span
+                    className="inline-block h-2.5 w-2.5 shrink-0 animate-spin rounded-full border-2 border-white/20 border-t-sky-400 motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="truncate">{labels[index] || t('gitTabs.noRepo')}</span>
               </button>
               {tabs.length > 1 && (
                 <button

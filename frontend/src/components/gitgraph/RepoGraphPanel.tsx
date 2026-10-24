@@ -92,6 +92,7 @@ export function RepoGraphPanel({
   onPatch,
   onSelectRepo,
   refreshToken,
+  onWorking,
 }: {
   tab: RepoTab;
   onPatch: (patch: Partial<RepoTab>) => void;
@@ -99,6 +100,8 @@ export function RepoGraphPanel({
   onSelectRepo: (path: string) => void;
   /** Bumped by the tile toolbar's refresh button. */
   refreshToken: number;
+  /** Reports a push/pull in progress so the tab can show a spinner. */
+  onWorking?: (label: string | null) => void;
 }) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -313,14 +316,17 @@ export function RepoGraphPanel({
       commit: GitCommit,
       target: { localBranch?: string; remote: string; remoteBranch: string },
     ) => {
+      onWorking?.(t('gitTabs.pushing'));
       try {
         await gitAction('push-commit', { hash: commit.hash, ...target });
         refresh();
       } catch (err) {
         showActionError('Push Failed', err);
+      } finally {
+        onWorking?.(null);
       }
     },
-    [gitAction, refresh, showActionError],
+    [gitAction, refresh, showActionError, onWorking, t],
   );
 
   // Push a commit: straight to its tracking branch, or — when it is not
@@ -383,14 +389,17 @@ export function RepoGraphPanel({
   // pulling never merges an unrelated branch into the current one.
   const runPull = useCallback(
     async (target: { localBranch: string; remote: string; remoteBranch: string }) => {
+      onWorking?.(t('gitTabs.pulling'));
       try {
         await gitAction('pull-branch', target);
         refresh();
       } catch (err) {
         showActionError('Pull Failed', err);
+      } finally {
+        onWorking?.(null);
       }
     },
-    [gitAction, refresh, showActionError],
+    [gitAction, refresh, showActionError, onWorking, t],
   );
 
   // Pull the remote of the branch(es) containing a commit. One branch pulls

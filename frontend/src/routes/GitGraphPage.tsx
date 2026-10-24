@@ -42,6 +42,8 @@ function GitGraphContent() {
   const { t } = useTranslation();
   const dropdown = useAutoRefreshDropdown();
   const [refreshToken, setRefreshToken] = useState(0);
+  // Transient per-tab activity (push/pull), shown on the repository tab.
+  const [working, setWorking] = useState<Record<string, string>>({});
   const {
     tabs,
     activeTab,
@@ -59,6 +61,25 @@ function GitGraphContent() {
   useEffect(() => {
     setPageTransparent();
   }, []);
+
+  const markWorking = useCallback((id: string, label: string | null) => {
+    setWorking((prev) => {
+      if (label === null) {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      if (prev[id] === label) return prev;
+      return { ...prev, [id]: label };
+    });
+  }, []);
+  const setActiveWorking = useCallback(
+    (label: string | null) => {
+      if (activeTabId) markWorking(activeTabId, label);
+    },
+    [activeTabId, markWorking],
+  );
 
   const autoRefresh = activeTab?.autoRefreshMs ?? 0;
   // Stable identity so the panel's callbacks do not churn on every render.
@@ -187,6 +208,7 @@ function GitGraphContent() {
           onCloseOthers={closeOthers}
           onCloseAll={closeAll}
           onNew={addTab}
+          working={working}
         />
       )}
 
@@ -205,6 +227,7 @@ function GitGraphContent() {
             refreshToken={refreshToken}
             onPatch={patchActive}
             onSelectRepo={(path) => openRepo(path, activeTab.id)}
+            onWorking={setActiveWorking}
           />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-thin rounded-b-[6px] border-x border-b border-x-white/[0.10] border-b-white/[0.10] bg-black/20 p-4">

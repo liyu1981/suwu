@@ -9,7 +9,9 @@
     "select": "选择仓库标签页 {{index}}：{{label}}",
     "selectEmpty": "选择新建的仓库标签页 {{index}}",
     "noRepo": "未选择仓库",
-    "emptyHint": "在此打开一个仓库，或新建标签页同时跟踪多个仓库。"
+    "emptyHint": "在此打开一个仓库，或新建标签页同时跟踪多个仓库。",
+    "pushing": "正在推送提交…",
+    "pulling": "正在拉取分支…"
   },
   "gitCompare": {
     "commits": "提交列表",

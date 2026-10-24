@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"text/template"
@@ -60,20 +61,65 @@ func loadChecklist() ([]checklistItem, error) {
 	return items, nil
 }
 
+// toolDirs lists the directories where Suwu itself may have installed tools,
+// in probe order:
+//
+//   - SUWU_BIN — set by the suwu-max launcher to its extraction directory;
+//   - the running binary's own directory (suwu-max lives in ~/.suwu/bin);
+//   - ~/.suwu/bin — the suwu-max install target, even when another suwu is
+//     running from elsewhere;
+//   - asdf shims — after `asdf install` a shim may exist on disk but not yet be
+//     on the current shell's PATH.
+//
+// Onboarding must see these because the rc PATH patch only affects new shells,
+// and `suwu-max --no-path` skips it entirely.
+func toolDirs() []string {
+	var dirs []string
+	add := func(dir string) {
+		dir = strings.TrimSpace(dir)
+		if dir == "" {
+			return
+		}
+		for _, existing := range dirs {
+			if existing == dir {
+				return
+			}
+		}
+		dirs = append(dirs, dir)
+	}
+	add(os.Getenv("SUWU_BIN"))
+	if exe, err := os.Executable(); err == nil {
+		add(filepath.Dir(exe))
+	}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		add(filepath.Join(home, ".suwu", "bin"))
+	}
+	add(asdfShimsDir())
+	return dirs
+}
+
+// isExecutableFile reports whether file is a regular executable. On Windows
+// the mode bits are not meaningful, so existence is enough there.
+func isExecutableFile(file string) bool {
+	info, err := os.Stat(file)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return true
+	}
+	return info.Mode()&0o111 != 0
+}
+
 func binaryExists(name string) bool {
+	if strings.TrimSpace(name) == "" {
+		return false
+	}
 	if _, err := exec.LookPath(name); err == nil {
 		return true
 	}
-	// Also check asdf shims directory — after `asdf install` the shim may
-	// exist on disk but not yet be in the current shell's PATH.
-	if asdfDir := os.Getenv("ASDF_DATA_DIR"); asdfDir != "" {
-		if _, err := os.Stat(asdfDir + "/shims/" + name); err == nil {
-			return true
-		}
-	}
-	home, _ := os.UserHomeDir()
-	if home != "" {
-		if _, err := os.Stat(home + "/.asdf/shims/" + name); err == nil {
+	for _, dir := range toolDirs() {
+		if isExecutableFile(filepath.Join(dir, name)) {
 			return true
 		}
 	}
@@ -104,19 +150,18 @@ func asdfShimsDir() string {
 	return ""
 }
 
-// envWithAsdfShims returns os.Environ() with the asdf shims directory
-// prepended to PATH so that shimmed binaries (npm, node, etc.) are found.
-func envWithAsdfShims() []string {
-	shims := asdfShimsDir()
-	if shims == "" {
+// envWithToolDirs returns os.Environ() with the tool directories (including
+// ~/.suwu/bin and asdf shims) prepended to PATH, so a check command can find
+// binaries that are installed but not yet on the current shell's PATH.
+func envWithToolDirs() []string {
+	dirs := toolDirs()
+	if len(dirs) == 0 {
 		return os.Environ()
 	}
-	path := os.Getenv("PATH")
-	if strings.Contains(path, shims) {
-		return os.Environ()
-	}
+	sep := string(os.PathListSeparator)
+	path := strings.Join(dirs, sep) + sep + os.Getenv("PATH")
 	env := make([]string, 0, len(os.Environ())+1)
-	env = append(env, "PATH="+shims+":"+path)
+	env = append(env, "PATH="+path)
 	for _, e := range os.Environ() {
 		if !strings.HasPrefix(e, "PATH=") {
 			env = append(env, e)
@@ -365,7 +410,7 @@ func detectDevenvTools(items []checklistItem) map[string]bool {
 			installed[item.ID] = binaryExists(item.CheckBinary)
 		} else if item.CheckCmd != "" {
 			cmd := exec.Command("bash", "-c", item.CheckCmd)
-			cmd.Env = envWithAsdfShims()
+			cmd.Env = envWithToolDirs()
 			installed[item.ID] = cmd.Run() == nil
 		}
 	}
@@ -545,7 +590,7 @@ func installDevenvPlan(plan devenvPlan) error {
 			installErr = downloadGitHubBinary(item.GitHubRelease)
 		} else if item.InstallCmd != "" {
 			cmd := exec.Command("bash", "-c", item.InstallCmd)
-			cmd.Env = envWithAsdfShims()
+			cmd.Env = envWithToolDirs()
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			installErr = cmd.Run()
@@ -559,7 +604,7 @@ func installDevenvPlan(plan devenvPlan) error {
 		if item.PostInstallCmd != "" {
 			fmt.Println("    → applying post-install setup")
 			cmd := exec.Command("bash", "-c", item.PostInstallCmd)
-			cmd.Env = envWithAsdfShims()
+			cmd.Env = envWithToolDirs()
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {

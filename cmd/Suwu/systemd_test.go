@@ -26,6 +26,8 @@ func TestRenderSystemdServicePinsEnvFile(t *testing.T) {
 		"Environment=SUWU_BIN=" + bin,
 		"Environment=SUWU_VAR=" + varDir,
 		"Environment=SUWU_CONFIG_DIR=" + configDir,
+		"Environment=PATH=",
+		"%h/.local/bin",
 		"[Install]",
 		"WantedBy=default.target",
 	} {
@@ -35,5 +37,10 @@ func TestRenderSystemdServicePinsEnvFile(t *testing.T) {
 	}
 	if strings.Count(unit, "EnvironmentFile=") != 1 {
 		t.Errorf("expected exactly one EnvironmentFile line:\n%s", unit)
+	}
+	// PATH must be pinned after EnvironmentFile so a user .env cannot strip
+	// user bin directories from the service (git-lfs needs them).
+	if pathIdx, envFileIdx := strings.Index(unit, "Environment=PATH="), strings.Index(unit, "EnvironmentFile="); pathIdx < envFileIdx {
+		t.Errorf("Environment=PATH must come after EnvironmentFile:\n%s", unit)
 	}
 }

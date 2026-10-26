@@ -140,14 +140,81 @@ func isGitRepo(path string) bool {
 	return info.IsDir()
 }
 
+// userToolDirs are user-scoped bin directories, relative to $HOME, that
+// commonly hold tools git shells out to: git-lfs (invoked by the pre-push
+// hook and the clean/smudge filters), credential helpers and ssh wrappers.
+// A server started by systemd inherits a minimal PATH that omits them, which
+// makes git report "git-lfs was not found on your path" even when the user
+// has it installed.
+var userToolDirs = []string{".local/bin", "bin", ".cargo/bin", ".asdf/shims", ".bun/bin"}
+
+// systemToolDirs are fallback locations for user-installed tooling that is not
+// on the inherited PATH (Homebrew on Apple Silicon, Linuxbrew).
+var systemToolDirs = []string{"/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"}
+
+// prependPathDirs returns the PATH value made of dirs first, then the entries
+// of current that are not already present. Empty entries are dropped: in a
+// POSIX PATH an empty entry means the current directory, which we never want.
+func prependPathDirs(dirs []string, current string) string {
+	seen := make(map[string]bool, len(dirs)+8)
+	out := make([]string, 0, len(dirs)+8)
+	add := func(dir string) {
+		if dir == "" || seen[dir] {
+			return
+		}
+		seen[dir] = true
+		out = append(out, dir)
+	}
+	for _, dir := range dirs {
+		add(dir)
+	}
+	for _, dir := range strings.Split(current, string(os.PathListSeparator)) {
+		add(dir)
+	}
+	return strings.Join(out, string(os.PathListSeparator))
+}
+
+// gitEnv returns the process environment with PATH extended by the user tool
+// directories that exist on disk, so git and the hooks it runs can find tools
+// like git-lfs regardless of how suwu was launched.
+func gitEnv() []string {
+	env := os.Environ()
+	extra := make([]string, 0, len(userToolDirs)+len(systemToolDirs))
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, rel := range userToolDirs {
+			dir := filepath.Join(home, rel)
+			if info, err := os.Stat(dir); err == nil && info.IsDir() {
+				extra = append(extra, dir)
+			}
+		}
+	}
+	extra = append(extra, systemToolDirs...)
+	entry := "PATH=" + prependPathDirs(extra, os.Getenv("PATH"))
+
+	for i, kv := range env {
+		if strings.HasPrefix(kv, "PATH=") {
+			env[i] = entry
+			return env
+		}
+	}
+	return append(env, entry)
+}
+
+// newGitCmd builds a git command rooted at repoPath, running with gitEnv so
+// hooks and filters (git-lfs) resolve.
+func newGitCmd(repoPath string, args ...string) *exec.Cmd {
+	cmd := exec.Command("git", append([]string{"-C", repoPath}, args...)...)
+	cmd.Env = gitEnv()
+	return cmd
+}
+
 // git runs a git command and returns combined stdout+stderr, or a friendly error.
 func git(repoPath string, args ...string) (string, error) {
 	// Strict check: only allow if the path itself contains .git
 	if !isGitRepo(repoPath) {
 		return "", fmt.Errorf("'%s' is not a git repository (no .git folder found)", repoPath)
 	}
-	full := append([]string{"-C", repoPath}, args...)
-	cmd := exec.Command("git", full...)
+	cmd := newGitCmd(repoPath, args...)
 	out, err := cmd.CombinedOutput()
 	msg := strings.TrimSpace(string(out))
 	if err != nil {
@@ -904,13 +971,13 @@ func (s *Server) handleGitDiff(w http.ResponseWriter, r *http.Request) {
 	// Handle UNCOMMITTED: diff working directory against HEAD
 	if hash == "UNCOMMITTED" {
 		if newPath != "" {
-			cmd = exec.Command("git", "-C", repoPath, "diff", "HEAD", "--", newPath)
+			cmd = newGitCmd(repoPath, "diff", "HEAD", "--", newPath)
 		} else {
-			cmd = exec.Command("git", "-C", repoPath, "diff", "HEAD")
+			cmd = newGitCmd(repoPath, "diff", "HEAD")
 		}
 	} else {
 		// Build git show args: hash -- [oldPath newPath]
-		args := []string{"-C", repoPath, "show", "--format=", "--no-renames", "-U3", hash, "--"}
+		args := []string{"show", "--format=", "--no-renames", "-U3", hash, "--"}
 		added := false
 		if oldPath != "" && oldPath != newPath {
 			args = append(args, "--renames")
@@ -925,7 +992,7 @@ func (s *Server) handleGitDiff(w http.ResponseWriter, r *http.Request) {
 			writeGitError(w, http.StatusBadRequest, "Missing file parameter")
 			return
 		}
-		cmd = exec.Command("git", args...)
+		cmd = newGitCmd(repoPath, args...)
 	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {

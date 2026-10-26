@@ -16,6 +16,13 @@ import (
 // onboard-written file, and EnvironmentFile loads that same file as real
 // process environment (optional, so a missing file is not fatal). Together
 // they stop a stray `$HOME/.env` from shadowing the global configuration.
+// systemdServicePath is the PATH the service runs with. systemd user services
+// get a minimal PATH that omits user bin directories, so tools git shells out
+// to (git-lfs above all) are not found and pushes fail with "git-lfs was not
+// found on your path". The %h specifier expands to the user's home directory.
+const systemdServicePath = "%h/.local/bin:%h/bin:%h/.cargo/bin:%h/.asdf/shims:" +
+	"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 const systemdServiceTemplate = `[Unit]
 Description=Suwu Terminal Server
 After=network.target
@@ -30,6 +37,7 @@ RestartSec=2
 Environment=SUWU_BIN={{.Bin}}
 Environment=SUWU_VAR={{.VarDir}}
 Environment=SUWU_CONFIG_DIR={{.ConfigDir}}
+Environment=PATH={{.Path}}
 
 [Install]
 WantedBy=default.target
@@ -42,7 +50,7 @@ func renderSystemdService(bin, varDir, configDir string) (string, error) {
 		return "", fmt.Errorf("parse template: %w", err)
 	}
 	var buf strings.Builder
-	data := struct{ Bin, VarDir, ConfigDir string }{bin, varDir, configDir}
+	data := struct{ Bin, VarDir, ConfigDir, Path string }{bin, varDir, configDir, systemdServicePath}
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("render service file: %w", err)
 	}

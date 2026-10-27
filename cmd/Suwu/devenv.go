@@ -217,6 +217,19 @@ func rustTarget(goArch string) string {
 	}
 }
 
+// linuxArch maps GOARCH to the CPU token used in oxker-style asset names
+// (x86_64 / aarch64), as opposed to Go's amd64 / arm64.
+func linuxArch(goArch string) string {
+	switch goArch {
+	case "amd64":
+		return "x86_64"
+	case "arm64":
+		return "aarch64"
+	default:
+		return goArch
+	}
+}
+
 func renderAssetName(pattern, version string, archOverride string) (string, error) {
 	arch := goarch()
 	if archOverride != "" {
@@ -234,6 +247,9 @@ func renderAssetName(pattern, version string, archOverride string) (string, erro
 		// (e.g. ripgrep). Empty on unsupported architectures, which renders
 		// an obviously invalid asset name that the download rejects.
 		"RustTarget": rustTarget(arch),
+		// CPU token used by projects that name assets x86_64/aarch64
+		// (e.g. oxker).
+		"LinuxArch": linuxArch(goarch()),
 	}); err != nil {
 		return "", err
 	}

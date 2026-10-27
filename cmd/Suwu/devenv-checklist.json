@@ -166,5 +166,19 @@
     "description": "Tool to explain why a process is running",
     "check_binary": "witr",
     "install_cmd": "curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash"
+  },
+  {
+    "id": "oxker",
+    "name": "oxker",
+    "category": "advanced",
+    "default_selected": false,
+    "description": "Terminal UI for Docker containers",
+    "check_binary": "oxker",
+    "github_release": {
+      "repo": "mrjackwills/oxker",
+      "asset_pattern": "oxker_linux_{{ .LinuxArch }}.tar.gz",
+      "extract_binary": "oxker",
+      "install_to_local_bin": true
+    }
   }
 ]

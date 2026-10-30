@@ -35,6 +35,7 @@
     "wgsl:compiler": "node scripts/wgsl-compiler/build.mjs"
   },
   "dependencies": {
+    "@file-viewer/core": "3.0.0",
     "@file-viewer/preset-standard": "^3.0.0",
     "@file-viewer/react": "^3.0.0",
     "@file-viewer/renderer-pdf": "^3.0.0",

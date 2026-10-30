@@ -41,6 +41,8 @@ export default function FileViewerPage() {
   const [lightboxScale, setLightboxScale] = useState(1);
   const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const viewerHostRef = useRef<HTMLDivElement | null>(null);
+  const dragContainerRef = useRef<HTMLDivElement | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(0);
   const dropdownState = useAutoRefreshDropdown();
   const abortRef = useRef<AbortController | null>(null);
@@ -121,19 +123,85 @@ export default function FileViewerPage() {
   // Open a lightbox when a rendered Mermaid diagram is clicked. Event
   // delegation covers diagrams rendered lazily by the viewer.
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      const shell = target?.closest('.markdown-mermaid, .markdown-mermaid-svg');
-      if (!shell) return;
-      const svg = (shell.querySelector('svg') ?? (shell.tagName === 'svg' ? shell : null)) as SVGElement | null;
+    const tryOpen = (shell: Element) => {
+      const svg = (shell.matches('svg') ? shell : shell.querySelector('svg')) as SVGElement | null;
       if (!svg) return;
       setLightboxSvg(svg.outerHTML);
       setLightboxScale(1);
       setLightboxOffset({ x: 0, y: 0 });
     };
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+
+    let shadowRoot: ShadowRoot | null = null;
+    let observer: MutationObserver | null = null;
+
+    const attach = (root: ParentNode) => {
+      root.querySelectorAll('.markdown-mermaid, .markdown-mermaid-svg').forEach((el) => {
+        if ((el as any).__lightboxBound) return;
+        (el as any).__lightboxBound = true;
+        (el as HTMLElement).style.cursor = 'pointer';
+        el.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          tryOpen(el);
+        });
+      });
+    };
+
+    const discover = () => {
+      if (shadowRoot) return true;
+      const host = viewerHostRef.current;
+      if (!host) return false;
+      // Try direct shadow root on host or any descendant host.
+      // The viewer renders into an open shadow root hosted by a
+      // `.file-render-host` element. Find it and pierce the shadow.
+      const hosts = Array.from(host.querySelectorAll('.file-render-host')) as HTMLElement[];
+      for (const h of hosts) {
+        if (h.shadowRoot) {
+          shadowRoot = h.shadowRoot;
+          const rootSr = shadowRoot as ShadowRoot;
+          observer = new MutationObserver(() => attach(rootSr));
+          observer.observe(rootSr, { childList: true, subtree: true });
+          attach(rootSr);
+              return true;
+        }
+      }
+      // Fallback: any element with a shadowRoot.
+      for (const node of [host, ...Array.from(host.querySelectorAll('*'))]) {
+        const sr = (node as HTMLElement).shadowRoot;
+        if (sr) {
+          shadowRoot = sr;
+          const rootSr = shadowRoot as ShadowRoot;
+          observer = new MutationObserver(() => attach(rootSr));
+          observer.observe(rootSr, { childList: true, subtree: true });
+          attach(rootSr);
+              return true;
+        }
+      }
+      return false;
+    };
+
+    const timer = setInterval(() => {
+      if (!shadowRoot) discover();
+    }, 1500);
+    discover();
+
+    return () => {
+      if (observer) observer.disconnect();
+      clearInterval(timer);
+    };
   }, []);
+
+  // Non-passive wheel zoom for the lightbox (React's onWheel is passive).
+  useEffect(() => {
+    const el = dragContainerRef.current;
+    if (!el || !lightboxSvg) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      setLightboxScale((sc) => Math.min(4, Math.max(0.25, sc - e.deltaY * 0.001)));
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, [lightboxSvg]);
 
   // Catch unhandled promise rejections from renderers (e.g. image decode failures).
   useEffect(() => {
@@ -279,7 +347,7 @@ export default function FileViewerPage() {
     <CommonTileContainer paneId={paneRef.current ?? undefined}>
       <div className="flex h-[calc(100vh-16px)] w-[calc(100vw-16px)] flex-col bg-transparent">
         {header}
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1" ref={viewerHostRef}>
           <FileViewer
             url={fileUrl}
             filename={fileName ?? undefined}
@@ -327,7 +395,8 @@ export default function FileViewerPage() {
               </button>
             </div>
             <div
-              className="h-full w-full cursor-grab active:cursor-grabbing"
+              ref={dragContainerRef}
+              className="flex h-full w-full items-center justify-center cursor-grab active:cursor-grabbing"
               onMouseDown={(e) => {
                 dragRef.current = { x: e.clientX, y: e.clientY, ox: lightboxOffset.x, oy: lightboxOffset.y };
               }}
@@ -344,10 +413,7 @@ export default function FileViewerPage() {
               onMouseLeave={() => {
                 dragRef.current = null;
               }}
-              onWheel={(e) => {
-                e.preventDefault();
-                setLightboxScale((s) => Math.min(4, Math.max(0.25, s - e.deltaY * 0.001)));
-              }}
+
             >
               <div
                 style={{

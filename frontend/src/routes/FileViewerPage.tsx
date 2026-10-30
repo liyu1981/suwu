@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import { FileViewer, type ViewerEventHandler } from '@file-viewer/react';
+import { registerFileViewerMermaidLoader } from '@file-viewer/renderer-text';
 import standardPreset from '@file-viewer/preset-standard';
 import { authFetch } from '../lib/api';
 import { fileViewerThemeAtom } from '../store/settings';
@@ -27,6 +28,8 @@ import {
  * options in sync matters: the wrapper applies `options` on every change, and a
  * stale theme would flip the viewer back mid-session.
  */
+registerFileViewerMermaidLoader(() => import('../lib/fileViewerPeleMermaid'));
+
 export default function FileViewerPage() {
   const paneRef = useRef<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);

@@ -37,6 +37,10 @@ export default function FileViewerPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [lightboxSvg, setLightboxSvg] = useState<string | null>(null);
+  const [lightboxScale, setLightboxScale] = useState(1);
+  const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(0);
   const dropdownState = useAutoRefreshDropdown();
   const abortRef = useRef<AbortController | null>(null);
@@ -112,6 +116,23 @@ export default function FileViewerPage() {
   // Make background transparent so the tiling WM background shows through.
   useEffect(() => {
     setPageTransparent();
+  }, []);
+
+  // Open a lightbox when a rendered Mermaid diagram is clicked. Event
+  // delegation covers diagrams rendered lazily by the viewer.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const shell = target?.closest('.markdown-mermaid, .markdown-mermaid-svg');
+      if (!shell) return;
+      const svg = (shell.querySelector('svg') ?? (shell.tagName === 'svg' ? shell : null)) as SVGElement | null;
+      if (!svg) return;
+      setLightboxSvg(svg.outerHTML);
+      setLightboxScale(1);
+      setLightboxOffset({ x: 0, y: 0 });
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
   }, []);
 
   // Catch unhandled promise rejections from renderers (e.g. image decode failures).
@@ -275,6 +296,69 @@ export default function FileViewerPage() {
           dropdownRef={dropdownState.dropdownRef}
           dropdownPos={dropdownState.dropdownPos}
         />
+      )}
+      {lightboxSvg && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => setLightboxSvg(null)}
+        >
+          <div
+            className="relative h-[80vh] w-[80vw] overflow-hidden rounded-lg bg-white dark:bg-neutral-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="absolute right-2 top-2 z-10 flex gap-2">
+              <button
+                className="rounded bg-black/60 px-2 py-1 text-white"
+                onClick={() => setLightboxScale((s) => Math.min(4, s + 0.25))}
+              >
+                +
+              </button>
+              <button
+                className="rounded bg-black/60 px-2 py-1 text-white"
+                onClick={() => setLightboxScale((s) => Math.max(0.25, s - 0.25))}
+              >
+                -
+              </button>
+              <button
+                className="rounded bg-black/60 px-2 py-1 text-white"
+                onClick={() => setLightboxSvg(null)}
+              >
+                x
+              </button>
+            </div>
+            <div
+              className="h-full w-full cursor-grab active:cursor-grabbing"
+              onMouseDown={(e) => {
+                dragRef.current = { x: e.clientX, y: e.clientY, ox: lightboxOffset.x, oy: lightboxOffset.y };
+              }}
+              onMouseMove={(e) => {
+                if (!dragRef.current) return;
+                setLightboxOffset({
+                  x: dragRef.current.ox + (e.clientX - dragRef.current.x),
+                  y: dragRef.current.oy + (e.clientY - dragRef.current.y),
+                });
+              }}
+              onMouseUp={() => {
+                dragRef.current = null;
+              }}
+              onMouseLeave={() => {
+                dragRef.current = null;
+              }}
+              onWheel={(e) => {
+                e.preventDefault();
+                setLightboxScale((s) => Math.min(4, Math.max(0.25, s - e.deltaY * 0.001)));
+              }}
+            >
+              <div
+                style={{
+                  transform: `translate(${lightboxOffset.x}px, ${lightboxOffset.y}px) scale(${lightboxScale})`,
+                  transformOrigin: 'center center',
+                }}
+                dangerouslySetInnerHTML={{ __html: lightboxSvg }}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </CommonTileContainer>
   );

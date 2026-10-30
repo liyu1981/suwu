@@ -40,6 +40,7 @@ export default function FileViewerPage() {
   const [lightboxSvg, setLightboxSvg] = useState<string | null>(null);
   const [lightboxScale, setLightboxScale] = useState(1);
   const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 });
+  const [lightboxIsDark, setLightboxIsDark] = useState(false);
   const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const viewerHostRef = useRef<HTMLDivElement | null>(null);
   const dragContainerRef = useRef<HTMLDivElement | null>(null);
@@ -49,6 +50,8 @@ export default function FileViewerPage() {
 
   // Day/night as last chosen in this (or another) file viewer pane.
   const [viewerTheme, setViewerTheme] = useAtom(fileViewerThemeAtom);
+  const viewerThemeRef = useRef(viewerTheme);
+  useEffect(() => { viewerThemeRef.current = viewerTheme; }, [viewerTheme]);
 
   const viewerOptions = useMemo(
     () => ({
@@ -126,7 +129,26 @@ export default function FileViewerPage() {
     const tryOpen = (shell: Element) => {
       const svg = (shell.matches('svg') ? shell : shell.querySelector('svg')) as SVGElement | null;
       if (!svg) return;
-      setLightboxSvg(svg.outerHTML);
+      const theme = viewerThemeRef.current;
+      const isDark =
+        theme === 'dark' ||
+        (theme !== 'light' &&
+          typeof window !== 'undefined' &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const darkVars =
+        '--pele-bg:#1e1e1e;--pele-fg:#e6e6e6;--pele-muted:#a0a0a0;' +
+        '--pele-line:#e6e6e6;--pele-surface:#2a2a2a;--pele-surface-alt:#333333;' +
+        '--pele-border:#555555;--pele-accent:#7aa2f7;';
+      let html = svg.outerHTML;
+      if (isDark && !html.includes('--pele-fg:#e6e6e6')) {
+        if (/<svg\b[^>]*\bstyle="/.test(html)) {
+          html = html.replace(/(<svg\b[^>]*\bstyle=")([^"]*)(")/, `$1$2;${darkVars}$3`);
+        } else {
+          html = html.replace(/<svg\b/, `<svg style="${darkVars}"`);
+        }
+      }
+      setLightboxIsDark(isDark);
+      setLightboxSvg(html);
       setLightboxScale(1);
       setLightboxOffset({ x: 0, y: 0 });
     };
@@ -371,7 +393,7 @@ export default function FileViewerPage() {
           onClick={() => setLightboxSvg(null)}
         >
           <div
-            className="relative h-[80vh] w-[80vw] overflow-hidden rounded-lg bg-white dark:bg-neutral-900"
+            className={`relative h-[80vh] w-[80vw] overflow-hidden rounded-lg ${lightboxIsDark ? "bg-neutral-900 text-white" : "bg-white text-black"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute right-2 top-2 z-10 flex gap-2">

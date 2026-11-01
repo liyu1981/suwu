@@ -49,6 +49,7 @@ type Session struct {
 	display     string
 	mode        CaptureMode
 	windowTitle string
+	quality     int
 
 	// mu guards the target-window cache below; xgb's connection itself is
 	// goroutine-safe but these fields are touched from both the input and
@@ -68,17 +69,21 @@ const repickInterval = time.Second
 // when no window manager is running, which is the norm on Xvfb). With an
 // empty title the largest mapped top-level window is picked dynamically —
 // falling back to the full desktop while no app window exists.
-func NewSession(display string, mode CaptureMode, windowTitle string) (*Session, error) {
+func NewSession(display string, mode CaptureMode, windowTitle string, quality int) (*Session, error) {
 	xu, err := xgbutil.NewConnDisplay(display)
 	if err != nil {
 		return nil, err
 	}
 
+	if quality <= 0 {
+		quality = JPEGQuality
+	}
 	s := &Session{
 		X:           xu,
 		display:     display,
 		mode:        mode,
 		windowTitle: windowTitle,
+		quality:     quality,
 	}
 
 	if mode == CaptureSingleWindow && windowTitle != "" {
@@ -326,7 +331,7 @@ func (s *Session) CaptureFrame() ([]byte, error) {
 		}
 
 		var buf bytes.Buffer
-		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: JPEGQuality}); err != nil {
+		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: s.quality}); err != nil {
 			return nil, err
 		}
 		return buf.Bytes(), nil

@@ -43,6 +43,9 @@ func (s *Server) handleXDisplayWS(w http.ResponseWriter, r *http.Request) {
 	if fps, err := strconv.Atoi(q.Get("fps")); err == nil && fps > 0 {
 		params.FPS = fps
 	}
+	if v, err := strconv.Atoi(q.Get("quality")); err == nil && v > 0 {
+		params.Quality = v
+	}
 	if w, err := strconv.Atoi(q.Get("w")); err == nil && w > 0 {
 		params.Width = w
 	}

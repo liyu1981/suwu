@@ -221,6 +221,8 @@
     "guiappTab": "X Display",
     "guiappFps": "Frame Rate",
     "guiappFpsHint": "Higher frame rate smoothes motion but uses more CPU. Takes effect on new connections.",
+    "guiappQuality": "JPEG Quality",
+    "guiappQualityHint": "Lower quality shrinks frames and bandwidth. Takes effect on new connections.",
     "diffFontFamilyHint": "Font family for the diff view. System UI uses your OS default proportional font.",
     "zoom": "Zoom",
     "zoomHint": "Scales the interface inside the {{app}} tile (100%–500%) without changing the tile layout. Applied instantly to all {{app}} panes.",

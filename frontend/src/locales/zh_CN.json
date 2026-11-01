@@ -220,6 +220,8 @@
     "guiappTab": "X 显示",
     "guiappFps": "帧率",
     "guiappFpsHint": "更高的帧率使动画更流畅，但会增加 CPU 使用。新连接时生效。",
+    "guiappQuality": "JPEG 质量",
+    "guiappQualityHint": "更低的质量可减小帧大小与带宽。新连接时生效。",
     "diffFontFamilyHint": "差异视图的字体。系统 UI 使用操作系统的默认比例字体。",
     "zoom": "缩放",
     "zoomHint": "缩放 {{app}} 窗格内的界面（100%–500%），不改变平铺布局。立即应用到所有 {{app}} 窗格。",

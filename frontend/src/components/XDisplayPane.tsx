@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { fetchToken } from '../lib/api';
-import { xdisplayFpsAtom } from '../store/zoom';
+import { xdisplayFpsAtom, xdisplayQualityAtom } from '../store/zoom';
 
 interface XDisplayProps {
   /** X11 display number to stream, e.g. "99" for :99. */
@@ -65,6 +65,8 @@ export default function XDisplayPane({
   const [switchDisplay, setSwitchDisplay] = useState('');
   const fpsSetting = useAtomValue(xdisplayFpsAtom);
   const fps = fpsProp ?? fpsSetting;
+  const qualitySetting = useAtomValue(xdisplayQualityAtom);
+  const quality = qualitySetting;
 
   // ── Frame rendering (latest-wins decode, frame-sized canvas) ─
   const decodeBusy = useRef(false);
@@ -128,6 +130,7 @@ export default function XDisplayPane({
         if (title) params.set('title', title);
         if (desktop) params.set('desktop', desktop);
         if (fps && fps !== 30) params.set('fps', String(fps));
+        if (quality && quality !== 60) params.set('quality', String(quality));
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(`${protocol}//${window.location.host}/ws/xdisplay?${params}`);
         ws.binaryType = 'blob';
@@ -183,7 +186,19 @@ export default function XDisplayPane({
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [display, title, desktop, fps, drawFrame]);
+  }, [display, title, desktop, fps, quality, drawFrame]);
+
+  // Pause streaming when the tab/pane is hidden to save bandwidth.
+  useEffect(() => {
+    const onVis = () => {
+      const ws = wsRef.current;
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: document.hidden ? 'pause' : 'resume' }));
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   const handleRetry = useCallback(() => {
     // Refresh the iframe to retry once.

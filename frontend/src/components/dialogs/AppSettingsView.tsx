@@ -33,6 +33,7 @@ import {
   forwardZoomAtom,
   gitGraphZoomAtom,
   xdisplayFpsAtom,
+  xdisplayQualityAtom,
   clampZoom,
   ZOOM_MIN,
   ZOOM_MAX,
@@ -222,6 +223,7 @@ export default function AppSettingsView() {
   const [diffZoom, setDiffZoom] = useAtom(diffZoomAtom);
   const [diffFontFamily, setDiffFontFamily] = useAtom(diffFontFamilyAtom);
   const [xdisplayFps, setXdisplayFps] = useAtom(xdisplayFpsAtom);
+  const [xdisplayQuality, setXdisplayQuality] = useAtom(xdisplayQualityAtom);
 
   // ── Collapsible groups state ────────────────────────────────────
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -726,6 +728,30 @@ export default function AppSettingsView() {
                 </button>
               </div>
               <p className={sectionHint}>{t('settings.guiappFpsHint')}</p>
+            </div>
+
+            <div className={section}>
+              <div className="flex items-center justify-between">
+                <span className={sectionLabel}>{t('settings.guiappQuality')}</span>
+                <span className="font-mono text-xs text-popover-foreground">Q {xdisplayQuality}</span>
+              </div>
+              <div className="mt-2 flex gap-2">
+                {[30, 50, 60, 85].map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setXdisplayQuality(q)}
+                    className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      xdisplayQuality === q
+                        ? 'bg-sky-500/25 text-sky-300'
+                        : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-popover-foreground'
+                    }`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+              <p className={sectionHint}>{t('settings.guiappQualityHint')}</p>
             </div>
           </TabsPrimitive.Content>
         </TabsPrimitive.Root>

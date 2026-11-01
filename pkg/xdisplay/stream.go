@@ -18,6 +18,7 @@ type StreamParams struct {
 	Mode        CaptureMode
 	WindowTitle string
 	FPS         int
+	Quality     int
 	// Width/Height are the client's pane size — used as the initial
 	// framebuffer size when a fresh Xvfb has to be started (0 = default).
 	Width  int
@@ -128,6 +129,12 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 	if params.FPS > MaxFPS {
 		params.FPS = MaxFPS
 	}
+	if params.Quality <= 0 {
+		params.Quality = JPEGQuality
+	}
+	if params.Quality > 100 {
+		params.Quality = 100
+	}
 
 	// Check system dependencies before attempting to start the display.
 	if depErr := CheckDependencies(); depErr != nil {
@@ -157,7 +164,7 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 		return
 	}
 
-	session, err := NewSession(params.Display, params.Mode, params.WindowTitle)
+	session, err := NewSession(params.Display, params.Mode, params.WindowTitle, params.Quality)
 	if err != nil {
 		slog.Error("graphic: failed to create session", "display", params.Display, "error", err)
 		_ = conn.Close(websocket.StatusInternalError, "failed to start session: "+err.Error())
@@ -194,6 +201,33 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 		slog.Debug("graphic: initial fit failed", "error", err)
 	}
 
+	paused := false
+	lastInput := time.Now()
+	var pauseMu sync.Mutex
+	setPaused := func(v bool) {
+		pauseMu.Lock()
+		paused = v
+		if !v {
+			lastInput = time.Now()
+		}
+		pauseMu.Unlock()
+	}
+	isPaused := func() bool {
+		pauseMu.Lock()
+		defer pauseMu.Unlock()
+		return paused
+	}
+	getLastInput := func() time.Time {
+		pauseMu.Lock()
+		defer pauseMu.Unlock()
+		return lastInput
+	}
+	touchInput := func() {
+		pauseMu.Lock()
+		lastInput = time.Now()
+		pauseMu.Unlock()
+	}
+
 	// Reader: browser input events → xdotool. CloseRead stops the library
 	// from enforcing its own read side; we drive reads here instead.
 	readCtx, cancelRead := context.WithCancel(ctx)
@@ -223,26 +257,50 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 				}
 				continue
 			}
+			if event.Type == "pause" {
+				setPaused(true)
+				continue
+			}
+			if event.Type == "resume" {
+				setPaused(false)
+				continue
+			}
+			touchInput()
 			InjectInput(params.Display, event)
 		}
 	}()
 
 	// Writer: X11 frames → browser.
-	ticker := time.NewTicker(time.Second / time.Duration(params.FPS))
-	defer ticker.Stop()
 	// Periodic window re-fit: newly launched windows get sized to fill the
 	// display, replacing the window manager that Xvfb doesn't have.
 	refit := time.NewTicker(5 * time.Second)
 	defer refit.Stop()
 
 	var lastFrame []byte
+	idleFPS := 5
 	for {
+		// Adaptive FPS: drop to idleFPS when no input for 3s.
+		targetFPS := params.FPS
+		if time.Since(getLastInput()) > 3*time.Second {
+			if idleFPS < targetFPS {
+				targetFPS = idleFPS
+			}
+		}
+		if isPaused() {
+			targetFPS = 1
+		}
+		interval := time.Second / time.Duration(targetFPS)
+		timer := time.NewTimer(interval)
+
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return
 		case <-readCtx.Done():
+			timer.Stop()
 			return
 		case <-refit.C:
+			timer.Stop()
 			sizeMu.Lock()
 			w, h := desiredW, desiredH
 			sizeMu.Unlock()
@@ -255,7 +313,10 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 				slog.Debug("graphic: periodic fit failed", "error", err)
 			}
 			continue
-		case <-ticker.C:
+		case <-timer.C:
+			if isPaused() {
+				continue
+			}
 			frame, err := session.CaptureFrame()
 			if err != nil {
 				slog.Debug("graphic: capture error", "error", err)

@@ -24,6 +24,7 @@ export const gitGraphZoomAtom = atomWithStorage<number>('suwu.gitgraph-zoom', ZO
 export const diffZoomAtom = atomWithStorage<number>('suwu.diff-zoom', ZOOM_DEFAULT);
 export const xdisplayZoomAtom = atomWithStorage<number>('suwu.xdisplay-zoom', ZOOM_DEFAULT);
 export const xdisplayFpsAtom = atomWithStorage<number>('suwu.xdisplay-fps', 30);
+export const xdisplayQualityAtom = atomWithStorage<number>('suwu.xdisplay-quality', 50);
 export const dbbrowserZoomAtom = atomWithStorage<number>('suwu.dbbrowser-zoom', ZOOM_DEFAULT);
 export const codeZoomAtom = atomWithStorage<number>('suwu.code-zoom', ZOOM_DEFAULT);
 export const resthelperZoomAtom = atomWithStorage<number>('suwu.resthelper-zoom', ZOOM_DEFAULT);

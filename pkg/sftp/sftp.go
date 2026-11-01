@@ -403,7 +403,7 @@ func (s *Session) copySessionDir(src *Session, remotePath, destDir string, overw
 			}
 			continue
 		}
-		if err := s.copySessionFile(src, p, target, overwrite); err != nil {
+		if err := s.copySessionFile(src, p, target, true); err != nil {
 			return err
 		}
 	}
@@ -512,7 +512,7 @@ func (s *Session) copyLocalDir(localPath, remoteDir string, overwrite bool) erro
 		if info.IsDir() {
 			return s.sftpClient.MkdirAll(remote)
 		}
-		return s.copyLocalFile(p, remote, info.Size(), overwrite)
+		return s.copyLocalFile(p, remote, info.Size(), true)
 	})
 }
 
@@ -580,7 +580,7 @@ func (s *Session) copyRemoteDir(remotePath, localDir string, overwrite bool) err
 			}
 			continue
 		}
-		if err := s.copyRemoteFile(p, local, overwrite); err != nil {
+		if err := s.copyRemoteFile(p, local, true); err != nil {
 			return err
 		}
 	}

@@ -512,7 +512,7 @@ func copySuwuDir(src, destDir string, overwrite bool) error {
 		if info.IsDir() {
 			return os.MkdirAll(target, 0o755)
 		}
-		return copySuwuFile(p, target, overwrite)
+		return copySuwuFile(p, target, true)
 	})
 }
 

@@ -372,7 +372,9 @@ export default function FileBrowserPage() {
   } | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
-  useEffect(() => { setPathInput(currentPath); }, [currentPath]);
+  useEffect(() => {
+    setPathInput(currentPath);
+  }, [currentPath]);
 
   // Override the opaque :root background so the translucent bgColor shows through.
   useEffect(() => {

@@ -51,7 +51,9 @@ export default function FileViewerPage() {
   // Day/night as last chosen in this (or another) file viewer pane.
   const [viewerTheme, setViewerTheme] = useAtom(fileViewerThemeAtom);
   const viewerThemeRef = useRef(viewerTheme);
-  useEffect(() => { viewerThemeRef.current = viewerTheme; }, [viewerTheme]);
+  useEffect(() => {
+    viewerThemeRef.current = viewerTheme;
+  }, [viewerTheme]);
 
   const viewerOptions = useMemo(
     () => ({
@@ -184,7 +186,7 @@ export default function FileViewerPage() {
           observer = new MutationObserver(() => attach(rootSr));
           observer.observe(rootSr, { childList: true, subtree: true });
           attach(rootSr);
-              return true;
+          return true;
         }
       }
       // Fallback: any element with a shadowRoot.
@@ -196,7 +198,7 @@ export default function FileViewerPage() {
           observer = new MutationObserver(() => attach(rootSr));
           observer.observe(rootSr, { childList: true, subtree: true });
           attach(rootSr);
-              return true;
+          return true;
         }
       }
       return false;
@@ -393,7 +395,7 @@ export default function FileViewerPage() {
           onClick={() => setLightboxSvg(null)}
         >
           <div
-            className={`relative h-[80vh] w-[80vw] overflow-hidden rounded-lg ${lightboxIsDark ? "bg-neutral-900 text-white" : "bg-white text-black"}`}
+            className={`relative h-[80vh] w-[80vw] overflow-hidden rounded-lg ${lightboxIsDark ? 'bg-neutral-900 text-white' : 'bg-white text-black'}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute right-2 top-2 z-10 flex gap-2">
@@ -420,7 +422,12 @@ export default function FileViewerPage() {
               ref={dragContainerRef}
               className="flex h-full w-full items-center justify-center cursor-grab active:cursor-grabbing"
               onMouseDown={(e) => {
-                dragRef.current = { x: e.clientX, y: e.clientY, ox: lightboxOffset.x, oy: lightboxOffset.y };
+                dragRef.current = {
+                  x: e.clientX,
+                  y: e.clientY,
+                  ox: lightboxOffset.x,
+                  oy: lightboxOffset.y,
+                };
               }}
               onMouseMove={(e) => {
                 if (!dragRef.current) return;
@@ -435,13 +442,13 @@ export default function FileViewerPage() {
               onMouseLeave={() => {
                 dragRef.current = null;
               }}
-
             >
               <div
                 style={{
                   transform: `translate(${lightboxOffset.x}px, ${lightboxOffset.y}px) scale(${lightboxScale})`,
                   transformOrigin: 'center center',
                 }}
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG is produced by Pele and sanitized by file-viewer
                 dangerouslySetInnerHTML={{ __html: lightboxSvg }}
               />
             </div>

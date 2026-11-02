@@ -733,7 +733,9 @@ export default function AppSettingsView() {
             <div className={section}>
               <div className="flex items-center justify-between">
                 <span className={sectionLabel}>{t('settings.guiappQuality')}</span>
-                <span className="font-mono text-xs text-popover-foreground">Q {xdisplayQuality}</span>
+                <span className="font-mono text-xs text-popover-foreground">
+                  Q {xdisplayQuality}
+                </span>
               </div>
               <div className="mt-2 flex gap-2">
                 {[30, 50, 60, 85].map((q) => (

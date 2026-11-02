@@ -57,4 +57,3 @@ func readListeningPorts() []int {
 
 	return ports
 }
-

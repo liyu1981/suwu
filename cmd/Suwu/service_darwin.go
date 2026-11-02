@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"text/template"
 	"strings"
+	"text/template"
 )
 
 const launchdLabel = "com.suwu.suwu"
@@ -209,10 +209,10 @@ func servicePathsDarwin() (bin, varDir, configDir string, err error) {
 	return binPath, varDir, configDir, nil
 }
 
-func hasUserService() bool { return hasLaunchctl() }
-func installUserService() error { return installLaunchdService() }
+func hasUserService() bool        { return hasLaunchctl() }
+func installUserService() error   { return installLaunchdService() }
 func uninstallUserService() error { return uninstallLaunchdService() }
-func startUserService() error { return startLaunchdService() }
+func startUserService() error     { return startLaunchdService() }
 
 func userServiceRedirect(args []string) (bool, error) {
 	if !hasLaunchdUserService() || len(args) == 0 {

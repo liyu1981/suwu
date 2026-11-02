@@ -131,4 +131,3 @@ func (s *Server) handleForwardServerPorts(w http.ResponseWriter, r *http.Request
 	ports := readListeningPorts()
 	writeJSON(w, http.StatusOK, map[string]any{"ports": ports})
 }
-

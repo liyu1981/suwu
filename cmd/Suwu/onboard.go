@@ -1029,13 +1029,13 @@ func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
 			// Rewrite the unit whenever onboarding installs or refreshes the
 			// service, so template fixes reach an already-installed unit.
 			// systemd drop-ins are left untouched.
-			if plan.installService && hasSystemctl() {
-				if err := installSystemdService(); err != nil {
+			if plan.installService && hasUserService() {
+				if err := installUserService(); err != nil {
 					return err
 				}
 			}
-			if plan.startService {
-				if err := systemctlUser("start", "suwu"); err != nil {
+			if plan.startService && hasUserService() {
+				if err := startUserService(); err != nil {
 					return err
 				}
 			}

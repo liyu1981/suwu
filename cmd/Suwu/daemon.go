@@ -25,19 +25,8 @@ func daemon(args []string) error {
 	// If the systemd service file is installed, delegate to systemctl
 	// for the standard subcommands. This gives the service auto-restart
 	// on crash, clean stop semantics, and journal-based logs.
-	if hasSystemdUserService() && len(args) > 0 {
-		switch args[0] {
-		case "start", "stop", "restart", "status":
-			return systemctlUser(args[0], "suwu")
-		case "logs":
-			return journalctlUser()
-		case "install":
-			fmt.Println("systemd service already installed")
-			return nil
-		case "uninstall":
-			return uninstallSystemdService()
-		}
-		// Fall through for unknown subcommands.
+	if handled, err := userServiceRedirect(args); handled {
+		return err
 	}
 
 	// ── Embedded bash-script fallback ────────────────────────────────

@@ -75,6 +75,7 @@ jobs:
             ./cmd/Suwu
 
       - name: Build suwu-max bundle
+        if: matrix.goos == 'linux'
         run: |
           ./scripts/build-max.sh \
             --skip-frontend \

@@ -345,6 +345,8 @@ export default function FileBrowserPage() {
     savedState?.currentPath ?? new URLSearchParams(window.location.search).get('path') ?? '/';
 
   const [currentPath, setCurrentPath] = useState('/');
+  const [pathInput, setPathInput] = useState('/');
+  const [editingPath, setEditingPath] = useState(false);
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -369,6 +371,8 @@ export default function FileBrowserPage() {
     type: 'success' | 'error' | 'info';
   } | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+
+  useEffect(() => { setPathInput(currentPath); }, [currentPath]);
 
   // Override the opaque :root background so the translucent bgColor shows through.
   useEffect(() => {
@@ -578,18 +582,42 @@ export default function FileBrowserPage() {
             <HomeIcon />
           </button>
 
-          {/* Path bar — click to copy */}
-          <button
-            type="button"
-            onClick={copyPath}
-            className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2.5 py-1 text-left text-xs text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.99]"
-            title={t('filebrowser.copyPath')}
-          >
-            <span className="truncate font-mono tracking-tight">{currentPath}</span>
-            <span className="shrink-0 text-white/30 transition-colors duration-150">
-              {copied ? <CheckIcon className="h-3 w-3 text-green-400" /> : <CopyIcon />}
-            </span>
-          </button>
+          {/* Path bar — editable; click to edit, Enter to navigate */}
+          {editingPath ? (
+            <input
+              autoFocus
+              value={pathInput}
+              onChange={(e) => setPathInput(e.target.value)}
+              onBlur={() => {
+                setEditingPath(false);
+                const v = pathInput.trim();
+                if (v && v !== currentPath) navigateTo(v);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  (e.target as HTMLInputElement).blur();
+                } else if (e.key === 'Escape') {
+                  setPathInput(currentPath);
+                  setEditingPath(false);
+                }
+              }}
+              className="ml-2 min-w-0 flex-1 rounded-md bg-white/[0.06] px-2.5 py-1 font-mono text-xs text-white/80 outline-none ring-1 ring-sky-400/40"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditingPath(true)}
+              onDoubleClick={copyPath}
+              className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-white/[0.04] px-2.5 py-1 text-left text-xs text-white/50 transition-all duration-150 hover:bg-white/[0.08] hover:text-white/70 active:scale-[0.99]"
+              title={t('filebrowser.copyPath')}
+            >
+              <span className="truncate font-mono tracking-tight">{currentPath}</span>
+              <span className="shrink-0 text-white/30 transition-colors duration-150">
+                {copied ? <CheckIcon className="h-3 w-3 text-green-400" /> : <CopyIcon />}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Two-panel body */}
@@ -698,7 +726,7 @@ export default function FileBrowserPage() {
                         {entry.isDir ? '' : formatSize(entry.size)}
                       </div>
                       <div className="w-32 shrink-0 text-right text-[11px] tabular-nums text-white/25">
-                        {formatDate(entry.modTime, t)}
+                        {formatDate(entry.modTime)}
                       </div>
                     </button>
                   );

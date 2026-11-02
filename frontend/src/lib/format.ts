@@ -14,21 +14,15 @@ export function formatSize(bytes: number): string {
   return `${i === 0 ? size : size.toFixed(1)} ${units[i]}`;
 }
 
-export function formatDate(
-  iso: string,
-  t: (key: string, opts?: Record<string, unknown>) => string,
-): string {
+export function formatDate(iso: string): string {
   const d = new Date(iso);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const day = 86400000;
-  if (diff < day) return t('filebrowser.today');
-  if (diff < day * 2) return t('filebrowser.yesterday');
-  if (diff < day * 7) return t('filebrowser.daysAgo', { count: Math.floor(diff / day) });
-  return d.toLocaleDateString(undefined, {
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
-    year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 

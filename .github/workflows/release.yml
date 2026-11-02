@@ -21,6 +21,12 @@ jobs:
           - goos: linux
             goarch: arm64
             platform: linux-arm64
+          - goos: darwin
+            goarch: amd64
+            platform: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            platform: darwin-arm64
 
     steps:
       - name: Checkout

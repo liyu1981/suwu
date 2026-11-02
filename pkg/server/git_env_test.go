@@ -157,9 +157,22 @@ func TestGitSeesUserInstalledLfsHooks(t *testing.T) {
 	}
 	runGit(repo, "commit", "-q", "--allow-empty", "-m", "init")
 
-	// Emulate the systemd-launched server: no user bin dir on PATH.
+	// Emulate the systemd-launched server: a PATH that contains git (via a
+	// temp dir) but omits any directory holding git-lfs, so the bare command
+	// cannot resolve the pre-push hook's git-lfs.
+	tmpBin := filepath.Join(base, "bin")
+	if err := os.MkdirAll(tmpBin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if gitPath, err := exec.LookPath("git"); err == nil {
+		if err := os.Symlink(gitPath, filepath.Join(tmpBin, "git")); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		t.Fatal(err)
+	}
 	t.Setenv("HOME", home)
-	t.Setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+	t.Setenv("PATH", tmpBin)
 
 	// Baseline: a bare exec.Command cannot find git-lfs, which is the bug.
 	plain := exec.Command("git", "-C", repo, "push", "--dry-run", ".", "HEAD")

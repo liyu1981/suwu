@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package pty — /proc-based session state detection (Linux only).
 //
 // Queries a shell process's CWD and foreground command by reading /proc.

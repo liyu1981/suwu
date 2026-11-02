@@ -216,6 +216,7 @@ export default function DropboxPage() {
   const [spaceInfo, setSpaceInfo] = useState<SpaceInfo>({ used: 0, count: 0 });
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [cleanupTarget, setCleanupTarget] = useState('');
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
@@ -480,10 +481,23 @@ export default function DropboxPage() {
             <>
               {/* Persistent drop target — large area with horizontal margin */}
               <div
-                className={`mx-2 mt-2 flex min-h-[30%] flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
+                onClick={() => fileInputRef.current?.click()}
+                className={`mx-2 mt-2 flex min-h-[30%] cursor-pointer flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
                   dragOver ? 'border-violet-400 bg-violet-500/10' : 'border-white/10'
                 }`}
               >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      void handleFiles(e.target.files);
+                    }
+                    e.target.value = '';
+                  }}
+                />
                 <FileIcon className="h-8 w-8 text-white/20" />
                 <p className="text-[11px] text-white/40">
                   {dragOver ? t('dropbox.dropHintActive') : t('dropbox.dropHint')}

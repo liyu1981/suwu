@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@file-viewer/core':
-        specifier: 3.0.0
-        version: 3.0.0
       '@file-viewer/preset-standard':
         specifier: ^3.0.0
         version: 3.0.0(pdf-lib@1.17.1)

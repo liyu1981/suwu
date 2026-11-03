@@ -524,6 +524,15 @@ func (rl *RateLimiter) Allow(token string) bool {
 	now := time.Now()
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
+	// Periodically prune expired buckets so the map cannot grow unbounded
+	// across many distinct tokens/sessions.
+	if len(rl.buckets) > 1024 {
+		for k, v := range rl.buckets {
+			if now.After(v.resetAt) {
+				delete(rl.buckets, k)
+			}
+		}
+	}
 	b, ok := rl.buckets[token]
 	if !ok || now.After(b.resetAt) {
 		rl.buckets[token] = &tokenBucket{count: 1, resetAt: now.Add(rateLimitWindow)}

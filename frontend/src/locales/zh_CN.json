@@ -512,6 +512,7 @@
   "dropbox": {
     "title": "文件暂存",
     "dropHint": "拖放文件或粘贴到这里",
+    "uploadFiles": "上传文件",
     "dropHintActive": "释放以上传",
     "uploading": "上传中…",
     "uploaded": "已保存",

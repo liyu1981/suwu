@@ -481,8 +481,7 @@ export default function DropboxPage() {
             <>
               {/* Persistent drop target — large area with horizontal margin */}
               <div
-                onClick={() => fileInputRef.current?.click()}
-                className={`mx-2 mt-2 flex min-h-[30%] cursor-pointer flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
+                className={`mx-2 mt-2 flex min-h-[30%] flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
                   dragOver ? 'border-violet-400 bg-violet-500/10' : 'border-white/10'
                 }`}
               >
@@ -502,6 +501,13 @@ export default function DropboxPage() {
                 <p className="text-[11px] text-white/40">
                   {dragOver ? t('dropbox.dropHintActive') : t('dropbox.dropHint')}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-md bg-violet-500/20 px-3 py-1.5 text-xs font-semibold text-violet-200 transition hover:bg-violet-500/30 active:scale-95"
+                >
+                  {t('dropbox.uploadFiles')}
+                </button>
                 {uploading && (
                   <p className="text-[11px] text-violet-400">{t('dropbox.uploading')}</p>
                 )}

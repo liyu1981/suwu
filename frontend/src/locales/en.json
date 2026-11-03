@@ -514,6 +514,7 @@
   "dropbox": {
     "title": "Dropbox",
     "dropHint": "Drop files or paste here",
+    "uploadFiles": "Upload files",
     "dropHintActive": "Release to upload",
     "uploading": "Uploading…",
     "uploaded": "Saved",

@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { fontFamilyAtom, termThemeAtom, themeToXtermTheme } from '../store/appearance';
 import { connectionMessageAtom, connectionStatusAtom } from '../store/connection';
 import { FONT_DEFAULT, lineHeightAtom } from '../store/fonts';
+import { termSnippetsAtom } from '../store/termSnippets';
+import { buildPayload } from '../lib/termInput';
+import { markSnippetUsed, removeSnippet, type TermSnippet } from '../lib/termSnippets';
 import { useTerminal } from './hooks/useTerminal';
 import { usePtySession } from './hooks/usePtySession';
 import { useTermCopy } from './hooks/useTermCopy';
 import { useBell } from './hooks/useBell';
+import { useInputRecorder } from './hooks/useInputRecorder';
 import { CommonTileContainer } from './CommonTileContainer';
-import { CloseIcon, CopyIcon, RefreshIcon } from './icons';
+import { SnippetMenu } from './term/SnippetMenu';
+import { SnippetManagerDialog, type SnippetDraft } from './term/SnippetManagerDialog';
+import { CloseIcon, CopyIcon, RefreshIcon, SnippetIcon } from './icons';
 import { Toast } from './Toast';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
@@ -98,6 +104,54 @@ export default function FullTerminal() {
   );
 
   const { sendRaw, refresh } = usePtySession(term, paneId);
+
+  // ── Frequent inputs: saved snippets + this session's submitted lines ──
+  const [snippetsOpen, setSnippetsOpen] = useState(false);
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [snippetDraft, setSnippetDraft] = useState<SnippetDraft | null>(null);
+  const setSnippets = useSetAtom(termSnippetsAtom);
+  // Typing is blocked in selection mode, so there is nothing to record there.
+  const { getCurrentLine, recordSent } = useInputRecorder(term, { paused: selectionMode });
+
+  // The menu closes into one of two places: back to the terminal, or into the
+  // manager dialog (which must own the focus, or keystrokes would reach the
+  // shell behind it). The ref is read during the popover's close effect.
+  const managerOpenRef = useRef(false);
+  managerOpenRef.current = managerOpen;
+
+  const insertInput = useCallback(
+    (request: { text: string; snippetId?: string }, run: boolean) => {
+      const payload = buildPayload(request.text, run, Boolean(term?.modes.bracketedPasteMode));
+      if (!sendRaw(payload)) {
+        // Detached PTY: keep the menu open so the choice is not lost.
+        showToast(t('terminal.snippets.notReady'));
+        return;
+      }
+      // sendRaw bypasses xterm's onData, so the line model has to be told
+      // what the shell just received — otherwise the next Enter remembers a
+      // command the user never ran.
+      recordSent(payload);
+      const usedId = request.snippetId;
+      if (usedId) setSnippets((list) => markSnippetUsed(list, usedId));
+      setSnippetsOpen(false);
+      term?.focus();
+    },
+    [recordSent, sendRaw, setSnippets, showToast, t, term],
+  );
+
+  const openManager = useCallback((draft: SnippetDraft | null) => {
+    setSnippetDraft(draft);
+    setSnippetsOpen(false);
+    setManagerOpen(true);
+  }, []);
+
+  const deleteSnippet = useCallback(
+    (snippet: TermSnippet) => {
+      setSnippets((list) => removeSnippet(list, snippet.id));
+      showToast(t('terminal.snippets.deletedToast'));
+    },
+    [setSnippets, showToast, t],
+  );
 
   // Reset a terminal left in a bad state by a TUI app (hidden cursor,
   // alternate screen, mouse tracking, etc.). Resets the browser terminal and
@@ -192,6 +246,30 @@ export default function FullTerminal() {
           )}
           {/* Clickable char-count badge — only in selection mode */}
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            <SnippetMenu
+              open={snippetsOpen}
+              onOpenChange={setSnippetsOpen}
+              trigger={
+                <button
+                  type="button"
+                  className="rounded p-0.5 hover:bg-white/10"
+                  title={t('terminal.snippets.button')}
+                  aria-label={t('terminal.snippets.button')}
+                >
+                  <SnippetIcon className="h-3 w-3" />
+                </button>
+              }
+              onInsert={insertInput}
+              onSaveCurrent={() => openManager({ text: getCurrentLine() })}
+              onManage={() => openManager(null)}
+              onEdit={(snippet) =>
+                openManager({ id: snippet.id, label: snippet.label, text: snippet.text })
+              }
+              onDelete={deleteSnippet}
+              onClosed={() => {
+                if (!managerOpenRef.current) term?.focus();
+              }}
+            />
             {selectionMode && (
               <button
                 type="button"
@@ -256,6 +334,16 @@ export default function FullTerminal() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Snippet manager — the only modal in the feature. The menu's fast path
+          (open, click a row) never reaches it. */}
+      <SnippetManagerDialog
+        open={managerOpen}
+        onOpenChange={setManagerOpen}
+        draft={snippetDraft}
+        onNotify={showToast}
+        onClosed={() => term?.focus()}
+      />
     </CommonTileContainer>
   );
 }

@@ -69,6 +69,10 @@ export const REGISTRY: readonly Entry[] = [
   { category: 'settings', key: 'suwu.code-editor-settings' },
   // store/dbbrowser.ts — saved DB connection labels (no passwords are stored).
   { category: 'settings', key: 'suwu_db_saved_connections' },
+  // store/termSnippets.ts — the user's saved terminal inputs, plus the
+  // record-history preference. The recorded history itself is denied below.
+  { category: 'settings', key: 'suwu.term-snippets' },
+  { category: 'settings', key: 'suwu.term-record-inputs' },
   // store/sftp.ts — saved SFTP connection targets (no passwords/keys stored).
   { category: 'settings', key: 'suwu:sftp-connections' },
 
@@ -107,6 +111,10 @@ export const DENY: readonly string[] = [
   // The pre-migration single-layout key. wm/atoms.ts wraps it into the first
   // space and removes it on load, so restoring it would resurrect dead data.
   'tiling-layout',
+  // Terminal recent inputs (store/termSnippets.ts). Keystroke capture cannot
+  // tell a command from a secret typed at an invisible prompt, and it lives in
+  // sessionStorage anyway — it must never travel in a backup.
+  'suwu.term-recents',
 ];
 
 /** Whether a localStorage key is backed up, and under which category. */

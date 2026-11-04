@@ -371,3 +371,40 @@ export function PlusIcon({ className = 'h-3 w-3' }: { className?: string }) {
     </svg>
   );
 }
+
+export function PencilIcon({ className = 'h-3 w-3' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  );
+}
+
+/**
+ * Frequent inputs / snippets mark: a bolt, i.e. "the quick way to the command
+ * I keep retyping". Used by the terminal status bar trigger.
+ */
+export function SnippetIcon({ className = 'h-3 w-3' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />
+    </svg>
+  );
+}

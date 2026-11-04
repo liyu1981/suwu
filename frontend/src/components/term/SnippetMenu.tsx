@@ -86,10 +86,10 @@ export function SnippetMenu({
 
   const groups = useMemo(() => {
     const recentRows = recents
-      .filter((entry) => matchesQuery({ text: entry.text }, query))
+      .filter((entry) => matchesQuery(entry.text, query))
       .map((entry): Row => ({ kind: 'recent', key: `recent:${entry.text}`, text: entry.text }));
     const savedRows = orderSnippets(snippets)
-      .filter((snippet) => matchesQuery({ text: snippet.text, label: snippet.label }, query))
+      .filter((snippet) => matchesQuery(snippet.text, query))
       .map((snippet): Row => ({ kind: 'snippet', key: `snippet:${snippet.id}`, snippet }));
 
     return [
@@ -227,7 +227,6 @@ export function SnippetMenu({
                 {group.rows.map((row, rowIndex) => {
                   const index = groupOffsets[groupIndex] + rowIndex;
                   const text = row.kind === 'recent' ? row.text : row.snippet.text;
-                  const label = row.kind === 'snippet' ? row.snippet.label : undefined;
                   const lines = lineCount(text);
                   const autoRun = row.kind === 'snippet' && runsOnSelect(row.snippet);
                   return (
@@ -245,9 +244,6 @@ export function SnippetMenu({
                       )}
                     >
                       <span className="min-w-0 flex-1">
-                        {label && (
-                          <span className="block truncate text-[11px] text-white/55">{label}</span>
-                        )}
                         <span className="block truncate font-mono text-xs text-white/85">
                           {firstLine(text)}
                         </span>

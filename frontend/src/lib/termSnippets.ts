@@ -2,7 +2,9 @@
  * The "Frequent inputs" shelf — model and list operations.
  *
  * Pure data: types, limits, and the list transforms the tile needs (add/edit
- * a snippet, remember a submitted line, order by recency). Persistence lives in
+ * a snippet, remember a submitted line, order by recency). A snippet is just
+ * its text plus the auto-return flag — no name: the command *is* the label.
+ * Persistence lives in
  * store/termSnippets.ts, the UI in components/term/. Kept dependency-free so
  * `scripts/check-term-snippets.mjs` can import it under Node type stripping.
  *
@@ -14,13 +16,11 @@
 
 import { LINE_MAX } from './termInput.ts';
 
-/** A named, reusable input the user saved on purpose. */
+/** A reusable input the user saved on purpose. */
 export interface TermSnippet {
   id: string;
   /** What gets inserted. May be multi-line. */
   text: string;
-  /** Optional display name; falls back to the first line of `text`. */
-  label?: string;
   /**
    * Send an Enter after the text, so selecting the snippet runs it.
    *
@@ -53,24 +53,17 @@ export function newSnippetId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Build a snippet from a text (and optional name) without an id collision. */
+/** Build a snippet without an id collision. */
 export function makeSnippet(
   text: string,
-  options: { label?: string; autoReturn?: boolean } = {},
+  options: { autoReturn?: boolean } = {},
   now = Date.now(),
 ): TermSnippet {
-  return {
-    id: newSnippetId(),
-    text: text.trim(),
-    label: normalizeLabel(options.label),
-    autoReturn: options.autoReturn || undefined,
-    createdAt: now,
-  };
-}
-
-function normalizeLabel(label?: string): string | undefined {
-  const value = label?.trim();
-  return value ? value : undefined;
+  const snippet: TermSnippet = { id: newSnippetId(), text: text.trim(), createdAt: now };
+  // Absent rather than `false`: keeps stored JSON minimal and means a snippet
+  // written before the flag existed needs no migration.
+  if (options.autoReturn) snippet.autoReturn = true;
+  return snippet;
 }
 
 /**
@@ -138,9 +131,9 @@ export function lineCount(text: string): number {
   return text.split(/\r\n|\r|\n/).length;
 }
 
-/** Case-insensitive match over the text and the optional label. */
-export function matchesQuery(item: { text: string; label?: string }, query: string): boolean {
+/** Case-insensitive substring match, used by both search fields. */
+export function matchesQuery(text: string, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return item.text.toLowerCase().includes(q) || (item.label ?? '').toLowerCase().includes(q);
+  return text.toLowerCase().includes(q);
 }

@@ -6,7 +6,13 @@ import { connectionMessageAtom, connectionStatusAtom } from '../store/connection
 import { FONT_DEFAULT, lineHeightAtom } from '../store/fonts';
 import { termSnippetsAtom } from '../store/termSnippets';
 import { buildPayload } from '../lib/termInput';
-import { markSnippetUsed, removeSnippet, type TermSnippet } from '../lib/termSnippets';
+import {
+  makeSnippet,
+  markSnippetUsed,
+  removeSnippet,
+  upsertSnippet,
+  type TermSnippet,
+} from '../lib/termSnippets';
 import { useTerminal } from './hooks/useTerminal';
 import { usePtySession } from './hooks/usePtySession';
 import { useTermCopy } from './hooks/useTermCopy';
@@ -14,7 +20,8 @@ import { useBell } from './hooks/useBell';
 import { useInputRecorder } from './hooks/useInputRecorder';
 import { CommonTileContainer } from './CommonTileContainer';
 import { SnippetMenu } from './term/SnippetMenu';
-import { SnippetManagerDialog, type SnippetDraft } from './term/SnippetManagerDialog';
+import { SnippetManagerDialog, type SnippetEditTarget } from './term/SnippetManagerDialog';
+import { SnippetSaveDialog } from './term/SnippetSaveDialog';
 import { CloseIcon, CopyIcon, RefreshIcon, SnippetIcon } from './icons';
 import { Toast } from './Toast';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
@@ -108,16 +115,19 @@ export default function FullTerminal() {
   // ── Frequent inputs: saved snippets + this session's submitted lines ──
   const [snippetsOpen, setSnippetsOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
-  const [snippetDraft, setSnippetDraft] = useState<SnippetDraft | null>(null);
+  const [managerEdit, setManagerEdit] = useState<SnippetEditTarget>(null);
+  /** Non-null while confirming the line the user is typing as a snippet. */
+  const [saveDraft, setSaveDraft] = useState<string | null>(null);
   const setSnippets = useSetAtom(termSnippetsAtom);
   // Typing is blocked in selection mode, so there is nothing to record there.
   const { getCurrentLine, recordSent } = useInputRecorder(term, { paused: selectionMode });
 
-  // The menu closes into one of two places: back to the terminal, or into the
-  // manager dialog (which must own the focus, or keystrokes would reach the
-  // shell behind it). The ref is read during the popover's close effect.
-  const managerOpenRef = useRef(false);
-  managerOpenRef.current = managerOpen;
+  // The menu closes into one of three places: back to the terminal, or into one
+  // of the two dialogs, which must own the focus — otherwise keystrokes would
+  // reach the shell behind them. The ref is read during the popover's close
+  // effect, i.e. after this render committed the new state.
+  const dialogOpenRef = useRef(false);
+  dialogOpenRef.current = managerOpen || saveDraft !== null;
 
   const insertInput = useCallback(
     (request: { text: string; snippetId?: string }, run: boolean) => {
@@ -139,11 +149,33 @@ export default function FullTerminal() {
     [recordSent, sendRaw, setSnippets, showToast, t, term],
   );
 
-  const openManager = useCallback((draft: SnippetDraft | null) => {
-    setSnippetDraft(draft);
+  const openManager = useCallback((edit: SnippetEditTarget) => {
+    setManagerEdit(edit);
     setSnippetsOpen(false);
     setManagerOpen(true);
   }, []);
+
+  // "Save current input" confirms the captured line right here instead of
+  // dumping the user into the manager with an empty form to retype it in.
+  const openSaveCurrent = useCallback(() => {
+    const line = getCurrentLine();
+    if (!line.trim()) {
+      showToast(t('terminal.snippets.nothingToSave'));
+      return;
+    }
+    setSnippetsOpen(false);
+    setSaveDraft(line);
+  }, [getCurrentLine, showToast, t]);
+
+  const saveCurrent = useCallback(
+    (text: string, autoReturn: boolean) => {
+      setSnippets((list) => upsertSnippet(list, makeSnippet(text, { autoReturn })));
+      showToast(t('terminal.snippets.savedToast'));
+      setSaveDraft(null);
+      term?.focus();
+    },
+    [setSnippets, showToast, t, term],
+  );
 
   const deleteSnippet = useCallback(
     (snippet: TermSnippet) => {
@@ -260,19 +292,12 @@ export default function FullTerminal() {
                 </button>
               }
               onInsert={insertInput}
-              onSaveCurrent={() => openManager({ text: getCurrentLine() })}
+              onSaveCurrent={openSaveCurrent}
               onManage={() => openManager(null)}
-              onEdit={(snippet) =>
-                openManager({
-                  id: snippet.id,
-                  label: snippet.label,
-                  text: snippet.text,
-                  autoReturn: snippet.autoReturn,
-                })
-              }
+              onEdit={(snippet) => openManager(snippet.id)}
               onDelete={deleteSnippet}
               onClosed={() => {
-                if (!managerOpenRef.current) term?.focus();
+                if (!dialogOpenRef.current) term?.focus();
               }}
             />
             {selectionMode && (
@@ -345,8 +370,18 @@ export default function FullTerminal() {
       <SnippetManagerDialog
         open={managerOpen}
         onOpenChange={setManagerOpen}
-        draft={snippetDraft}
+        initialEdit={managerEdit}
         onNotify={showToast}
+        onClosed={() => term?.focus()}
+      />
+
+      <SnippetSaveDialog
+        open={saveDraft !== null}
+        onOpenChange={(next) => {
+          if (!next) setSaveDraft(null);
+        }}
+        text={saveDraft ?? ''}
+        onSave={saveCurrent}
         onClosed={() => term?.focus()}
       />
     </CommonTileContainer>

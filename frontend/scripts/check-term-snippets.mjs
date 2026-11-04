@@ -175,11 +175,11 @@ assert.equal(many.length, RECENTS_MAX, 'history is capped')
 assert.equal(many[0].text, `cmd ${RECENTS_MAX + 9}`, 'the newest survives the cap')
 
 // ── snippets ───────────────────────────────────────────────────────────────
-const a = makeSnippet('pnpm build', { label: '  Build  ' }, 100)
-assert.equal(a.label, 'Build', 'labels are trimmed')
-assert.equal(a.text, 'pnpm build')
+// A snippet is text plus the auto-return flag — no name field.
+const a = makeSnippet('  pnpm build  ', {}, 100)
+assert.equal(a.text, 'pnpm build', 'text is trimmed')
 assert.ok(a.id.length > 0)
-assert.equal(makeSnippet('ls', { label: '   ' }, 100).label, undefined, 'a blank label is no label')
+assert.deepEqual(Object.keys(a).sort(), ['createdAt', 'id', 'text'], 'no label key is written')
 
 // Auto return: a command the user runs as-is. Off is stored as absent so a
 // restored/legacy snippet needs no migration.
@@ -189,7 +189,7 @@ assert.equal(runsOnSelect(makeSnippet('ls', {})), false, 'missing flag reads as 
 
 let list = upsertSnippet([], a)
 assert.deepEqual(list.map((s) => s.id), [a.id])
-const b = makeSnippet('cargo test', { label: 'Test' }, 200)
+const b = makeSnippet('cargo test', {}, 200)
 list = upsertSnippet(list, b)
 assert.deepEqual(list.map((s) => s.text), ['cargo test', 'pnpm build'], 'new snippets go first')
 
@@ -228,10 +228,10 @@ assert.equal(lineCount('a'), 1)
 assert.equal(lineCount('a\nb\nc'), 3)
 assert.equal(lineCount('a\r\nb'), 2)
 
-assert.equal(matchesQuery({ text: 'pnpm build' }, ''), true, 'empty query matches everything')
-assert.equal(matchesQuery({ text: 'pnpm build' }, '  '), true)
-assert.equal(matchesQuery({ text: 'pnpm build' }, 'BUILD'), true, 'case-insensitive')
-assert.equal(matchesQuery({ text: 'pnpm build', label: 'Deploy' }, 'depl'), true, 'label matches')
-assert.equal(matchesQuery({ text: 'pnpm build' }, 'cargo'), false)
+assert.equal(matchesQuery('pnpm build', ''), true, 'empty query matches everything')
+assert.equal(matchesQuery('pnpm build', '  '), true)
+assert.equal(matchesQuery('pnpm build', 'BUILD'), true, 'case-insensitive')
+assert.equal(matchesQuery('pnpm --dir frontend build', 'dir front'), true, 'substring, not prefix')
+assert.equal(matchesQuery('pnpm build', 'cargo'), false)
 
 console.log('Terminal frequent-input checks passed.')

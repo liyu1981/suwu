@@ -125,8 +125,7 @@ recorder and the store are new.
 ```ts
 export interface TermSnippet {
   id: string;          // crypto.randomUUID()
-  text: string;        // what gets inserted (may be multi-line)
-  label?: string;      // optional display name; falls back to text
+  text: string;        // what gets inserted (may be multi-line) — the only label
   autoReturn?: boolean; // send Enter after the text: run it on selection
   createdAt: number;
   lastUsedAt?: number; // used to sort within the saved section
@@ -297,8 +296,9 @@ Sections (top → bottom): **search input** (autofocused, Body 14, `SearchIcon`
 inline), **RECENT**, **SAVED**, then a footer row with *+ Save current input*
 and *Manage snippets…*.
 
-Row anatomy: label = `label ?? text`, first line only, `truncate`; mono,
-Label 12. Sub-line for multi-line snippets = Micro 10 `N lines`. Trailing
+Row anatomy: the snippet's own text, first line only, `truncate`; mono,
+Label 12 (a snippet has no name — the command *is* the label). Sub-line for
+multi-line snippets = Micro 10 `N lines`. Trailing
 actions appear on hover / keyboard focus (opacity transition, always reachable
 by Tab):
 
@@ -316,42 +316,76 @@ Keyboard: `↑`/`↓` move a highlight across the **flattened filtered** list,
 `min-h-0 flex-1 overflow-auto` inside `max-h-[min(24rem,60vh)]`; the search row
 and footer stay fixed.
 
-Search matches `text` and `label`, case-insensitive, and applies to both
+Search is a case-insensitive substring match over the text, applied to both
 sections at once; an empty result shows one Caption 11 line
 ("No matching inputs").
 
 ---
 
-## 7. The manager (the only dialog)
+## 7. The manager — a table, edited in place
 
-`frontend/src/components/term/SnippetManagerDialog.tsx` (new), using the
-existing `Dialog` / `DialogContent` / `DialogTitle`:
+`frontend/src/components/term/SnippetManagerDialog.tsx`, using the existing
+`Dialog` / `DialogContent` / `DialogTitle`. It is a **table of snippets, not a
+form above a list**: editing happens in the row you clicked, so the shelf stays
+in view and there is no "which row am I editing?" state to read.
 
-- **Title** — Heading 16: "Frequent inputs".
-- **Add / edit form** — optional `label` (`text-xs` input) + `text`
-  (mono `<textarea rows={3}>`, Body 14, so multi-line snippets are writable) +
-  *Auto return — run when selected* checkbox (Label 12; off by default, stored
-  as `undefined` so legacy/restored snippets need no migration) + *Add* /
-  *Save* button, disabled while `text.trim()` is empty.
-- **List** — every snippet, newest/most-recently-used first: mono text, label
-  as Caption 11 above it, edit + delete per row. Empty state: Heading 16
-  "No snippets yet" + Caption hint.
-- **Recent inputs controls** — a `Record recent inputs` checkbox and a
-  `Clear recent inputs` button, with a Micro 10 count.
-- **Footer** — Close (`t('dialog.close')`), same button styles as the cache
-  preview dialog.
+```
+┌──────────────────────────────────────────────────────────┐
+│ Frequent inputs                                  [+ New] │  Heading 16
+├──────────────────────────────────────────────────────────┤
+│ INPUT TEXT                                          ↵    │  Micro 10, uppercase
+├──────────────────────────────────────────────────────────┤
+│ git status                                        ↵      │  row: Body 14 mono,
+│ pnpm --dir frontend build                                │  2-line clamp
+├──────────────────────────────────────────────────────────┤
+│ ▸ click a row → it becomes the editor:                   │
+│   [ textarea, mono Body 14 ]                             │
+│   ☐ Auto return — run when selected   Save Cancel Delete │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **Title row** — Heading 16 title + a *New* button (Label 12, `PlusIcon`).
+- **Columns** — `Input text` and a narrow `↵` column that shows whether the
+  snippet auto-returns (Micro 10 badge, tooltip "Runs when selected").
+- **Rows** — ordered by `orderSnippets` (most recently used, then newest).
+  The whole row is the hit target (`cursor-pointer`, `Edit` tooltip); clicking
+  it swaps the row for the editor.
+- **Editor row** — mono `<textarea rows={2}>` (Body 14, so multi-line snippets
+  are writable), the *Auto return — run when selected* checkbox (Label 12, off
+  by default, stored as absent so legacy/restored snippets need no migration),
+  then `Save` (disabled while `text.trim()` is empty) / `Cancel` / `Delete`
+  (danger tint, only for saved rows). `Ctrl/Cmd+Enter` saves, `Esc` cancels
+  without closing the dialog. `Delete` lives here rather than on every row:
+  two clicks for a destructive act, and it is always reachable.
+- **New** — prepends an empty editor row at the top of the table; saving it
+  prepends the snippet (`upsertSnippet`) and the rest of the table keeps its
+  order. The button is disabled while that draft row is already open.
+- **Recent inputs controls** — `Record recent inputs` checkbox, a Micro 10
+  count, and a `Clear` button.
+- **Footer** — Close (`t('dialog.close')`).
 
 Confirmations surface through the existing `Toast`
-(`t('terminal.snippets.saved')`, `…deleted`).
+(`t('terminal.snippets.savedToast')`, `…deletedToast`).
+
+### 7a. Save current input — confirm, don't manage
+
+`frontend/src/components/term/SnippetSaveDialog.tsx` is the second and last
+dialog. The menu's *Save current input* used to open the manager with an empty
+"add" form, forcing the user to retype the line they had just typed. It now
+opens a small confirm: the **captured line** (editable, autofocused, Body 14
+mono), the **auto-return** checkbox, and `Cancel` / `Save`. Saving appends to
+the same store and toasts; an empty or untrustworthy line (see §4) never opens
+the dialog at all — the menu toasts "Nothing typed to save yet" instead.
 
 Creation has exactly two entry points, both deliberate: the popover footer's
-*+ Save current input* (seeds the form from the live line buffer) and the
-manager's own *Add* form. There is **no** per-history-row "save this" action —
-history rows stay one-click insert/run, so the fast path never grows a second
-button.
+*+ Save current input* (the confirm dialog above, seeded from the live line
+buffer) and the manager's *New* row. There is **no** per-history-row "save
+this" action — history rows stay one-click insert/run, so the fast path never
+grows a second button.
 
-The dialog is opened from the popover footer; opening it closes the popover and
-focuses the label field. On close, focus returns to the terminal.
+Both dialogs are opened from the popover footer; opening one closes the popover
+and hands focus to the dialog (the popover's close focus-restore is suppressed
+while a dialog owns the screen). On close, focus returns to the terminal.
 
 ---
 
@@ -371,12 +405,17 @@ New keys under `terminal.snippets.*` in **both**
 | `manage` | Manage snippets… |
 | `notReady` | Terminal is not connected |
 | `managerTitle` | Frequent inputs |
-| `newSnippet` / `editSnippet` | New snippet / Edit snippet |
-| `nameLabel` / `namePlaceholder` | Name (optional) |
-| `commandLabel` / `commandPlaceholder` | Input text |
-| `add` / `save` / `delete` / `edit` | buttons |
-| `recordInputs` / `clearRecents` / `recentCount` | `{{count}} recorded` |
-| `saved` / `deleted` | toasts |
+| `newSnippet` | New |
+| `nothingToSave` | Nothing typed to save yet |
+| `commandLabel` / `commandPlaceholder` | Input text (also the table header) |
+| `autoReturn` / `autoReturnBadge` | Auto return — run when selected / Runs when selected |
+| `save` / `cancel` / `delete` / `edit` | buttons |
+| `recordInputs` / `recordInputsHint` / `clearRecents` / `recentCount` | history controls |
+| `savedToast` / `deletedToast` / `historyClearedToast` | toasts |
+| `linesCount` / `recent` / `saved` / `insert` / `run` | menu labels |
+
+There is no `nameLabel` / `namePlaceholder` / `add` key: snippets have no name,
+and every save goes through the same `Save` button (new or existing row).
 
 `SnippetIcon` (a history/lightning mark) is added to
 `frontend/src/components/icons.tsx` with the house default props

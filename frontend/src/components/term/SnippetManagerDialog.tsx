@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import {
@@ -10,47 +10,45 @@ import {
   type TermSnippet,
 } from '../../lib/termSnippets';
 import { termRecordInputsAtom, termRecentsAtom, termSnippetsAtom } from '../../store/termSnippets';
-import { PencilIcon, TrashIcon } from '../icons';
+import { PlusIcon } from '../icons';
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
+import {
+  AutoReturnToggle,
+  SNIPPET_DANGER_BTN,
+  SNIPPET_GHOST_BTN,
+  SNIPPET_INPUT,
+  SNIPPET_PRIMARY_BTN,
+} from './SnippetFields';
 
 /**
- * The management surface for the "Frequent inputs" shelf: add / edit / delete
- * snippets, plus the recent-history controls.
+ * The management surface for the "Frequent inputs" shelf.
  *
- * This is the only dialog in the feature — the fast path (open menu, click a
- * row) never opens it. It also accepts a draft so the menu can hand over "the
- * line I am typing" or "this snippet I clicked edit on".
+ * A table of snippets, not a form above a list: clicking a row turns *that row*
+ * into an editor (text + auto return + Save / Cancel / Delete), and "New" opens
+ * an empty editor row at the top of the table. That keeps the shelf itself in
+ * view while editing it — no separate "which row am I editing?" state to read.
+ *
+ * This is the only dialog in the feature besides the save-current confirm; the
+ * fast path (open menu, click a row) never reaches either.
  */
 
-export interface SnippetDraft {
-  /** Present when editing an existing snippet. */
-  id?: string;
-  label?: string;
-  text?: string;
-  autoReturn?: boolean;
-}
+/** `'new'` is the unsaved editor row prepended by the New button. */
+export type SnippetEditTarget = string | 'new' | null;
 
 interface SnippetManagerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Seed for the form: an existing snippet, the live input line, or nothing. */
-  draft: SnippetDraft | null;
+  /** Row to open in edit mode when the dialog appears. */
+  initialEdit: SnippetEditTarget;
   onNotify: (message: string) => void;
   /** Called after the dialog closes so the caller can restore focus. */
   onClosed: () => void;
 }
 
-const FIELD =
-  'w-full rounded border border-white/10 bg-black/30 px-2 text-xs text-white/85 outline-none transition placeholder:text-white/30 focus:border-sky-400/60 focus:ring-1 focus:ring-sky-400/30';
-const GHOST_BTN =
-  'rounded px-3 py-1.5 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white';
-const PRIMARY_BTN =
-  'rounded bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40';
-
 export function SnippetManagerDialog({
   open,
   onOpenChange,
-  draft,
+  initialEdit,
   onNotify,
   onClosed,
 }: SnippetManagerDialogProps) {
@@ -59,173 +57,217 @@ export function SnippetManagerDialog({
   const [recents, setRecents] = useAtom(termRecentsAtom);
   const [recordInputs, setRecordInputs] = useAtom(termRecordInputsAtom);
 
-  const [label, setLabel] = useState('');
+  const [editingId, setEditingId] = useState<SnippetEditTarget>(null);
   const [text, setText] = useState('');
   const [autoReturn, setAutoReturn] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const textRef = useRef<HTMLTextAreaElement>(null);
-
-  // Re-seed the form on every open (and whenever the caller hands over a new
-  // draft, e.g. "edit this snippet" while the dialog is already open).
-  useEffect(() => {
-    if (!open) return;
-    setLabel(draft?.label ?? '');
-    setText(draft?.text ?? '');
-    setAutoReturn(draft?.autoReturn ?? false);
-    setEditingId(draft?.id ?? null);
-  }, [open, draft]);
 
   const ordered = useMemo(() => orderSnippets(snippets), [snippets]);
-  const editing = editingId ? snippets.find((s) => s.id === editingId) : undefined;
 
-  const resetForm = () => {
-    setLabel('');
-    setText('');
-    setAutoReturn(false);
-    setEditingId(null);
-  };
-
-  const submit = () => {
-    const value = text.trim();
-    if (!value) return;
-    const next: TermSnippet = editing
-      ? {
-          ...editing,
-          label: label.trim() || undefined,
-          text: value,
-          autoReturn: autoReturn || undefined,
-        }
-      : makeSnippet(value, { label, autoReturn });
-    setSnippets((list) => upsertSnippet(list, next));
-    onNotify(t('terminal.snippets.savedToast'));
-    resetForm();
-  };
+  // Every open starts from the caller's target: a specific row, a fresh draft
+  // row, or plain browsing.
+  useEffect(() => {
+    if (!open) return;
+    if (initialEdit === 'new') {
+      setEditingId('new');
+      setText('');
+      setAutoReturn(false);
+      return;
+    }
+    const snippet = initialEdit ? snippets.find((s) => s.id === initialEdit) : undefined;
+    setEditingId(snippet ? snippet.id : null);
+    setText(snippet?.text ?? '');
+    setAutoReturn(snippet ? runsOnSelect(snippet) : false);
+    // `snippets` is intentionally out of the deps: re-running on every store
+    // change would clobber what the user is typing.
+  }, [open, initialEdit]);
 
   const startEdit = (snippet: TermSnippet) => {
     setEditingId(snippet.id);
-    setLabel(snippet.label ?? '');
     setText(snippet.text);
     setAutoReturn(runsOnSelect(snippet));
-    textRef.current?.focus();
   };
 
-  const remove = (snippet: TermSnippet) => {
-    setSnippets((list) => removeSnippet(list, snippet.id));
-    onNotify(t('terminal.snippets.deletedToast'));
-    if (snippet.id === editingId) resetForm();
+  const startNew = () => {
+    setEditingId('new');
+    setText('');
+    setAutoReturn(false);
   };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setText('');
+    setAutoReturn(false);
+  };
+
+  const save = () => {
+    const value = text.trim();
+    if (!value) return;
+    const existing =
+      editingId && editingId !== 'new' ? snippets.find((s) => s.id === editingId) : undefined;
+    const next: TermSnippet = existing
+      ? {
+          // Rebuilt explicitly (rather than spread) so stale fields — the old
+          // `label` — are dropped from stored data on the next save.
+          id: existing.id,
+          text: value,
+          autoReturn: autoReturn || undefined,
+          createdAt: existing.createdAt,
+          lastUsedAt: existing.lastUsedAt,
+          useCount: existing.useCount,
+        }
+      : makeSnippet(value, { autoReturn });
+    setSnippets((list) => upsertSnippet(list, next));
+    onNotify(t('terminal.snippets.savedToast'));
+    cancelEdit();
+  };
+
+  const remove = (id: string) => {
+    setSnippets((list) => removeSnippet(list, id));
+    onNotify(t('terminal.snippets.deletedToast'));
+    if (editingId === id) cancelEdit();
+  };
+
+  const editor = (
+    <div className="border-b border-white/10 bg-white/[0.04] px-1.5 py-1.5">
+      <textarea
+        autoFocus
+        rows={2}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEdit();
+            return;
+          }
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            save();
+          }
+        }}
+        placeholder={t('terminal.snippets.commandPlaceholder')}
+        className={`${SNIPPET_INPUT} resize-none`}
+      />
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <AutoReturnToggle
+          id="term-snippet-row-auto-return"
+          checked={autoReturn}
+          onChange={setAutoReturn}
+        />
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            disabled={!text.trim()}
+            onClick={save}
+            className={SNIPPET_PRIMARY_BTN}
+          >
+            {t('terminal.snippets.save')}
+          </button>
+          <button type="button" onClick={cancelEdit} className={SNIPPET_GHOST_BTN}>
+            {t('terminal.snippets.cancel')}
+          </button>
+          {editingId && editingId !== 'new' && (
+            <button type="button" onClick={() => remove(editingId)} className={SNIPPET_DANGER_BTN}>
+              {t('terminal.snippets.delete')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="w-[min(92vw,34rem)] overflow-y-auto scrollbar-thin"
+        className="w-[min(92vw,34rem)]"
+        // Opening straight into an editor row must not fight the dialog's own
+        // focus: the textarea's autoFocus already put the caret where the user
+        // is going to type.
+        onOpenAutoFocus={(event) => {
+          if (initialEdit) event.preventDefault();
+        }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           onClosed();
         }}
       >
-        <DialogTitle>{t('terminal.snippets.managerTitle')}</DialogTitle>
-
-        {/* Add / edit form */}
-        <div className="mt-3 flex flex-col gap-1.5">
-          <label className="text-xs text-white/50" htmlFor="term-snippet-label">
-            {t('terminal.snippets.nameLabel')}
-          </label>
-          <input
-            id="term-snippet-label"
-            type="text"
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            placeholder={t('terminal.snippets.namePlaceholder')}
-            className={`${FIELD} h-7`}
-          />
-          <label className="text-xs text-white/50" htmlFor="term-snippet-text">
-            {t('terminal.snippets.commandLabel')}
-          </label>
-          <textarea
-            id="term-snippet-text"
-            ref={textRef}
-            rows={3}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder={t('terminal.snippets.commandPlaceholder')}
-            className={`${FIELD} resize-none py-1.5 font-mono text-sm leading-snug`}
-          />
-          <div className="mt-1.5 flex items-center gap-1.5">
-            <input
-              id="term-snippet-auto-return"
-              type="checkbox"
-              checked={autoReturn}
-              onChange={(event) => setAutoReturn(event.target.checked)}
-              className="h-3 w-3 accent-sky-500"
-            />
-            <label className="text-xs text-white/60" htmlFor="term-snippet-auto-return">
-              {t('terminal.snippets.autoReturn')}
-            </label>
-          </div>
-          <div className="flex justify-end gap-2">
-            {(editingId || label || text || autoReturn) && (
-              <button type="button" onClick={resetForm} className={GHOST_BTN}>
-                {t('terminal.snippets.cancel')}
-              </button>
-            )}
-            <button type="button" onClick={submit} disabled={!text.trim()} className={PRIMARY_BTN}>
-              {editingId ? t('terminal.snippets.save') : t('terminal.snippets.add')}
-            </button>
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <DialogTitle>{t('terminal.snippets.managerTitle')}</DialogTitle>
+          <button
+            type="button"
+            onClick={startNew}
+            disabled={editingId === 'new'}
+            className={`${SNIPPET_GHOST_BTN} flex items-center gap-1 disabled:opacity-30`}
+          >
+            <PlusIcon className="h-3 w-3" />
+            {t('terminal.snippets.newSnippet')}
+          </button>
         </div>
 
-        {/* Saved list */}
-        <div className="mt-3 max-h-[40dvh] overflow-auto scrollbar-thin rounded border border-white/10 bg-black/20">
-          {ordered.length === 0 ? (
-            <div className="px-3 py-4 text-center text-[11px] text-white/35">
-              {t('terminal.snippets.emptySaved')}
-            </div>
-          ) : (
-            ordered.map((snippet) => (
-              <div
-                key={snippet.id}
-                className="group flex items-start gap-2 border-b border-white/5 px-2 py-1.5 last:border-b-0 hover:bg-white/5"
-              >
-                <div className="min-w-0 flex-1">
-                  {snippet.label && (
-                    <div className="truncate text-[11px] text-white/55">{snippet.label}</div>
-                  )}
-                  <div className="max-h-10 overflow-hidden whitespace-pre-wrap break-all font-mono text-xs text-white/80">
-                    {snippet.text}
-                  </div>
-                </div>
-                {runsOnSelect(snippet) && (
-                  <span
-                    title={t('terminal.snippets.autoReturnBadge')}
-                    className="shrink-0 px-0.5 text-[10px] font-semibold leading-[14px] text-sky-300/80"
-                  >
-                    ↵
-                  </span>
-                )}
-                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                  <button
-                    type="button"
+        <div className="mt-3 max-h-[46dvh] overflow-auto scrollbar-thin">
+          <table className="w-full table-fixed border-collapse">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wider text-white/35">
+                <th className="border-b border-white/10 px-2 py-1 font-medium">
+                  {t('terminal.snippets.commandLabel')}
+                </th>
+                <th
+                  className="w-9 border-b border-white/10 px-1 py-1 text-center font-medium"
+                  title={t('terminal.snippets.autoReturnBadge')}
+                >
+                  ↵
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {editingId === 'new' && (
+                <tr>
+                  <td colSpan={2} className="p-0">
+                    {editor}
+                  </td>
+                </tr>
+              )}
+              {ordered.length === 0 && editingId !== 'new' && (
+                <tr>
+                  <td colSpan={2} className="px-2 py-6 text-center text-[11px] text-white/35">
+                    {t('terminal.snippets.emptySaved')}
+                  </td>
+                </tr>
+              )}
+              {ordered.map((snippet) =>
+                editingId === snippet.id ? (
+                  <tr key={snippet.id}>
+                    <td colSpan={2} className="p-0">
+                      {editor}
+                    </td>
+                  </tr>
+                ) : (
+                  <tr
+                    key={snippet.id}
                     onClick={() => startEdit(snippet)}
                     title={t('terminal.snippets.edit')}
-                    aria-label={t('terminal.snippets.edit')}
-                    className="rounded p-0.5 text-white/45 transition hover:bg-white/10 hover:text-white"
+                    className="cursor-pointer border-b border-white/5 transition last:border-b-0 hover:bg-white/5"
                   >
-                    <PencilIcon className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(snippet)}
-                    title={t('terminal.snippets.delete')}
-                    aria-label={t('terminal.snippets.delete')}
-                    className="rounded p-0.5 text-white/45 transition hover:bg-white/10 hover:text-red-300"
-                  >
-                    <TrashIcon className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
+                    <td className="px-2 py-1.5 align-top">
+                      <span className="line-clamp-2 break-all font-mono text-sm text-white/80">
+                        {snippet.text}
+                      </span>
+                    </td>
+                    <td className="px-1 py-1.5 text-center align-top">
+                      {runsOnSelect(snippet) && (
+                        <span
+                          title={t('terminal.snippets.autoReturnBadge')}
+                          className="text-[10px] font-semibold text-sky-300/80"
+                        >
+                          ↵
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
         </div>
 
         {/* Recent-input history controls */}
@@ -249,7 +291,7 @@ export function SnippetManagerDialog({
               setRecents([]);
               onNotify(t('terminal.snippets.historyClearedToast'));
             }}
-            className={`${GHOST_BTN} ml-auto px-2 py-1 disabled:cursor-not-allowed disabled:opacity-30`}
+            className={`${SNIPPET_GHOST_BTN} ml-auto`}
           >
             {t('terminal.snippets.clearRecents')}
           </button>
@@ -259,7 +301,7 @@ export function SnippetManagerDialog({
         </div>
 
         <div className="mt-3 flex justify-end">
-          <button type="button" onClick={() => onOpenChange(false)} className={GHOST_BTN}>
+          <button type="button" onClick={() => onOpenChange(false)} className={SNIPPET_GHOST_BTN}>
             {t('dialog.close')}
           </button>
         </div>

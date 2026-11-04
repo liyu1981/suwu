@@ -13,10 +13,12 @@ import {
   consumeInput,
 } from '../src/lib/termInput.ts'
 import {
-  RECENTS_MAX,
+  SHELF_BOUNDS,
+  SHELF_SETTINGS_DEFAULT,
   firstLine,
   lineCount,
   makeSnippet,
+  normalizeShelfSettings,
   markSnippetUsed,
   matchesQuery,
   orderSnippets,
@@ -169,10 +171,42 @@ assert.deepEqual(pushRecent([], 'ls', 7), [{ text: 'ls', at: 7 }], 'timestamps c
 const same = pushRecent([{ text: 'ls', at: 1 }], 'ls', 9)
 assert.deepEqual(same, [{ text: 'ls', at: 1 }], 're-running the top command keeps its timestamp')
 
+// The kept-history cap comes from the shelf settings (General tab).
 let many = []
-for (let i = 0; i < RECENTS_MAX + 10; i += 1) many = pushRecent(many, `cmd ${i}`, i)
-assert.equal(many.length, RECENTS_MAX, 'history is capped')
-assert.equal(many[0].text, `cmd ${RECENTS_MAX + 9}`, 'the newest survives the cap')
+for (let i = 0; i < 15; i += 1) many = pushRecent(many, `cmd ${i}`, i, 5)
+assert.equal(many.length, 5, 'history is capped at the configured size')
+assert.equal(many[0].text, 'cmd 14', 'the newest survives the cap')
+assert.equal(pushRecent(many, 'cmd 99', 100, 0).length, 1, 'a degenerate cap still keeps one')
+assert.deepEqual(
+  pushRecent([], 'ls', 7),
+  [{ text: 'ls', at: 7 }],
+  'the cap defaults to the shelf default',
+)
+
+// ── shelf settings ─────────────────────────────────────────────────────────
+assert.deepEqual(normalizeShelfSettings(undefined), SHELF_SETTINGS_DEFAULT)
+assert.deepEqual(normalizeShelfSettings({}), SHELF_SETTINGS_DEFAULT, 'missing fields fall back')
+assert.deepEqual(
+  normalizeShelfSettings({ maxSaved: 3 }),
+  { ...SHELF_SETTINGS_DEFAULT, maxSaved: 3 },
+  'partial payloads merge with the defaults',
+)
+assert.deepEqual(
+  normalizeShelfSettings({ maxSaved: 0, maxRecent: 999, recentsKept: -4 }),
+  {
+    maxSaved: SHELF_BOUNDS.maxSaved.min,
+    maxRecent: SHELF_BOUNDS.maxRecent.max,
+    recentsKept: SHELF_BOUNDS.recentsKept.min,
+  },
+  'out-of-range values are clamped, not rejected',
+)
+assert.equal(normalizeShelfSettings({ maxSaved: '7' }).maxSaved, 7, 'numeric strings are coerced')
+assert.equal(normalizeShelfSettings({ maxSaved: 3.6 }).maxSaved, 4, 'fractions are rounded')
+assert.deepEqual(
+  normalizeShelfSettings({ maxSaved: 'nope', maxRecent: Number.NaN }),
+  SHELF_SETTINGS_DEFAULT,
+  'garbage falls back to the defaults',
+)
 
 // ── snippets ───────────────────────────────────────────────────────────────
 // A snippet is text plus the auto-return flag — no name field.

@@ -70,9 +70,11 @@ export const REGISTRY: readonly Entry[] = [
   // store/dbbrowser.ts — saved DB connection labels (no passwords are stored).
   { category: 'settings', key: 'suwu_db_saved_connections' },
   // store/termSnippets.ts — the user's saved terminal inputs, plus the
-  // record-history preference. The recorded history itself is denied below.
+  // record-history preference and the menu/history size settings. The recorded
+  // history itself is denied below.
   { category: 'settings', key: 'suwu.term-snippets' },
   { category: 'settings', key: 'suwu.term-record-inputs' },
+  { category: 'settings', key: 'suwu.term-snippets-settings' },
   // store/sftp.ts — saved SFTP connection targets (no passwords/keys stored).
   { category: 'settings', key: 'suwu:sftp-connections' },
 

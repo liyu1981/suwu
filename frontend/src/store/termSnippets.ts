@@ -1,5 +1,12 @@
+import { atom } from 'jotai';
 import { atomWithStorage, createJSONStorage } from 'jotai/utils';
-import type { RecentInput, TermSnippet } from '../lib/termSnippets';
+import {
+  SHELF_SETTINGS_DEFAULT,
+  normalizeShelfSettings,
+  type RecentInput,
+  type TermShelfSettings,
+  type TermSnippet,
+} from '../lib/termSnippets';
 
 /**
  * Persisted "Frequent inputs" state.
@@ -37,6 +44,27 @@ export const termRecentsAtom = atomWithStorage<RecentInput[]>(
   [],
   createJSONStorage<RecentInput[]>(() => sessionStorage),
   { getOnInit: true },
+);
+
+/** How many rows each section lists, and how much history is kept. */
+const shelfSettingsStorage = atomWithStorage<TermShelfSettings>(
+  'suwu.term-snippets-settings',
+  SHELF_SETTINGS_DEFAULT,
+  undefined,
+  { getOnInit: true },
+);
+
+/**
+ * Settings, normalized on read *and* write: the raw atom keeps whatever is in
+ * storage (an older build's payload, a hand-edited value) and this one hands
+ * every consumer a valid object. Writes take a patch, so a caller can change
+ * one field without restating the others.
+ */
+export const termShelfSettingsAtom = atom(
+  (get) => normalizeShelfSettings(get(shelfSettingsStorage)),
+  (get, set, patch: Partial<TermShelfSettings>) => {
+    set(shelfSettingsStorage, normalizeShelfSettings({ ...get(shelfSettingsStorage), ...patch }));
+  },
 );
 
 /** Whether typed input is recorded into the history at all. */

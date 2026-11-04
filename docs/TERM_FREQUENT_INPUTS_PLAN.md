@@ -148,6 +148,18 @@ export const termRecentsAtom = atomWithStorage<RecentInput[]>(
   { getOnInit: true },
 );
 
+/** How many rows each section lists, and how much history is kept. */
+export interface TermShelfSettings {
+  maxSaved: number;    // 5 by default, 1…20
+  maxRecent: number;   // 5 by default, 1…20
+  recentsKept: number; // 50 by default, 1…200
+}
+export const termShelfSettingsAtom = atomWithStorage<TermShelfSettings>(
+  'suwu.term-snippets-settings', SHELF_SETTINGS_DEFAULT,
+);
+// Read/written through `normalizeShelfSettings()`, which clamps every field, so
+// a stale payload or a hand-edited localStorage value can never reach the UI.
+
 /** Whether typed history is recorded at all (default on). */
 export const termRecordInputsAtom = atomWithStorage<boolean>(
   'suwu.term-record-inputs', true, undefined, { getOnInit: true },
@@ -293,8 +305,14 @@ side-aware animation are free:
 ```
 
 Sections (top → bottom): **search input** (autofocused, Body 14, `SearchIcon`
-inline), **RECENT**, **SAVED**, then a footer row with *+ Save current input*
-and *Manage snippets…*.
+inline), **SAVED**, **RECENT**, then a footer row with *+ Save current input*
+and *Manage snippets…*. SAVED leads because it is the shelf the user built on
+purpose; history is the incidental one.
+
+Each section lists **5 rows by default** (`maxSaved` / `maxRecent` in the
+manager's General tab, 1…20) and, when it holds back entries, ends with a
+Micro 10 `+N more` caption. Typing in the search box **lifts the limit** — a
+search is a question about the whole shelf, not about the visible five.
 
 Row anatomy: the snippet's own text, first line only, `truncate`; mono,
 Label 12 (a snippet has no name — the command *is* the label). Sub-line for
@@ -344,7 +362,9 @@ in view and there is no "which row am I editing?" state to read.
 └──────────────────────────────────────────────────────────┘
 ```
 
-- **Title row** — Heading 16 title + a *New* button (Label 12, `PlusIcon`).
+- **Tabs** — `Saved` | `General` (Label 12, sky underline on the selected tab).
+  Any edit target opens the Saved tab.
+- **Saved tab** — *New* button (Label 12, `PlusIcon`) above the table.
 - **Columns** — `Input text` and a narrow `↵` column that shows whether the
   snippet auto-returns (Micro 10 badge, tooltip "Runs when selected").
 - **Rows** — ordered by `orderSnippets` (most recently used, then newest).
@@ -360,8 +380,13 @@ in view and there is no "which row am I editing?" state to read.
 - **New** — prepends an empty editor row at the top of the table; saving it
   prepends the snippet (`upsertSnippet`) and the rest of the table keeps its
   order. The button is disabled while that draft row is already open.
-- **Recent inputs controls** — `Record recent inputs` checkbox, a Micro 10
-  count, and a `Clear` button.
+- **General tab** — three bounded number fields (`Saved shown in menu`,
+  `Recent shown in menu`, `Recent inputs kept`), each with a Caption 11 hint.
+  The input keeps a local draft while typing and commits on blur/Enter, so a
+  half-typed value is never clamped out from under the caret. Lowering
+  `recentsKept` prunes the stored history immediately rather than waiting for
+  the next submitted command. Below them: the `Record recent inputs` checkbox,
+  a Micro 10 count, and a `Clear` button.
 - **Footer** — Close (`t('dialog.close')`).
 
 Confirmations surface through the existing `Toast`
@@ -405,6 +430,11 @@ New keys under `terminal.snippets.*` in **both**
 | `manage` | Manage snippets… |
 | `notReady` | Terminal is not connected |
 | `managerTitle` | Frequent inputs |
+| `general` | General |
+| `maxSaved` / `maxSavedHint` | Saved shown in menu |
+| `maxRecent` / `maxRecentHint` | Recent shown in menu |
+| `recentsKept` / `recentsKeptHint` | Recent inputs kept |
+| `moreCount` | +{{count}} more |
 | `newSnippet` | New |
 | `nothingToSave` | Nothing typed to save yet |
 | `commandLabel` / `commandPlaceholder` | Input text (also the table header) |

@@ -42,8 +42,55 @@ export interface RecentInput {
 /** Upper bound on saved snippets — tiny lists stay scannable in a popover. */
 export const SNIPPETS_MAX = 200;
 
-/** Upper bound on remembered lines; the popover only ever shows a screenful. */
-export const RECENTS_MAX = 50;
+/**
+ * How many rows of each kind the popover lists before you have to search, and
+ * how much history is kept at all. Configurable in the manager's General tab;
+ * these are the bounds and the defaults.
+ */
+export interface TermShelfSettings {
+  /** Saved snippets listed in the menu (search always covers all of them). */
+  maxSaved: number;
+  /** Recent inputs listed in the menu. */
+  maxRecent: number;
+  /** Recent inputs kept in storage, not just shown. */
+  recentsKept: number;
+}
+
+export const SHELF_BOUNDS = {
+  maxSaved: { min: 1, max: 20 },
+  maxRecent: { min: 1, max: 20 },
+  recentsKept: { min: 1, max: 200 },
+} as const satisfies Record<keyof TermShelfSettings, { min: number; max: number }>;
+
+export const SHELF_SETTINGS_DEFAULT: TermShelfSettings = {
+  maxSaved: 5,
+  maxRecent: 5,
+  recentsKept: 50,
+};
+
+function clampIn(value: unknown, bounds: { min: number; max: number }, fallback: number): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(bounds.max, Math.max(bounds.min, Math.round(n)));
+}
+
+/**
+ * Coerce anything — a stored payload written by an older build, a hand-edited
+ * localStorage value, a patch from a component — into valid settings. Applied
+ * on every read and every write, so no surface can act on a bad number.
+ */
+export function normalizeShelfSettings(input: unknown): TermShelfSettings {
+  const raw = (input ?? {}) as Partial<TermShelfSettings>;
+  return {
+    maxSaved: clampIn(raw.maxSaved, SHELF_BOUNDS.maxSaved, SHELF_SETTINGS_DEFAULT.maxSaved),
+    maxRecent: clampIn(raw.maxRecent, SHELF_BOUNDS.maxRecent, SHELF_SETTINGS_DEFAULT.maxRecent),
+    recentsKept: clampIn(
+      raw.recentsKept,
+      SHELF_BOUNDS.recentsKept,
+      SHELF_SETTINGS_DEFAULT.recentsKept,
+    ),
+  };
+}
 
 /** Stable id generator with the same fallback used by the PTY session key. */
 export function newSnippetId(): string {
@@ -93,7 +140,12 @@ export function markSnippetUsed(list: TermSnippet[], id: string, now = Date.now(
  * Remember one submitted line: dedupe by exact text (moving the repeat to the
  * front), drop empties and over-long lines, cap the list.
  */
-export function pushRecent(list: RecentInput[], text: string, now = Date.now()): RecentInput[] {
+export function pushRecent(
+  list: RecentInput[],
+  text: string,
+  now = Date.now(),
+  max = SHELF_SETTINGS_DEFAULT.recentsKept,
+): RecentInput[] {
   const value = text.trim();
   if (!value || value.length > LINE_MAX) return list;
   if (list.length > 0 && list[0].text === value) {
@@ -102,7 +154,7 @@ export function pushRecent(list: RecentInput[], text: string, now = Date.now()):
   }
   return [{ text: value, at: now }, ...list.filter((entry) => entry.text !== value)].slice(
     0,
-    RECENTS_MAX,
+    Math.max(1, max),
   );
 }
 

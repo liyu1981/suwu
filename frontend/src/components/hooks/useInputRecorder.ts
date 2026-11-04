@@ -3,7 +3,11 @@ import { useAtom, useAtomValue } from 'jotai';
 import type { Terminal } from '@xterm/xterm';
 import { EMPTY_LINE, consumeInput, type LineState } from '../../lib/termInput';
 import { pushRecent } from '../../lib/termSnippets';
-import { termRecentsAtom, termRecordInputsAtom } from '../../store/termSnippets';
+import {
+  termRecentsAtom,
+  termRecordInputsAtom,
+  termShelfSettingsAtom,
+} from '../../store/termSnippets';
 
 /**
  * Tracks the shell's input line and records submitted commands into the
@@ -29,6 +33,7 @@ export function useInputRecorder(
 ): { getCurrentLine: () => string; recordSent: (payload: string) => void } {
   const [, setRecents] = useAtom(termRecentsAtom);
   const record = useAtomValue(termRecordInputsAtom);
+  const { recentsKept } = useAtomValue(termShelfSettingsAtom);
 
   const stateRef = useRef<LineState>(EMPTY_LINE);
   // Read through refs inside the listener so toggling the preference (or
@@ -40,6 +45,10 @@ export function useInputRecorder(
 
   const setRecentsRef = useRef(setRecents);
   setRecentsRef.current = setRecents;
+  // The history cap is a setting, so read it through a ref too — changing it
+  // must not re-register the listener.
+  const recentsKeptRef = useRef(recentsKept);
+  recentsKeptRef.current = recentsKept;
 
   /** Advance the line model (and remember anything that got submitted). */
   const feed = useCallback((payload: string) => {
@@ -47,7 +56,10 @@ export function useInputRecorder(
     stateRef.current = state;
     if (!recordRef.current || pausedRef.current || submitted.length === 0) return;
     setRecentsRef.current((list) =>
-      submitted.reduce((entries, line) => pushRecent(entries, line), list),
+      submitted.reduce(
+        (entries, line) => pushRecent(entries, line, Date.now(), recentsKeptRef.current),
+        list,
+      ),
     );
   }, []);
 

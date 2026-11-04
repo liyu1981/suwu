@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
@@ -11,7 +11,7 @@ import {
   runsOnSelect,
   type TermSnippet,
 } from '../../lib/termSnippets';
-import { termRecentsAtom, termSnippetsAtom } from '../../store/termSnippets';
+import { termRecentsAtom, termShelfSettingsAtom, termSnippetsAtom } from '../../store/termSnippets';
 import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from '../icons';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 
@@ -22,11 +22,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
  * bottom edge of the pane, so a downward menu would have nothing to grow into.
  * Radix flips it when a short pane has no room above.
  *
- * Sections: search, RECENT (typed this browser session), SAVED (durable
- * snippets), then the two ways to add something — save the line the user is
- * typing, or open the manager. Clicking a row inserts without running; the ⏎
- * affordance inserts and runs — except for snippets marked *auto return*,
- * which run on selection and show a persistent ↵ instead.
+ * Sections: search, then SAVED (durable snippets) before RECENT (typed this
+ * browser session) — the deliberate shelf first, the incidental one second —
+ * then the two ways to add something: save the line the user is typing, or
+ * open the manager. Each section lists N rows (General tab, 5 by default) and
+ * says how many it is holding back; a search lifts the limit and covers
+ * everything. Clicking a row inserts without running; the ⏎ affordance inserts
+ * and runs — except for snippets marked *auto return*, which run on selection
+ * and show a persistent ↵ instead.
  */
 
 export interface SnippetInsertRequest {
@@ -70,6 +73,7 @@ export function SnippetMenu({
   const { t } = useTranslation();
   const [snippets] = useAtom(termSnippetsAtom);
   const [recents] = useAtom(termRecentsAtom);
+  const settings = useAtomValue(termShelfSettingsAtom);
 
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
@@ -85,28 +89,38 @@ export function SnippetMenu({
   }, [open]);
 
   const groups = useMemo(() => {
-    const recentRows = recents
-      .filter((entry) => matchesQuery(entry.text, query))
-      .map((entry): Row => ({ kind: 'recent', key: `recent:${entry.text}`, text: entry.text }));
-    const savedRows = orderSnippets(snippets)
-      .filter((snippet) => matchesQuery(snippet.text, query))
+    // A search is a deliberate question about the whole shelf, so it lifts the
+    // row limit; browsing respects it and reports what it is holding back.
+    const searching = query.trim().length > 0;
+    const saved = orderSnippets(snippets).filter((snippet) => matchesQuery(snippet.text, query));
+    const recent = recents.filter((entry) => matchesQuery(entry.text, query));
+    const savedLimit = searching ? saved.length : settings.maxSaved;
+    const recentLimit = searching ? recent.length : settings.maxRecent;
+
+    const savedRows = saved
+      .slice(0, savedLimit)
       .map((snippet): Row => ({ kind: 'snippet', key: `snippet:${snippet.id}`, snippet }));
+    const recentRows = recent
+      .slice(0, recentLimit)
+      .map((entry): Row => ({ kind: 'recent', key: `recent:${entry.text}`, text: entry.text }));
 
     return [
-      {
-        id: 'recent',
-        title: t('terminal.snippets.recent'),
-        empty: t('terminal.snippets.emptyRecent'),
-        rows: recentRows,
-      },
       {
         id: 'saved',
         title: t('terminal.snippets.saved'),
         empty: t('terminal.snippets.emptySaved'),
         rows: savedRows,
+        more: saved.length - savedRows.length,
+      },
+      {
+        id: 'recent',
+        title: t('terminal.snippets.recent'),
+        empty: t('terminal.snippets.emptyRecent'),
+        rows: recentRows,
+        more: recent.length - recentRows.length,
       },
     ];
-  }, [query, recents, snippets, t]);
+  }, [query, recents, snippets, settings, t]);
 
   const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
   // Start index of each group inside the flattened list, so rows can carry a
@@ -310,6 +324,11 @@ export function SnippetMenu({
                     </div>
                   );
                 })}
+                {group.more > 0 && (
+                  <div className="px-2 pt-0.5 text-[10px] text-white/30">
+                    {t('terminal.snippets.moreCount', { count: group.more })}
+                  </div>
+                )}
               </div>
             );
           })}

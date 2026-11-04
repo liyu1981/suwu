@@ -303,6 +303,8 @@
       "namePlaceholder": "e.g. Build the frontend",
       "commandLabel": "Input text",
       "commandPlaceholder": "e.g. pnpm --dir frontend build",
+      "autoReturn": "Auto return — run when selected",
+      "autoReturnBadge": "Runs when selected",
       "add": "Add",
       "save": "Save",
       "cancel": "Cancel",

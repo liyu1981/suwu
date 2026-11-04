@@ -8,6 +8,7 @@ import {
   lineCount,
   matchesQuery,
   orderSnippets,
+  runsOnSelect,
   type TermSnippet,
 } from '../../lib/termSnippets';
 import { termRecentsAtom, termSnippetsAtom } from '../../store/termSnippets';
@@ -24,7 +25,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
  * Sections: search, RECENT (typed this browser session), SAVED (durable
  * snippets), then the two ways to add something — save the line the user is
  * typing, or open the manager. Clicking a row inserts without running; the ⏎
- * affordance inserts and runs.
+ * affordance inserts and runs — except for snippets marked *auto return*,
+ * which run on selection and show a persistent ↵ instead.
  */
 
 export interface SnippetInsertRequest {
@@ -133,8 +135,16 @@ export function SnippetMenu({
 
   const activate = useCallback(
     (row: Row, run: boolean) => {
-      if (row.kind === 'recent') onInsert({ text: row.text }, run);
-      else onInsert({ text: row.snippet.text, snippetId: row.snippet.id }, run);
+      if (row.kind === 'recent') {
+        onInsert({ text: row.text }, run);
+        return;
+      }
+      // An auto-return snippet is a command the user runs as-is, so selecting
+      // it is already an explicit run.
+      onInsert(
+        { text: row.snippet.text, snippetId: row.snippet.id },
+        run || runsOnSelect(row.snippet),
+      );
     },
     [onInsert],
   );
@@ -219,6 +229,7 @@ export function SnippetMenu({
                   const text = row.kind === 'recent' ? row.text : row.snippet.text;
                   const label = row.kind === 'snippet' ? row.snippet.label : undefined;
                   const lines = lineCount(text);
+                  const autoRun = row.kind === 'snippet' && runsOnSelect(row.snippet);
                   return (
                     <div
                       role="option"
@@ -227,7 +238,7 @@ export function SnippetMenu({
                       data-idx={index}
                       key={row.key}
                       onClick={() => activate(row, false)}
-                      title={t('terminal.snippets.insert')}
+                      title={t(autoRun ? 'terminal.snippets.run' : 'terminal.snippets.insert')}
                       className={cn(
                         'group flex w-full cursor-pointer items-start gap-1 rounded-sm px-2 py-1 transition',
                         index === highlight ? 'bg-white/10' : 'hover:bg-white/10',
@@ -246,19 +257,31 @@ export function SnippetMenu({
                           </span>
                         )}
                       </span>
-                      <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                        <button
-                          type="button"
-                          title={t('terminal.snippets.run')}
-                          aria-label={t('terminal.snippets.run')}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            activate(row, true);
-                          }}
-                          className={ACTION_BTN}
+                      {/* Auto-return snippets run on selection, so the intent
+                          is always visible instead of hiding in a tooltip. */}
+                      {autoRun && (
+                        <span
+                          title={t('terminal.snippets.autoReturnBadge')}
+                          className="shrink-0 px-0.5 text-[10px] font-semibold leading-[14px] text-sky-300/80"
                         >
-                          <span className="block text-[10px] font-semibold leading-none">↵</span>
-                        </button>
+                          ↵
+                        </span>
+                      )}
+                      <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                        {!autoRun && (
+                          <button
+                            type="button"
+                            title={t('terminal.snippets.run')}
+                            aria-label={t('terminal.snippets.run')}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              activate(row, true);
+                            }}
+                            className={ACTION_BTN}
+                          >
+                            <span className="block text-[10px] font-semibold leading-none">↵</span>
+                          </button>
+                        )}
                         {row.kind === 'snippet' && (
                           <>
                             <button

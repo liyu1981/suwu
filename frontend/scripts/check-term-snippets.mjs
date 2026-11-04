@@ -22,6 +22,7 @@ import {
   orderSnippets,
   pushRecent,
   removeSnippet,
+  runsOnSelect,
   upsertSnippet,
 } from '../src/lib/termSnippets.ts'
 
@@ -174,15 +175,21 @@ assert.equal(many.length, RECENTS_MAX, 'history is capped')
 assert.equal(many[0].text, `cmd ${RECENTS_MAX + 9}`, 'the newest survives the cap')
 
 // ── snippets ───────────────────────────────────────────────────────────────
-const a = makeSnippet('pnpm build', '  Build  ', 100)
+const a = makeSnippet('pnpm build', { label: '  Build  ' }, 100)
 assert.equal(a.label, 'Build', 'labels are trimmed')
 assert.equal(a.text, 'pnpm build')
 assert.ok(a.id.length > 0)
-assert.equal(makeSnippet('ls', '   ', 100).label, undefined, 'a blank label is no label')
+assert.equal(makeSnippet('ls', { label: '   ' }, 100).label, undefined, 'a blank label is no label')
+
+// Auto return: a command the user runs as-is. Off is stored as absent so a
+// restored/legacy snippet needs no migration.
+assert.equal(makeSnippet('ls', {}).autoReturn, undefined, 'off stays absent')
+assert.equal(runsOnSelect(makeSnippet('ls', { autoReturn: true })), true)
+assert.equal(runsOnSelect(makeSnippet('ls', {})), false, 'missing flag reads as off')
 
 let list = upsertSnippet([], a)
 assert.deepEqual(list.map((s) => s.id), [a.id])
-const b = makeSnippet('cargo test', 'Test', 200)
+const b = makeSnippet('cargo test', { label: 'Test' }, 200)
 list = upsertSnippet(list, b)
 assert.deepEqual(list.map((s) => s.text), ['cargo test', 'pnpm build'], 'new snippets go first')
 
@@ -198,8 +205,8 @@ list = removeSnippet(list, a.id)
 assert.deepEqual(list.map((s) => s.text), ['cargo test'])
 
 // Ordering: used snippets float; never-used ones fall back to createdAt.
-const old = makeSnippet('old', undefined, 10)
-const fresh = makeSnippet('fresh', undefined, 999)
+const old = makeSnippet('old', {}, 10)
+const fresh = makeSnippet('fresh', {}, 999)
 const used = markSnippetUsed([old, fresh], old.id, 1000)
 assert.deepEqual(
   orderSnippets(used).map((s) => s.text),

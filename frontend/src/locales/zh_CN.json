@@ -302,6 +302,8 @@
       "namePlaceholder": "例如 构建前端",
       "commandLabel": "输入内容",
       "commandPlaceholder": "例如 pnpm --dir frontend build",
+      "autoReturn": "自动回车（选中即执行）",
+      "autoReturnBadge": "选中后自动执行",
       "add": "添加",
       "save": "保存",
       "cancel": "取消",

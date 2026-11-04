@@ -45,7 +45,9 @@ friction in the whole app. Give the term tile a **local, offline command shelf**
    three things: a **search field**, the user's **recent inputs**, and their
    **saved snippets**.
 3. Clicking an entry **inserts** it at the shell prompt (no Enter) so it can be
-   reviewed; an explicit **⏎** affordance inserts *and* runs.
+   reviewed; an explicit **⏎** affordance inserts *and* runs. A snippet can be
+   ticked **auto return** ("run when selected") — the command you always run
+   as-is — and then selecting it is the run.
 4. A **Manage snippets** entry opens the only modal: add / edit / delete named
    snippets, plus the recent-history controls.
 5. Everything is stored **locally** (`localStorage` for snippets,
@@ -125,6 +127,7 @@ export interface TermSnippet {
   id: string;          // crypto.randomUUID()
   text: string;        // what gets inserted (may be multi-line)
   label?: string;      // optional display name; falls back to text
+  autoReturn?: boolean; // send Enter after the text: run it on selection
   createdAt: number;
   lastUsedAt?: number; // used to sort within the saved section
   useCount?: number;
@@ -299,7 +302,9 @@ Label 12. Sub-line for multi-line snippets = Micro 10 `N lines`. Trailing
 actions appear on hover / keyboard focus (opacity transition, always reachable
 by Tab):
 
-- `⏎` — insert and run (`title`: "Insert and run").
+- `⏎` — insert and run (`title`: "Insert and run"). Hidden on auto-return
+  snippets, where plain selection already runs and a persistent `↵` badge in
+  the row says so (no hidden modifier: the flag is the whole story).
 - For saved rows only: `✓` (edit → opens the manager with that snippet
   focused) and `⌫` (delete, immediate, no confirm — it is one row, and the
   manager is the recovery surface; if a confirm is wanted, reuse the
@@ -325,7 +330,9 @@ existing `Dialog` / `DialogContent` / `DialogTitle`:
 - **Title** — Heading 16: "Frequent inputs".
 - **Add / edit form** — optional `label` (`text-xs` input) + `text`
   (mono `<textarea rows={3}>`, Body 14, so multi-line snippets are writable) +
-  *Add* / *Save* button, disabled while `text.trim()` is empty.
+  *Auto return — run when selected* checkbox (Label 12; off by default, stored
+  as `undefined` so legacy/restored snippets need no migration) + *Add* /
+  *Save* button, disabled while `text.trim()` is empty.
 - **List** — every snippet, newest/most-recently-used first: mono text, label
   as Caption 11 above it, edit + delete per row. Empty state: Heading 16
   "No snippets yet" + Caption hint.

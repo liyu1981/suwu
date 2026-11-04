@@ -21,6 +21,13 @@ export interface TermSnippet {
   text: string;
   /** Optional display name; falls back to the first line of `text`. */
   label?: string;
+  /**
+   * Send an Enter after the text, so selecting the snippet runs it.
+   *
+   * Most snippets are things you want to tweak before running; the ones ticked
+   * here are commands you run as-is, and one click should be enough.
+   */
+  autoReturn?: boolean;
   createdAt: number;
   lastUsedAt?: number;
   useCount?: number;
@@ -47,11 +54,16 @@ export function newSnippetId(): string {
 }
 
 /** Build a snippet from a text (and optional name) without an id collision. */
-export function makeSnippet(text: string, label?: string, now = Date.now()): TermSnippet {
+export function makeSnippet(
+  text: string,
+  options: { label?: string; autoReturn?: boolean } = {},
+  now = Date.now(),
+): TermSnippet {
   return {
     id: newSnippetId(),
     text: text.trim(),
-    label: normalizeLabel(label),
+    label: normalizeLabel(options.label),
+    autoReturn: options.autoReturn || undefined,
     createdAt: now,
   };
 }
@@ -99,6 +111,11 @@ export function pushRecent(list: RecentInput[], text: string, now = Date.now()):
     0,
     RECENTS_MAX,
   );
+}
+
+/** Whether selecting this snippet should also press Enter. */
+export function runsOnSelect(snippet: TermSnippet): boolean {
+  return snippet.autoReturn === true;
 }
 
 /**

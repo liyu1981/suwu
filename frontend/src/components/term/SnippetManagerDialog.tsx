@@ -5,6 +5,7 @@ import {
   makeSnippet,
   orderSnippets,
   removeSnippet,
+  runsOnSelect,
   upsertSnippet,
   type TermSnippet,
 } from '../../lib/termSnippets';
@@ -26,6 +27,7 @@ export interface SnippetDraft {
   id?: string;
   label?: string;
   text?: string;
+  autoReturn?: boolean;
 }
 
 interface SnippetManagerDialogProps {
@@ -59,6 +61,7 @@ export function SnippetManagerDialog({
 
   const [label, setLabel] = useState('');
   const [text, setText] = useState('');
+  const [autoReturn, setAutoReturn] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
@@ -68,6 +71,7 @@ export function SnippetManagerDialog({
     if (!open) return;
     setLabel(draft?.label ?? '');
     setText(draft?.text ?? '');
+    setAutoReturn(draft?.autoReturn ?? false);
     setEditingId(draft?.id ?? null);
   }, [open, draft]);
 
@@ -77,6 +81,7 @@ export function SnippetManagerDialog({
   const resetForm = () => {
     setLabel('');
     setText('');
+    setAutoReturn(false);
     setEditingId(null);
   };
 
@@ -88,8 +93,9 @@ export function SnippetManagerDialog({
           ...editing,
           label: label.trim() || undefined,
           text: value,
+          autoReturn: autoReturn || undefined,
         }
-      : makeSnippet(value, label);
+      : makeSnippet(value, { label, autoReturn });
     setSnippets((list) => upsertSnippet(list, next));
     onNotify(t('terminal.snippets.savedToast'));
     resetForm();
@@ -99,6 +105,7 @@ export function SnippetManagerDialog({
     setEditingId(snippet.id);
     setLabel(snippet.label ?? '');
     setText(snippet.text);
+    setAutoReturn(runsOnSelect(snippet));
     textRef.current?.focus();
   };
 
@@ -144,8 +151,20 @@ export function SnippetManagerDialog({
             placeholder={t('terminal.snippets.commandPlaceholder')}
             className={`${FIELD} resize-none py-1.5 font-mono text-sm leading-snug`}
           />
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <input
+              id="term-snippet-auto-return"
+              type="checkbox"
+              checked={autoReturn}
+              onChange={(event) => setAutoReturn(event.target.checked)}
+              className="h-3 w-3 accent-sky-500"
+            />
+            <label className="text-xs text-white/60" htmlFor="term-snippet-auto-return">
+              {t('terminal.snippets.autoReturn')}
+            </label>
+          </div>
           <div className="flex justify-end gap-2">
-            {(editingId || label || text) && (
+            {(editingId || label || text || autoReturn) && (
               <button type="button" onClick={resetForm} className={GHOST_BTN}>
                 {t('terminal.snippets.cancel')}
               </button>
@@ -176,6 +195,14 @@ export function SnippetManagerDialog({
                     {snippet.text}
                   </div>
                 </div>
+                {runsOnSelect(snippet) && (
+                  <span
+                    title={t('terminal.snippets.autoReturnBadge')}
+                    className="shrink-0 px-0.5 text-[10px] font-semibold leading-[14px] text-sky-300/80"
+                  >
+                    ↵
+                  </span>
+                )}
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
                   <button
                     type="button"

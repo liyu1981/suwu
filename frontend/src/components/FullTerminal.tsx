@@ -263,7 +263,12 @@ export default function FullTerminal() {
               onSaveCurrent={() => openManager({ text: getCurrentLine() })}
               onManage={() => openManager(null)}
               onEdit={(snippet) =>
-                openManager({ id: snippet.id, label: snippet.label, text: snippet.text })
+                openManager({
+                  id: snippet.id,
+                  label: snippet.label,
+                  text: snippet.text,
+                  autoReturn: snippet.autoReturn,
+                })
               }
               onDelete={deleteSnippet}
               onClosed={() => {

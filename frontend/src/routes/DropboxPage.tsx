@@ -479,10 +479,12 @@ export default function DropboxPage() {
             </div>
           ) : (
             <>
-              {/* Persistent drop target — large area with horizontal margin */}
+              {/* Persistent drop target — a single row: hint, rule, action. A
+                  tall dashed box said "drop here" twice (label + button) and
+                  pushed the file list below the fold on short panes. */}
               <div
-                className={`mx-2 mt-2 flex min-h-[30%] flex-col items-center justify-center gap-2 rounded-[6px] border-2 border-dashed transition ${
-                  dragOver ? 'border-violet-400 bg-violet-500/10' : 'border-white/10'
+                className={`mx-2 mt-2 flex items-center gap-2 rounded-[6px] border border-dashed px-2.5 py-1.5 transition ${
+                  dragOver ? 'border-sky-400/70 bg-sky-500/10' : 'border-white/10'
                 }`}
               >
                 <input
@@ -497,20 +499,21 @@ export default function DropboxPage() {
                     e.target.value = '';
                   }}
                 />
-                <FileIcon className="h-8 w-8 text-white/20" />
-                <p className="text-[11px] text-white/40">
+                <FileIcon className="h-3.5 w-3.5 shrink-0 text-white/25" />
+                <p className="min-w-0 flex-1 truncate text-[11px] text-white/40">
                   {dragOver ? t('dropbox.dropHintActive') : t('dropbox.dropHint')}
                 </p>
+                {uploading && (
+                  <p className="shrink-0 text-[11px] text-sky-300">{t('dropbox.uploading')}</p>
+                )}
+                <span aria-hidden className="h-4 w-px shrink-0 bg-white/10" />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="rounded-md bg-violet-500/20 px-3 py-1.5 text-xs font-semibold text-violet-200 transition hover:bg-violet-500/30 active:scale-95"
+                  className="shrink-0 rounded-md border border-white/10 bg-black/60 px-2.5 py-1 text-xs font-medium text-white/80 transition glass-btn hover:border-white/20 hover:bg-black/75 hover:text-white"
                 >
                   {t('dropbox.uploadFiles')}
                 </button>
-                {uploading && (
-                  <p className="text-[11px] text-violet-400">{t('dropbox.uploading')}</p>
-                )}
               </div>
 
               {/* Search input — below drop area */}

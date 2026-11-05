@@ -166,7 +166,8 @@ SSRF dial-time guard stays in force.
 ### 2.7 How the sandboxed page calls its own API
 
 The render page runs in a sandboxed iframe — `sandbox="allow-scripts
-allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"` — and the
+allow-pointer-lock allow-popups allow-popups-to-escape-sandbox <declared
+suwu.sandbox extras>"` — and the
 render response carries a matching CSP `sandbox` directive, so every load of
 `/gqjs/ext/<id>` (tile iframe, escape-sandbox popup, or direct tab) is an
 **opaque origin**. That breaks the two assumptions a same-origin page would
@@ -238,6 +239,38 @@ enjoy:
 > pattern. That value is the extension-scoped token, so even if it leaks it
 > only opens this extension's own API. Use a classic script when the secret must be evaluated directly
 > (inline in the stub); everything in `public/` must stay secret-free.
+
+---
+
+### 2.9 Extension capabilities — CSP extras and sandbox extras
+
+The base `/gqjs/ext/<id>` CSP is scoped to the extension's own static and API
+trees. Extensions that need more declare it in `package.json`:
+
+```json
+"suwu": {
+  "csp": {
+    "script-src": ["https://unpkg.com"],
+    "worker-src": ["blob:", "data:"],
+    "connect-src": ["blob:"]
+  },
+  "sandbox": ["allow-downloads"]
+}
+```
+
+- `suwu.csp` is additive only. Extendable directives: `script-src`,
+  `style-src`, `img-src`, `font-src`, `connect-src`, `media-src`,
+  `worker-src`, `child-src`, `frame-src`, `manifest-src`.
+- Fixed directives (`default-src`, `sandbox`, `frame-ancestors`, `base-uri`,
+  `object-src`, `form-action`, `report-uri`, `report-to`, trusted-types and
+  mixed-content directives) are rejected at resolve time.
+- Sources are validated and deduplicated; bare `*`, `'none'`,
+  `'unsafe-inline'`, and host sources without an explicit scheme are rejected.
+- `suwu.sandbox` currently accepts only `allow-downloads`. The base tokens stay
+  fixed; the tile iframe and the render response's CSP sandbox use base +
+  declared extras.
+- The resolved extension object includes `csp` and `sandbox`, so
+  `/api/extensions` exposes the declared surface for review.
 
 ---
 

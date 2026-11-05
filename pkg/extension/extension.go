@@ -7,7 +7,9 @@
 // `suwu.api` and served under /gqjs/api/<id>/, a directory of public assets
 // is declared with `suwu.static` and served unauthenticated under
 // /gqjs/static/<id>/ (never put secrets in it), and `suwu.net` opts the
-// extension into network access for its scripts.
+// extension into network access for its scripts. `suwu.csp` and
+// `suwu.sandbox` declare narrowly validated extra capabilities; the backend
+// always keeps its core policy in front of them.
 //
 // Nothing is seeded automatically: installable examples live in the repo's
 // examples/extension/ directory and are installed with `suwu install`.
@@ -86,6 +88,13 @@ type suwuSpecs struct {
 	// Net opts the extension's scripts into network access (suwu gq
 	// --allow-net). Off by default: without it, fetch() rejects.
 	Net bool `json:"net"`
+	// CSP adds sources to the core extension CSP. Only the directives listed
+	// in extendableCSPDirectives may be declared; fixed directives (sandbox,
+	// frame-ancestors, default-src, …) are rejected at Resolve time.
+	CSP map[string][]string `json:"csp"`
+	// Sandbox adds narrowly allow-listed iframe sandbox tokens. Today only
+	// "allow-downloads" is accepted.
+	Sandbox []string `json:"sandbox"`
 }
 
 // Extension is one resolved, runnable extension.
@@ -105,6 +114,10 @@ type Extension struct {
 	// Static is the declared public-assets directory (suwu.static); empty
 	// when the extension serves no static files.
 	Static string `json:"static,omitempty"`
+	// CSP lists the extra CSP sources declared under suwu.csp.
+	CSP map[string][]string `json:"csp,omitempty"`
+	// Sandbox lists the extra sandbox tokens declared under suwu.sandbox.
+	Sandbox []string `json:"sandbox,omitempty"`
 	// Dir is the absolute extension directory.
 	Dir string `json:"-"`
 	// Entry is the absolute path to index.js.
@@ -233,9 +246,19 @@ func Resolve(dir, id string) (Extension, error) {
 	}
 
 	var static string
+	var csp map[string][]string
+	var sandbox []string
 	if pkg.Suwu != nil {
 		static = pkg.Suwu.Static
 		if err := validateStaticRoot(static); err != nil {
+			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
+		}
+		csp, err = normalizeCSP(pkg.Suwu.CSP)
+		if err != nil {
+			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
+		}
+		sandbox, err = normalizeSandbox(pkg.Suwu.Sandbox)
+		if err != nil {
 			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
 		}
 	}
@@ -253,6 +276,8 @@ func Resolve(dir, id string) (Extension, error) {
 		API:         api,
 		Net:         net,
 		Static:      static,
+		CSP:         csp,
+		Sandbox:     sandbox,
 		Dir:         extDir,
 		Entry:       entry,
 	}, nil

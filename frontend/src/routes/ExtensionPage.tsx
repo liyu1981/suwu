@@ -4,6 +4,7 @@ import { extensionZoomAtom } from '../store/zoom';
 import { setPageTransparent } from '../lib/constants';
 import { EXT_KEY_RE, EXT_VALUE_MAX, extStoreGet, extStoreSet } from '../lib/extStore';
 import { notifyBackupDirty } from '../lib/backup/client';
+import { useExtensions } from '../lib/extensions';
 import i18n from '../i18n';
 
 // Scoped storage bridge for the sandboxed extension frame.
@@ -59,6 +60,28 @@ export default function ExtensionPage() {
   }, [id, paneId, query]);
 
   const innerRef = useRef<HTMLIFrameElement>(null);
+
+  // The iframe's sandbox is the intersection of this attribute and the render
+  // response's CSP sandbox directive. Extensions may declare narrowly
+  // allow-listed extras (currently only allow-downloads); wait for the list so
+  // the attribute does not change and reload the iframe after it mounts.
+  const {
+    items: extensions,
+    failed: extensionsFailed,
+    loading: extensionsLoading,
+  } = useExtensions();
+  const declaredSandbox = extensions.find((e) => e.id === id)?.sandbox ?? [];
+  const sandbox = useMemo(
+    () =>
+      [
+        'allow-scripts',
+        'allow-pointer-lock',
+        'allow-popups',
+        'allow-popups-to-escape-sandbox',
+        ...declaredSandbox,
+      ].join(' '),
+    [declaredSandbox],
+  );
 
   // Tile-page hop of the extension focus/key relay and the ext-store bridge.
   //
@@ -156,7 +179,9 @@ export default function ExtensionPage() {
 
   return (
     <CommonTileContainer zoomAtom={extensionZoomAtom} noPadding>
-      {src ? (
+      {src && extensionsLoading && !extensionsFailed ? (
+        <div className="grid h-full w-full place-items-center text-sm text-white/35">…</div>
+      ) : src ? (
         <iframe
           key={src}
           ref={innerRef}
@@ -170,9 +195,10 @@ export default function ExtensionPage() {
           // response carries a matching `sandbox` CSP (extensionCSPFor): a
           // popup that navigates back to /gqjs/ext/<id> is forced opaque again,
           // so it can never read the session cookie. Keep this token list
-          // identical to `extensionSandboxTokens` in pkg/server/extension.go —
-          // effective capabilities are the intersection of the two.
-          sandbox="allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox"
+          // identical to `extensionSandboxTokens` in pkg/server/extension.go,
+          // plus the extension's declared `suwu.sandbox` extras — effective
+          // capabilities are the intersection of the two.
+          sandbox={sandbox}
           className="h-full w-full border-0 bg-transparent"
         />
       ) : (

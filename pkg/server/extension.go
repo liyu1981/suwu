@@ -131,16 +131,18 @@ const extensionCSP = "default-src 'none'; " +
 	"frame-ancestors 'self'; " +
 	"sandbox " + extensionSandboxTokens
 
-// extensionCSPFor builds the CSP for a rendered extension page. Compared with
-// extensionCSP it additionally allows the pinned htmx CDN in script-src, and
-// names the request origin in every directive that can load extension assets
-// (script/style/img/font, plus connect for the API): the page runs in a
-// sandboxed iframe with an opaque origin — where 'self' alone is unreliable.
-// The `sandbox` directive is the guard that keeps a document loaded at our
-// origin outside that iframe opaque as well; see
-// docs/EXTENSION_SANDBOX_LINKS_ANALYSIS.md §7.4.
-// r.Host is restricted to host-safe characters before it enters the header.
-func extensionCSPFor(r *http.Request) string {
+// extensionCSPFor builds the CSP for a rendered extension page. The base
+// policy is deliberately narrow: scripts/styles/images/fonts are scoped to the
+// extension's own /gqjs/static/<id>/ tree and connects to its own
+// /gqjs/api/<id>/ tree. Extensions may add sources through suwu.csp and, for a
+// tiny allow-list, sandbox tokens through suwu.sandbox; the backend always
+// keeps the core tokens in front of the extras.
+//
+// The page runs in a sandboxed iframe with an opaque origin, where 'self' is
+// unreliable, so the request origin is named explicitly. The `sandbox`
+// directive keeps a document loaded at our origin outside that iframe opaque
+// as well; see docs/EXTENSION_SANDBOX_LINKS_ANALYSIS.md §7.4.
+func extensionCSPFor(r *http.Request, ext extension.Extension) string {
 	host := strings.Map(func(c rune) rune {
 		switch {
 		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9',
@@ -149,15 +151,59 @@ func extensionCSPFor(r *http.Request) string {
 		}
 		return -1
 	}, r.Host)
-	origin := "https://" + host + " http://" + host
-	return "default-src 'none'; " +
-		"script-src 'unsafe-inline' https://unpkg.com " + origin + "; " +
-		"style-src 'unsafe-inline' " + origin + "; " +
-		"img-src data: blob: " + origin + "; " +
-		"font-src data: " + origin + "; " +
-		"connect-src 'self' " + origin + "; " +
-		"frame-ancestors 'self'; " +
-		"sandbox " + extensionSandboxTokens
+
+	static := []string{
+		"https://" + host + "/gqjs/static/" + ext.ID + "/",
+		"http://" + host + "/gqjs/static/" + ext.ID + "/",
+	}
+	api := []string{
+		"https://" + host + "/gqjs/api/" + ext.ID + "/",
+		"http://" + host + "/gqjs/api/" + ext.ID + "/",
+	}
+	extra := func(name string) []string { return ext.CSP[name] }
+
+	directives := []string{
+		directive("default-src", "'none'"),
+		directive("script-src", append(append([]string{"'unsafe-inline'"}, static...), extra("script-src")...)...),
+		directive("style-src", append(append([]string{"'unsafe-inline'"}, static...), extra("style-src")...)...),
+		directive("img-src", append(append([]string{"data:", "blob:"}, static...), extra("img-src")...)...),
+		directive("font-src", append(append([]string{"data:"}, static...), extra("font-src")...)...),
+		directive("connect-src", append(append([]string{}, api...), append(static, extra("connect-src")...)...)...),
+	}
+	if sources, ok := ext.CSP["worker-src"]; ok {
+		directives = append(directives, directive("worker-src", append(append([]string{}, static...), sources...)...))
+	}
+	if sources, ok := ext.CSP["media-src"]; ok {
+		directives = append(directives, directive("media-src", append(append([]string{"data:", "blob:"}, static...), sources...)...))
+	}
+	for _, name := range []string{"child-src", "frame-src", "manifest-src"} {
+		if sources, ok := ext.CSP[name]; ok {
+			directives = append(directives, directive(name, append(append([]string{}, static...), sources...)...))
+		}
+	}
+	directives = append(directives,
+		directive("object-src", "'none'"),
+		directive("base-uri", "'none'"),
+		directive("form-action", "'none'"),
+		directive("frame-ancestors", "'self'"),
+		"sandbox "+strings.Join(append(strings.Fields(extensionSandboxTokens), ext.Sandbox...), " "),
+	)
+	return strings.Join(directives, "; ")
+}
+
+// directive renders one CSP directive, de-duplicating sources while keeping
+// the core sources first and the extension extras deterministic.
+func directive(name string, sources ...string) string {
+	seen := make(map[string]bool, len(sources))
+	clean := make([]string, 0, len(sources))
+	for _, source := range sources {
+		if source == "" || seen[source] {
+			continue
+		}
+		seen[source] = true
+		clean = append(clean, source)
+	}
+	return name + " " + strings.Join(clean, " ")
 }
 
 // defaultExtensionTimeout follows PHP's max_execution_time rule. Override with
@@ -477,7 +523,7 @@ func (s *Server) handleExtension(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Security-Policy", extensionCSPFor(r))
+	w.Header().Set("Content-Security-Policy", extensionCSPFor(r, ext))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")

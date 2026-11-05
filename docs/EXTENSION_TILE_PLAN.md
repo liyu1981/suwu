@@ -262,20 +262,50 @@ query token). The query-token fallback (`?token=`) also works, matching
 `/gqjs/ext/<id>` is dynamic HTML, so it sets its own headers (the global `csp`
 constant only applies to `.html` static assets):
 
+The base policy is deliberately narrow and scoped to the extension's own
+`/gqjs/static/<id>/` and `/gqjs/api/<id>/` trees:
+
 ```
 Content-Type: <extension contentType or text/html; charset=utf-8>
-Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline';
-                         style-src 'unsafe-inline'; img-src data: blob:;
-                         font-src data:; connect-src 'self';
-                         frame-ancestors 'self'
+Content-Security-Policy: default-src 'none';
+                         script-src 'unsafe-inline' <origin>/gqjs/static/<id>/;
+                         style-src 'unsafe-inline' <origin>/gqjs/static/<id>/;
+                         img-src data: blob: <origin>/gqjs/static/<id>/;
+                         font-src data: <origin>/gqjs/static/<id>/;
+                         connect-src <origin>/gqjs/api/<id>/ <origin>/gqjs/static/<id>/;
+                         object-src 'none'; base-uri 'none'; form-action 'none';
+                         frame-ancestors 'self';
+                         sandbox <base tokens> <declared extras>
 X-Content-Type-Options: nosniff
 Cache-Control: no-store
 ```
 
 `'unsafe-inline'` is required because extension pages are self-contained
 documents. `frame-ancestors 'self'` allows the same-origin `/extension` page to
-frame it while blocking third-party framing. Note: the global static CSP has no
-`frame-ancestors` conflict here because this route sets its own.
+frame it while blocking third-party framing. The explicit origin is required
+because the sandboxed document has an opaque origin, where `'self'` is
+unreliable.
+
+Extensions add capabilities through `package.json`:
+
+```json
+"suwu": {
+  "csp": {
+    "script-src": ["https://unpkg.com"],
+    "worker-src": ["blob:", "data:"],
+    "connect-src": ["blob:"]
+  },
+  "sandbox": ["allow-downloads"]
+}
+```
+
+- `suwu.csp` extras are additive; fixed directives (`default-src`, `sandbox`,
+  `frame-ancestors`, `base-uri`, `object-src`, `form-action`, reporting
+  directives) are rejected at resolve time.
+- `suwu.sandbox` accepts only `allow-downloads` today. The tile iframe and the
+  render response's CSP sandbox use the same base + declared extras.
+- `suwu.net`, `suwu.csp`, `suwu.sandbox`, and `suwu.static` are all included in
+  `/api/extensions`, so the declared capability surface is reviewable.
 
 ### 4.7 Focus & keyboard relay (injected server-side)
 
@@ -393,7 +423,7 @@ custom app): the user picks `id` and adds any extra params there. See §5.4.
 - Wrap in `<CommonTileContainer zoomAtom={extensionZoomAtom} noPadding>`.
 - Read `id` + extra params from `window.location.search`.
 - If `id`: render the inner iframe
-  `<iframe src={`/gqjs/ext/${id}?${p}`} sandbox="allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox" />`
+  `<iframe src={`/gqjs/ext/${id}?${p}`} sandbox="allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox <declared extras>" />`
   (`allow-same-origin` is deliberately **omitted** → opaque origin). All extra
   params are appended to `p`. The render response carries the same tokens as a
   CSP `sandbox` directive, so a direct tab or escaped popup is re-sandboxed.

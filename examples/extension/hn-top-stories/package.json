@@ -5,7 +5,15 @@
     "static": "public",
     "net": true,
     "api": [
-      { "route": "/stories", "handler": "stories.js" }
-    ]
+      {
+        "route": "/stories",
+        "handler": "stories.js"
+      }
+    ],
+    "csp": {
+      "script-src": [
+        "https://unpkg.com"
+      ]
+    }
   }
 }

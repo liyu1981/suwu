@@ -103,13 +103,14 @@ func TestExtensionEndpoint(t *testing.T) {
 	if csp := resp.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "frame-ancestors 'self'") {
 		t.Errorf("CSP = %q, want frame-ancestors 'self'", csp)
 	} else {
-		// Rendered pages may load the pinned htmx CDN and call back into their
-		// own API from an opaque origin.
-		if !strings.Contains(csp, "https://unpkg.com") {
-			t.Errorf("CSP missing the htmx CDN: %q", csp)
+		// The base policy is scoped to this extension's own static and API
+		// trees. The htmx CDN is declared only by extensions that use it.
+		if strings.Contains(csp, "https://unpkg.com") {
+			t.Errorf("base CSP unexpectedly allows the htmx CDN: %q", csp)
 		}
-		if !strings.Contains(csp, "https://127.0.0.1:") {
-			t.Errorf("CSP missing the request origin: %q", csp)
+		if !strings.Contains(csp, "https://127.0.0.1:") ||
+			!strings.Contains(csp, "/gqjs/static/eye/") {
+			t.Errorf("CSP missing the extension static origin: %q", csp)
 		}
 		// The render response must re-sandbox any document loaded at our origin
 		// outside the tile (direct tab, escape-sandbox popup).
@@ -235,8 +236,9 @@ func TestExtensionCSPForSandboxGuard(t *testing.T) {
 	}
 
 	r := httptest.NewRequest(http.MethodGet, "https://127.0.0.1:8080/gqjs/ext/eye", nil)
+	base := extension.Extension{ID: "eye"}
 	for name, csp := range map[string]string{
-		"rendered page": extensionCSPFor(r),
+		"rendered page": extensionCSPFor(r, base),
 		"error page":    extensionCSP,
 	} {
 		if !strings.Contains(csp, "sandbox "+tileIframeSandbox) {
@@ -244,6 +246,25 @@ func TestExtensionCSPForSandboxGuard(t *testing.T) {
 		}
 		if strings.Contains(csp, "allow-same-origin") {
 			t.Errorf("%s CSP = %q, must not allow same-origin", name, csp)
+		}
+	}
+}
+
+func TestExtensionCSPForExtras(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "https://127.0.0.1:8080/gqjs/ext/excalidraw", nil)
+	ext := extension.Extension{
+		ID:      "excalidraw",
+		CSP:     map[string][]string{"script-src": {"'unsafe-eval'"}, "worker-src": {"blob:", "data:"}},
+		Sandbox: []string{"allow-downloads"},
+	}
+	csp := extensionCSPFor(r, ext)
+	for _, want := range []string{
+		"script-src 'unsafe-inline' https://127.0.0.1:8080/gqjs/static/excalidraw/ http://127.0.0.1:8080/gqjs/static/excalidraw/ 'unsafe-eval'",
+		"worker-src https://127.0.0.1:8080/gqjs/static/excalidraw/ http://127.0.0.1:8080/gqjs/static/excalidraw/ blob: data:",
+		"sandbox " + extensionSandboxTokens + " allow-downloads",
+	} {
+		if !strings.Contains(csp, want) {
+			t.Errorf("CSP = %q, want %q", csp, want)
 		}
 	}
 }

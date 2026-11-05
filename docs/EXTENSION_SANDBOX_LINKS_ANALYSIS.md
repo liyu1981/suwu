@@ -330,7 +330,11 @@ Why this is the robust form:
 Capabilities are the **intersection** of all sandbox sources, so the iframe
 attribute and the CSP `sandbox` token list must agree. Both must list
 `allow-popups-to-escape-sandbox` for story links to open as real tabs, and
-neither may list `allow-same-origin`.
+neither may list `allow-same-origin`. Extensions may request only allow-listed
+extras through `suwu.sandbox` (currently `allow-downloads`); the backend appends
+the same declared tokens to the CSP `sandbox` directive and the tile page
+appends them to the iframe attribute, while `allow-same-origin` and top-level
+navigation stay permanently forbidden.
 
 What the guard does **not** cover:
 

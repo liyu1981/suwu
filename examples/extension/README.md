@@ -3,7 +3,7 @@
 These are the extensions the **catalog** offers. Install them from a terminal:
 
 ```sh
-suwu install --github eye note hn-top-stories
+suwu install --github eye note hn-top-stories excalidraw
 ```
 
 `suwu install` with no arguments opens a picker instead, and `--list` prints
@@ -22,7 +22,7 @@ cp -r examples/extension/eye ~/.suwu/extension/
 
 Then enable the **extension** plugin in App Menu settings (it is off by
 default) and add an Extension tile whose `id` is the directory name
-(`eye`, `hn-top-stories`).
+(`eye`, `hn-top-stories`, `excalidraw`).
 
 > The data directory used to be called `extensions/`. It is still read when it
 > holds extensions, but `suwu install` only ever writes `extension/`; move it
@@ -35,6 +35,7 @@ default) and add an Extension tile whose `id` is the directory name
 | `eye` | `index.js` (render stub) · `public/{style.css,eye.js}` | `suwu.static` with a **classic** script; server-rendered config passed via `data-size` |
 | `note` | `index.js` (render stub) · `public/{style.css,note.js,model.js,commands.js,render.js,store.js,bridge.js,format.js}` · `test/*.test.mjs` | A **pure client-side** app: nine numbered slots kept in the browser's IndexedDB **via the parent-frame storage bridge** (the sandboxed page has no storage of its own; no API, no `suwu.net`); a flat 3M Post-it over a chip strip on a transparent document; an **Apple Notes-style editor** — checklists (tappable boxes, nesting, auto-continue, per-chip progress), bold/italic/underline/strikethrough/monospace over a selection, a floating glass format bar, and a live "Saved 2 min ago" line. A transparent `<textarea>` stays the only input surface while a painted clone renders the structure, so there is no dependency and no build step. `pnpm test:ext` covers the DOM-free modules (`model`, `commands`, `store`, `format`) |
 | `hn-top-stories` | `index.js` (render stub) · `stories.js` (API) · `public/{style.css,app.js,carousel.js,stories-cache.js}` | `suwu.api` route registration, `suwu.net` server-side `fetch`, `suwu.static` with an **ES-module** tree (relative imports), htmx polling of the extension's own API |
+| `excalidraw` | `index.js` (render stub) · `public/{app.js,page.css}` | Loads the upstream `@excalidraw/excalidraw` React app from esm.sh at runtime (no vendored JS/fonts), with declared `suwu.csp` / `suwu.sandbox` extras, an in-memory `localStorage` fallback for the opaque sandbox, and periodic scene persistence through the parent ext-store bridge |
 
 ## ⚠ Static files are public
 

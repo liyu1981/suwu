@@ -27,6 +27,10 @@ export interface Extension {
   net?: boolean;
   /** Declared suwu.static — directory of assets served under /gqjs/static/<id>/. */
   static?: string;
+  /** Declared suwu.csp — extra sources appended to the extension CSP. */
+  csp?: Record<string, string[]>;
+  /** Declared suwu.sandbox — extra iframe sandbox tokens (allow-downloads). */
+  sandbox?: string[];
 }
 
 async function fetchExtensions(): Promise<Extension[]> {
@@ -75,18 +79,28 @@ export function reloadExtensions(): Promise<Extension[]> {
  * never by the tile itself. On failure `failed` is set so callers can fall
  * back to a plain text input.
  */
-export function useExtensions(): { items: Extension[]; failed: boolean; reload: () => void } {
+export function useExtensions(): {
+  items: Extension[];
+  failed: boolean;
+  loading: boolean;
+  reload: () => void;
+} {
   const [items, setItems] = useState<Extension[]>(cached ?? []);
   const [failed, setFailed] = useState(false);
+  const [loading, setLoading] = useState(cached === null);
 
   useEffect(() => {
     let alive = true;
     loadExtensions()
       .then((list) => {
-        if (alive) setItems(list);
+        if (!alive) return;
+        setItems(list);
+        setLoading(false);
       })
       .catch(() => {
-        if (alive) setFailed(true);
+        if (!alive) return;
+        setFailed(true);
+        setLoading(false);
       });
     return () => {
       alive = false;
@@ -94,13 +108,18 @@ export function useExtensions(): { items: Extension[]; failed: boolean; reload: 
   }, []);
 
   const reload = useCallback(() => {
+    setLoading(true);
     reloadExtensions()
       .then((list) => {
         setItems(list);
         setFailed(false);
+        setLoading(false);
       })
-      .catch(() => setFailed(true));
+      .catch(() => {
+        setFailed(true);
+        setLoading(false);
+      });
   }, []);
 
-  return { items, failed, reload };
+  return { items, failed, loading, reload };
 }

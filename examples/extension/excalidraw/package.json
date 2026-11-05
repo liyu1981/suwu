@@ -1,0 +1,35 @@
+{
+  "name": "Excalidraw",
+  "version": "0.18.1",
+  "description": "Hand-drawn style whiteboard, loading the Excalidraw release from esm.sh",
+  "license": "MIT",
+  "suwu": {
+    "static": "public",
+    "csp": {
+      "script-src": [
+        "https://esm.sh",
+        "'unsafe-eval'"
+      ],
+      "style-src": [
+        "https://esm.sh"
+      ],
+      "font-src": [
+        "https://esm.sh"
+      ],
+      "img-src": [
+        "https://esm.sh"
+      ],
+      "worker-src": [
+        "https://esm.sh",
+        "blob:",
+        "data:"
+      ],
+      "connect-src": [
+        "https://esm.sh"
+      ]
+    },
+    "sandbox": [
+      "allow-downloads"
+    ]
+  }
+}

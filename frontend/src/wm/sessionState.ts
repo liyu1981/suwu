@@ -85,6 +85,13 @@ export interface FolderSyncSessionState {
   selectedJobId?: string;
 }
 
+export interface StaticBrowseSessionState {
+  /** Static serve id. The URL is rebuilt from the current origin on restore. */
+  id: string;
+  /** Path under /staticserve/<id>/ last shown in the iframe. */
+  path: string;
+}
+
 /** Per-tile session state entry. */
 interface TileEntry {
   tileType: string;

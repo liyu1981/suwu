@@ -18,6 +18,7 @@ func (s *Server) handleNotifyWS(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, d.Status, d.Reason)
 		return
 	}
+	s.clients.Touch(r.RemoteAddr)
 
 	if s.notify == nil {
 		writePlain(w, http.StatusServiceUnavailable, "notifications not available")

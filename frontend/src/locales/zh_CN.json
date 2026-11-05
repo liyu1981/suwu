@@ -359,7 +359,8 @@
     "checkForUpdates": "检查更新",
     "upgradeConfirmTitle": "升级 Suwu？",
     "upgradeConfirmBody": "升级将重启 Suwu 服务器。未保存的工作将丢失，并且您会被自动登出。",
-    "confirmUpgrade": "立即升级"
+    "confirmUpgrade": "立即升级",
+    "openStaticBrowser": "打开静态浏览器"
   },
   "filebrowser": {
     "today": "今天",
@@ -487,7 +488,9 @@
     "foldersync": "文件夹同步",
     "foldersyncDesc": "将服务器文件夹镜像到本地文件夹",
     "sftp": "SFTP",
-    "sftpDesc": "通过 SFTP 与远程机器传输文件"
+    "sftpDesc": "通过 SFTP 与远程机器传输文件",
+    "staticServe": "静态服务",
+    "staticServeDesc": "预览通过 suwu static-serve 提供的文件夹"
   },
   "codeExplorer": {
     "search": {
@@ -804,5 +807,25 @@
     "reconnecting": "重新连接中…",
     "stopReconnect": "停止",
     "reconnectStopped": "已停止重连。请检查主机和凭据后重新连接。"
+  },
+  "staticServe": {
+    "title": "静态服务",
+    "refresh": "刷新",
+    "open": "打开",
+    "pause": "暂停",
+    "resume": "恢复",
+    "delete": "删除",
+    "confirmDelete": "确认删除？",
+    "cancel": "取消",
+    "copy": "复制链接",
+    "status_running": "运行中",
+    "status_paused": "已暂停",
+    "emptyTitle": "当前没有静态站点",
+    "emptyHint": "在终端中启动一个："
+  },
+  "staticBrowse": {
+    "noServe": "未选择静态服务",
+    "reload": "重新加载",
+    "addressPlaceholder": "/staticserve/<id>/ 下的 URL"
   }
 }

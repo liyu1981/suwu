@@ -360,7 +360,8 @@
     "checkForUpdates": "Check for updates",
     "upgradeConfirmTitle": "Upgrade Suwu?",
     "upgradeConfirmBody": "Upgrading restarts the Suwu server. Any unsaved work will be lost, and you will be logged out automatically.",
-    "confirmUpgrade": "Upgrade now"
+    "confirmUpgrade": "Upgrade now",
+    "openStaticBrowser": "Open Static Browser"
   },
   "filebrowser": {
     "today": "Today",
@@ -489,7 +490,9 @@
     "foldersync": "Folder Sync",
     "foldersyncDesc": "Mirror a server folder into a local folder",
     "sftp": "SFTP",
-    "sftpDesc": "Transfer files to a remote machine over SFTP"
+    "sftpDesc": "Transfer files to a remote machine over SFTP",
+    "staticServe": "Static Serve",
+    "staticServeDesc": "Preview folders served by suwu static-serve"
   },
   "codeExplorer": {
     "search": {
@@ -807,5 +810,25 @@
     "reconnecting": "Reconnecting…",
     "stopReconnect": "Stop",
     "reconnectStopped": "Reconnect stopped. Check the host and credentials, then connect again."
+  },
+  "staticServe": {
+    "title": "Static Serve",
+    "refresh": "Refresh",
+    "open": "Open",
+    "pause": "Pause",
+    "resume": "Resume",
+    "delete": "Delete",
+    "confirmDelete": "Delete?",
+    "cancel": "Cancel",
+    "copy": "Copy URL",
+    "status_running": "running",
+    "status_paused": "paused",
+    "emptyTitle": "No static sites served",
+    "emptyHint": "Start one from a terminal:"
+  },
+  "staticBrowse": {
+    "noServe": "No static serve selected",
+    "reload": "Reload",
+    "addressPlaceholder": "URL under /staticserve/<id>/"
   }
 }

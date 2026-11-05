@@ -57,7 +57,8 @@ Short captures of Suwu in daily use. Click a preview to watch the full clip on
    notification to your screen from any script — pipe stdin in.
    `suwu forward` opens a port-forwarding tile, `suwu open`, `suwu code`, and
    `suwu diff` resolve files and actions on the remote machine. Long builds
-   finish? You'll know.
+   finish? You'll know. `suwu static-serve <dir>` previews a folder of web
+   assets in a sandboxed browser tile at `/staticserve/<id>/`.
 
 5. **Reachable, but only by you** — Access works out of the box on localhost,
    your LAN, or over the internet behind a reverse proxy — with password
@@ -184,6 +185,26 @@ terminal works via `localhost`, the LAN IP, or the hostname out of the box.
 
 `suwu serve` loads, in order of precedence: shell environment → `./.env`
 (project) → `~/.config/suwu/.env` (user-global, created by `suwu gencerts`).
+
+## Static previews
+
+Serve a folder of static web assets through the running server and open it in a
+sandboxed browser tile:
+
+```sh
+suwu static-serve ./website       # -> /staticserve/website/
+suwu static-serve --list
+suwu static-serve --pause website
+suwu static-serve --resume website
+suwu static-serve --remove website
+```
+
+The id comes from the folder name; another `website` becomes `website1`. The
+registry is in memory, so entries disappear when the server restarts. Previews
+need no token, but only the Host allow-list and loopback/recently-authenticated
+browser IPs can read them. Served pages run in an opaque `sandbox` iframe and
+root-absolute URLs such as `/static/app.js` return 404 instead of borrowing
+Suwu's own assets.
 
 ## HTTPS certificates
 

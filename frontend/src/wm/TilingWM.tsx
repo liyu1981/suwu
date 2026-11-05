@@ -56,7 +56,7 @@ import {
   type Rect,
 } from './layout';
 import { applyWmAction, wmAction } from './shortcuts';
-import { openViewer, openFileBrowser } from '../lib/actionResolver';
+import { openViewer, openFileBrowser, openTile } from '../lib/actionResolver';
 import { authFetch, logout } from '../lib/api';
 import { TileTools } from './TileTools';
 import { usePaneGhosts } from './hooks/usePaneGhosts';
@@ -88,6 +88,8 @@ import './plugins/resthelper';
 import './plugins/extension';
 import './plugins/foldersync';
 import './plugins/sftp';
+import './plugins/staticserve';
+import './plugins/staticbrowse';
 
 const appRow =
   'flex w-full cursor-pointer select-none items-center gap-3 rounded px-3 py-2.5 text-left ' +
@@ -1125,6 +1127,8 @@ export default function TilingWM() {
             path?: string;
             tileType?: string;
             sourcePane?: string;
+            initialPath?: string;
+            params?: Record<string, string>;
             action?: ReturnType<typeof wmAction>;
             key?: unknown;
             altKey?: unknown;
@@ -1163,6 +1167,11 @@ export default function TilingWM() {
       }
       if (d?.type === 'wm-close-pane' && trusted && typeof d.pane === 'string') {
         closeTile(d.pane);
+        return;
+      }
+      if (d?.type === 'wm-open-tile' && trusted && typeof d.tileType === 'string') {
+        if (d.sourcePane) store.set(focusedIdAtom, d.sourcePane);
+        openTile(d.tileType, store, d.initialPath, d.params);
         return;
       }
       if (d?.type === 'wm-open-file' && trusted && typeof d.path === 'string') {

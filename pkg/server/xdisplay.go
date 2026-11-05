@@ -58,6 +58,7 @@ func (s *Server) handleXDisplayWS(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, d.Status, d.Reason)
 		return
 	}
+	s.clients.Touch(r.RemoteAddr)
 
 	// Origin and host were already validated; skip the library's own origin
 	// check so our auth logic remains authoritative.

@@ -1157,6 +1157,17 @@ export default function SettingsView() {
                   onCheckedChange={(v) => setAutoResolve({ ...autoResolve, code: v })}
                 />
               </div>
+              <div className="flex items-center justify-between py-2.5">
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs text-popover-foreground">
+                    {t('plugin.staticBrowse')}
+                  </span>
+                </div>
+                <Toggle
+                  checked={autoResolve.staticserve !== false}
+                  onCheckedChange={(v) => setAutoResolve({ ...autoResolve, staticserve: v })}
+                />
+              </div>
             </div>
           </div>
         </TabsPrimitive.Content>

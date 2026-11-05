@@ -74,7 +74,9 @@ function MessageRow({
             ? t('notifications.openDiff')
             : n.data?.payload.type === 'gitgraph'
               ? t('notifications.openGitGraph')
-              : t('notifications.openInViewr');
+              : n.data?.payload.type === 'staticserve'
+                ? t('notifications.openStaticBrowser')
+                : t('notifications.openInViewr');
 
   return (
     <div className="group relative rounded px-3 py-2 transition hover:bg-white/5">

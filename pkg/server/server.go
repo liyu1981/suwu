@@ -28,6 +28,7 @@ import (
 	"suwu/pkg/notify"
 	"suwu/pkg/session"
 	"suwu/pkg/sftp"
+	"suwu/pkg/staticserve"
 )
 
 // CSP is the Content-Security-Policy applied to all HTML responses.
@@ -90,6 +91,8 @@ type Server struct {
 	rateLimit  *RateLimiter
 	restLimit  *RateLimiter
 	livesLimit *RateLimiter
+	statics    *staticserve.Manager
+	clients    *clientGate
 	// backupLimit budgets encrypted backup uploads, which the periodic
 	// autosave makes on a timer; backups and backupLimit are nil when the
 	// data directory is unusable.
@@ -135,6 +138,8 @@ func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify
 		rateLimit:   NewRateLimiter(),
 		restLimit:   newRateLimiter(restRateLimitMax),
 		livesLimit:  newRateLimiter(livesRateLimitMax),
+		statics:     staticserve.NewManager(),
+		clients:     newClientGate(12 * time.Hour),
 		backups:     backups,
 		backupLimit: newRateLimiter(backupWriteRateLimitMax),
 	}
@@ -163,12 +168,44 @@ func (s *Server) CloseSFTP() {
 	}
 }
 
+// CloseStatic closes every static-serve directory handle.
+func (s *Server) CloseStatic() {
+	if s.statics != nil {
+		s.statics.CloseAll()
+	}
+}
+
+// StaticServe exposes the in-memory registry so the CLI notify handlers can
+// create and manage entries in the same process as the HTTP server.
+func (s *Server) StaticServe() *staticserve.Manager { return s.statics }
+
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(s.route)
 }
 
 func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("request", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
+
+	// A sandboxed preview may request root-absolute URLs such as
+	// "/static/app.js". Serve 404 instead of leaking Suwu's own assets.
+	if !isStaticPreviewPath(r.URL.Path) && isStaticPreviewRequest(r) {
+		http.NotFound(w, r)
+		return
+	}
+
+	if r.URL.Path == "/staticserve" {
+		http.Redirect(w, r, "/", http.StatusMovedPermanently)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, staticserve.RoutePrefix) {
+		s.handleStaticServe(w, r)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, staticServeAPIPrefix) {
+		s.handleStaticServeAPI(w, r)
+		return
+	}
 
 	if r.URL.Path == "/ws" {
 		s.handleWS(w, r)
@@ -574,6 +611,7 @@ func (s *Server) validateRequest(w http.ResponseWriter, r *http.Request) string 
 		if !s.validateRequestRateLimit(w, r, cfg) {
 			return ""
 		}
+		s.clients.Touch(r.RemoteAddr)
 		return cfg.Token
 	}
 
@@ -595,6 +633,7 @@ func (s *Server) validateRequest(w http.ResponseWriter, r *http.Request) string 
 		return ""
 	}
 
+	s.clients.Touch(r.RemoteAddr)
 	return validated
 }
 
@@ -651,6 +690,7 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		writePlain(w, d.Status, d.Reason)
 		return
 	}
+	s.clients.Touch(r.RemoteAddr)
 
 	// Rotate token if expired (with grace period for in-flight requests).
 	if !s.cfg.TokenValid() {

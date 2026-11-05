@@ -54,6 +54,7 @@ import (
 	"suwu/pkg/pty"
 	"suwu/pkg/server"
 	"suwu/pkg/session"
+	"suwu/pkg/staticserve"
 	"suwu/pkg/version"
 	"suwu/pkg/xdisplay"
 )
@@ -64,6 +65,11 @@ func main() {
 		case "serve":
 			os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 			serveMain()
+			return
+		case "static-serve":
+			if err := staticServeCmd(os.Args[2:]); err != nil {
+				log.Fatalf("static-serve: %v", err)
+			}
 			return
 		case "gencerts":
 			if err := gencerts.Run(os.Args[2:]); err != nil {
@@ -175,6 +181,9 @@ Usage:
                            run the server (reads SUWU_DEV from .env)
                            [--env-file] project .env path (default .env);
                            when explicitly set, the global env is skipped
+  suwu static-serve [flags] <dir>
+                           serve a folder at /staticserve/<id>/ through the
+                           running server; --list, --pause, --resume, --remove
   suwu send [--sock <path>] [<message>]
                            send a notification to the running server;
                            reads stdin as one message if no message is given
@@ -270,6 +279,31 @@ Examples:
   SERVER_MODE=http HTTP_PORT=9090 suwu serve     # HTTP on :9090
   SERVER_MODE=https+http suwu serve              # HTTPS :8181 + HTTP :8180
   suwu serve --env-file /path/to/.env
+`)
+	case "static-serve":
+		fmt.Print(`Usage: suwu static-serve [flags] <dir>
+
+Serve a folder through a running Suwu server at /staticserve/<id>/.
+The id is derived from the last path element; conflicts get myweb1,
+myweb2, ... The browser is notified and opens the Static Browser tile.
+Re-running the same directory reuses its entry and notifies again.
+
+The server must already be running.
+
+Flags:
+  --list               List active static serves
+  --pause <id>         Pause a static serve
+  --resume <id>        Resume a paused static serve
+  --remove <id>        Remove a static serve (--stop is an alias)
+  --new                Create a duplicate entry for an already-served dir
+  --json               Print the raw JSON response
+  --sock <path>        Path to the notify socket (default ~/.suwu/suwu.sock)
+
+Examples:
+  suwu static-serve ./website
+  suwu static-serve --list
+  suwu static-serve --pause myweb
+  suwu static-serve --remove myweb
 `)
 	case "send":
 		fmt.Print(`Usage: suwu send [flags] [<message>]
@@ -611,6 +645,7 @@ func run() error {
 	}
 
 	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager, dataDir)
+	registerStaticServeHandlers(notifyListener, srv.StaticServe())
 	srv.StartDBCleanup()
 	srv.StartSFTPCleanup()
 
@@ -699,6 +734,7 @@ func run() error {
 	server.CloseAll()
 	srv.CloseDB()
 	srv.CloseSFTP()
+	srv.CloseStatic()
 	sessions.Close()
 	notifyListener.Close()
 	forwardManager.StopAll()
@@ -1122,6 +1158,89 @@ func registerForwardHandlers(l *notify.Listener, mgr *forward.Manager) {
 		data, _ := json.Marshal(all)
 		return notify.CommandResponse{OK: true, Data: data}
 	})
+}
+
+func registerStaticServeHandlers(l *notify.Listener, mgr *staticserve.Manager) {
+	l.RegisterHandler("staticserve-start", func(cmd notify.Command) notify.CommandResponse {
+		var req struct {
+			Dir string `json:"dir"`
+			New bool   `json:"new"`
+		}
+		if err := json.Unmarshal(cmd.Payload, &req); err != nil {
+			return notify.CommandResponse{OK: false, Error: "invalid payload"}
+		}
+		entry, created, err := mgr.Create(req.Dir, req.New)
+		if err != nil {
+			return notify.CommandResponse{OK: false, Error: err.Error()}
+		}
+		msg := staticServeMessage(entry.Dir, entry.Prefix(), created)
+		data, _ := json.Marshal(map[string]any{
+			"action": "open",
+			"payload": map[string]any{
+				"type": "staticserve",
+				"id":   entry.ID,
+				"dir":  entry.Dir,
+				"path": "/",
+			},
+		})
+		l.Broadcast(notify.Notification{Message: msg, Data: data})
+		return notify.CommandResponse{
+			OK:      true,
+			ID:      entry.ID,
+			Message: msg,
+			Data:    mustJSON(map[string]any{"serve": entry.Status(), "created": created}),
+		}
+	})
+
+	l.RegisterHandler("staticserve-list", func(cmd notify.Command) notify.CommandResponse {
+		return notify.CommandResponse{OK: true, Data: mustJSON(map[string]any{"serves": mgr.List()})}
+	})
+
+	l.RegisterHandler("staticserve-pause", func(cmd notify.Command) notify.CommandResponse {
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(cmd.Payload, &req); err != nil {
+			return notify.CommandResponse{OK: false, Error: "invalid payload"}
+		}
+		entry, err := mgr.Pause(req.ID)
+		if err != nil {
+			return notify.CommandResponse{OK: false, Error: err.Error()}
+		}
+		return notify.CommandResponse{OK: true, ID: entry.ID, Data: mustJSON(entry.Status())}
+	})
+
+	l.RegisterHandler("staticserve-resume", func(cmd notify.Command) notify.CommandResponse {
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(cmd.Payload, &req); err != nil {
+			return notify.CommandResponse{OK: false, Error: "invalid payload"}
+		}
+		entry, err := mgr.Resume(req.ID)
+		if err != nil {
+			return notify.CommandResponse{OK: false, Error: err.Error()}
+		}
+		return notify.CommandResponse{OK: true, ID: entry.ID, Data: mustJSON(entry.Status())}
+	})
+
+	l.RegisterHandler("staticserve-remove", func(cmd notify.Command) notify.CommandResponse {
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(cmd.Payload, &req); err != nil {
+			return notify.CommandResponse{OK: false, Error: "invalid payload"}
+		}
+		if err := mgr.Remove(req.ID); err != nil {
+			return notify.CommandResponse{OK: false, Error: err.Error()}
+		}
+		return notify.CommandResponse{OK: true, ID: req.ID, Message: "Removed " + req.ID, Data: mustJSON(map[string]any{"ok": true})}
+	})
+}
+
+func mustJSON(v any) json.RawMessage {
+	data, _ := json.Marshal(v)
+	return data
 }
 
 func registerXDisplayHandlers(l *notify.Listener) {

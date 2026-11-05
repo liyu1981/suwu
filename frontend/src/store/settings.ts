@@ -15,6 +15,8 @@ export interface AutoResolveSettings {
   diff: boolean;
   /** Open a new Code Explorer tile when suwu code is used — enabled by default. */
   code: boolean;
+  /** Open the Static Browser tile when suwu static-serve starts — enabled by default. */
+  staticserve: boolean;
 }
 
 export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-resolve', {
@@ -24,6 +26,7 @@ export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-r
   gitgraph: true,
   diff: true,
   code: true,
+  staticserve: true,
 });
 
 /**

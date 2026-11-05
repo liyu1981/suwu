@@ -99,6 +99,23 @@ suwu forward --list
 suwu forward --stop 23000
 ```
 
+### `suwu static-serve` — preview a static web folder
+
+Serve a local folder through the running server at `/staticserve/<id>/` and
+open the sandboxed Static Browser tile. The id comes from the last path
+element; conflicts get `myweb1`, `myweb2`, etc. Re-running the same directory
+reuses the entry and reopens the browser tile instead of creating a duplicate.
+
+```bash
+suwu static-serve ./website
+suwu static-serve --list
+suwu static-serve --pause website
+suwu static-serve --resume website
+suwu static-serve --remove website
+```
+
+The registry is memory-only. Start the server first with `suwu serve`.
+
 ### `suwu use` — run a command on a chosen X display
 
 Show a TUI to pick an available X display, then run the command with

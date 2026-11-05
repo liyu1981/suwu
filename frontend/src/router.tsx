@@ -15,6 +15,8 @@ import RestHelperPage from './routes/RestHelperPage';
 import ExtensionPage from './routes/ExtensionPage';
 import FolderSyncPage from './routes/FolderSyncPage';
 import SftpPage from './routes/SftpPage';
+import StaticServePage from './routes/StaticServePage';
+import StaticBrowsePage from './routes/StaticBrowsePage';
 
 const rootRoute = createRootRoute();
 
@@ -123,6 +125,20 @@ const sftpRoute = createRoute({
   component: SftpPage,
 });
 
+// Full-space static-serve manager, loaded inside the Static Serve tile iframe.
+const staticServeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/static-serve',
+  component: StaticServePage,
+});
+
+// Full-space static preview browser, loaded inside the Static Browser tile iframe.
+const staticBrowseRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/static-browse',
+  component: StaticBrowsePage,
+});
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   termRoute,
@@ -139,6 +155,8 @@ const routeTree = rootRoute.addChildren([
   extensionRoute,
   foldersyncRoute,
   sftpRoute,
+  staticServeRoute,
+  staticBrowseRoute,
 ]);
 
 export const router = createRouter({ routeTree });

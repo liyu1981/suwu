@@ -211,6 +211,63 @@ function openCode(files: CodeFileSpec[], store: Store, dir?: string): string | n
 }
 
 /**
+ * Open an arbitrary tile type in a fresh split, optionally with a one-shot
+ * initialPath and plugin params.
+ */
+export function openTile(
+  tileType: string,
+  store: Store,
+  initialPath?: string,
+  params?: Record<string, string>,
+): string | null {
+  const leafId = doSplit(store);
+  if (!leafId) return null;
+  setTypeAndFocus(store, leafId, tileType, params);
+  if (initialPath !== undefined) {
+    const root = store.get(layoutAtom);
+    if (root) store.set(layoutAtom, setLeafInitialPath(root, leafId, initialPath));
+  }
+  return leafId;
+}
+
+/** Find a leaf of tileType whose params[key] equals value. */
+function findLeafByParam(
+  root: LayoutNode | null,
+  tileType: string,
+  key: string,
+  value: string,
+): LayoutNode | null {
+  if (!root) return null;
+  if (root.type === 'leaf') {
+    return root.tileType === tileType && root.params?.[key] === value ? root : null;
+  }
+  for (const child of root.children) {
+    const found = findLeafByParam(child.node, tileType, key, value);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Open (or focus) the Static Browser tile for a serve id.
+ */
+export function openStaticBrowse(
+  id: string,
+  path: string | undefined,
+  store: Store,
+): string | null {
+  const spaces = store.get(spacesAtom);
+  const idx = store.get(activeSpaceAtom);
+  const root = spaces[idx]?.layout ?? null;
+  const existing = findLeafByParam(root, 'staticbrowse', 'id', id);
+  if (existing) {
+    store.set(focusedIdAtom, existing.id);
+    return existing.id;
+  }
+  return openTile('staticbrowse', store, undefined, { id, path: path ?? '/' });
+}
+
+/**
  * Resolve an action from a notification. Returns true if auto-resolved,
  * false if it should show as an action button in the notification panel.
  */
@@ -245,6 +302,10 @@ export function resolveAction(
       if (!autoResolve.code) return false;
       openCode(payload.files, store, payload.dir);
       return true;
+    case 'staticserve':
+      if (autoResolve.staticserve === false) return false;
+      openStaticBrowse(payload.id, payload.path, store);
+      return true;
     default:
       return false;
   }
@@ -273,6 +334,9 @@ export function executeAction(data: NotificationData, store: Store): void {
       break;
     case 'file':
       openViewer(payload.path, store);
+      break;
+    case 'staticserve':
+      openStaticBrowse(payload.id, payload.path, store);
       break;
   }
 }

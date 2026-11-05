@@ -17,7 +17,8 @@ type NotificationPayload =
       targetPort?: number;
       protocol?: string;
     }
-  | { type: 'code'; files: CodeFileSpec[]; dir?: string };
+  | { type: 'code'; files: CodeFileSpec[]; dir?: string }
+  | { type: 'staticserve'; id: string; dir?: string; path?: string };
 
 export interface NotificationData {
   action: string;

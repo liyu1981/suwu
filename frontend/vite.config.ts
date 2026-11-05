@@ -39,6 +39,45 @@ function fixGoEmbedFiles(): import('vite').Plugin {
     },
   }
 }
+
+// Mirror the Go server's root-path guard in the dev server: a sandboxed
+// /staticserve/ page that asks for /static/app.js must get 404, not Vite's
+// SPA fallback. Extension/background routes legitimately use opaque origins.
+function staticPreviewGuard(): import('vite').Plugin {
+  return {
+    name: 'suwu-static-preview-guard',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url || ''
+        if (
+          url.startsWith('/staticserve') ||
+          url.startsWith('/gqjs') ||
+          url.startsWith('/backgrounds')
+        ) {
+          next()
+          return
+        }
+        const origin = req.headers.origin
+        const referer = req.headers.referer
+        let isPreview = origin === 'null'
+        if (referer) {
+          try {
+            if (new URL(referer).pathname.startsWith('/staticserve/')) isPreview = true
+          } catch {
+            // Ignore malformed Referer values.
+          }
+        }
+        if (isPreview) {
+          res.statusCode = 404
+          res.end('Not found')
+          return
+        }
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
@@ -46,6 +85,7 @@ export default defineConfig({
     fileViewerRenderers({ copyAssets: true, renderers: ['word', 'pdf', 'ofd', 'presentation-openxml', 'spreadsheet', 'archive', 'email', 'text', 'image', 'media'] }),
     wgslVitePlugin(),
     fixGoEmbedFiles(),
+    staticPreviewGuard(),
   ],
   define: {
     __SUWU_VERSION__: JSON.stringify(appVersion),
@@ -66,6 +106,7 @@ export default defineConfig({
       '/api': { target: demoTarget, changeOrigin: false },
       '/backgrounds': { target: demoTarget, changeOrigin: false },
       '/gqjs': { target: demoTarget, changeOrigin: false },
+      '/staticserve': { target: demoTarget, changeOrigin: false },
       '/ws': { target: demoTarget.replace(/^http/, 'ws'), ws: true, changeOrigin: false },
     },
   },

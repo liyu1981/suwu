@@ -332,6 +332,14 @@ func originMatchesHost(o origin, h Host) bool {
 	return o.Hostname == h.Hostname && oPort == hPort
 }
 
+// ValidateHostRequest validates only the Host header against the configured
+// allow-list. It is used by unauthenticated same-origin endpoints (such as the
+// static preview route) that still need DNS-rebinding protection.
+func ValidateHostRequest(cfg *Config, hostHeader string) Decision {
+	d, _ := validateAllowedHost(cfg, hostHeader)
+	return d
+}
+
 func validateAllowedHost(cfg *Config, hostHeader string) (Decision, Host) {
 	host, ok := ParseHostHeader(hostHeader)
 	if !ok {

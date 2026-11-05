@@ -468,22 +468,21 @@ export default function DropboxPage() {
           <span className="text-base font-semibold">{t('dropbox.title')}</span>
         </div>
 
-        {/* Content — left/right borders + inset shadow */}
-        <div
-          ref={listRef}
-          className="min-h-0 flex-1 overflow-y-auto scrollbar-thin border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-        >
+        {/* Content — the drop target is pinned; the search field and file list
+            scroll underneath it, so the target stays reachable however long the
+            list gets. */}
+        <div className="flex min-h-0 flex-1 flex-col border-x border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           {loading ? (
-            <div className="flex h-full items-center justify-center text-[11px] text-white/40">
+            <div className="flex flex-1 items-center justify-center text-[11px] text-white/40">
               {t('dropbox.loading')}
             </div>
           ) : (
             <>
-              {/* Persistent drop target — a single row: hint, rule, action. A
-                  tall dashed box said "drop here" twice (label + button) and
-                  pushed the file list below the fold on short panes. */}
+              {/* Persistent drop target — a tall area (30% of the tile) that
+                  accepts drag&drop and paste anywhere, with the hint and the
+                  upload action centred inside it as one row. */}
               <div
-                className={`mx-2 mt-2 flex items-center gap-2 rounded-[6px] border border-dashed px-2.5 py-1.5 transition ${
+                className={`mx-2 mt-2 flex min-h-[30%] shrink-0 items-center justify-center gap-3 rounded-[6px] border-2 border-dashed px-4 transition ${
                   dragOver ? 'border-sky-400/70 bg-sky-500/10' : 'border-white/10'
                 }`}
               >
@@ -499,14 +498,10 @@ export default function DropboxPage() {
                     e.target.value = '';
                   }}
                 />
-                <FileIcon className="h-3.5 w-3.5 shrink-0 text-white/25" />
-                <p className="min-w-0 flex-1 truncate text-[11px] text-white/40">
+                <p className="text-xs text-white/45">
                   {dragOver ? t('dropbox.dropHintActive') : t('dropbox.dropHint')}
                 </p>
-                {uploading && (
-                  <p className="shrink-0 text-[11px] text-sky-300">{t('dropbox.uploading')}</p>
-                )}
-                <span aria-hidden className="h-4 w-px shrink-0 bg-white/10" />
+                <span aria-hidden className="h-4 w-px shrink-0 bg-white/15" />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -514,93 +509,99 @@ export default function DropboxPage() {
                 >
                   {t('dropbox.uploadFiles')}
                 </button>
+                {uploading && (
+                  <p className="shrink-0 text-[11px] text-sky-300">{t('dropbox.uploading')}</p>
+                )}
               </div>
 
-              {/* Search input — below drop area */}
-              <div className="mx-2 mt-2 flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5">
-                <SearchIcon className="h-3 w-3 shrink-0 text-white/30" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('dropbox.searchPlaceholder')}
-                  className="flex-1 bg-transparent text-sm text-white/80 outline-none placeholder:text-white/30"
-                />
-              </div>
+              {/* Scrolling region: search + file list */}
+              <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+                {/* Search input — below drop area */}
+                <div className="mx-2 mt-2 flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5">
+                  <SearchIcon className="h-3 w-3 shrink-0 text-white/30" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t('dropbox.searchPlaceholder')}
+                    className="flex-1 bg-transparent text-sm text-white/80 outline-none placeholder:text-white/30"
+                  />
+                </div>
 
-              {/* File list */}
-              {filtered.length > 0 && (
-                <p className="mx-2 mt-4 mb-1 text-xs font-medium uppercase tracking-widest text-white/30">
-                  {t('dropbox.currentFiles', { path: dropboxPath })}
-                </p>
-              )}
-              <div className="flex flex-col gap-0.5">
-                {filtered.map((entry) => {
-                  const isExpanded = expandedFile === entry.name;
-                  return (
-                    <div
-                      key={entry.name}
-                      data-file-name={entry.name}
-                      className={`group rounded transition ${isExpanded ? 'bg-white/5' : 'hover:bg-white/5'}`}
-                    >
-                      {/* File row — clickable */}
+                {/* File list */}
+                {filtered.length > 0 && (
+                  <p className="mx-2 mt-4 mb-1 text-xs font-medium uppercase tracking-widest text-white/30">
+                    {t('dropbox.currentFiles', { path: dropboxPath })}
+                  </p>
+                )}
+                <div className="flex flex-col gap-0.5">
+                  {filtered.map((entry) => {
+                    const isExpanded = expandedFile === entry.name;
+                    return (
                       <div
-                        className="flex cursor-pointer items-center gap-2 px-2 py-1"
-                        onClick={() => toggleExpand(entry.name)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            toggleExpand(entry.name);
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
+                        key={entry.name}
+                        data-file-name={entry.name}
+                        className={`group rounded transition ${isExpanded ? 'bg-white/5' : 'hover:bg-white/5'}`}
                       >
-                        <FileIcon className="h-3.5 w-3.5 shrink-0 text-white/40" />
-                        <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
-                        <span className="shrink-0 text-[10px] text-white/40">
-                          {formatSize(entry.size)}
-                        </span>
-                        <span className="hidden shrink-0 text-[10px] text-white/30 sm:inline">
-                          {relativeTime(entry.modTime, t)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopyPath(entry.path);
+                        {/* File row — clickable */}
+                        <div
+                          className="flex cursor-pointer items-center gap-2 px-2 py-1"
+                          onClick={() => toggleExpand(entry.name)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleExpand(entry.name);
+                            }
                           }}
-                          className="grid h-5 w-5 place-items-center rounded text-white/30 opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100"
-                          title={t('dropbox.copyPath')}
+                          role="button"
+                          tabIndex={0}
                         >
-                          {copiedPath === entry.path ? (
-                            <CheckIcon className="h-3 w-3 text-green-400" />
-                          ) : (
-                            <CopyIcon className="h-3 w-3" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(entry.name);
-                          }}
-                          className="grid h-5 w-5 place-items-center rounded text-white/30 opacity-0 transition hover:bg-white/10 hover:text-red-400 group-hover:opacity-100"
-                          title={t('dropbox.delete')}
-                        >
-                          <TrashIcon className="h-3 w-3" />
-                        </button>
-                      </div>
-
-                      {/* Expanded thumbnail preview */}
-                      {isExpanded && (
-                        <div className="px-2 pb-2">
-                          <FileThumbnail entry={entry} />
+                          <FileIcon className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                          <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
+                          <span className="shrink-0 text-[10px] text-white/40">
+                            {formatSize(entry.size)}
+                          </span>
+                          <span className="hidden shrink-0 text-[10px] text-white/30 sm:inline">
+                            {relativeTime(entry.modTime, t)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyPath(entry.path);
+                            }}
+                            className="grid h-5 w-5 place-items-center rounded text-white/30 opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100"
+                            title={t('dropbox.copyPath')}
+                          >
+                            {copiedPath === entry.path ? (
+                              <CheckIcon className="h-3 w-3 text-green-400" />
+                            ) : (
+                              <CopyIcon className="h-3 w-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(entry.name);
+                            }}
+                            className="grid h-5 w-5 place-items-center rounded text-white/30 opacity-0 transition hover:bg-white/10 hover:text-red-400 group-hover:opacity-100"
+                            title={t('dropbox.delete')}
+                          >
+                            <TrashIcon className="h-3 w-3" />
+                          </button>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        {/* Expanded thumbnail preview */}
+                        {isExpanded && (
+                          <div className="px-2 pb-2">
+                            <FileThumbnail entry={entry} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </>
           )}

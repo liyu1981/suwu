@@ -27,6 +27,11 @@ registerTilePlugin({
       label: 'Extension id',
       description: 'Registered extension to render (e.g. eye)',
     },
+    {
+      key: 'file',
+      label: 'File',
+      description: 'Document path to hand to the extension (used by suwu open)',
+    },
   ],
   render: (paneId, context?: TileRenderContext) => {
     const p = new URLSearchParams({ pane: paneId });

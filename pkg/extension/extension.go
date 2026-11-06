@@ -59,6 +59,13 @@ type Param struct {
 	DefaultValue string `json:"defaultValue,omitempty"`
 }
 
+// fileExtRe validates one declared file extension after normalization:
+// a leading dot, then dot-separated lowercase alphanumeric segments.
+var fileExtRe = regexp.MustCompile(`^\.[a-z0-9]+(\.[a-z0-9]+)*$`)
+
+// maxFileExtensions caps how many extensions one package may claim.
+const maxFileExtensions = 8
+
 // APIRoute registers one API entry: requests under /gqjs/api/<id>/ whose path
 // prefix-matches Route are executed by Handler's script. Registration order
 // matters — the first matching route wins, so a broader route listed first
@@ -80,6 +87,11 @@ type packageJSON struct {
 type suwuSpecs struct {
 	Params []Param    `json:"params"`
 	API    []APIRoute `json:"api"`
+	// FileExtensions claims file types for the notification resolver: a
+	// `suwu open <file>` whose suffix matches opens this extension's tile
+	// with the file path as a `file` parameter (e.g. ".excalidraw").
+	// Entries are normalized to lowercase; a malformed one fails resolution.
+	FileExtensions []string `json:"fileExtensions"`
 	// Static is the directory (relative to the extension dir) whose files are
 	// served under /gqjs/static/<id>/. Empty means no static serving. The
 	// directory must be a dedicated subtree (never "." or the extension root)
@@ -111,6 +123,9 @@ type Extension struct {
 	Description string `json:"description,omitempty"`
 	// Params documents accepted launch parameters.
 	Params []Param `json:"params,omitempty"`
+	// FileExtensions lists the file suffixes this extension claims for the
+	// notification resolver (`suwu open <file>`), lowercase and dot-prefixed.
+	FileExtensions []string `json:"fileExtensions,omitempty"`
 	// API lists registered API routes in declaration order (first match wins).
 	API []APIRoute `json:"api,omitempty"`
 	// Net reports whether the extension declared suwu.net (network access).
@@ -254,9 +269,14 @@ func Resolve(dir, id string) (Extension, error) {
 	var static string
 	var csp map[string][]string
 	var sandbox []string
+	var fileExtensions []string
 	if pkg.Suwu != nil {
 		static = pkg.Suwu.Static
 		if err := validateStaticRoot(static); err != nil {
+			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
+		}
+		fileExtensions, err = normalizeFileExtensions(pkg.Suwu.FileExtensions)
+		if err != nil {
 			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
 		}
 		csp, err = normalizeCSP(pkg.Suwu.CSP)
@@ -276,19 +296,51 @@ func Resolve(dir, id string) (Extension, error) {
 	net := pkg.Suwu != nil && pkg.Suwu.Net
 	fs := pkg.Suwu != nil && pkg.Suwu.FS
 	return Extension{
-		ID:          id,
-		Name:        name,
-		Description: pkg.Description,
-		Params:      params,
-		API:         api,
-		Net:         net,
-		FS:          fs,
-		Static:      static,
-		CSP:         csp,
-		Sandbox:     sandbox,
-		Dir:         extDir,
-		Entry:       entry,
+		ID:             id,
+		Name:           name,
+		Description:    pkg.Description,
+		Params:         params,
+		FileExtensions: fileExtensions,
+		API:            api,
+		Net:            net,
+		FS:             fs,
+		Static:         static,
+		CSP:            csp,
+		Sandbox:        sandbox,
+		Dir:            extDir,
+		Entry:          entry,
 	}, nil
+}
+
+// normalizeFileExtensions validates the declared suwu.fileExtensions list:
+// lowercased, deduplicated, dot-prefixed and alphanumeric. Empty input is
+// allowed (the extension claims no file types); anything malformed fails
+// resolution so a typo can never silently claim — or drop — a file type.
+func normalizeFileExtensions(in []string) ([]string, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	if len(in) > maxFileExtensions {
+		return nil, fmt.Errorf("suwu.fileExtensions has too many entries (max %d)", maxFileExtensions)
+	}
+	seen := make(map[string]bool, len(in))
+	clean := make([]string, 0, len(in))
+	for _, ext := range in {
+		if ext != strings.TrimSpace(ext) || ext == "" {
+			return nil, fmt.Errorf("suwu.fileExtensions has an empty or padded entry")
+		}
+		ext = strings.ToLower(ext)
+		if !fileExtRe.MatchString(ext) {
+			return nil, fmt.Errorf("suwu.fileExtensions entry %q is invalid", ext)
+		}
+		if seen[ext] {
+			continue
+		}
+		seen[ext] = true
+		clean = append(clean, ext)
+	}
+	sort.Strings(clean)
+	return clean, nil
 }
 
 // HandlerPath resolves an API handler (as declared in suwu.api) to an

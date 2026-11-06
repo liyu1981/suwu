@@ -57,7 +57,7 @@ function MessageRow({
 
   const handleAction = () => {
     if (n.data && !isUpgrade) {
-      executeAction(n.data, store);
+      void executeAction(n.data, store);
       setOpen(false);
     }
   };

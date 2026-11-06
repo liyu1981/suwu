@@ -31,6 +31,12 @@ export interface Extension {
   csp?: Record<string, string[]>;
   /** Declared suwu.sandbox — extra iframe sandbox tokens (allow-downloads). */
   sandbox?: string[];
+  /**
+   * Declared suwu.fileExtensions — file suffixes this extension claims for
+   * the notification resolver (lowercase, dot-prefixed, e.g. ".excalidraw").
+   * `suwu open <file>` with a matching suffix opens this extension's tile.
+   */
+  fileExtensions?: string[];
 }
 
 async function fetchExtensions(): Promise<Extension[]> {
@@ -56,6 +62,29 @@ function loadExtensions(): Promise<Extension[]> {
       });
   }
   return inflight;
+}
+
+/**
+ * Id of the installed extension that claims `path`'s suffix, or null when
+ * none does (or the list cannot be fetched — callers then fall back to the
+ * generic file handling).
+ *
+ * Backs the `suwu open <file>` → extension-tile resolution, so the mapping
+ * lives in each extension's package.json rather than in this app.
+ */
+export async function findExtensionForFile(path: string): Promise<string | null> {
+  const lower = path.toLowerCase();
+  let list: Extension[];
+  try {
+    list = await loadExtensions();
+  } catch {
+    return null;
+  }
+  for (const ext of list) {
+    const claimed = ext.fileExtensions ?? [];
+    if (claimed.some((suffix) => lower.endsWith(suffix))) return ext.id;
+  }
+  return null;
 }
 
 /**

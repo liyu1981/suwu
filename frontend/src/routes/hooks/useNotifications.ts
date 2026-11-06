@@ -47,35 +47,39 @@ export function useNotifications() {
       ws = new WebSocket(`${protocol}//${window.location.host}/ws/notify?${params}`);
 
       ws.onmessage = (event) => {
-        try {
-          const n: Notification = JSON.parse(event.data);
+        // Async on purpose: resolving a file action may have to look up which
+        // installed extension claims its suffix.
+        void (async () => {
+          try {
+            const n: Notification = JSON.parse(event.data);
 
-          // If notification has action data, try to auto-resolve.
-          if (n.data) {
-            const autoResolve = store.get(autoResolveAtom);
-            const resolved = resolveAction(n.data, store, autoResolve);
-            if (resolved) {
-              // Action was auto-executed; show in panel but do NOT badge.
-              const resolvedNotification = { ...n, message: `${n.message} ✓` };
-              setNotifications((prev) => {
-                const next = [...prev, resolvedNotification];
-                return next.length > maxEntries ? next.slice(-maxEntries) : next;
-              });
-              return;
+            // If notification has action data, try to auto-resolve.
+            if (n.data) {
+              const autoResolve = store.get(autoResolveAtom);
+              const resolved = await resolveAction(n.data, store, autoResolve);
+              if (resolved) {
+                // Action was auto-executed; show in panel but do NOT badge.
+                const resolvedNotification = { ...n, message: `${n.message} ✓` };
+                setNotifications((prev) => {
+                  const next = [...prev, resolvedNotification];
+                  return next.length > maxEntries ? next.slice(-maxEntries) : next;
+                });
+                return;
+              }
             }
-          }
 
-          // Plain notification or unresolved action — add as-is.
-          setNotifications((prev) => {
-            const next = [...prev, n];
-            return next.length > maxEntries ? next.slice(-maxEntries) : next;
-          });
-          if (!panelOpenRef.current) {
-            setUnread((c) => c + 1);
+            // Plain notification or unresolved action — add as-is.
+            setNotifications((prev) => {
+              const next = [...prev, n];
+              return next.length > maxEntries ? next.slice(-maxEntries) : next;
+            });
+            if (!panelOpenRef.current) {
+              setUnread((c) => c + 1);
+            }
+          } catch {
+            // Malformed frame — ignore.
           }
-        } catch {
-          // Malformed frame — ignore.
-        }
+        })();
       };
 
       ws.onclose = () => {

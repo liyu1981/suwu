@@ -205,6 +205,69 @@ func TestResolveStaticDeclaration(t *testing.T) {
 	}
 }
 
+func TestResolveFileExtensions(t *testing.T) {
+	dir := t.TempDir()
+
+	// Claimed types are normalized to lowercase and sorted.
+	writeExt(t, dir, "draw",
+		`{"name":"Draw","suwu":{"fileExtensions":[".EXCALIDRAW", ".Calibredraw"]}}`,
+		`function handler(){}`)
+	ext, err := Resolve(dir, "draw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{".calibredraw", ".excalidraw"}
+	if len(ext.FileExtensions) != len(want) || ext.FileExtensions[0] != want[0] || ext.FileExtensions[1] != want[1] {
+		t.Errorf("fileExtensions = %v, want %v", ext.FileExtensions, want)
+	}
+
+	// Duplicates collapse after normalization.
+	writeExt(t, dir, "dup",
+		`{"name":"Dup","suwu":{"fileExtensions":[".md",".MD",".MD"]}}`,
+		`function handler(){}`)
+	dup, err := Resolve(dir, "dup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dup.FileExtensions) != 1 || dup.FileExtensions[0] != ".md" {
+		t.Errorf("fileExtensions = %v, want [.md]", dup.FileExtensions)
+	}
+
+	// No declaration: the extension claims nothing.
+	writeExt(t, dir, "plain", `{"name":"Plain"}`, `function handler(){}`)
+	ext, err = Resolve(dir, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ext.FileExtensions) != 0 {
+		t.Errorf("fileExtensions = %v, want none", ext.FileExtensions)
+	}
+
+	// Rejected entries: a typo must fail resolution, never silently claim a
+	// type the extension cannot handle.
+	bad := []string{"excalidraw", ".excalidraw!", ".excalidraw/", ".excalidraw ", " .excalidraw", "."}
+	for _, entry := range bad {
+		writeExt(t, dir, "bad",
+			`{"name":"Bad","suwu":{"fileExtensions":[`+strconv.Quote(entry)+`]}}`,
+			`function handler(){}`)
+		if _, err := Resolve(dir, "bad"); err == nil {
+			t.Errorf("file extension %q accepted", entry)
+		}
+	}
+
+	// Too many claims.
+	many := make([]string, 9)
+	for i := range many {
+		many[i] = `".f` + strconv.Itoa(i) + `"`
+	}
+	writeExt(t, dir, "many",
+		`{"name":"Many","suwu":{"fileExtensions":[`+strings.Join(many, ",")+`]}}`,
+		`function handler(){}`)
+	if _, err := Resolve(dir, "many"); err == nil {
+		t.Error("more than 8 file extensions must be rejected")
+	}
+}
+
 func TestStaticPath(t *testing.T) {
 	dir := t.TempDir()
 	writeExt(t, dir, "web", `{"name":"Web","suwu":{"static":"public"}}`, `function handler(){}`)
@@ -332,16 +395,16 @@ func TestResolveAPIRoutes(t *testing.T) {
 
 func TestResolveRejectsBadAPIRegistrations(t *testing.T) {
 	cases := map[string]string{
-		"empty route":     `{"suwu":{"api":[{"route":"","handler":"a.js"}]}}`,
-		"empty segment":   `{"suwu":{"api":[{"route":"/a//b","handler":"a.js"}]}}`,
-		"bad param":       `{"suwu":{"api":[{"route":"/n/<1id>","handler":"a.js"}]}}`,
-		"unclosed param":  `{"suwu":{"api":[{"route":"/n/<id","handler":"a.js"}]}}`,
+		"empty route":      `{"suwu":{"api":[{"route":"","handler":"a.js"}]}}`,
+		"empty segment":    `{"suwu":{"api":[{"route":"/a//b","handler":"a.js"}]}}`,
+		"bad param":        `{"suwu":{"api":[{"route":"/n/<1id>","handler":"a.js"}]}}`,
+		"unclosed param":   `{"suwu":{"api":[{"route":"/n/<id","handler":"a.js"}]}}`,
 		"angle in literal": `{"suwu":{"api":[{"route":"/a>b","handler":"a.js"}]}}`,
-		"empty handler":   `{"suwu":{"api":[{"route":"/a","handler":""}]}}`,
-		"not js":          `{"suwu":{"api":[{"route":"/a","handler":"evil.txt"}]}}`,
-		"dotdot handler":  `{"suwu":{"api":[{"route":"/a","handler":"../evil.js"}]}}`,
-		"inner dotdot":    `{"suwu":{"api":[{"route":"/a","handler":"sub/../../evil.js"}]}}`,
-		"absolute":        `{"suwu":{"api":[{"route":"/a","handler":"/etc/passwd.js"}]}}`,
+		"empty handler":    `{"suwu":{"api":[{"route":"/a","handler":""}]}}`,
+		"not js":           `{"suwu":{"api":[{"route":"/a","handler":"evil.txt"}]}}`,
+		"dotdot handler":   `{"suwu":{"api":[{"route":"/a","handler":"../evil.js"}]}}`,
+		"inner dotdot":     `{"suwu":{"api":[{"route":"/a","handler":"sub/../../evil.js"}]}}`,
+		"absolute":         `{"suwu":{"api":[{"route":"/a","handler":"/etc/passwd.js"}]}}`,
 	}
 	dir := t.TempDir()
 	for name, pkg := range cases {

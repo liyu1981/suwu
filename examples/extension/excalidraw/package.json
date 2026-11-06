@@ -37,6 +37,9 @@
         "route": "/save",
         "handler": "save.js"
       }
+    ],
+    "fileExtensions": [
+      ".excalidraw"
     ]
   }
 }

@@ -11,6 +11,7 @@ import {
 import { fontDefaultAtom } from '../store/fonts';
 import type { NotificationData, CodeFileSpec } from '../store/notifications';
 import type { AutoResolveSettings } from '../store/settings';
+import { findExtensionForFile } from './extensions';
 
 export type Store = ReturnType<typeof createStore>;
 
@@ -270,12 +271,15 @@ export function openStaticBrowse(
 /**
  * Resolve an action from a notification. Returns true if auto-resolved,
  * false if it should show as an action button in the notification panel.
+ *
+ * Async because a `file` action may be claimed by an installed extension
+ * (`suwu.fileExtensions`), which has to be looked up over the API.
  */
-export function resolveAction(
+export async function resolveAction(
   data: NotificationData,
   store: Store,
   autoResolve: AutoResolveSettings,
-): boolean {
+): Promise<boolean> {
   const payload = data.payload;
   switch (payload.type) {
     case 'gitgraph':
@@ -290,15 +294,18 @@ export function resolveAction(
       if (!autoResolve.filebrowser) return false;
       openFileBrowser(payload.path, store);
       return true;
-    case 'file':
-      if (payload.path.toLowerCase().endsWith('.excalidraw')) {
-        if (!autoResolve.fileviewer) return false;
-        openTile('extension', store, undefined, { id: 'excalidraw', file: payload.path });
-        return true;
-      }
+    case 'file': {
+      // An installed extension may claim this suffix (e.g. .excalidraw) and
+      // take the file into its own tile with a `file` parameter.
+      const extId = await findExtensionForFile(payload.path);
       if (!autoResolve.fileviewer) return false;
-      openViewer(payload.path, store);
+      if (extId) {
+        openTile('extension', store, undefined, { id: extId, file: payload.path });
+      } else {
+        openViewer(payload.path, store);
+      }
       return true;
+    }
     case 'forward':
       if (!autoResolve.forward) return false;
       openForward(store);
@@ -318,8 +325,9 @@ export function resolveAction(
 
 /**
  * Execute an action for a notification (called from action button click).
+ * Async: a `file` action may need the installed-extension lookup first.
  */
-export function executeAction(data: NotificationData, store: Store): void {
+export async function executeAction(data: NotificationData, store: Store): Promise<void> {
   const payload = data.payload;
   switch (payload.type) {
     case 'gitgraph':
@@ -337,13 +345,15 @@ export function executeAction(data: NotificationData, store: Store): void {
     case 'code':
       openCode(payload.files, store, payload.dir);
       break;
-    case 'file':
-      if (payload.path.toLowerCase().endsWith('.excalidraw')) {
-        openTile('extension', store, undefined, { id: 'excalidraw', file: payload.path });
-        break;
+    case 'file': {
+      const extId = await findExtensionForFile(payload.path);
+      if (extId) {
+        openTile('extension', store, undefined, { id: extId, file: payload.path });
+      } else {
+        openViewer(payload.path, store);
       }
-      openViewer(payload.path, store);
       break;
+    }
     case 'staticserve':
       openStaticBrowse(payload.id, payload.path, store);
       break;

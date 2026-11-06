@@ -11,7 +11,7 @@
 > styles/app split across an ES-module tree under `public/`.
 >
 > **Goal:** (1) make `package.json` the single metadata file for extensions,
-> with npm-style fields at the top level and Suwu specifics under `suwu`;
+> with npm fields at the top level and every Suwu setting under `suwu`;
 > (2) let extensions register ordered API routes served from their own
 > handler scripts — pure data relay, no script injection.
 
@@ -48,9 +48,13 @@ Companion doc: `docs/EXTENSION_TILE_PLAN.md` (the render/page pipeline).
 }
 ```
 
-- **No duplication:** `name`/`description` are read once from the top level,
-  never repeated inside `suwu`. Resolution: `name` → directory id fallback;
-  `description` → empty; `suwu.params` and `suwu.api` optional.
+- **One home for Suwu's fields:** since an extension is a real JS project
+  (build script, dependencies, `dist/`), the top level belongs to npm and every
+  Suwu setting lives under `suwu` — including the display fields. Resolution:
+  `suwu.name` → legacy top-level `name` → directory id; `suwu.description` →
+  legacy top-level `description` → empty; `suwu.version` (never the npm
+  `version`, which describes the package, not the tile). `suwu.params` and
+  `suwu.api` remain optional.
 - **Hard cutover:** `MetaFile`/`readMeta` are gone; a missing or malformed
   `package.json` fails `Resolve` exactly like a missing `index.js`. Unknown
   top-level fields (`version`, `dependencies`, …) are ignored.
@@ -259,6 +263,10 @@ trees. Extensions that need more declare it in `package.json`:
 }
 ```
 
+- `suwu.static` names a directory **or a zip archive** (`dist.zip`); both are
+  served under `/gqjs/static/<id>/`, with the same allow-list, path validation
+  and conditional-request behaviour. An archive keeps a bundled extension to one
+  file in the repository, the install payload and the catalog.
 - `suwu.csp` is additive only. Extendable directives: `script-src`,
   `style-src`, `img-src`, `font-src`, `connect-src`, `media-src`,
   `worker-src`, `child-src`, `frame-src`, `manifest-src`.

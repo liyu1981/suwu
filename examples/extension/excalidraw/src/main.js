@@ -1,15 +1,50 @@
 /**
- * Excalidraw — mount the upstream component loaded from esm.sh.
+ * Excalidraw tile — bundled entry.
  *
- * The extension keeps no vendored Excalidraw/React code. index.js supplies an
- * import map that pins React and Excalidraw on esm.sh, so React is a single
- * instance. See ../package.json for the CSP extras this requires.
+ * Everything third-party is a normal npm dependency resolved at build time
+ * (see ../package.json), so the served dist/ has no CDN dependency at all: no
+ * esm.sh, no import map, no network beyond this tile's own API.
  *
- * Public file: never put secrets here.
+ * This file is bundled by Vite into dist/assets/app-<hash>.js; the render stub
+ * (../index.js) injects it into the page along with the file path and the
+ * extension-scoped token. Never put secrets here — dist/ is served
+ * unauthenticated (static assets cannot carry credentials).
  */
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { Excalidraw, MainMenu } from "@excalidraw/excalidraw";
+import "@excalidraw/excalidraw/index.css";
+import "./style.css";
+
+/**
+ * Where Excalidraw should look for its runtime assets (fonts, locales).
+ *
+ * Upstream builds `new URL(path, window.EXCALIDRAW_ASSET_PATH)` for every
+ * relative font path, and it ALSO appends a hardcoded CDN candidate
+ * (`https://esm.sh/@excalidraw/excalidraw@<ver>/dist/prod/`) to every font's URL
+ * list — it only fetches that one when the local URL fails. So this base must be
+ * right, or the tile silently falls back to the CDN (which our CSP then blocks).
+ * The base must also be absolute: this document is sandboxed, so
+ * `location.origin` is the literal "null" and a relative base throws.
+ *
+ * NOTE: do not write `new URL("../", import.meta.url)` here. Rolldown rewrites
+ * that idiom into a reference to a *sibling output file* (`index-<hash>.js`),
+ * which made the base `.../assets/index-….js` and every font 404.
+ *
+ * index.js also sets this in an inline script before the bundle loads; this is
+ * the belt to that pair of braces.
+ */
+const ASSET_BASE = assetBase();
+window.EXCALIDRAW_ASSET_PATH = ASSET_BASE;
+
+/** The dist/ root this module was served from (…/assets/app-<hash>.js → …/). */
+function assetBase() {
+  // A single-argument new URL keeps the bundler's "resolve this relative path"
+  // transform out of the picture entirely.
+  const url = new URL(import.meta.url);
+  url.pathname = url.pathname.replace(/assets\/[^/]*$/, "");
+  return url.href;
+}
 
 const STORE_KEY = "scene";
 const MAX_SAVED_BYTES = 500000;

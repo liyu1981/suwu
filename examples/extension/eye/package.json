@@ -1,7 +1,12 @@
 {
-  "name": "Eye",
-  "description": "Classic X11-style eye that follows the pointer",
+  "name": "suwu-eye",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suwu extension tile: an X11-style eye that follows the pointer",
   "suwu": {
+    "name": "Eye",
+    "description": "Classic X11-style eye that follows the pointer",
+    "version": "1.0.0",
     "static": "public",
     "params": [
       {

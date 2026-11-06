@@ -357,6 +357,37 @@ func TestExtensionStatusAndContentType(t *testing.T) {
 	}
 }
 
+// The render page embeds the extension-scoped token *and* echoes caller input
+// (?file=) into the same response. Compressing that next to a secret is a
+// BREACH oracle, so the render path must never gzip — no matter what the client
+// asks for. Static assets are the only thing that may compress.
+func TestExtensionRenderIsNeverCompressed(t *testing.T) {
+	large := strings.Repeat("<p>the quick brown fox</p>\n", 200)
+	runner := &stubExtensionRunner{result: []byte(`{"status":200,"contentType":"text/html","body":` +
+		`"` + strings.ReplaceAll(strings.ReplaceAll(large, "\n", "\\n"), `"`, `\\"`) + `"}`)}
+	ts, cfg := extTestServer(t, runner)
+
+	req, _ := http.NewRequest(http.MethodGet,
+		ts.URL+"/gqjs/ext/eye?file=/tmp/attacker-controlled-name.excalidraw", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.AddCookie(&http.Cookie{Name: "suwu_token", Value: cfg.Token})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if ce := resp.Header.Get("Content-Encoding"); ce != "" {
+		t.Errorf("render page Content-Encoding = %q: a token-bearing page must never be compressed", ce)
+	}
+	if !strings.Contains(readAll(t, resp), "the quick brown fox") {
+		t.Error("render body missing")
+	}
+}
+
 func TestExtensionsList(t *testing.T) {
 	ts, _ := extTestServer(t, nil)
 

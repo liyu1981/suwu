@@ -208,6 +208,7 @@ func FromArchive(kind Kind, r io.ReaderAt, size int64, opt Options) (Item, error
 	if err != nil {
 		return Item{Kind: kind, ID: root.id}, err
 	}
+	skipped := newSkipTally()
 	defer func() { _ = stage.Discard() }()
 
 	// The prefix every payload member must start with, so an archive cannot
@@ -231,6 +232,13 @@ func FromArchive(kind Kind, r io.ReaderAt, size int64, opt Options) (Item, error
 		if err != nil {
 			return Item{Kind: kind, ID: root.id}, err
 		}
+		// The same payload rule the catalog and a local install use: an
+		// archive exported from a project checkout may still carry src/,
+		// node_modules/ and lockfiles, which are build inputs, not payload.
+		if reason, skip := SkipPayload(rel); skip {
+			skipped.add(reason)
+			continue
+		}
 		if !isRegularZipEntry(f) {
 			return Item{Kind: kind, ID: root.id}, fmt.Errorf("%s: not a regular file (mode %v)", f.Name, info.Mode())
 		}
@@ -253,7 +261,9 @@ func FromArchive(kind Kind, r io.ReaderAt, size int64, opt Options) (Item, error
 			return Item{Kind: kind, ID: root.id}, fmt.Errorf("%s: %w", f.Name, closeErr)
 		}
 	}
-	return stage.Commit(opt)
+	item, err := stage.Commit(opt)
+	item.Skipped = skipped.String()
+	return item, err
 }
 
 // payloadRel maps an archive member name to a payload-relative path, rejecting

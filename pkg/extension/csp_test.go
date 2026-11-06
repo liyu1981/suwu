@@ -125,13 +125,42 @@ func TestExampleCapabilitiesResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(ex.CSP["script-src"], []string{"'unsafe-eval'", "https://esm.sh"}) {
+	// Bundled with Vite: dependencies are npm, so the CDN is gone from the CSP.
+	// What remains is only what the bundle still needs at runtime —
+	// 'wasm-unsafe-eval' for the woff2 subsetter, and worker/blob for its module
+	// worker.
+	if !reflect.DeepEqual(ex.CSP["script-src"], []string{"'wasm-unsafe-eval'"}) {
 		t.Errorf("excalidraw script-src = %#v", ex.CSP["script-src"])
 	}
-	if !reflect.DeepEqual(ex.CSP["worker-src"], []string{"blob:", "data:", "https://esm.sh"}) {
+	if !reflect.DeepEqual(ex.CSP["worker-src"], []string{"blob:", "data:"}) {
 		t.Errorf("excalidraw worker-src = %#v", ex.CSP["worker-src"])
+	}
+	for _, sources := range ex.CSP {
+		for _, src := range sources {
+			if strings.Contains(src, "esm.sh") || strings.Contains(src, "unpkg") {
+				t.Errorf("excalidraw CSP still allows a CDN source: %q", src)
+			}
+		}
 	}
 	if !reflect.DeepEqual(ex.Sandbox, []string{"allow-downloads"}) {
 		t.Errorf("excalidraw sandbox = %#v", ex.Sandbox)
+	}
+	if !ex.FS {
+		t.Error("excalidraw needs suwu.fs to open and save documents")
+	}
+	if !reflect.DeepEqual(ex.FileExtensions, []string{".excalidraw"}) {
+		t.Errorf("excalidraw fileExtensions = %#v", ex.FileExtensions)
+	}
+	// A built extension ships its asset tree as one archive; Resolve requires the
+	// declared source to exist, which is how a forgotten build is caught at
+	// install time.
+	if ex.Static != "dist.zip" {
+		t.Errorf("excalidraw static = %q, want dist.zip", ex.Static)
+	}
+	if got := ex.StaticKind(); got != StaticZip {
+		t.Errorf("excalidraw StaticKind = %v, want StaticZip", got)
+	}
+	if a, err := os.Stat(filepath.Join(ex.Dir, ex.Static)); err != nil || !a.Mode().IsRegular() {
+		t.Errorf("dist.zip is not an installed regular file: %v", err)
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // DirName is the extension tree below the data dir: <dataDir>/extension.
@@ -75,18 +76,34 @@ type APIRoute struct {
 	Handler string `json:"handler"`
 }
 
-// packageJSON is the subset of package.json Suwu reads. Unknown fields
-// (version, dependencies, …) are ignored.
+// packageJSON is the subset of package.json Suwu reads. The top level belongs
+// to npm — a packaged extension is a normal JS project with a build script and
+// dependencies — so every Suwu-owned field lives under "suwu" and the only
+// top-level fields read here are the two that predate that split.
+//
+// Unknown fields (name, version, scripts, dependencies, …) are ignored.
 type packageJSON struct {
+	// Name and Description are the pre-0.1.17 home of the display fields. They
+	// are still read as a deprecated fallback so an extension installed before
+	// the split keeps its pretty name; suwu.name/suwu.description always win.
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
 	Suwu        *suwuSpecs `json:"suwu"`
 }
 
-// suwuSpecs is the Suwu-specific object inside package.json.
+// suwuSpecs is the Suwu-specific object inside package.json: the single home
+// for everything Suwu owns, so the top level can stay pure npm.
 type suwuSpecs struct {
-	Params []Param    `json:"params"`
-	API    []APIRoute `json:"api"`
+	// Name is the display name shown in the picker and the App Menu.
+	Name string `json:"name"`
+	// Description is the one-line description next to it.
+	Description string `json:"description"`
+	// Version is the extension's own version. It is deliberately independent
+	// of the npm `version` at the top level, which describes the package, not
+	// the tile — for a vendoring extension the two are unrelated.
+	Version string     `json:"version"`
+	Params  []Param    `json:"params"`
+	API     []APIRoute `json:"api"`
 	// FileExtensions claims file types for the notification resolver: a
 	// `suwu open <file>` whose suffix matches opens this extension's tile
 	// with the file path as a `file` parameter (e.g. ".excalidraw").
@@ -121,6 +138,9 @@ type Extension struct {
 	Name string `json:"name"`
 	// Description is a short human description.
 	Description string `json:"description,omitempty"`
+	// Version is the extension's own version (suwu.version), unrelated to any
+	// npm version in the same file. Empty when not declared.
+	Version string `json:"version,omitempty"`
 	// Params documents accepted launch parameters.
 	Params []Param `json:"params,omitempty"`
 	// FileExtensions lists the file suffixes this extension claims for the
@@ -275,6 +295,27 @@ func Resolve(dir, id string) (Extension, error) {
 		if err := validateStaticRoot(static); err != nil {
 			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
 		}
+		// The declared source must actually exist: a directory, or a zip
+		// archive when the path ends in .zip. A built extension whose dist/ (or
+		// dist.zip) was never built — or was left out of the payload — would
+		// otherwise resolve happily and 404 every subresource, which is a far
+		// more confusing failure than refusing to list the extension.
+		if static != "" {
+			target := filepath.Join(extDir, static)
+			// The source must stay inside the extension directory, symlinks
+			// included: an archive (or asset tree) symlinked elsewhere would let
+			// a package serve files it does not own.
+			if err := ensureWithin(extDir, target); err != nil {
+				return Extension{}, fmt.Errorf("extension %q: suwu.static %q: %w", id, static, err)
+			}
+			if isArchivePath(static) {
+				if err := requireFile(target); err != nil {
+					return Extension{}, fmt.Errorf("extension %q: suwu.static %q: %w", id, static, err)
+				}
+			} else if err := requireDir(target); err != nil {
+				return Extension{}, fmt.Errorf("extension %q: suwu.static %q: %w", id, static, err)
+			}
+		}
 		fileExtensions, err = normalizeFileExtensions(pkg.Suwu.FileExtensions)
 		if err != nil {
 			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
@@ -289,16 +330,19 @@ func Resolve(dir, id string) (Extension, error) {
 		}
 	}
 
-	name := pkg.Name
-	if name == "" {
-		name = id
+	name := displayName(pkg, id)
+	description := displayDescription(pkg)
+	version := displayVersion(pkg)
+	if err := validateDisplay(name, description, version); err != nil {
+		return Extension{}, fmt.Errorf("extension %q: %w", id, err)
 	}
 	net := pkg.Suwu != nil && pkg.Suwu.Net
 	fs := pkg.Suwu != nil && pkg.Suwu.FS
 	return Extension{
 		ID:             id,
 		Name:           name,
-		Description:    pkg.Description,
+		Description:    description,
+		Version:        version,
 		Params:         params,
 		FileExtensions: fileExtensions,
 		API:            api,
@@ -310,6 +354,97 @@ func Resolve(dir, id string) (Extension, error) {
 		Dir:            extDir,
 		Entry:          entry,
 	}, nil
+}
+
+// Display-field caps. They bound what the picker and the App Menu have to
+// render, and keep a hostile package.json from turning the extension list into
+// a wall of text.
+const (
+	maxDisplayNameRunes = 64
+	maxDescriptionRunes = 200
+	maxVersionRunes     = 32
+)
+
+// displayName resolves the display name: suwu.name wins, the deprecated
+// top-level npm `name` is the fallback, and the directory id is the last
+// resort. Values are trimmed; a control character or an over-long value fails
+// resolution rather than being silently truncated.
+func displayName(pkg packageJSON, id string) string {
+	if v := strings.TrimSpace(suwuField(pkg, "name")); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(pkg.Name); v != "" {
+		return v
+	}
+	return id
+}
+
+// displayDescription resolves the description: suwu.description wins, the
+// deprecated top-level npm `description` is the fallback.
+func displayDescription(pkg packageJSON) string {
+	if v := strings.TrimSpace(suwuField(pkg, "description")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(pkg.Description)
+}
+
+// displayVersion resolves the extension version from suwu only. The npm
+// `version` at the top level is deliberately never a fallback: it describes the
+// package, not the tile.
+func displayVersion(pkg packageJSON) string {
+	return strings.TrimSpace(suwuField(pkg, "version"))
+}
+
+// suwuField reads one raw display field from the suwu object.
+func suwuField(pkg packageJSON, field string) string {
+	if pkg.Suwu == nil {
+		return ""
+	}
+	switch field {
+	case "name":
+		return pkg.Suwu.Name
+	case "description":
+		return pkg.Suwu.Description
+	case "version":
+		return pkg.Suwu.Version
+	}
+	return ""
+}
+
+// validateDisplay checks the resolved display fields: no control characters,
+// no over-long values. Empty is always fine.
+func validateDisplay(name, description, version string) error {
+	for _, f := range []struct {
+		label string
+		value string
+		max   int
+	}{
+		{"suwu.name", name, maxDisplayNameRunes},
+		{"suwu.description", description, maxDescriptionRunes},
+		{"suwu.version", version, maxVersionRunes},
+	} {
+		if err := checkDisplayValue(f.label, f.value, f.max); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkDisplayValue rejects control characters and values over max runes (not
+// bytes: the description may be any language).
+func checkDisplayValue(label, value string, max int) error {
+	if value == "" {
+		return nil
+	}
+	if n := utf8.RuneCountInString(value); n > max {
+		return fmt.Errorf("%s is %d characters, over the %d limit", label, n, max)
+	}
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			return fmt.Errorf("%s contains a control character", label)
+		}
+	}
+	return nil
 }
 
 // normalizeFileExtensions validates the declared suwu.fileExtensions list:
@@ -512,6 +647,84 @@ func readPackage(path string) (packageJSON, error) {
 		return packageJSON{}, fmt.Errorf("parse %s: %w", PackageFile, err)
 	}
 	return p, nil
+}
+
+// requireDir reports whether p is an existing directory, with an error that
+// names what is missing rather than just failing a stat.
+func requireDir(p string) error {
+	info, err := os.Stat(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("directory does not exist")
+		}
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory")
+	}
+	return nil
+}
+
+// requireFile reports whether p is an existing regular file.
+func requireFile(p string) error {
+	info, err := os.Stat(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("file does not exist")
+		}
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("not a regular file")
+	}
+	return nil
+}
+
+// Manifest is the resolved, display-level view of one package.json. It is the
+// single reader for anything outside this package (the install catalog used to
+// carry its own copy of the JSON struct, which drifted the moment a field
+// moved), so the precedence rules live in exactly one place.
+type Manifest struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Version     string `json:"version,omitempty"`
+}
+
+// ReadManifest resolves the display fields of a package.json on disk without
+// needing a full Resolve: no entry-point, API or capability validation runs
+// here. id is the extension's directory name and the final fallback for the
+// display name; pass "" when it is not known yet.
+func ReadManifest(path, id string) (Manifest, error) {
+	pkg, err := readPackage(path)
+	if err != nil {
+		return Manifest{}, err
+	}
+	return manifestFrom(pkg, id)
+}
+
+// ReadManifestBytes is ReadManifest for a package.json already in memory (the
+// install catalog fetches it over HTTP).
+func ReadManifestBytes(raw []byte, id string) (Manifest, error) {
+	var pkg packageJSON
+	if err := json.Unmarshal(raw, &pkg); err != nil {
+		return Manifest{}, fmt.Errorf("parse %s: %w", PackageFile, err)
+	}
+	return manifestFrom(pkg, id)
+}
+
+// manifestFrom applies the display-field precedence and caps.
+func manifestFrom(pkg packageJSON, id string) (Manifest, error) {
+	m := Manifest{
+		ID:          id,
+		Name:        displayName(pkg, id),
+		Description: displayDescription(pkg),
+		Version:     displayVersion(pkg),
+	}
+	if err := validateDisplay(m.Name, m.Description, m.Version); err != nil {
+		return Manifest{}, err
+	}
+	return m, nil
 }
 
 // isRegularFile reports whether p exists and is a regular file.

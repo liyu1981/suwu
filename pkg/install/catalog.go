@@ -341,13 +341,15 @@ func (c *Client) enrich(ctx context.Context, cat *Catalog) {
 			}
 			continue
 		}
-		var m struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
+		// One reader for extension display fields: extension.ReadManifestBytes
+		// applies the suwu.name → legacy top-level name → id precedence and the
+		// display caps. Parsing the JSON here as well (as this used to) meant two
+		// definitions of the same contract, guaranteed to drift.
+		manifest, err := extension.ReadManifestBytes(raw, e.ID)
+		if err != nil {
+			continue // a malformed manifest leaves the bare id; Commit validates
 		}
-		if json.Unmarshal(raw, &m) == nil {
-			e.Name, e.Description = m.Name, m.Description
-		}
+		e.Name, e.Description = manifest.Name, manifest.Description
 	}
 }
 

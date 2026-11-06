@@ -12,12 +12,24 @@ the catalog without installing anything. Everything lands in
 reads that directory per request, so nothing needs a restart. The tab picks it
 up the next time you open System Settings, which re-reads the list.
 
-To install from a local checkout instead, zip one example (`suwu install
---extension <file.zip>` expects `extension/<id>/…` inside the zip) or copy it
-by hand:
+To install from a local checkout instead — the normal dev loop — point
+`--local` at the directory. It stages `package.json`, `index.js` and the built
+asset tree, skipping build inputs (`node_modules/`, `src/`, lockfiles,
+`*.config.*`), so a working tree installs cleanly. `--build` runs the item's own
+build script first (pnpm when `pnpm-lock.yaml` is present, else npm):
 
 ```sh
-cp -r examples/extension/eye ~/.suwu/extension/
+suwu install --local examples/extension/excalidraw --build --force
+suwu install --local examples/extension/eye --force      # no build step
+```
+
+A zip works too (`suwu install --extension <file.zip>` expects
+`extension/<id>/…` inside it) and follows the same payload rule. Extensions with
+a build are ordinary JS projects:
+
+```sh
+pnpm -C examples/extension install      # once, for the whole workspace
+pnpm -C examples/extension build        # every extension that has a build script
 ```
 
 Then enable the **extension** plugin in App Menu settings (it is off by
@@ -34,8 +46,8 @@ default) and add an Extension tile whose `id` is the directory name
 |---|---|---|
 | `eye` | `index.js` (render stub) · `public/{style.css,eye.js}` | `suwu.static` with a **classic** script; server-rendered config passed via `data-size` |
 | `note` | `index.js` (render stub) · `public/{style.css,note.js,model.js,commands.js,render.js,store.js,bridge.js,format.js}` · `test/*.test.mjs` | A **pure client-side** app: nine numbered slots kept in the browser's IndexedDB **via the parent-frame storage bridge** (the sandboxed page has no storage of its own; no API, no `suwu.net`); a flat 3M Post-it over a chip strip on a transparent document; an **Apple Notes-style editor** — checklists (tappable boxes, nesting, auto-continue, per-chip progress), bold/italic/underline/strikethrough/monospace over a selection, a floating glass format bar, and a live "Saved 2 min ago" line. A transparent `<textarea>` stays the only input surface while a painted clone renders the structure, so there is no dependency and no build step. `pnpm test:ext` covers the DOM-free modules (`model`, `commands`, `store`, `format`) |
-| `hn-top-stories` | `index.js` (render stub) · `stories.js` (API) · `public/{style.css,app.js,carousel.js,stories-cache.js}` | `suwu.api` route registration, `suwu.net` server-side `fetch`, `suwu.static` with an **ES-module** tree (relative imports), htmx polling of the extension's own API |
-| `excalidraw` | `index.js` (render stub) · `public/{app.js,page.css}` | Loads the upstream `@excalidraw/excalidraw` React app from esm.sh at runtime (no vendored JS/fonts), with declared `suwu.csp` / `suwu.sandbox` extras, an in-memory `localStorage` fallback for the opaque sandbox, and periodic scene persistence through the parent ext-store bridge |
+| `hn-top-stories` | `index.js` (render stub) · `stories.js` (API) · `public/{style.css,app.js,carousel.js,stories-cache.js}` | `suwu.api` route registration, `suwu.net` server-side `fetch` of the Hacker News API, `suwu.static` with an **ES-module** tree (relative imports), and a local `fetch` poll — no CDN, no htmx |
+| `excalidraw` | `index.js` (render stub) · `save.js` (API) · `src/{main.js,style.css}` · `vite.config.ts` · `dist/` (committed) | A **built** extension: Vite bundles React + `@excalidraw/excalidraw` from npm into `dist/`, so the tile has no CDN dependency at all (contrast with the old esm.sh version). Shows `suwu.fs` file access (`/fs` = the opened document's directory, `/ext-data` = extension storage), `suwu.fileExtensions` claiming `.excalidraw`, a custom burger menu (Save / Auto save), a scene load that survives Excalidraw's async init, and an in-memory `localStorage` fallback for the opaque sandbox |
 
 ## ⚠ Static files are public
 

@@ -41,6 +41,15 @@ func writeExt(t *testing.T, dir, id, pkg, entry string) {
 	}
 }
 
+// mkdirExt creates one directory inside an extension fixture (e.g. its static
+// root): Resolve now refuses a declared suwu.static that does not exist.
+func mkdirExt(t *testing.T, dir, id, sub string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(dir, id, sub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestResolve(t *testing.T) {
 	dir := t.TempDir()
 	writeExt(t, dir, "eye",
@@ -140,6 +149,120 @@ func TestList(t *testing.T) {
 	}
 }
 
+// The suwu object is the single home for Suwu's own settings; the top level
+// belongs to npm. Display fields therefore resolve suwu-first with a deprecated
+// top-level fallback, and suwu.version never inherits the npm version.
+func TestResolveDisplayFields(t *testing.T) {
+	dir := t.TempDir()
+
+	// suwu wins over the npm fields in the same file.
+	writeExt(t, dir, "draw", `{
+		"name": "npm-package-name",
+		"version": "9.9.9",
+		"description": "npm description",
+		"suwu": {
+			"name": "Excalidraw",
+			"description": "hand-drawn whiteboard",
+			"version": "1.2.3"
+		}
+	}`, `function handler(){}`)
+	ext, err := Resolve(dir, "draw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ext.Name != "Excalidraw" || ext.Description != "hand-drawn whiteboard" || ext.Version != "1.2.3" {
+		t.Errorf("display = %q / %q / %q", ext.Name, ext.Description, ext.Version)
+	}
+
+	// Legacy install: only the top-level npm fields exist.
+	writeExt(t, dir, "legacy", `{"name":"Legacy Eye","version":"0.4.0","description":"old style"}`, `function handler(){}`)
+	ext, err = Resolve(dir, "legacy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ext.Name != "Legacy Eye" || ext.Description != "old style" {
+		t.Errorf("legacy fallback = %q / %q", ext.Name, ext.Description)
+	}
+	if ext.Version != "" {
+		t.Errorf("version = %q, want empty: the npm version is not the tile version", ext.Version)
+	}
+
+	// Nothing declared at all: the id is the name.
+	writeExt(t, dir, "bare", `{}`, `function handler(){}`)
+	ext, err = Resolve(dir, "bare")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ext.Name != "bare" || ext.Description != "" || ext.Version != "" {
+		t.Errorf("bare = %q / %q / %q", ext.Name, ext.Description, ext.Version)
+	}
+
+	// Whitespace is trimmed, empty-after-trim counts as absent.
+	writeExt(t, dir, "padded", `{"suwu":{"name":"  Padded  ","description":"   "}}`, `function handler(){}`)
+	ext, err = Resolve(dir, "padded")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ext.Name != "Padded" || ext.Description != "" {
+		t.Errorf("padded = %q / %q", ext.Name, ext.Description)
+	}
+}
+
+func TestResolveRejectsBadDisplayFields(t *testing.T) {
+	dir := t.TempDir()
+	long := strings.Repeat("x", maxDescriptionRunes+1)
+
+	bad := map[string]string{
+		"overlong name":        `{"suwu":{"name":"` + strings.Repeat("n", maxDisplayNameRunes+1) + `"}}`,
+		"overlong description": `{"suwu":{"description":"` + long + `"}}`,
+		"overlong version":     `{"suwu":{"version":"` + strings.Repeat("1", maxVersionRunes+1) + `"}}`,
+		"control char":         `{"suwu":{"name":"a\u0007b"}}`,
+	}
+	for name, pkg := range bad {
+		t.Run(name, func(t *testing.T) {
+			writeExt(t, dir, "bad", pkg, `function handler(){}`)
+			if _, err := Resolve(dir, "bad"); err == nil {
+				t.Errorf("manifest %s must fail Resolve", pkg)
+			}
+		})
+	}
+}
+
+// ReadManifest is the only reader of display fields outside this package, so it
+// has to agree with Resolve for the same file.
+func TestReadManifestMatchesResolve(t *testing.T) {
+	dir := t.TempDir()
+	writeExt(t, dir, "eye", `{"name":"Eye","suwu":{"name":"The Eye","description":"follows","version":"2.0.0"}}`, `function handler(){}`)
+
+	ext, err := Resolve(dir, "eye")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := ReadManifest(filepath.Join(dir, "eye", PackageFile), "eye")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.ID != ext.ID || m.Name != ext.Name || m.Description != ext.Description || m.Version != ext.Version {
+		t.Errorf("ReadManifest = %+v, Resolve = %+v", m, ext)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, "eye", PackageFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromBytes, err := ReadManifestBytes(raw, "eye")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fromBytes != m {
+		t.Errorf("ReadManifestBytes = %+v, want %+v", fromBytes, m)
+	}
+
+	if _, err := ReadManifestBytes([]byte("{"), "eye"); err == nil {
+		t.Error("malformed JSON must fail")
+	}
+}
+
 func TestResolveNetOptIn(t *testing.T) {
 	dir := t.TempDir()
 
@@ -171,12 +294,20 @@ func TestResolveStaticDeclaration(t *testing.T) {
 	dir := t.TempDir()
 
 	writeExt(t, dir, "web", `{"name":"Web","suwu":{"static":"public"}}`, `function handler(){}`)
+	mkdirExt(t, dir, "web", "public")
 	ext, err := Resolve(dir, "web")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ext.Static != "public" {
 		t.Errorf("static = %q, want public", ext.Static)
+	}
+
+	// The declared directory must exist: a built extension whose dist/ was
+	// never built would otherwise resolve and then 404 every subresource.
+	writeExt(t, dir, "gone", `{"name":"Gone","suwu":{"static":"dist"}}`, `function handler(){}`)
+	if _, err := Resolve(dir, "gone"); err == nil {
+		t.Error("a missing suwu.static directory must fail Resolve")
 	}
 
 	// Absent declaration: no static serving, StaticPath refuses.
@@ -271,6 +402,7 @@ func TestResolveFileExtensions(t *testing.T) {
 func TestStaticPath(t *testing.T) {
 	dir := t.TempDir()
 	writeExt(t, dir, "web", `{"name":"Web","suwu":{"static":"public"}}`, `function handler(){}`)
+	mkdirExt(t, dir, "web", "public")
 	ext, err := Resolve(dir, "web")
 	if err != nil {
 		t.Fatal(err)

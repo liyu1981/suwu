@@ -1,7 +1,12 @@
 {
-  "name": "Note",
-  "description": "Client-side sticky notes styled like 3M Post-it notes — with Apple Notes-style checklists and inline formatting — saved in this browser's IndexedDB",
+  "name": "suwu-note",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suwu extension tile: client-side sticky notes",
   "suwu": {
+    "name": "Note",
+    "description": "Client-side sticky notes styled like 3M Post-it notes — with Apple Notes-style checklists and inline formatting — saved in this browser's IndexedDB",
+    "version": "1.0.0",
     "static": "public"
   }
 }

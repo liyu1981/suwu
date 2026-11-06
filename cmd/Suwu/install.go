@@ -9,10 +9,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,7 +32,7 @@ const installExitUsage = 64
 // valueFlags are the flags that consume the following argument, which reorder
 // flags must know about so it does not mistake a value for a name.
 var valueFlags = map[string]bool{
-	"extension": true, "background": true, "kind": true,
+	"extension": true, "background": true, "local": true, "kind": true,
 	"repo": true, "ref": true, "token": true, "id": true,
 }
 
@@ -75,6 +77,7 @@ Modes (mutually exclusive):
   --github                  the same picker, named explicitly
   --extension <file.zip>    install one extension from a zip archive
   --background <file.zip>   install one background from a zip archive
+  --local <dir>             install one item from a directory on disk
 
 Catalog flags (with --github, or the bare form):
   --kind <extension|background>  restrict the picker to one kind
@@ -85,12 +88,26 @@ Catalog flags (with --github, or the bare form):
   --token <token>                GitHub token; or $SUWU_GITHUB_TOKEN
   --refresh                      bypass the cached catalog
 
+Local install flags (with --local):
+  --kind <extension|background>  what the directory holds (default extension)
+  --build                        run the item's build script before staging
+                                 (pnpm when pnpm-lock.yaml exists, else npm)
+
 Common flags:
   --force         replace an existing install of the same id
   --dry-run       report what would be written; change nothing
 
+--local stages package.json, index.js and the built asset tree (suwu.static),
+and skips build inputs: node_modules/, src/, lockfiles and build configuration.
+A manifest that declares suwu.static must point at a directory that exists, so
+a forgotten build fails with "build it first" instead of installing a tile that
+renders nothing.
+
 Names may be given positionally to install without a TTY:
   suwu install --github eye note
+
+Install from a checkout (after building):
+  suwu install --local examples/extension/excalidraw --build --force
   suwu install --github --kind background matrix-rain
 
 Archive layout:
@@ -107,6 +124,8 @@ type installFlags struct {
 	github     bool
 	extension  string
 	background string
+	local      string
+	localBuild bool
 	kind       string
 	all        bool
 	list       bool
@@ -133,6 +152,8 @@ func installCmd(args []string) error {
 	fs.BoolVar(&f.github, "github", false, "install from the GitHub catalog")
 	fs.StringVar(&f.extension, "extension", "", "install one extension from a zip archive")
 	fs.StringVar(&f.background, "background", "", "install one background from a zip archive")
+	fs.StringVar(&f.local, "local", "", "install from an extension/background directory on disk")
+	fs.BoolVar(&f.localBuild, "build", false, "with --local, run the item's build script first")
 	fs.StringVar(&f.kind, "kind", "", "restrict to one kind (extension or background)")
 	fs.Var(&f.ids, "id", "install this catalog id (repeatable)")
 	fs.BoolVar(&f.all, "all", false, "install every catalog item of --kind")
@@ -179,6 +200,8 @@ func installCmd(args []string) error {
 		}
 		installSummary(1, 0, opt, map[install.Kind]bool{item.Kind: true})
 		return nil
+	case f.local != "":
+		return f.installLocal(opt)
 	}
 
 	client := install.NewClient(f.repo, f.ref, f.tokenOrEnv())
@@ -206,17 +229,126 @@ func installCmd(args []string) error {
 	return f.installAll(client, selected, opt)
 }
 
+// installLocal stages one directory from disk. With --build the item's own
+// build script runs first, so `--local <checkout> --build` is the whole dev
+// loop: build, stage, validate, atomically swap into the data dir.
+func (f *installFlags) installLocal(opt install.Options) error {
+	kind, err := install.KindFromString(f.kind)
+	if err != nil {
+		return err
+	}
+	dir := f.local
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("local install: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("local install: %s is not a directory", dir)
+	}
+
+	if f.localBuild {
+		if err := runBuildScript(dir, opt.DryRun); err != nil {
+			return err
+		}
+	}
+
+	item, err := install.FromLocalDir(dir, install.LocalOptions{
+		Options: opt,
+		Kind:    kind,
+	})
+	if err := reportItem(item, err, opt); err != nil {
+		return err
+	}
+	installSummary(1, 0, opt, map[install.Kind]bool{item.Kind: true})
+	return nil
+}
+
+// detectBuildTool picks the package manager for a build script.
+//
+// The lockfile is looked for in the item directory AND its ancestors, because a
+// workspace member keeps it at the workspace root: the example extensions live
+// in `examples/extension/<id>/` with one `pnpm-lock.yaml` one level up, and
+// guessing npm there would build with the wrong tool.
+func detectBuildTool(dir string) string {
+	for depth := 0; depth <= 3; depth++ {
+		for _, probe := range []struct{ file, tool string }{
+			{"pnpm-lock.yaml", "pnpm"},
+			{"yarn.lock", "yarn"},
+			{"package-lock.json", "npm"},
+			{"bun.lockb", "bun"},
+		} {
+			if _, err := os.Stat(filepath.Join(dir, probe.file)); err == nil {
+				return probe.tool
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return "npm"
+}
+
+// runBuildScript runs the item's package.json "build" script in its own
+// directory. The package manager follows the lockfile present, so an extension
+// built with pnpm (the repo's choice) is not silently rebuilt with npm.
+func runBuildScript(dir string, dryRun bool) error {
+	raw, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		return fmt.Errorf("local build: %w", err)
+	}
+	var pkg struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	if err := json.Unmarshal(raw, &pkg); err != nil {
+		return fmt.Errorf("local build: parse package.json: %w", err)
+	}
+	if _, ok := pkg.Scripts["build"]; !ok {
+		return fmt.Errorf("local build: %s has no \"build\" script", filepath.Join(dir, "package.json"))
+	}
+
+	tool := detectBuildTool(dir)
+	args := []string{"run", "build"}
+	if _, err := exec.LookPath(tool); err != nil {
+		return fmt.Errorf("local build: %s is not on PATH (needed to run the build script)", tool)
+	}
+
+	fmt.Printf("  Building %s with %s run build …\n", filepath.Base(dir), tool)
+	if dryRun {
+		fmt.Println("  (dry run: build skipped)")
+		return nil
+	}
+	cmd := exec.Command(tool, args...)
+	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("local build failed: %w", err)
+	}
+	return nil
+}
+
 // checkModes rejects conflicting or unusable flag combinations before anything
 // is fetched or written.
 func (f *installFlags) checkModes() error {
 	modes := 0
-	for _, on := range []bool{f.github, f.extension != "", f.background != ""} {
+	for _, on := range []bool{f.github, f.extension != "", f.background != "", f.local != ""} {
 		if on {
 			modes++
 		}
 	}
 	if modes > 1 {
-		return errors.New("--github, --extension and --background are mutually exclusive")
+		return errors.New("--github, --extension, --background and --local are mutually exclusive")
+	}
+	if f.localBuild && f.local == "" {
+		return errors.New("--build only applies to --local")
+	}
+	if f.local != "" && f.kind == "" {
+		// A directory is ambiguous ("extension" or "background"): both are
+		// directories with a manifest, and guessing wrong would stage a
+		// payload into the wrong data-dir tree.
+		f.kind = string(install.KindExtension)
 	}
 	if f.extension != "" && f.background != "" {
 		return errors.New("--extension and --background are mutually exclusive")
@@ -529,6 +661,9 @@ func reportItem(item install.Item, err error, opt install.Options) error {
 		mark, item.Kind.Label(), item.ID, item.Dir, item.Files, humanBytes(item.Bytes))
 	for _, w := range item.Warnings {
 		fmt.Printf("     ⚠️  %s\n", w)
+	}
+	if item.Skipped != "" {
+		fmt.Printf("     skipped build inputs: %s\n", item.Skipped)
 	}
 	return nil
 }

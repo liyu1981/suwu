@@ -1,31 +1,34 @@
 {
-  "name": "Excalidraw",
-  "version": "0.18.1",
-  "description": "Hand-drawn style whiteboard, loading the Excalidraw release from esm.sh",
+  "name": "suwu-excalidraw",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Suwu extension tile: an Excalidraw whiteboard editing .excalidraw files on the server",
   "license": "MIT",
+  "scripts": {
+    "build": "vite build && node pack-static.mjs",
+    "dev": "vite build --watch"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "vite": "^8.2.0"
+  },
   "suwu": {
-    "static": "public",
+    "name": "Excalidraw",
+    "description": "Hand-drawn style whiteboard that opens and saves .excalidraw files",
+    "version": "1.0.0",
+    "static": "dist.zip",
     "csp": {
       "script-src": [
-        "https://esm.sh",
-        "'unsafe-eval'"
-      ],
-      "style-src": [
-        "https://esm.sh"
-      ],
-      "font-src": [
-        "https://esm.sh"
-      ],
-      "img-src": [
-        "https://esm.sh"
+        "'wasm-unsafe-eval'"
       ],
       "worker-src": [
-        "https://esm.sh",
         "blob:",
         "data:"
-      ],
-      "connect-src": [
-        "https://esm.sh"
       ]
     },
     "sandbox": [

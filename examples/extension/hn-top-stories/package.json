@@ -1,7 +1,12 @@
 {
-  "name": "Hacker News Top Stories",
-  "description": "The Hacker News front page as a broadsheet carousel, backed by the extension's own API",
+  "name": "suwu-hn-top-stories",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suwu extension tile: the Hacker News front page as a carousel",
   "suwu": {
+    "name": "Hacker News Top Stories",
+    "description": "The Hacker News front page as a broadsheet carousel, backed by the extension's own API",
+    "version": "1.0.0",
     "static": "public",
     "net": true,
     "api": [

@@ -1,88 +1,152 @@
 /**
- * Excalidraw — a whiteboard whose React app is loaded from the upstream npm
- * package through esm.sh at runtime. No Excalidraw/React sources are vendored
- * in this repository; package.json declares the CSP sources that esm.sh needs.
+ * Excalidraw — render stub.
  *
- * Static files are public: never put secrets here.
+ * The tile's actual UI is a Vite build (`src/` → `dist/`, a normal JS project
+ * with npm dependencies). Nothing is loaded from a CDN. This script is the one
+ * server-side piece: it reads the build manifest, emits the HTML shell with the
+ * hashed entry chunk, and hands the page three runtime values it cannot know
+ * itself —
+ *
+ *   window.__SUWU_FILE__   the document path from ?file= ("" when untitled)
+ *   window.__SUWU_SCENE__  that file's contents, read through the /fs mount
+ *   window.__SUWU_TOKEN__  this extension's scoped API token
+ *
+ * Never inline secrets into public/ — dist/ is served unauthenticated. They
+ * travel in this authenticated HTML instead (docs/EXTENSION_API_PLAN.md §2.8).
+ *
+ * The extension root is mounted read-only at /ext, so the manifest is readable
+ * without needing suwu.fs; that flag is for the document itself.
  */
-function handler() {
+function handler(input) {
+  const id = (input && input.id) || "excalidraw";
+  const token = (input && input.token) || "";
   const file = (input && input.params && input.params.file) || (input && input.query && input.query.file) || "";
-  let scene = "";
-  if (file) {
-    try { scene = fs.readFileSync("/fs/" + file.split("/").pop()); } catch (e) { scene = ""; }
+  const scene = file ? readDocument(file) : "";
+  const build = readBuild(id);
+  if (build.error) {
+    return {
+      status: 500,
+      contentType: "text/plain; charset=utf-8",
+      body: "excalidraw: " + build.error,
+    };
   }
-  const token = (input && input.token) || ""; const inject = `<script>window.__SUWU_FILE__=${JSON.stringify(file)};window.__SUWU_SCENE__=${JSON.stringify(scene)};window.__SUWU_TOKEN__=${JSON.stringify(token)};</script>`;
+  const injected =
+    "<script>" +
+    "window.__SUWU_FILE__=" + JSON.stringify(file) + ";" +
+    "window.__SUWU_SCENE__=" + JSON.stringify(scene) + ";" +
+    "window.__SUWU_TOKEN__=" + JSON.stringify(token) + ";" +
+    "</script>";
   return {
     status: 200,
     contentType: "text/html; charset=utf-8",
-    body: `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Excalidraw</title>
-<link rel="stylesheet" href="https://esm.sh/@excalidraw/excalidraw@0.18.1/dist/prod/index.css">
-<link rel="stylesheet" href="/gqjs/static/excalidraw/page.css">
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@19.3.1",
-    "react/jsx-runtime": "https://esm.sh/react@19.3.1/jsx-runtime",
-    "react-dom": "https://esm.sh/react-dom@19.3.1?external=react",
-    "react-dom/client": "https://esm.sh/react-dom@19.3.1/client?external=react",
-    "@excalidraw/excalidraw": "https://esm.sh/@excalidraw/excalidraw@0.18.1?external=react,react-dom"
+    body: page(id, build, injected),
+  };
+}
+
+/** Read the mounted document, or "" when it does not exist / cannot be read. */
+function readDocument(file) {
+  try {
+    // The mount exposes exactly the document's directory at /fs.
+    return fs.readFileSync("/fs/" + file.split("/").pop());
+  } catch (e) {
+    return "";
   }
 }
-</script>
-<script>
-// The extension document is sandboxed with an opaque origin, where the web
-// storage APIs throw. Excalidraw expects localStorage for theme/UI state, so
-// install an in-memory fallback. The actual scene is persisted separately via
-// the parent frame's ext-store bridge.
-(function () {
-  function memoryStorage() {
-    var data = Object.create(null);
-    return {
-      getItem: function (key) {
-        return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null;
-      },
-      setItem: function (key, value) { data[key] = String(value); },
-      removeItem: function (key) { delete data[key]; },
-      clear: function () { data = Object.create(null); },
-      key: function (index) {
-        var keys = Object.keys(data);
-        return index >= 0 && index < keys.length ? keys[index] : null;
-      },
-      get length() { return Object.keys(data).length; }
-    };
+
+/**
+ * Resolve the hashed entry chunk.
+ *
+ * Two layouts are supported, because suwu.static may point at either:
+ *   - `dist.zip` (the shipped one): pack-static.mjs reads Vite's manifest and
+ *     publishes build.json next to the archive, since the gqjs sandbox cannot
+ *     read inside a zip;
+ *   - a `dist/` directory (a checkout that only ran `vite build`): the manifest
+ *     is read straight off disk.
+ *
+ * Returns { js, css } or { error }; the server fails the render with that
+ * message rather than serving a page that 404s every asset.
+ */
+function readBuild(id) {
+  const root = "/ext/" + id;
+  let raw = null;
+  try {
+    raw = fs.readFileSync(root + "/build.json");
+  } catch (e) {
+    /* no archive build: fall through to the directory layout */
   }
-  function install(name) {
+  if (raw) {
     try {
-      window[name].setItem("__suwu_probe__", "1");
-      window[name].removeItem("__suwu_probe__");
-      return;
-    } catch (e) {}
-    var store = memoryStorage();
-    try {
-      Object.defineProperty(window, name, { configurable: true, get: function () { return store; } });
+      const info = JSON.parse(raw);
+      if (info && info.js) {
+        return { js: info.js, css: Array.isArray(info.css) ? info.css : [] };
+      }
     } catch (e) {
-      try { window[name] = store; } catch (e2) {}
+      return { error: "unreadable build.json: " + e };
     }
   }
-  install("localStorage");
-  install("sessionStorage");
 
-  // Fonts and lazily imported chunks resolve through esm.sh.
-  window.EXCALIDRAW_ASSET_PATH = "https://esm.sh/@excalidraw/excalidraw@0.18.1/dist/prod/";
-})();
-</script>
-${inject}</head>
-<body>
-<div id="root"></div>
-<div id="suwu-status" aria-live="polite"></div>
-<script type="module" src="/gqjs/static/excalidraw/app.js"></script>
-</body>
-</html>
-`,
-  };
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(root + "/dist/.vite/manifest.json"));
+  } catch (e) {
+    return { error: "no build found at " + root + " (run: pnpm --dir <extension> build)" };
+  }
+  let entry = manifest["src/main.js"];
+  if (!entry) {
+    for (const key in manifest) {
+      if (manifest[key] && manifest[key].isEntry) {
+        entry = manifest[key];
+        break;
+      }
+    }
+  }
+  if (!entry || !entry.file) {
+    return { error: "build manifest has no entry chunk" };
+  }
+  return { js: entry.file, css: Array.isArray(entry.css) ? entry.css : [] };
+}
+
+/**
+ * Absolute asset base, computed in the page.
+ *
+ * The tile is sandboxed, so `location.origin` is "null" and Excalidraw's
+ * `new URL(path, base)` would throw on a relative base — but `location.href` is
+ * still the real page URL, so resolving the static path against it gives an
+ * absolute URL without the server needing to know its own origin.
+ *
+ * This runs as a classic inline script in <head>, before the module bundle, so
+ * Excalidraw never sees an unset EXCALIDRAW_ASSET_PATH (its font loader would
+ * otherwise fall back to the esm.sh CDN, which our CSP blocks).
+ */
+function assetScript(id) {
+  const base = "/gqjs/static/" + encodeURIComponent(id) + "/";
+  return (
+    "<script>(function(){try{window.EXCALIDRAW_ASSET_PATH=" +
+    "new URL(" + JSON.stringify(base) + ",document.location.href).href;" +
+    "}catch(e){window.EXCALIDRAW_ASSET_PATH=" + JSON.stringify(base) + ";}})();</script>"
+  );
+}
+
+/** The HTML shell: build chunks from dist/, nothing from a third party. */
+function page(id, build, injected) {
+  const base = "/gqjs/static/" + id + "/";
+  const css = build.css
+    .map(function (f) {
+      return '<link rel="stylesheet" href="' + base + f + '">';
+    })
+    .join("\n");
+  return (
+    '<!doctype html>\n<html lang="en">\n<head>\n' +
+    '<meta charset="utf-8">\n' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+    "<title>Excalidraw</title>\n" +
+    css + "\n" +
+    assetScript(id) + "\n" +
+    injected + "\n" +
+    "</head>\n<body>\n" +
+    '<div id="root"></div>\n' +
+    '<div id="suwu-status" aria-live="polite"></div>\n' +
+    '<script type="module" src="' + base + build.js + '"></script>\n' +
+    "</body>\n</html>\n"
+  );
 }

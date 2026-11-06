@@ -128,6 +128,9 @@ type Item struct {
 	Replaced bool
 	// Warnings are non-fatal notes worth printing (uncompiled shaders, …).
 	Warnings []string
+	// Skipped summarizes what the payload rule left out of the source
+	// (node_modules, src/, lockfiles, …), e.g. "node_modules 1342, src 6".
+	Skipped string
 }
 
 // Stage is a scratch directory holding one item's payload while it is written

@@ -1,0 +1,11 @@
+{
+  "name": "suwu-example-extensions",
+  "private": true,
+  "description": "Build workspace for the example extensions (not an extension itself)",
+  "scripts": {
+    "build": "pnpm -r --if-present run build"
+  },
+  "devDependencies": {
+    "vite": "^8.2.0"
+  }
+}

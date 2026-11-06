@@ -1,0 +1,10 @@
+# Workspace root for the example extensions.
+#
+# Extensions are ordinary JS projects (Vite → dist/), so one install at this
+# level covers all of them and keeps node_modules out of the repository (the
+# gitignore covers node_modules/ anywhere). Build everything with:
+#
+#   pnpm -C examples/extension install
+#   pnpm -C examples/extension -r --if-present run build
+packages:
+  - "*"

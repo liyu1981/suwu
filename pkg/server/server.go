@@ -101,6 +101,9 @@ type Server struct {
 	// extRunner renders extensions; nil means run `suwu gq` in a child process.
 	// Tests inject a stub.
 	extRunner extensionRunner
+	// gzipCache holds compressed copies of static text assets, keyed by
+	// handler family + name + size + mtime. See compress.go.
+	gzipCache *gzipCache
 	// extLegacyWarned makes the one-time "move your extensions dir" warning
 	// fire at most once per server.
 	extLegacyWarned bool
@@ -142,6 +145,7 @@ func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify
 		clients:     newClientGate(12 * time.Hour),
 		backups:     backups,
 		backupLimit: newRateLimiter(backupWriteRateLimitMax),
+		gzipCache:   newGzipCache(),
 	}
 }
 
@@ -525,7 +529,9 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
-	_, _ = w.Write(data)
+	// Embedded assets are immutable for the life of the process, so the name is
+	// a stable cache key (no size/mtime needed).
+	s.writeStaticBody(w, r, "app:"+name, name, data)
 }
 
 // RateLimiter tracks request counts per token for rate limiting.

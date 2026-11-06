@@ -142,11 +142,9 @@ func (s *Server) handleBackgroundStatic(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
-	if r.Method == http.MethodHead {
-		return
-	}
-	_, _ = w.Write(body)
+	// The embedded shader tree is immutable for the process, so name+size is a
+	// stable cache key.
+	s.writeStaticBody(w, r, "bg:"+id+"/"+rel+":"+strconv.Itoa(len(body)), rel, body)
 }
 
 // sortManifestsByID keeps the JSON response stable between requests.

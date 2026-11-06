@@ -3,37 +3,82 @@
  *
  * Only what must be server-side lives here: status/contentType plus the
  * authenticated API URL (extension-scoped token, never the session token)
- * embedded in the page. Styles and the ES-module app come from the static
- * directory (package.json → suwu.static).
+ * embedded in the page. Styles and the client come from the Vite build in
+ * dist/ (package.json → suwu.static).
  *
- * NEVER put the token or other secrets into public/ — static files are served
+ * NEVER put the token or other secrets into dist/ — static files are served
  * unauthenticated because module fetches cannot carry credentials
  * (docs/EXTENSION_API_PLAN.md §2.8). Secrets travel via this HTML: the
- * #wire element's data-api feeds the module app, which polls the extension
+ * #wire element's data-api feeds the bundled client, which polls the extension
  * API itself — no CDN, no third-party script.
  */
 function handler(input) {
+  const id = input.id || "hn-top-stories";
   const token = encodeURIComponent(input.token || "");
   const api =
-    "/gqjs/api/" +
-    encodeURIComponent(input.id || "hn-top-stories") +
-    "/stories?token=" +
-    token;
+    "/gqjs/api/" + encodeURIComponent(id) + "/stories?token=" + token;
+  const build = readBuild(id);
+  if (build.error) {
+    return { status: 500, contentType: "text/plain; charset=utf-8", body: id + ": " + build.error };
+  }
   return {
     status: 200,
     contentType: "text/html; charset=utf-8",
-    body: stub(api),
+    body: stub(api, id, build),
   };
 }
 
-function stub(api) {
+/**
+ * Resolve the hashed entry chunk from Vite's manifest.
+ *
+ * The manifest is read off disk through the extension mount, which works because
+ * this extension's suwu.static is a *directory*. (An archive source cannot be
+ * read from the gqjs sandbox, which is why the zipped example publishes a
+ * build.json instead — see ../excalidraw/index.js.)
+ */
+function readBuild(id) {
+  const dir = "/ext/" + id + "/dist";
+  let raw;
+  try {
+    raw = fs.readFileSync(dir + "/.vite/manifest.json");
+  } catch (e) {
+    return { error: "no build found at " + dir + " (run: pnpm --dir <extension> build)" };
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(raw);
+  } catch (e) {
+    return { error: "unreadable build manifest: " + e };
+  }
+  let entry = manifest["src/main.js"];
+  if (!entry) {
+    for (const key in manifest) {
+      if (manifest[key] && manifest[key].isEntry) {
+        entry = manifest[key];
+        break;
+      }
+    }
+  }
+  if (!entry || !entry.file) {
+    return { error: "build manifest has no entry chunk" };
+  }
+  return { js: entry.file, css: Array.isArray(entry.css) ? entry.css : [] };
+}
+
+function stub(api, id, build) {
+  const base = "/gqjs/static/" + id + "/";
+  const css = build.css
+    .map(function (f) {
+      return '<link rel="stylesheet" href="' + base + f + '">';
+    })
+    .join("\n");
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Hacker News Daily</title>
-<link rel="stylesheet" href="/gqjs/static/hn-top-stories/style.css">
+${css}
 </head>
 <body>
 <main class="paper">
@@ -66,7 +111,7 @@ function stub(api) {
   <div id="wire" class="wire" aria-hidden="true" data-api="${api}"></div>
 </main>
 
-<script type="module" src="/gqjs/static/hn-top-stories/app.js"></script>
+<script type="module" src="${base}${build.js}"></script>
 </body>
 </html>
 `;

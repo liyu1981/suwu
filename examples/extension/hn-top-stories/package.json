@@ -3,11 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "description": "Suwu extension tile: the Hacker News front page as a carousel",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^8.2.0"
+  },
   "suwu": {
     "name": "Hacker News Top Stories",
     "description": "The Hacker News front page as a broadsheet carousel, backed by the extension's own API",
     "version": "1.0.0",
-    "static": "public",
+    "static": "dist",
     "net": true,
     "api": [
       {

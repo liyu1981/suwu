@@ -3,10 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "description": "Suwu extension tile: client-side sticky notes",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^8.2.0"
+  },
   "suwu": {
     "name": "Note",
     "description": "Client-side sticky notes styled like 3M Post-it notes — with Apple Notes-style checklists and inline formatting — saved in this browser's IndexedDB",
     "version": "1.0.0",
-    "static": "public"
+    "static": "dist"
   }
 }

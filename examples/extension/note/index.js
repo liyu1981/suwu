@@ -19,7 +19,19 @@
  * no suwu.net. The render stub ships the shell; public/*.js wires it (public
  * files — no secrets, docs/EXTENSION_API_PLAN.md §2.8).
  */
-function handler() {
+function handler(input) {
+  const id = (input && input.id) || "note";
+  const build = readBuild(id);
+  if (build.error) {
+    return { status: 500, contentType: "text/plain; charset=utf-8", body: id + ": " + build.error };
+  }
+  const base = "/gqjs/static/" + id + "/";
+  const css = build.css
+    .map(function (f) {
+      return '<link rel="stylesheet" href="' + base + f + '">';
+    })
+    .join("\n");
+  const js = '<script type="module" src="' + base + build.js + '"></script>';
   return {
     status: 200,
     contentType: "text/html; charset=utf-8",
@@ -29,7 +41,7 @@ function handler() {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Note</title>
-<link rel="stylesheet" href="/gqjs/static/note/style.css">
+${css}
 </head>
 <body>
 <!-- Left-aligned strip: the tile's top-right corner stays empty. -->
@@ -88,9 +100,44 @@ function handler() {
 </main>
 
 <p id="status" class="status" role="status"></p>
-<script type="module" src="/gqjs/static/note/note.js"></script>
+${js}
 </body>
 </html>
 `,
   };
+}
+
+/**
+ * Resolve the hashed entry chunk from Vite's manifest, read off disk through the
+ * extension mount — possible because suwu.static is a directory here. (An
+ * archive source cannot be read from the gqjs sandbox; the zipped example
+ * publishes a build.json instead.)
+ */
+function readBuild(id) {
+  const dir = "/ext/" + id + "/dist";
+  let raw;
+  try {
+    raw = fs.readFileSync(dir + "/.vite/manifest.json");
+  } catch (e) {
+    return { error: "no build found at " + dir + " (run: pnpm --dir <extension> build)" };
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(raw);
+  } catch (e) {
+    return { error: "unreadable build manifest: " + e };
+  }
+  let entry = manifest["src/main.js"];
+  if (!entry) {
+    for (const key in manifest) {
+      if (manifest[key] && manifest[key].isEntry) {
+        entry = manifest[key];
+        break;
+      }
+    }
+  }
+  if (!entry || !entry.file) {
+    return { error: "build manifest has no entry chunk" };
+  }
+  return { js: entry.file, css: Array.isArray(entry.css) ? entry.css : [] };
 }

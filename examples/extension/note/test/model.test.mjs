@@ -35,7 +35,7 @@ import {
   removeRange,
   textOf,
   validate,
-} from "../public/model.js";
+} from "../src/model.js";
 
 test("indent is leading whitespace, capped at MAX_DEPTH", () => {
   assert.equal(depthOf("plain"), 0);

@@ -9,8 +9,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Editor } from "../public/commands.js";
-import { MAX_CHARS, MAX_DEPTH, SLOTS, emptyDoc, makeLine, makeNote, textOf } from "../public/model.js";
+import { Editor } from "../src/commands.js";
+import { MAX_CHARS, MAX_DEPTH, SLOTS, emptyDoc, makeLine, makeNote, textOf } from "../src/model.js";
 
 function harness(lines) {
   const writes = [];

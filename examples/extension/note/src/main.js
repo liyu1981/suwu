@@ -12,9 +12,12 @@
  * painted clone from render.js for structure, the chip rail, the format bar,
  * and the "Saved 2 min ago" line.
  *
- * Public file: must never contain secrets (docs/EXTENSION_API_PLAN.md §2.8).
+ * Bundled by Vite into dist/note-<hash>.js (see ../vite.config.ts); the bundled
+ * output is public and must never contain secrets (docs/EXTENSION_API_PLAN.md
+ * §2.8).
  */
 
+import "./style.css";
 import { createBridge } from "./bridge.js";
 import { Editor } from "./commands.js";
 import { savedLabel } from "./format.js";

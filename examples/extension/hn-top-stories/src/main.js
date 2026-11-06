@@ -1,12 +1,15 @@
 /**
- * ES-module entry: joins the authenticated API URL (data-api injected by the
- * render stub), the 5-minute refresh, and the carousel. The handler behind
- * that URL crawls Hacker News server-side, so this module is the entire
- * client — no CDN, no third-party script in the page.
+ * ES-module entry (bundled by Vite into `dist/app-<hash>.js`): joins the
+ * authenticated API URL (data-api injected by the render stub), the 5-minute
+ * refresh, and the carousel. The handler behind that URL crawls Hacker News
+ * server-side, so this module is the entire client — no CDN, no third-party
+ * script in the page.
  *
- * Public file: never put secrets here — the token arrives at runtime via
- * data-api from the authenticated HTML (docs/EXTENSION_API_PLAN.md §2.8).
+ * Bundled output is public: never put secrets here — the token arrives at
+ * runtime via data-api from the authenticated HTML
+ * (docs/EXTENSION_API_PLAN.md §2.8).
  */
+import "./style.css";
 import { merge } from "./stories-cache.js";
 import { mountCarousel, onEdition } from "./carousel.js";
 

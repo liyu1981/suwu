@@ -40,14 +40,24 @@ default) and add an Extension tile whose `id` is the directory name
 > holds extensions, but `suwu install` only ever writes `extension/`; move it
 > yourself when you are ready.
 
+## Three packaging patterns
+
+Pick the lightest one that fits:
+
+| Pattern | `suwu.static` | When |
+|---|---|---|
+| **Plain folder, no build** | `"public"` | A few hand-written files with no dependencies. Nothing to compile. |
+| **Built, one bundle** | `"dist"` | The client is several modules or needs minification, but has no dynamic imports or workers — `inlineDynamicImports` gives exactly one JS file. A directory keeps it inspectable and lets the render stub read Vite's manifest off disk. |
+| **Built archive** | `"dist.zip"` | Code splitting is worth keeping (many lazy chunks) or the font/asset tree is large. `pack-static.mjs` packs it into one blob, so ~160 chunks cost one file in git, in the install payload and in the catalog. |
+
 ## What each example demonstrates
 
-| Example | Files | Demonstrates |
+| Example | Pattern | Demonstrates |
 |---|---|---|
-| `eye` | `index.js` (render stub) · `public/{style.css,eye.js}` | `suwu.static` with a **classic** script; server-rendered config passed via `data-size` |
-| `note` | `index.js` (render stub) · `public/{style.css,note.js,model.js,commands.js,render.js,store.js,bridge.js,format.js}` · `test/*.test.mjs` | A **pure client-side** app: nine numbered slots kept in the browser's IndexedDB **via the parent-frame storage bridge** (the sandboxed page has no storage of its own; no API, no `suwu.net`); a flat 3M Post-it over a chip strip on a transparent document; an **Apple Notes-style editor** — checklists (tappable boxes, nesting, auto-continue, per-chip progress), bold/italic/underline/strikethrough/monospace over a selection, a floating glass format bar, and a live "Saved 2 min ago" line. A transparent `<textarea>` stays the only input surface while a painted clone renders the structure, so there is no dependency and no build step. `pnpm test:ext` covers the DOM-free modules (`model`, `commands`, `store`, `format`) |
-| `hn-top-stories` | `index.js` (render stub) · `stories.js` (API) · `public/{style.css,app.js,carousel.js,stories-cache.js}` | `suwu.api` route registration, `suwu.net` server-side `fetch` of the Hacker News API, `suwu.static` with an **ES-module** tree (relative imports), and a local `fetch` poll — no CDN, no htmx |
-| `excalidraw` | `index.js` (render stub) · `save.js` (API) · `src/{main.js,style.css}` · `vite.config.ts` · `dist/` (committed) | A **built** extension: Vite bundles React + `@excalidraw/excalidraw` from npm into `dist/`, so the tile has no CDN dependency at all (contrast with the old esm.sh version). Shows `suwu.fs` file access (`/fs` = the opened document's directory, `/ext-data` = extension storage), `suwu.fileExtensions` claiming `.excalidraw`, a custom burger menu (Save / Auto save), a scene load that survives Excalidraw's async init, and an in-memory `localStorage` fallback for the opaque sandbox |
+| `eye` | plain folder, no build | `suwu.static` with a **classic** script; server-rendered config passed via `data-size` |
+| `note` | built, one bundle (`dist/`) | `index.js` (render stub) · `src/{main.js,model.js,commands.js,render.js,store.js,bridge.js,format.js,style.css}` · `test/*.test.mjs` | A **pure client-side** app: nine numbered slots kept in the browser's IndexedDB **via the parent-frame storage bridge** (the sandboxed page has no storage of its own; no API, no `suwu.net`); a flat 3M Post-it over a chip strip on a transparent document; an **Apple Notes-style editor** — checklists (tappable boxes, nesting, auto-continue, per-chip progress), bold/italic/underline/strikethrough/monospace over a selection, a floating glass format bar, and a live "Saved 2 min ago" line. A transparent `<textarea>` stays the only input surface while a painted clone renders the structure, so there is no dependency and no build step. `pnpm test:ext` covers the DOM-free modules (`model`, `commands`, `store`, `format`) |
+| `hn-top-stories` | built, one bundle (`dist/`) | `index.js` (render stub) · `stories.js` (API) · `src/{main.js,carousel.js,stories-cache.js,style.css}` | `suwu.api` route registration, `suwu.net` server-side `fetch` of the Hacker News API, `suwu.static` with an **ES-module** tree (relative imports), and a local `fetch` poll — no CDN, no htmx |
+| `excalidraw` | built archive (`dist.zip`) | `index.js` (render stub) · `save.js` (API) · `src/{main.js,style.css}` · `vite.config.ts` · `pack-static.mjs` · `dist.zip` + `build.json` (committed) | A **built** extension: Vite bundles React + `@excalidraw/excalidraw` from npm into `dist/`, so the tile has no CDN dependency at all (contrast with the old esm.sh version). Shows `suwu.fs` file access (`/fs` = the opened document's directory, `/ext-data` = extension storage), `suwu.fileExtensions` claiming `.excalidraw`, a custom burger menu (Save / Auto save), a scene load that survives Excalidraw's async init, and an in-memory `localStorage` fallback for the opaque sandbox |
 
 ## ⚠ Static files are public
 

@@ -5,8 +5,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { relativeTime, savedLabel, toPlainText } from "../public/format.js";
-import { makeLine, makeNote } from "../public/model.js";
+import { relativeTime, savedLabel, toPlainText } from "../src/format.js";
+import { makeLine, makeNote } from "../src/model.js";
 
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;

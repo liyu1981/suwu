@@ -1,0 +1,11 @@
+{
+  "src/main.js": {
+    "file": "note-CAmRWuYN.js",
+    "name": "main",
+    "src": "src/main.js",
+    "isEntry": true,
+    "css": [
+      "main-D-T5DDBT.css"
+    ]
+  }
+}

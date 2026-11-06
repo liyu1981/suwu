@@ -6,8 +6,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { LEGACY_RECORD, RECORD, SLOTS, emptyDoc, makeLine, textOf } from "../public/model.js";
-import { createStore } from "../public/store.js";
+import { LEGACY_RECORD, RECORD, SLOTS, emptyDoc, makeLine, textOf } from "../src/model.js";
+import { createStore } from "../src/store.js";
 
 function fakeTransport(initial = {}) {
   const data = new Map(Object.entries(initial));

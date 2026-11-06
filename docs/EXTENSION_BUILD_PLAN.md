@@ -111,6 +111,22 @@ examples/extension/excalidraw/
 `public/app.js` and `public/page.css` disappear into `src/`; `suwu.static`
 becomes `"dist"`. Nothing else in the extension contract changes.
 
+### 3.0 Three packaging patterns
+
+The build phase does not force a build on every extension. Pick the lightest
+pattern that fits, and say which one an example is demonstrating:
+
+| Pattern | `suwu.static` | Build | Used by |
+|---|---|---|---|
+| plain folder | `"public"` | none | `eye` — a classic script and a stylesheet |
+| built, one bundle | `"dist"` | `inlineDynamicImports` (safe: no dynamic imports, no workers) | `note`, `hn-top-stories` |
+| built archive | `"dist.zip"` | code splitting + `pack-static.mjs` | `excalidraw` (162 chunks + 234 fonts) |
+
+The folder patterns read Vite's `dist/.vite/manifest.json` off disk in the render
+stub (the extension mount is readable); the archive pattern cannot, because the
+gqjs sandbox cannot look inside a zip, so its build publishes `build.json` next
+to the archive.
+
 ### 3.1 One `package.json`, two jobs — with a clean domain split
 
 The extension manifest **is** a package.json (that was the point of metadata

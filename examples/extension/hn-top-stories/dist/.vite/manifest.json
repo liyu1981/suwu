@@ -1,0 +1,11 @@
+{
+  "src/main.js": {
+    "file": "app-BczvARbA.js",
+    "name": "main",
+    "src": "src/main.js",
+    "isEntry": true,
+    "css": [
+      "main-BbOspVZj.css"
+    ]
+  }
+}

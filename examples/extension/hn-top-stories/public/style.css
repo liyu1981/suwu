@@ -285,7 +285,7 @@ a:hover {
   }
 }
 
-/* The htmx polling node: present, processed, invisible. */
+/* The polling node: carries the token-bearing API URL, never visible. */
 .wire {
   position: absolute;
   width: 1px;

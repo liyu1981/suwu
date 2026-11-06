@@ -4,10 +4,11 @@
 > `meta.json` fallback), `/gqjs/api/<id>/<path>` APIs, and
 > `/gqjs/static/<id>/<path>` static assets are built and tested
 > (`pkg/extension`, `pkg/server/extension_api.go`, `extension_static.go`).
-> **Reference implementation:** `examples/extensions/hn-top-stories/` — an HN
+> **Reference implementation:** `examples/extension/hn-top-stories/` — an HN
 > front-page broadsheet whose `stories.js` does a server-side `fetch`
-> (`suwu.net`), whose page polls the API with htmx, and whose styles/app
-> split across an ES-module tree under `public/`.
+> (`suwu.net`) against the Algolia HN API, whose page polls that API from a
+> small ES-module app (no CDN, no third-party script in the page), and whose
+> styles/app split across an ES-module tree under `public/`.
 >
 > **Goal:** (1) make `package.json` the single metadata file for extensions,
 > with npm-style fields at the top level and Suwu specifics under `suwu`;
@@ -187,14 +188,14 @@ enjoy:
    every call), while real foreign origins still fail the match.
 2. **CSP:** `connect-src 'self'` is unreliable for an opaque origin, so
    rendered pages get `extensionCSPFor(r)`, which names the request origin
-   explicitly and allows the pinned htmx CDN in `script-src` (error documents
-   keep the strict `extensionCSP`).
+   explicitly and appends whatever `suwu.csp` extras the extension declared
+   to `script-src` (error documents keep the strict `extensionCSP`).
 3. **CORS:** API responses grant `Access-Control-Allow-Origin: null` when —
    and only when — the request carries `Origin: null`, **without** credentials;
    CORS preflight (`OPTIONS` + `Access-Control-Request-Method`) is answered
    before auth and never reaches the handler, reflecting the browser's own
-   `Access-Control-Request-Headers` list (htmx polls carry `HX-*` headers such
-   as `HX-Trigger`, so a fixed allow-list would reject them) and acknowledging
+   `Access-Control-Request-Headers` list (a client may ask for arbitrary
+   headers, so a fixed allow-list would reject them) and acknowledging
    Chrome's private-network preflight. A foreign origin, or a null-origin page
    without the token, gets nothing usable.
 4. **Links:** `allow-popups` plus `allow-popups-to-escape-sandbox` lets
@@ -250,7 +251,7 @@ trees. Extensions that need more declare it in `package.json`:
 ```json
 "suwu": {
   "csp": {
-    "script-src": ["https://unpkg.com"],
+    "script-src": ["https://esm.sh"],
     "worker-src": ["blob:", "data:"],
     "connect-src": ["blob:"]
   },
@@ -319,8 +320,8 @@ the per-extension scoped token. Auth failures answer JSON.
   `Origin: null`, 405 + `Allow`, the 404 matrix (unregistered, no static,
   empty path, dotfile, traversal, invalid id, unknown type, missing file),
   symlink escape, `304` via `If-Modified-Since`, 413 cap.
-- Manual smoke: `examples/extensions/hn-top-stories/stories.js` executed via
+- Manual smoke: `examples/extension/hn-top-stories/stories.js` executed via
   `suwu gq --allow-net` against the live Algolia API; `index.js` render
-  verified for masthead/token/htmx wiring.
+  verified for masthead/token/`data-api` wiring.
 
 Verified: `go vet ./...`, `go test ./...`, `pnpm check`, `pnpm build`.

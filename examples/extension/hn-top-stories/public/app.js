@@ -1,7 +1,8 @@
 /**
  * ES-module entry: joins the authenticated API URL (data-api injected by the
- * render stub), the 5-minute htmx poll, a plain-fetch fallback for when the
- * htmx CDN is unreachable, and the carousel.
+ * render stub), the 5-minute refresh, and the carousel. The handler behind
+ * that URL crawls Hacker News server-side, so this module is the entire
+ * client — no CDN, no third-party script in the page.
  *
  * Public file: never put secrets here — the token arrives at runtime via
  * data-api from the authenticated HTML (docs/EXTENSION_API_PLAN.md §2.8).
@@ -35,27 +36,22 @@ mountCarousel({
   next: document.getElementById("next"),
 });
 
-// htmx drives the poll (hx-trigger="load, every 300s"); a failed request
-// never reaches onStories, so the last edition stays on screen.
-document.body.addEventListener("htmx:afterRequest", (e) => {
-  const xhr = e.detail && e.detail.xhr;
-  if (!xhr || xhr.status !== 200) return;
-  onStories(xhr.responseText);
-});
+const POLL_MS = 300000;
 
-// If the CDN was unreachable, fall back to plain fetch polling — the API
-// call itself never depended on htmx.
-if (!window.htmx) {
-  const pull = () =>
-    fetch(API)
-      .then((r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.text();
-      })
-      .then(onStories)
-      .catch(() => {
-        /* keep the last edition */
-      });
-  pull();
-  setInterval(pull, 300000);
+// One pull at startup, then one every five minutes. A failed request never
+// reaches onStories, so the last edition stays on screen and the next tick
+// simply tries again.
+function pull() {
+  fetch(API)
+    .then((r) => {
+      if (!r.ok) throw new Error(String(r.status));
+      return r.text();
+    })
+    .then(onStories)
+    .catch(() => {
+      /* keep the last edition */
+    });
 }
+
+pull();
+window.setInterval(pull, POLL_MS);

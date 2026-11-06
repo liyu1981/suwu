@@ -8,8 +8,9 @@
  *
  * NEVER put the token or other secrets into public/ — static files are served
  * unauthenticated because module fetches cannot carry credentials
- * (docs/EXTENSION_API_PLAN.md §2.8). Secrets travel via this HTML: hx-get
- * feeds htmx, data-api feeds the module app.
+ * (docs/EXTENSION_API_PLAN.md §2.8). Secrets travel via this HTML: the
+ * #wire element's data-api feeds the module app, which polls the extension
+ * API itself — no CDN, no third-party script.
  */
 function handler(input) {
   const token = encodeURIComponent(input.token || "");
@@ -62,14 +63,9 @@ function stub(api) {
     Front-page data from Hacker News &middot; Served by the Suwu extension API
   </p>
 
-  <div id="wire" class="wire" aria-hidden="true"
-       data-api="${api}"
-       hx-get="${api}"
-       hx-trigger="load, every 300s"
-       hx-swap="none"></div>
+  <div id="wire" class="wire" aria-hidden="true" data-api="${api}"></div>
 </main>
 
-<script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
 <script type="module" src="/gqjs/static/hn-top-stories/app.js"></script>
 </body>
 </html>

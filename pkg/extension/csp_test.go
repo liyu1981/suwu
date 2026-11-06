@@ -112,8 +112,13 @@ func TestExampleCapabilitiesResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(hn.CSP["script-src"], []string{"https://unpkg.com"}) {
-		t.Errorf("hn-top-stories script-src = %#v", hn.CSP["script-src"])
+	// The HN example crawls server-side (suwu.net) and polls its own API from
+	// a local module: it declares no CDN, so there is no CSP to append.
+	if len(hn.CSP) != 0 {
+		t.Errorf("hn-top-stories CSP = %#v, want none", hn.CSP)
+	}
+	if !hn.Net {
+		t.Error("hn-top-stories needs suwu.net for the server-side fetch")
 	}
 
 	ex, err := Resolve(dir, "excalidraw")

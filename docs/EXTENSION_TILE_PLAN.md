@@ -291,7 +291,7 @@ Extensions add capabilities through `package.json`:
 ```json
 "suwu": {
   "csp": {
-    "script-src": ["https://unpkg.com"],
+    "script-src": ["https://esm.sh"],
     "worker-src": ["blob:", "data:"],
     "connect-src": ["blob:"]
   },

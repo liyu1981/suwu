@@ -216,7 +216,7 @@ Read off the shipped code; these bound the design.
 |---|---|---|
 | Opaque origin: no `localStorage`, no `IndexedDB` | `sandbox` without `allow-same-origin` (`ExtensionPage.tsx`) + the `sandbox` directive in the render CSP (`pkg/server/extension.go`) | All persistence goes through the `ext-store` bridge |
 | Record cap 512 KB, key charset `[A-Za-z0-9._-]{1,64}`, 3 s reply timeout | `EXT_VALUE_MAX` / `EXT_KEY_RE` / `REPLY_TIMEOUT` | One `v2` key, hard char caps, fire-and-forget saves |
-| `script-src 'unsafe-inline' <origin> https://unpkg.com`, `style-src 'unsafe-inline' <origin>` | `extensionCSPFor` | ES modules from `/gqjs/static/note/` load; no `eval`, no bundler needed |
+| `script-src 'unsafe-inline' <origin>/gqjs/static/note/`, `style-src 'unsafe-inline' <origin>/gqjs/static/note/` | `extensionCSPFor` | ES modules from `/gqjs/static/note/` load; no `eval`, no bundler, no CDN |
 | `connect-src 'self' <origin>` | same | No third-party network from the document (irrelevant — we make none) |
 | `Alt`+key is relayed to the WM as a shortcut (`ext-key`) | `ExtensionPage.tsx` relay | Bind shortcuts to ⌘/Ctrl, never Alt |
 | The WM hover toolbar owns the tile's top-right 224×48 | tile skill §11 | Chip rail stays top-left; the format bar floats over the paper's bottom edge |

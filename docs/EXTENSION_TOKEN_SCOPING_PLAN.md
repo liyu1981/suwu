@@ -325,7 +325,7 @@ shape.
    stripping (+ negative tests across ids and against `/api/*`).
 4. Docs + example comment; cross-reference from the sandbox analysis.
 5. `go test ./pkg/auth ./pkg/server ./pkg/extension`; manually render
-   `hn-top-stories` and confirm the htmx/`data-api` poll still returns stories.
+   `hn-top-stories` and confirm the `data-api` poll still returns stories.
 
 ## 9. References
 

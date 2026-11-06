@@ -104,9 +104,10 @@ func TestExtensionEndpoint(t *testing.T) {
 		t.Errorf("CSP = %q, want frame-ancestors 'self'", csp)
 	} else {
 		// The base policy is scoped to this extension's own static and API
-		// trees. The htmx CDN is declared only by extensions that use it.
-		if strings.Contains(csp, "https://unpkg.com") {
-			t.Errorf("base CSP unexpectedly allows the htmx CDN: %q", csp)
+		// trees: a source an extension never declared must not leak in (the
+		// `eye` example declares no suwu.csp at all, no CDN involved).
+		if strings.Contains(csp, "https://esm.sh") || strings.Contains(csp, "https://unpkg.com") {
+			t.Errorf("base CSP unexpectedly allows an undeclared CDN: %q", csp)
 		}
 		if !strings.Contains(csp, "https://127.0.0.1:") ||
 			!strings.Contains(csp, "/gqjs/static/eye/") {

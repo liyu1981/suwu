@@ -30,6 +30,13 @@
     },
     "sandbox": [
       "allow-downloads"
+    ],
+    "fs": true,
+    "api": [
+      {
+        "route": "/save",
+        "handler": "save.js"
+      }
     ]
   }
 }

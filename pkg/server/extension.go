@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -312,7 +313,7 @@ func (p *processRunner) Exec(ctx context.Context, ext extension.Extension, entry
 	runCtx, cancel := context.WithTimeout(ctx, p.timeout+time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(runCtx, p.binary, p.gqArgs(entry, inPath, resultPath, ext.Net)...)
+	cmd := exec.CommandContext(runCtx, p.binary, p.gqArgs(entry, inPath, resultPath, ext, input)...)
 	// A deliberately minimal environment: the child only needs PATH (for the
 	// binary, though we pass an absolute path) and HOME.
 	cmd.Env = []string{
@@ -348,17 +349,55 @@ func (p *processRunner) Exec(ctx context.Context, ext extension.Extension, entry
 // --allow-net is the suwu.net opt-in; --allow-private is never passed, so an
 // extension with network access still cannot reach loopback, private, or
 // link-local (cloud metadata) addresses.
-func (p *processRunner) gqArgs(entry, inputPath, resultPath string, net bool) []string {
+// requestedFilePath extracts a file path from the extension input payload, if
+// one was supplied via ?file=... on the render or an API request. The query
+// and params maps cross as map[string]string (see buildExtensionInput and
+// buildExtensionAPIInput), so both shapes are accepted — asserting only the
+// map[string]any one silently found nothing and left the file directory
+// unmounted, which turned every save into an EACCES failure.
+func requestedFilePath(input map[string]any) string {
+	if v, ok := input["file"].(string); ok && v != "" {
+		return v
+	}
+	for _, key := range []string{"params", "query"} {
+		switch m := input[key].(type) {
+		case map[string]string:
+			if v := m["file"]; v != "" {
+				return v
+			}
+		case map[string]any:
+			if v, ok := m["file"].(string); ok && v != "" {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
+func (p *processRunner) gqArgs(entry, inputPath, resultPath string, ext extension.Extension, input map[string]any) []string {
 	args := []string{
 		"gq",
 		"--timeout", p.timeout.String(),
 		"--result-file", resultPath,
 		"--input-file", inputPath,
 	}
-	if net {
+	if ext.Net {
 		args = append(args, "--allow-net")
 	}
-	return append(args, "--root", "/ext="+p.extDir, "--ro", entry)
+	args = append(args, "--root", "/ext="+p.extDir)
+	if ext.FS {
+		dataDir := filepath.Dir(p.extDir)
+		extDataDir := filepath.Join(dataDir, "extension-data", ext.ID)
+		_ = os.MkdirAll(extDataDir, 0o755)
+		args = append(args, "--root", "/ext-data="+extDataDir)
+		if fp := requestedFilePath(input); fp != "" {
+			dir := filepath.Dir(filepath.Clean(fp))
+			args = append(args, "--root", "/fs="+dir)
+		}
+	} else {
+		args = append(args, "--ro")
+	}
+	return append(args, entry)
 }
 
 // extensionDir is the resolved extension directory for this server.

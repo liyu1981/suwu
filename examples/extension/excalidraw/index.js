@@ -6,6 +6,12 @@
  * Static files are public: never put secrets here.
  */
 function handler() {
+  const file = (input && input.params && input.params.file) || (input && input.query && input.query.file) || "";
+  let scene = "";
+  if (file) {
+    try { scene = fs.readFileSync("/fs/" + file.split("/").pop()); } catch (e) { scene = ""; }
+  }
+  const token = (input && input.token) || ""; const inject = `<script>window.__SUWU_FILE__=${JSON.stringify(file)};window.__SUWU_SCENE__=${JSON.stringify(scene)};window.__SUWU_TOKEN__=${JSON.stringify(token)};</script>`;
   return {
     status: 200,
     contentType: "text/html; charset=utf-8",
@@ -70,9 +76,10 @@ function handler() {
   window.EXCALIDRAW_ASSET_PATH = "https://esm.sh/@excalidraw/excalidraw@0.18.1/dist/prod/";
 })();
 </script>
-</head>
+${inject}</head>
 <body>
 <div id="root"></div>
+<div id="suwu-status" aria-live="polite"></div>
 <script type="module" src="/gqjs/static/excalidraw/app.js"></script>
 </body>
 </html>

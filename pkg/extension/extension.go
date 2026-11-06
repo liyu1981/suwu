@@ -95,6 +95,10 @@ type suwuSpecs struct {
 	// Sandbox adds narrowly allow-listed iframe sandbox tokens. Today only
 	// "allow-downloads" is accepted.
 	Sandbox []string `json:"sandbox"`
+	// FS opts the extension's scripts into host filesystem access via a
+	// read-write "/" root mounted in gqjs. Off by default: without it, only
+	// the extension's own directory is readable (read-only).
+	FS bool `json:"fs"`
 }
 
 // Extension is one resolved, runnable extension.
@@ -111,6 +115,8 @@ type Extension struct {
 	API []APIRoute `json:"api,omitempty"`
 	// Net reports whether the extension declared suwu.net (network access).
 	Net bool `json:"net,omitempty"`
+	// FS reports whether the extension declared suwu.fs (host filesystem access).
+	FS bool `json:"fs,omitempty"`
 	// Static is the declared public-assets directory (suwu.static); empty
 	// when the extension serves no static files.
 	Static string `json:"static,omitempty"`
@@ -268,6 +274,7 @@ func Resolve(dir, id string) (Extension, error) {
 		name = id
 	}
 	net := pkg.Suwu != nil && pkg.Suwu.Net
+	fs := pkg.Suwu != nil && pkg.Suwu.FS
 	return Extension{
 		ID:          id,
 		Name:        name,
@@ -275,6 +282,7 @@ func Resolve(dir, id string) (Extension, error) {
 		Params:      params,
 		API:         api,
 		Net:         net,
+		FS:          fs,
 		Static:      static,
 		CSP:         csp,
 		Sandbox:     sandbox,

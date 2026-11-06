@@ -540,12 +540,14 @@ func TestProcessRunnerDefaults(t *testing.T) {
 
 func TestGQArgsNetOptIn(t *testing.T) {
 	p := newProcessRunner("/tmp/ext")
+	plain := extension.Extension{}
+	withNet := extension.Extension{Net: true}
 
-	offline := strings.Join(p.gqArgs("/ext/index.js", "/tmp/in.json", "/tmp/out.json", false), " ")
+	offline := strings.Join(p.gqArgs("/ext/index.js", "/tmp/in.json", "/tmp/out.json", plain, nil), " ")
 	if strings.Contains(offline, "--allow-net") {
 		t.Errorf("without suwu.net the child must stay networkless: %s", offline)
 	}
-	online := strings.Join(p.gqArgs("/ext/stories.js", "/tmp/in.json", "/tmp/out.json", true), " ")
+	online := strings.Join(p.gqArgs("/ext/stories.js", "/tmp/in.json", "/tmp/out.json", withNet, nil), " ")
 	if !strings.Contains(online, "--allow-net") {
 		t.Errorf("with suwu.net the child must get --allow-net: %s", online)
 	}
@@ -554,9 +556,79 @@ func TestGQArgsNetOptIn(t *testing.T) {
 			t.Errorf("extensions never get --allow-private: %s", args)
 		}
 	}
-	if got := p.gqArgs("/ext/stories.js", "/tmp/in.json", "/tmp/out.json", true); got[len(got)-1] != "/ext/stories.js" {
+	if got := p.gqArgs("/ext/stories.js", "/tmp/in.json", "/tmp/out.json", withNet, nil); got[len(got)-1] != "/ext/stories.js" {
 		t.Errorf("entry must stay the final argument, got %q", got[len(got)-1])
 	}
+}
+
+// suwu.fs is what turns the child writable and mounts the extension's data
+// dir plus the requested file's directory; without it nothing but the
+// extension tree is visible and the fs stays read-only.
+func TestGQArgsFSMounts(t *testing.T) {
+	tree := t.TempDir()
+	p := newProcessRunner(tree)
+	withFS := extension.Extension{ID: "excalidraw", FS: true}
+	dataDir := filepath.Join(filepath.Dir(tree), "extension-data", "excalidraw")
+
+	noFile := p.gqArgs("save.js", "/tmp/in.json", "/tmp/out.json", withFS, nil)
+	if hasArg(noFile, "--ro") {
+		t.Errorf("suwu.fs must keep the child writable: %v", noFile)
+	}
+	for _, want := range []string{
+		"--root", "/ext-data=" + dataDir,
+		"--root", "/ext=" + tree,
+	} {
+		if !hasArg(noFile, want) {
+			t.Errorf("missing %q in %v", want, noFile)
+		}
+	}
+	if hasArg(noFile, "/fs=") {
+		t.Errorf("with no requested file no /fs mount may appear: %v", noFile)
+	}
+	if _, err := os.Stat(dataDir); err != nil {
+		t.Errorf("extension-data dir must be created: %v", err)
+	}
+
+	// The render/API builders deliver query and params as map[string]string;
+	// asserting only map[string]any silently found no path and skipped the
+	// mount, so every save failed with EACCES.
+	for _, tc := range []struct {
+		name  string
+		input map[string]any
+	}{
+		{"render params", map[string]any{"params": map[string]string{"file": "/home/u/proj/doc.excalidraw"}}},
+		{"api query", map[string]any{"query": map[string]string{"file": "/home/u/proj/doc.excalidraw"}}},
+		{"json-shaped query", map[string]any{"query": map[string]any{"file": "/home/u/proj/doc.excalidraw"}}},
+		{"top level", map[string]any{"file": "/home/u/proj/doc.excalidraw"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := p.gqArgs("save.js", "/tmp/in.json", "/tmp/out.json", withFS, tc.input)
+			if !hasArg(args, "--root") || !hasArg(args, "/fs=/home/u/proj") {
+				t.Errorf("requested file directory must be mounted: %v", args)
+			}
+		})
+	}
+
+	without := p.gqArgs("save.js", "/tmp/in.json", "/tmp/out.json", extension.Extension{}, map[string]any{
+		"query": map[string]string{"file": "/home/u/proj/doc.excalidraw"},
+	})
+	if !hasArg(without, "--ro") {
+		t.Errorf("without suwu.fs the child must stay read-only: %v", without)
+	}
+	if hasArg(without, "/fs=") {
+		t.Errorf("suwu.fs is the only gate to a /fs mount: %v", without)
+	}
+}
+
+// hasArg reports whether args carries exactly v (exact match, so "--root" can
+// never be mistaken for the "--ro" prefix).
+func hasArg(args []string, v string) bool {
+	for _, a := range args {
+		if a == v {
+			return true
+		}
+	}
+	return false
 }
 
 // ── helpers ─────────────────────────────────────────────────────────

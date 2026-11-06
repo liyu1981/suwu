@@ -291,6 +291,11 @@ export function resolveAction(
       openFileBrowser(payload.path, store);
       return true;
     case 'file':
+      if (payload.path.toLowerCase().endsWith('.excalidraw')) {
+        if (!autoResolve.fileviewer) return false;
+        openTile('extension', store, undefined, { id: 'excalidraw', file: payload.path });
+        return true;
+      }
       if (!autoResolve.fileviewer) return false;
       openViewer(payload.path, store);
       return true;
@@ -333,6 +338,10 @@ export function executeAction(data: NotificationData, store: Store): void {
       openCode(payload.files, store, payload.dir);
       break;
     case 'file':
+      if (payload.path.toLowerCase().endsWith('.excalidraw')) {
+        openTile('extension', store, undefined, { id: 'excalidraw', file: payload.path });
+        break;
+      }
       openViewer(payload.path, store);
       break;
     case 'staticserve':

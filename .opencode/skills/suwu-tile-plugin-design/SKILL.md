@@ -373,6 +373,12 @@ page** (whose entire surface is a tile): the toolbar covers it or steals its
 attention. Keep the top-right corner empty — cluster actions to the left or
 inline, and place secondary content below the zone.
 
+The toolbar is not permanently in the way: **double-tap Shift while it is
+showing** and it hides for a few seconds (App settings → Header → *Tile
+toolbar*, 0 disables the gesture), staying away even if the pointer returns.
+That is an escape hatch for a user, not a licence — a control that needs the
+corner still breaks the design; it just is no longer unreachable.
+
 **Typography — the type scale.** Suwu uses a fixed seven-step scale. This table
 is the single source of truth (`AGENTS.md` points here). Do not invent sizes; if
 a value is not in this table it is wrong.

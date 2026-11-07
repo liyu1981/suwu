@@ -59,6 +59,7 @@ import { applyWmAction, wmAction } from './shortcuts';
 import { openViewer, openFileBrowser, openTile } from '../lib/actionResolver';
 import { authFetch, logout } from '../lib/api';
 import { TileTools } from './TileTools';
+import { useToolbarSuspensionGesture } from './toolbarSuspensionState';
 import { usePaneGhosts } from './hooks/usePaneGhosts';
 import { getTilePlugin, getAllTilePlugins } from './tilePlugins';
 import { appMenuAtom, getVisibleApps, type AppMenuState } from '../store/appMenu';
@@ -407,6 +408,9 @@ function isDirectTileFrame(source: MessageEventSource | null): boolean {
 }
 
 export default function TilingWM() {
+  // Double-tap Shift hides the hover toolbar for a few seconds (App settings →
+  // Header). Mounted once here: the gesture is global, its state is per app.
+  useToolbarSuspensionGesture();
   const { t } = useTranslation();
   const store = useStore();
   const layout = useAtomValue(layoutAtom);

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { maxEntriesAtom } from '../../store/notifications';
+import { toolbarSuspensionSecondsAtom } from '../../store/settings';
 import {
   type AvatarSource,
   type HeaderPosition,
@@ -815,6 +816,7 @@ function BackgroundParamField({
 export default function SettingsView() {
   const { t } = useTranslation();
   const [maxEntries, setMaxEntries] = useAtom(maxEntriesAtom);
+  const [toolbarSuspension, setToolbarSuspension] = useAtom(toolbarSuspensionSecondsAtom);
   const [autoResolve, setAutoResolve] = useAtom(autoResolveAtom);
   const [background, setBackground] = useAtom(backgroundAtom);
   const [backgroundParams, setBackgroundParams] = useAtom(backgroundParamsAtom);
@@ -1092,6 +1094,29 @@ export default function SettingsView() {
               ))}
             </div>
             <p className={sectionHint}>{t('settings.headerPositionHint')}</p>
+          </div>
+
+          <div className={section}>
+            <div className="flex items-center justify-between">
+              <span className={sectionLabel}>{t('settings.toolbarSuspension')}</span>
+              <span className="font-mono text-xs text-popover-foreground">
+                {toolbarSuspension}
+                {t('settings.toolbarSuspensionSeconds')}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="range"
+                min={0}
+                max={30}
+                step={1}
+                value={toolbarSuspension}
+                onChange={(e) => setToolbarSuspension(Number(e.target.value))}
+                aria-label={t('settings.toolbarSuspension')}
+                className="h-1 flex-1 cursor-pointer appearance-none rounded bg-white/15 accent-sky-400"
+              />
+            </div>
+            <p className={sectionHint}>{t('settings.toolbarSuspensionHint')}</p>
           </div>
         </TabsPrimitive.Content>
 

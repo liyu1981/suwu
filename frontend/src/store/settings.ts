@@ -30,6 +30,17 @@ export const autoResolveAtom = atomWithStorage<AutoResolveSettings>('suwu:auto-r
 });
 
 /**
+ * How long a double-tap of Shift hides the per-tile hover toolbar, in seconds.
+ * 0 disables the gesture. The toolbar covers the tile's top-right corner, which
+ * is also where an extension may place its own controls; this is how a user
+ * reaches them without moving the tile's layout.
+ */
+export const toolbarSuspensionSecondsAtom = atomWithStorage<number>(
+  'suwu:toolbar-suspension-seconds',
+  5,
+);
+
+/**
  * Where the app-shell header bar is docked. Persisted in localStorage; an
  * unknown or missing value falls back to `top`.
  */

@@ -1,5 +1,8 @@
-import { useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
+import { cornerClasses } from './toolbarSuspension';
+import { toolbarHoveredAtom, useToolbarSuspended } from './toolbarSuspensionState';
 import type { TilePlugin } from './tilePlugins';
 import { CloseIcon, ExitFocusIcon, FocusIcon, GripIcon, MoveToSpaceIcon, SwapIcon } from './icons';
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
@@ -58,6 +61,12 @@ export function TileTools({
 }: TileToolsProps) {
   const { t } = useTranslation();
   const [showSpaceDialog, setShowSpaceDialog] = useState(false);
+  // A double-tap of Shift (while this corner is hovered) suspends the toolbar
+  // for a few seconds, so the tile's own controls under it are reachable.
+  const suspended = useToolbarSuspended();
+  const setCornerHovered = useSetAtom(toolbarHoveredAtom);
+  // A tile closing while its corner is hovered would leave the shared flag stuck.
+  useEffect(() => () => setCornerHovered(false), [setCornerHovered]);
   const pluginToolbar = plugin?.renderToolbar?.({
     paneId,
     fontSize,
@@ -71,9 +80,16 @@ export function TileTools({
   const availableSpaces = spaces.filter((s) => s.name !== '__focus__');
 
   return (
-    <div className="group/corner absolute right-0 top-0 z-10 h-12 w-56">
+    <div
+      className={`group/corner absolute right-0 top-0 z-10 h-12 w-56 ${cornerClasses(suspended).zone}`}
+      onMouseEnter={() => setCornerHovered(true)}
+      onMouseLeave={() => {
+        setCornerHovered(false);
+        // Leaving also ends a hover-driven reveal; suspension is time-based.
+      }}
+    >
       <div
-        className="pointer-events-none absolute right-1.5 top-1.5 flex gap-0.5 rounded-[6px] menu-glass p-0.5 opacity-0 transition-opacity duration-150 group-hover/corner:pointer-events-auto group-hover/corner:opacity-100 motion-reduce:transition-none"
+        className={`pointer-events-none absolute right-1.5 top-1.5 flex gap-0.5 rounded-[6px] menu-glass p-0.5 opacity-0 transition-opacity duration-150 motion-reduce:transition-none ${cornerClasses(suspended).toolbar}`}
         role="toolbar"
         aria-label={`Tile tools ${paneId}`}
       >

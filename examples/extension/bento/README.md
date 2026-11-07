@@ -27,12 +27,13 @@ upstream calls "a pristine New shell" (open it and you get the editor on a blank
 deck; the first save writes the document in).
 
 ```sh
-# the shell this extension vendors is a ready-made blank deck
-cp ~/.suwu/extension/bento/dist/shell.html ~/decks/new.bento.html
-
-suwu open ~/decks/new.bento.html     # editor on a blank deck
+suwu ext-run bento new ~/decks/new.bento.html   # or: cd ~/decks && suwu ext-run bento new new.bento.html
+suwu open ~/decks/new.bento.html                # editor on a blank deck
 # …edit…  ⌘S writes the document into that file
 ```
+
+(`suwu ext-run bento new` copies the vendored shell for you; copying
+`dist/shell.html` by hand does the same thing.)
 
 Opening the tile **without** a file also gives a blank deck, but with no
 directory of its own: there ⌘S hands you a download (`Untitled.bento.html`)

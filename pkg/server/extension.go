@@ -384,17 +384,18 @@ func (p *processRunner) gqArgs(entry, inputPath, resultPath string, ext extensio
 	if ext.Net {
 		args = append(args, "--allow-net")
 	}
-	args = append(args, "--root", "/ext="+p.extDir)
-	if ext.FS {
-		dataDir := filepath.Dir(p.extDir)
-		extDataDir := filepath.Join(dataDir, "extension-data", ext.ID)
-		_ = os.MkdirAll(extDataDir, 0o755)
-		args = append(args, "--root", "/ext-data="+extDataDir)
-		if fp := requestedFilePath(input); fp != "" {
-			dir := filepath.Dir(filepath.Clean(fp))
-			args = append(args, "--root", "/fs="+dir)
-		}
-	} else {
+	// One sandbox policy for every way an extension runs (render, API, CLI
+	// command): pkg/extension owns the mounts so they cannot drift.
+	target := ""
+	if fp := requestedFilePath(input); fp != "" {
+		target = filepath.Dir(filepath.Clean(fp))
+	}
+	mounts, readOnly := extension.ExecSandbox(ext, p.extDir, target)
+	for _, m := range mounts {
+		_ = os.MkdirAll(m.Real, 0o755)
+		args = append(args, "--root", m.Virtual+"="+m.Real)
+	}
+	if readOnly {
 		args = append(args, "--ro")
 	}
 	return append(args, entry)

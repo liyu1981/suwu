@@ -41,6 +41,13 @@
         "handler": "save.js"
       }
     ],
+    "commands": [
+      {
+        "name": "new",
+        "handler": "new.js",
+        "description": "Create an empty .excalidraw document"
+      }
+    ],
     "fileExtensions": [
       ".excalidraw"
     ]

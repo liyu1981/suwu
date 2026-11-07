@@ -16,6 +16,13 @@
         "handler": "save.js"
       }
     ],
+    "commands": [
+      {
+        "name": "new",
+        "handler": "new.js",
+        "description": "Create a pristine .bento.html deck"
+      }
+    ],
     "fileExtensions": [
       ".bento.html"
     ],

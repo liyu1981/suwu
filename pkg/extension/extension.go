@@ -76,6 +76,27 @@ type APIRoute struct {
 	Handler string `json:"handler"`
 }
 
+// Command is one CLI verb an extension offers: `suwu ext-run <id> <name> [args…]`.
+//
+// Commands are how an extension does something without a tile — create a new
+// document, import a file, run a migration. The handler is a gqjs script with the
+// same shape as an API handler; it receives `args`, the virtual working directory,
+// and (when the extension declares suwu.fs) a writable mount of that directory.
+type Command struct {
+	// Name is the verb on the command line: lowercase, digits, '-' and '_'.
+	Name string `json:"name"`
+	// Handler is a .js path inside the extension directory.
+	Handler string `json:"handler"`
+	// Description is shown by `suwu ext-run --list`.
+	Description string `json:"description,omitempty"`
+}
+
+// commandNameRe validates a command name: a short, shell-friendly verb.
+var commandNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
+
+// maxCommands caps how many verbs one extension may register.
+const maxCommands = 16
+
 // packageJSON is the subset of package.json Suwu reads. The top level belongs
 // to npm — a packaged extension is a normal JS project with a build script and
 // dependencies — so every Suwu-owned field lives under "suwu" and the only
@@ -109,6 +130,9 @@ type suwuSpecs struct {
 	// with the file path as a `file` parameter (e.g. ".excalidraw").
 	// Entries are normalized to lowercase; a malformed one fails resolution.
 	FileExtensions []string `json:"fileExtensions"`
+	// Commands registers CLI verbs (`suwu ext-run <id> <name>`). Names must be
+	// unique; a malformed entry fails resolution like every other registration.
+	Commands []Command `json:"commands"`
 	// Static is the directory (relative to the extension dir) whose files are
 	// served under /gqjs/static/<id>/. Empty means no static serving. The
 	// directory must be a dedicated subtree (never "." or the extension root)
@@ -148,6 +172,8 @@ type Extension struct {
 	FileExtensions []string `json:"fileExtensions,omitempty"`
 	// API lists registered API routes in declaration order (first match wins).
 	API []APIRoute `json:"api,omitempty"`
+	// Commands lists the CLI verbs this extension registers, sorted by name.
+	Commands []Command `json:"commands,omitempty"`
 	// Net reports whether the extension declared suwu.net (network access).
 	Net bool `json:"net,omitempty"`
 	// FS reports whether the extension declared suwu.fs (host filesystem access).
@@ -273,6 +299,7 @@ func Resolve(dir, id string) (Extension, error) {
 	// never half-serve with a broken API surface.
 	var api []APIRoute
 	var params []Param
+	var commands []Command
 	if pkg.Suwu != nil {
 		api = pkg.Suwu.API
 		params = pkg.Suwu.Params
@@ -284,6 +311,10 @@ func Resolve(dir, id string) (Extension, error) {
 		if _, err := handlerPath(extDir, rt.Handler); err != nil {
 			return Extension{}, fmt.Errorf("extension %q: %w", id, err)
 		}
+	}
+	commands, err = normalizeCommands(extDir, pkg.Suwu)
+	if err != nil {
+		return Extension{}, fmt.Errorf("extension %q: %w", id, err)
 	}
 
 	var static string
@@ -346,6 +377,7 @@ func Resolve(dir, id string) (Extension, error) {
 		Params:         params,
 		FileExtensions: fileExtensions,
 		API:            api,
+		Commands:       commands,
 		Net:            net,
 		FS:             fs,
 		Static:         static,
@@ -445,6 +477,87 @@ func checkDisplayValue(label, value string, max int) error {
 		}
 	}
 	return nil
+}
+
+// normalizeCommands validates the declared suwu.commands list: unique
+// shell-friendly names, each pointing at a real .js handler inside the extension.
+// Empty input is allowed (most extensions register none).
+func normalizeCommands(extDir string, specs *suwuSpecs) ([]Command, error) {
+	if specs == nil || len(specs.Commands) == 0 {
+		return nil, nil
+	}
+	if len(specs.Commands) > maxCommands {
+		return nil, fmt.Errorf("suwu.commands has too many entries (max %d)", maxCommands)
+	}
+	seen := make(map[string]bool, len(specs.Commands))
+	out := make([]Command, 0, len(specs.Commands))
+	for _, c := range specs.Commands {
+		name := strings.TrimSpace(c.Name)
+		if !commandNameRe.MatchString(name) {
+			return nil, fmt.Errorf("suwu.commands name %q is invalid (want lowercase letters, digits, '-' or '_')", c.Name)
+		}
+		if seen[name] {
+			return nil, fmt.Errorf("suwu.commands name %q is declared twice", name)
+		}
+		seen[name] = true
+		path, err := handlerPath(extDir, c.Handler)
+		if err != nil {
+			return nil, fmt.Errorf("suwu.commands %q: %w", name, err)
+		}
+		// Unlike an API route (checked at request time), a command's handler is
+		// checked here: `suwu ext-run --list` should not advertise a verb that
+		// cannot run, and the failure is otherwise a confusing gq read error.
+		if !isRegularFile(path) {
+			return nil, fmt.Errorf("suwu.commands %q: handler %q does not exist", name, c.Handler)
+		}
+		out = append(out, Command{
+			Name:        name,
+			Handler:     c.Handler,
+			Description: strings.TrimSpace(c.Description),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+// Command returns the registered command with this name.
+func (e Extension) Command(name string) (Command, bool) {
+	for _, c := range e.Commands {
+		if c.Name == name {
+			return c, true
+		}
+	}
+	return Command{}, false
+}
+
+// ExecMount is one gqjs `--root` entry: a virtual directory mapped to a real one.
+type ExecMount struct {
+	Virtual string
+	Real    string
+}
+
+// ExecSandbox decides the filesystem one script run gets.
+//
+// This is the single policy for every way an extension script runs — a page
+// render, an API call, or a CLI command — so the three cannot drift:
+//
+//   - /ext        the extensions tree, always (scripts read their own files)
+//   - /ext-data   this extension's private data, only with suwu.fs
+//   - /fs         targetDir, only with suwu.fs and only when a target is known
+//
+// Without suwu.fs the mount set is read-only, which is also how an extension
+// declares that it never touches user files.
+func ExecSandbox(ext Extension, extRoot, targetDir string) (mounts []ExecMount, readOnly bool) {
+	mounts = append(mounts, ExecMount{Virtual: "/ext", Real: extRoot})
+	if !ext.FS {
+		return mounts, true
+	}
+	extData := filepath.Join(filepath.Dir(extRoot), "extension-data", ext.ID)
+	mounts = append(mounts, ExecMount{Virtual: "/ext-data", Real: extData})
+	if targetDir != "" {
+		mounts = append(mounts, ExecMount{Virtual: "/fs", Real: targetDir})
+	}
+	return mounts, false
 }
 
 // normalizeFileExtensions validates the declared suwu.fileExtensions list:

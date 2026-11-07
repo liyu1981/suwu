@@ -226,7 +226,10 @@
     "zoom": "缩放",
     "zoomHint": "缩放 {{app}} 窗格内的界面（100%–500%），不改变平铺布局。立即应用到所有 {{app}} 窗格。",
     "restoreDefault": "恢复默认",
-    "save": "保存"
+    "save": "保存",
+    "toolbarSuspension": "磁贴工具栏",
+    "toolbarSuspensionHint": "磁贴工具栏显示时双击 Shift，可让它在指定秒数内隐藏，便于操作其下方的控件。0 表示关闭该快捷键。",
+    "toolbarSuspensionSeconds": "秒"
   },
   "shortcuts": {
     "description": "使用键盘操作任意窗口；操作将应用于当前聚焦的窗口。",

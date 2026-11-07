@@ -36,6 +36,19 @@ Then enable the **extension** plugin in App Menu settings (it is off by
 default) and add an Extension tile whose `id` is the directory name
 (`eye`, `hn-top-stories`, `excalidraw`).
 
+Some extensions also register CLI verbs, so you can start a document without a
+tile:
+
+```sh
+suwu ext-run bento new deck.bento.html          # a pristine .bento.html deck
+suwu ext-run excalidraw new plan.excalidraw     # an empty .excalidraw document
+suwu ext-run --list bento                       # what does this extension offer?
+```
+
+Commands run in the directory you point them at (`--dir`, default: the current
+one) and use the same sandbox as a tile: the extension needs `suwu.fs` to write,
+and it can only ever write there.
+
 > The data directory used to be called `extensions/`. It is still read when it
 > holds extensions, but `suwu install` only ever writes `extension/`; move it
 > yourself when you are ready.

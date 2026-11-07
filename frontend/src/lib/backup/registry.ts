@@ -34,6 +34,7 @@ export const REGISTRY: readonly Entry[] = [
   // store/settings.ts
   { category: 'settings', key: 'suwu:auto-resolve' },
   { category: 'settings', key: 'suwu:header-position' },
+  { category: 'settings', key: 'suwu:toolbar-suspension-seconds' },
   { category: 'settings', key: 'suwu:background' },
   { category: 'settings', key: 'suwu:background-params' },
   { category: 'settings', key: 'suwu:webgpu-background' },

@@ -156,6 +156,11 @@ func main() {
 				log.Fatalf("install: %v", err)
 			}
 			return
+		case "ext-run":
+			if err := extRunCmd(os.Args[2:]); err != nil {
+				log.Fatalf("%v", err)
+			}
+			return
 		case "background":
 			os.Exit(backgroundMain(os.Args[2:]))
 		default:
@@ -227,6 +232,10 @@ Usage:
                            install a background or an extension into the data
                            directory, from a zip or the GitHub catalog; bare
                            'suwu install' opens a picker (see 'suwu help install')
+  suwu ext-run [flags] <ext_id> <command> [args...]
+                           run a command an extension registers, in the current
+                           directory; e.g. 'suwu ext-run bento new deck.bento.html'
+                           (see 'suwu ext-run --list <ext_id>')
   suwu background build <file.wgsl>
                            compile a background's WGSL graph to stdout
                            (see 'suwu help background')
@@ -469,6 +478,8 @@ Examples:
 `)
 	case "agent":
 		printAgentUsage()
+	case "ext-run":
+		printExtRunUsage()
 	case "gq":
 		fmt.Print(gqUsageText)
 	case "install":

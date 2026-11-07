@@ -38,6 +38,12 @@ suwu install --local examples/extension/excalidraw --build --force
 suwu install --github excalidraw
 ```
 
+A blank document is one command:
+
+```sh
+suwu ext-run excalidraw new plan.excalidraw
+```
+
 Then enable the **Extension** plugin in App Menu settings and add an Extension
 tile with `id` = `excalidraw`. Opening a `.excalidraw` file — `suwu open
 my.excalidraw`, or the file browser — opens this tile on it, because

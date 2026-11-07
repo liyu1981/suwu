@@ -65,6 +65,50 @@ Companion doc: `docs/EXTENSION_TILE_PLAN.md` (the render/page pipeline).
 
 ---
 
+## 1.5 CLI commands (`suwu ext-run`)
+
+An extension can register named verbs — the way it does something *without* a
+tile: create a document, import a file, run a migration.
+
+```json
+"suwu": {
+  "commands": [
+    { "name": "new", "handler": "new.js", "description": "Create an empty .bento.html deck" }
+  ]
+}
+```
+
+```
+suwu ext-run [--dir <path>] [--timeout <dur>] [--json] <ext_id> <command> [args...]
+suwu ext-run --list <ext_id>
+```
+
+- **Local, not remote.** The command runs where you ran it, whether or not the
+  server is up: `suwu ext-run bento new deck.bento.html` in `~/decks` creates
+  `~/decks/deck.bento.html`. Nothing is sent to the server, and no session is
+  involved.
+- **Same sandbox as every other script run.** `pkg/extension.ExecSandbox` decides
+  the mounts once, for renders, API calls *and* commands: `/ext` (the extensions
+  tree) always, plus — only with `suwu.fs` — `/ext-data` (the extension's own
+  directory) and `/fs` (the `--dir`, or the current directory). Without
+  `suwu.fs` the run is read-only.
+- **Handler contract.** A gqjs script exposing `handler(input)` where input is
+  `{ action: "command", id, command, args, cwd, dir }`; `dir` is the *virtual*
+  mount (`/fs`) to write through, `cwd` the real path to report. Return
+  `{ status?, body }` (a bare string is the body); a body is printed as-is, so
+  the output is pipeable, and `status >= 400` exits non-zero.
+- **Validation is fail-closed** like every other registration: the name is a
+  shell-friendly verb (`[a-z0-9][a-z0-9_-]{0,31}`), names must be unique, the
+  handler must be an existing `.js` inside the extension directory, and at most
+  16 verbs are allowed. A bad entry fails `Resolve`, so `--list` can never
+  advertise a verb that cannot run.
+
+Registered today: `excalidraw new` (an empty `.excalidraw` document) and
+`bento new` (a pristine `.bento.html` deck — the shell with an empty document
+block, which is what upstream calls a new document).
+
+---
+
 ## 2. API routes
 
 ### 2.1 URL scheme

@@ -227,7 +227,10 @@
     "zoom": "Zoom",
     "zoomHint": "Scales the interface inside the {{app}} tile (100%–500%) without changing the tile layout. Applied instantly to all {{app}} panes.",
     "restoreDefault": "Restore default",
-    "save": "Save"
+    "save": "Save",
+    "toolbarSuspension": "Tile toolbar",
+    "toolbarSuspensionHint": "Double-tap Shift while the tile toolbar is showing to hide it for this many seconds, so controls underneath stay clickable. 0 disables the shortcut.",
+    "toolbarSuspensionSeconds": "seconds"
   },
   "shortcuts": {
     "description": "Work on any tile from the keyboard; actions apply to the focused tile.",

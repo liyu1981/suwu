@@ -22,7 +22,7 @@ import {
   focusAtom,
   FOCUS_SPACE_NAME,
 } from './atoms';
-import { clampFont, fontDefaultAtom, shouldPersistFontDefault } from '../store/fonts';
+import { fontDefaultAtom } from '../store/fonts';
 import { clamp } from '../lib/utils';
 import {
   closeAt,
@@ -42,6 +42,7 @@ import {
   moveLeafAdjacent,
   moveLeafBetweenSpaces,
   setPaneData,
+  spaceIndexForPane,
   splitAtWithId,
   swapLeafIds,
   setLeafType,
@@ -954,25 +955,20 @@ export default function TilingWM() {
   }, [store]);
 
   // Per-tile font size setter: updates paneData for the active space.
+  // Per-tile font size: written into the paneData of the space that OWNS the
+  // tile, which is persisted with the space (localStorage `suwu:spaces`). The
+  // owning space is looked up by pane id rather than assumed to be the active
+  // one: a toolbar click can arrive before the pane's own mousedown switched
+  // spaces, and writing to the wrong space looked like "the size was not saved".
   const setTileFontSize = useCallback(
     (id: string, fontSize: number) => {
       const spaces = store.get(spacesAtom);
-      const idx = store.get(activeSpaceAtom);
-      const space = spaces[idx];
-      if (!space) return;
+      const idx = spaceIndexForPane(spaces, id);
+      if (idx < 0) return;
       store.set(
         spacesAtom,
         spaces.map((s, i) => (i === idx ? setPaneData(s, id, 'fontSize', fontSize) : s)),
       );
-      // The toolbar's +/- buttons are how a user picks their terminal size, so
-      // remember the choice: the tile keeps its own size in paneData (persisted
-      // with the space), and this makes it the default for the NEXT terminal too.
-      // Without it, a new terminal came back at the settings preset.
-      const leaf = findLeaf(space.layout, id);
-      const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
-      if (shouldPersistFontDefault(tileType)) {
-        store.set(fontDefaultAtom, clampFont(fontSize));
-      }
     },
     [store],
   );

@@ -49,6 +49,21 @@ export function setPaneData(space: Space, paneId: string, key: string, value: un
   };
 }
 
+/**
+ * Index of the space whose layout contains `paneId`, or -1 when it is in none.
+ *
+ * Pane data (font size and friends) lives on the space that owns the tile, so a
+ * per-tile setting must be written there. Looking the space up by pane id — rather
+ * than assuming the active one — keeps a toolbar click from landing in the wrong
+ * space when it arrives before the pane's own mousedown has switched spaces.
+ */
+export function spaceIndexForPane(spaces: Space[], paneId: string): number {
+  for (let i = 0; i < spaces.length; i++) {
+    if (leaves(spaces[i].layout).includes(paneId)) return i;
+  }
+  return -1;
+}
+
 /** Remove paneData entries for pane ids that no longer exist in the layout. */
 export function cleanStalePaneData(space: Space): Space {
   const paneData = space.paneData;

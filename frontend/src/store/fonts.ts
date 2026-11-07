@@ -29,18 +29,6 @@ export function clampFont(n: number): number {
 }
 
 /**
- * Do the toolbar font buttons on this tile also update the persisted default?
- *
- * The +/- buttons are how a user actually picks their terminal size, so the last
- * one becomes the default for new terminals — otherwise every new terminal
- * reverted to whatever the settings preset was, which is the bug this fixes.
- * Only the terminal has those buttons, so only the terminal syncs.
- */
-export function shouldPersistFontDefault(tileType: string | undefined): boolean {
-  return tileType === 'term';
-}
-
-/**
  * Active terminal line height, shared across the parent page and every /term
  * pane iframe via localStorage sync.
  */

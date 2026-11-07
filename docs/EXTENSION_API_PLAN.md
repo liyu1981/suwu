@@ -275,7 +275,9 @@ trees. Extensions that need more declare it in `package.json`:
   mixed-content directives) are rejected at resolve time.
 - Sources are validated and deduplicated; bare `*`, `'none'`,
   `'unsafe-inline'`, and host sources without an explicit scheme are rejected.
-- `suwu.sandbox` currently accepts only `allow-downloads`. The base tokens stay
+- `suwu.sandbox` currently accepts `allow-downloads` and `allow-modals` (the
+  latter for `window.print()` — how a document app exports a PDF — and for
+  password prompts). The base tokens stay
   fixed; the tile iframe and the render response's CSP sandbox use base +
   declared extras.
 - The resolved extension object includes `csp` and `sandbox`, so

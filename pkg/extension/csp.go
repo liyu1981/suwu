@@ -43,8 +43,18 @@ var forbiddenCSPDirectives = map[string]bool{
 // Sandbox extras an extension may request. Keep this deliberately tiny:
 // capabilities like allow-same-origin or allow-top-navigation would defeat the
 // opaque-origin boundary and must never be declared by an extension.
+// Kept deliberately tiny — every entry here is a capability the opaque-origin
+// boundary would otherwise deny.
 var allowedSandboxExtras = map[string]bool{
+	// Exporting is a normal thing for a document tile to do.
 	"allow-downloads": true,
+	// allow-modals is what makes window.print() work inside a sandboxed frame
+	// (Chrome treats print as a modal), which is how a document app produces a
+	// PDF, and what a password prompt needs. The cost is that a hostile
+	// extension can open dialogs and block its own tab until dismissed — a
+	// nuisance confined to the tile, and only for an extension the user chose to
+	// install. Bento Slides needs both.
+	"allow-modals": true,
 }
 
 const (

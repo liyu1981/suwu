@@ -101,6 +101,71 @@ func TestAsyncFSFacade(t *testing.T) {
 	}
 }
 
+// A document rewrite must be atomic: temp file in the same directory, then
+// renameSync over the target. Without it an interrupted save leaves a
+// half-written file — fatal for a format like Bento's, where the file is also
+// the application.
+func TestRenameSyncAtomicWrite(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "deck.html")
+	if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := testRun(t, `
+		const tmp = "/data/.tmp-deck";
+		fs.writeFileSync(tmp, "new content");
+		fs.renameSync(tmp, "/data/deck.html");
+		"done";
+	`, Env{FS: FSConfig{Roots: map[string]string{"/data": dir}}})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	got, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "new content" {
+		t.Fatalf("target = %q, want the renamed content", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".tmp-deck")); !os.IsNotExist(err) {
+		t.Error("temp file still present after rename")
+	}
+}
+
+// renameSync is a write: a read-only env must not expose it, and it must not be
+// usable to move a file out of the mounted roots.
+func TestRenameSyncIsGated(t *testing.T) {
+	dir := t.TempDir()
+	outside := t.TempDir()
+
+	t.Run("read-only env", func(t *testing.T) {
+		res, err := testRun(t, `"renameSync" in fs && "writeFileSync" in fs`, Env{
+			FS: FSConfig{Roots: map[string]string{"/data": dir}, ReadOnly: true},
+		})
+		if err != nil {
+			t.Fatalf("run: %v", err)
+		}
+		if res.Value == true {
+			t.Error("a read-only env must not expose any write binding")
+		}
+	})
+
+	t.Run("cannot escape the roots", func(t *testing.T) {
+		_, err := testRun(t, `
+			fs.writeFileSync("/data/x", "y");
+			fs.renameSync("/data/x", "/data/../../escape");
+			"done";
+		`, Env{FS: FSConfig{Roots: map[string]string{"/data": dir}}})
+		if err == nil {
+			t.Fatal("renaming outside the roots must fail")
+		}
+		if _, statErr := os.Stat(filepath.Join(outside, "escape")); statErr == nil {
+			t.Error("a file escaped the mounted root")
+		}
+	})
+}
+
 func TestConsoleCapture(t *testing.T) {
 	res, err := testRun(t, `
 		console.log("out", 1, { a: 2 });

@@ -105,6 +105,27 @@ func TestResolveRejectsBadCSP(t *testing.T) {
 	}
 }
 
+// A document extension needs allow-modals (window.print() is how it exports a
+// PDF); the Bento example is why that token is on the allow-list.
+func TestBentoExampleSandbox(t *testing.T) {
+	ext, err := Resolve(filepath.Join("..", "..", "examples", "extension"), "bento")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ext.Sandbox, []string{"allow-downloads", "allow-modals"}) {
+		t.Errorf("bento sandbox = %#v", ext.Sandbox)
+	}
+	if got := ext.StaticKind(); got != StaticDir {
+		t.Errorf("bento StaticKind = %v, want a directory (one shell, no archive)", got)
+	}
+	if !ext.FS {
+		t.Error("bento needs suwu.fs to read and save decks")
+	}
+	if !reflect.DeepEqual(ext.FileExtensions, []string{".bento.html"}) {
+		t.Errorf("bento fileExtensions = %#v", ext.FileExtensions)
+	}
+}
+
 func TestExampleCapabilitiesResolve(t *testing.T) {
 	dir := filepath.Join("..", "..", "examples", "extension")
 

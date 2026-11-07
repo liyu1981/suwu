@@ -1,0 +1,10 @@
+{
+  "_comment": "Pinned upstream shell. vendor.mjs refuses to write dist/shell.html unless the downloaded bytes match this sha256, so a silent upstream change cannot slip into a release.",
+  "upstream": "nyblnet/bento",
+  "app": "slides",
+  "version": "1.2.12",
+  "url": "https://bento.page/releases/slides/Bento_Slides.bento.html",
+  "release": "https://github.com/nyblnet/bento/releases",
+  "bytes": 721347,
+  "sha256": "8b05c9107d1b6f0544c56a1a2072b5ee52af006b59accde1630689e791688802"
+}

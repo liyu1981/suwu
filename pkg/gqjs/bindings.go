@@ -270,6 +270,26 @@ func buildFS(c *qjs.Context, env Env) *qjs.Value {
 			return this.Context().NewUndefined(), os.Remove(real)
 		}))
 
+		// renameSync is what makes a write atomic: an extension that rewrites a
+		// document writes a temp file in the same directory and renames it over
+		// the target, so a crash or a full disk can never leave a half-written
+		// file (a Bento deck, for instance, IS its own application).
+		fs.SetPropertyStr("renameSync", c.Function(func(this *qjs.This) (*qjs.Value, error) {
+			args := this.Args()
+			if len(args) < 2 {
+				return nil, fmt.Errorf("renameSync: missing arguments")
+			}
+			from, err := env.resolveVirtualPath(args[0].String())
+			if err != nil {
+				return nil, err
+			}
+			to, err := env.resolveVirtualPath(args[1].String())
+			if err != nil {
+				return nil, err
+			}
+			return this.Context().NewUndefined(), os.Rename(from, to)
+		}))
+
 		fs.SetPropertyStr("mkdirSync", c.Function(func(this *qjs.This) (*qjs.Value, error) {
 			args := this.Args()
 			if len(args) == 0 {

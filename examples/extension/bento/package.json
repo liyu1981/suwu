@@ -1,0 +1,36 @@
+{
+  "name": "suwu-bento",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suwu extension tile: Bento Slides decks (.bento.html)",
+  "license": "MIT",
+  "suwu": {
+    "name": "Bento Slides",
+    "description": "The office suite that fits in a file — opens and saves .bento.html decks",
+    "version": "1.0.0",
+    "static": "dist",
+    "fs": true,
+    "api": [
+      {
+        "route": "/save",
+        "handler": "save.js"
+      }
+    ],
+    "fileExtensions": [
+      ".bento.html"
+    ],
+    "sandbox": [
+      "allow-downloads",
+      "allow-modals"
+    ],
+    "csp": {
+      "img-src": [
+        "blob:"
+      ],
+      "media-src": [
+        "blob:",
+        "data:"
+      ]
+    }
+  }
+}

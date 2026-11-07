@@ -577,7 +577,8 @@
     "loading": "Loading…",
     "refresh": "Refresh",
     "loadingPreview": "Loading preview…",
-    "currentFiles": "Current files in {{path}}"
+    "currentFiles": "Current files in {{path}}",
+    "openImage": "Open image preview"
   },
   "auth": {
     "enterPassword": "Enter password",
@@ -835,5 +836,15 @@
     "noServe": "No static serve selected",
     "reload": "Reload",
     "addressPlaceholder": "URL under /staticserve/<id>/"
+  },
+  "lightbox": {
+    "viewing": "Viewing {{name}}",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit",
+    "reset": "Fit to window",
+    "close": "Close preview",
+    "hint": "Scroll or double-click to zoom · drag to pan",
+    "failed": "This image could not be loaded"
   }
 }

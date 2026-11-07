@@ -18,6 +18,7 @@ import {
 import { fetchToken } from '../lib/api';
 import { dropboxZoomAtom } from '../store/zoom';
 import { DENSE_TILE_BG } from '../store/appearance';
+import { ImageLightbox } from '../components/dropbox/ImageLightbox';
 import type { DropboxSessionState } from '../wm/sessionState';
 
 interface DropboxEntry {
@@ -58,7 +59,13 @@ function getFileExt(name: string): string {
 
 // ── Thumbnail preview component ──
 
-function FileThumbnail({ entry }: { entry: DropboxEntry }) {
+function FileThumbnail({
+  entry,
+  onOpenImage,
+}: {
+  entry: DropboxEntry;
+  onOpenImage: (entry: DropboxEntry) => void;
+}) {
   const { t } = useTranslation();
   const category = getFileCategory(entry.name);
   const [textPreview, setTextPreview] = useState<string | null>(null);
@@ -142,12 +149,20 @@ function FileThumbnail({ entry }: { entry: DropboxEntry }) {
     return (
       <div className="mt-2 flex justify-center">
         {imgUrl ? (
-          <img
-            src={imgUrl}
-            alt={entry.name}
-            className="max-h-40 max-w-full rounded object-contain"
-            onError={() => setImgError(true)}
-          />
+          <button
+            type="button"
+            onClick={() => onOpenImage(entry)}
+            title={t('dropbox.openImage')}
+            aria-label={t('dropbox.openImage')}
+            className="cursor-zoom-in rounded transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400/60"
+          >
+            <img
+              src={imgUrl}
+              alt={entry.name}
+              className="max-h-40 max-w-full rounded object-contain"
+              onError={() => setImgError(true)}
+            />
+          </button>
         ) : (
           <div className="flex h-24 items-center justify-center text-[11px] text-white/30">
             {t('dropbox.loadingPreview')}
@@ -220,6 +235,8 @@ export default function DropboxPage() {
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [cleanupTarget, setCleanupTarget] = useState('');
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  // The image currently shown in the lightbox, if any.
+  const [lightboxImage, setLightboxImage] = useState<{ path: string; name: string } | null>(null);
   const [revealPath, setRevealPath] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -595,7 +612,10 @@ export default function DropboxPage() {
                         {/* Expanded thumbnail preview */}
                         {isExpanded && (
                           <div className="px-2 pb-2">
-                            <FileThumbnail entry={entry} />
+                            <FileThumbnail
+                              entry={entry}
+                              onOpenImage={(e) => setLightboxImage({ path: e.path, name: e.name })}
+                            />
                           </div>
                         )}
                       </div>
@@ -631,6 +651,15 @@ export default function DropboxPage() {
           </div>
         </div>
       </div>
+
+      {/* Image lightbox: zoom + drag, closes on Escape or a backdrop click */}
+      {lightboxImage && (
+        <ImageLightbox
+          path={lightboxImage.path}
+          name={lightboxImage.name}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
     </CommonTileContainer>
   );
 }

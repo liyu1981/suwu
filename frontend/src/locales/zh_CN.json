@@ -575,7 +575,8 @@
     "loading": "加载中…",
     "refresh": "刷新",
     "loadingPreview": "加载预览…",
-    "currentFiles": "{{path}} 中的当前文件"
+    "currentFiles": "{{path}} 中的当前文件",
+    "openImage": "打开图片预览"
   },
   "auth": {
     "enterPassword": "输入密码",
@@ -832,5 +833,15 @@
     "noServe": "未选择静态服务",
     "reload": "重新加载",
     "addressPlaceholder": "/staticserve/<id>/ 下的 URL"
+  },
+  "lightbox": {
+    "viewing": "正在查看 {{name}}",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fit": "适应",
+    "reset": "适应窗口",
+    "close": "关闭预览",
+    "hint": "滚轮或双击缩放 · 拖动平移",
+    "failed": "无法加载这张图片"
   }
 }

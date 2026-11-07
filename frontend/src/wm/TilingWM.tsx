@@ -22,7 +22,7 @@ import {
   focusAtom,
   FOCUS_SPACE_NAME,
 } from './atoms';
-import { fontDefaultAtom } from '../store/fonts';
+import { clampFont, fontDefaultAtom, shouldPersistFontDefault } from '../store/fonts';
 import { clamp } from '../lib/utils';
 import {
   closeAt,
@@ -964,6 +964,15 @@ export default function TilingWM() {
         spacesAtom,
         spaces.map((s, i) => (i === idx ? setPaneData(s, id, 'fontSize', fontSize) : s)),
       );
+      // The toolbar's +/- buttons are how a user picks their terminal size, so
+      // remember the choice: the tile keeps its own size in paneData (persisted
+      // with the space), and this makes it the default for the NEXT terminal too.
+      // Without it, a new terminal came back at the settings preset.
+      const leaf = findLeaf(space.layout, id);
+      const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
+      if (shouldPersistFontDefault(tileType)) {
+        store.set(fontDefaultAtom, clampFont(fontSize));
+      }
     },
     [store],
   );

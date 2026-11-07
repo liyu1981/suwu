@@ -22,7 +22,22 @@ export const LINE_HEIGHT_DEFAULT = 1.2;
 export const fontDefaultAtom = atomWithStorage<number>('suwu.term-font-default', FONT_DEFAULT);
 
 export function clampFont(n: number): number {
+  // A corrupt stored value must not become NaN and poison the pane: fall back to
+  // the built-in default instead of propagating it.
+  if (!Number.isFinite(n)) return FONT_DEFAULT;
   return Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(n)));
+}
+
+/**
+ * Do the toolbar font buttons on this tile also update the persisted default?
+ *
+ * The +/- buttons are how a user actually picks their terminal size, so the last
+ * one becomes the default for new terminals — otherwise every new terminal
+ * reverted to whatever the settings preset was, which is the bug this fixes.
+ * Only the terminal has those buttons, so only the terminal syncs.
+ */
+export function shouldPersistFontDefault(tileType: string | undefined): boolean {
+  return tileType === 'term';
 }
 
 /**

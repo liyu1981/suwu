@@ -74,3 +74,24 @@ export function MoveToSpaceIcon() {
     </svg>
   );
 }
+
+/** Hide the tile toolbar: an eye with a slash — "not now, please". */
+export function HideToolsIcon() {
+  return (
+    <svg
+      className="h-3 w-3"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.6A9.9 9.9 0 0112 5.5c5 0 9 6.5 9 6.5a15 15 0 01-3 3.6" />
+      <path d="M6.2 7.4A15.6 15.6 0 003 12s4 6.5 9 6.5a9.3 9.3 0 003.4-.7" />
+      <path d="M9.9 9.9a3 3 0 004.2 4.2" />
+    </svg>
+  );
+}

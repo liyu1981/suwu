@@ -229,7 +229,7 @@
     "restoreDefault": "Restore default",
     "save": "Save",
     "toolbarSuspension": "Tile toolbar",
-    "toolbarSuspensionHint": "Double-tap Shift while the tile toolbar is showing to hide it for this many seconds, so controls underneath stay clickable. 0 disables the shortcut.",
+    "toolbarSuspensionHint": "Extension tiles show a hide button next to close: it hides the tile toolbar for this many seconds so controls underneath it can be used. 0 removes the button.",
     "toolbarSuspensionSeconds": "seconds"
   },
   "shortcuts": {
@@ -446,7 +446,9 @@
     "searchApps": "Search apps",
     "noAppsFound": "No matching apps",
     "pageBack": "Back",
-    "pageNext": "Next"
+    "pageNext": "Next",
+    "hideTools": "Hide tile toolbar",
+    "hideToolsHint": "Hide the toolbar for {{seconds}}s"
   },
   "appMenu": {
     "description": "Choose which apps appear in the New App picker and their display order.",

@@ -228,7 +228,7 @@
     "restoreDefault": "恢复默认",
     "save": "保存",
     "toolbarSuspension": "磁贴工具栏",
-    "toolbarSuspensionHint": "磁贴工具栏显示时双击 Shift，可让它在指定秒数内隐藏，便于操作其下方的控件。0 表示关闭该快捷键。",
+    "toolbarSuspensionHint": "扩展磁贴会在关闭按钮左侧显示一个隐藏按钮：点击后磁贴工具栏会隐藏指定秒数，便于操作其下方的控件。0 表示不显示该按钮。",
     "toolbarSuspensionSeconds": "秒"
   },
   "shortcuts": {
@@ -444,7 +444,9 @@
     "searchApps": "搜索应用",
     "noAppsFound": "没有匹配的应用",
     "pageBack": "上一页",
-    "pageNext": "下一页"
+    "pageNext": "下一页",
+    "hideTools": "隐藏磁贴工具栏",
+    "hideToolsHint": "隐藏工具栏 {{seconds}} 秒"
   },
   "appMenu": {
     "description": "选择哪些应用出现在新建应用选择器中及其显示顺序。",

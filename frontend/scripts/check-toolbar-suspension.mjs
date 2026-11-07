@@ -1,34 +1,42 @@
 #!/usr/bin/env node
 /**
- * Tile-toolbar suspension check; run with Node 22+ type stripping.
+ * Tile-toolbar hiding check; run with Node 22+ type stripping.
  *
  * The hover toolbar covers each tile's top-right corner, which is also where an
- * extension may put controls. Double-tapping Shift while a corner is hovered
- * hides the toolbar for a configurable number of seconds. This pins the pure
- * parts of that contract: the double-tap window, the seconds→ms setting, and the
- * class lists that must change together.
+ * extension may put controls. An extension tile therefore shows a hide button
+ * next to its close button; clicking it hides the toolbar for a configurable
+ * number of seconds. This pins the pure contract: how long that is, whether a
+ * suspension is still running, which tiles offer the button, and the class lists
+ * that must change together.
  */
 import assert from 'node:assert/strict'
 import {
-  DOUBLE_TAP_MS,
   cornerClasses,
-  isDoubleShift,
+  isSuspended,
+  showsHideControl,
   suspensionMs,
 } from '../src/wm/toolbarSuspension.ts'
 
-// ── the gesture ───────────────────────────────────────────────────────────
-assert.equal(isDoubleShift(0, 1000), false, 'the first press never counts as a double-tap')
-assert.equal(isDoubleShift(1000, 1100), true, 'a quick second press is a double-tap')
-assert.equal(isDoubleShift(1000, 1000 + DOUBLE_TAP_MS), true, 'the window is inclusive')
-assert.equal(isDoubleShift(1000, 1001 + DOUBLE_TAP_MS), false, 'a slow press is a new gesture')
-assert.equal(isDoubleShift(1000, 900), false, 'a non-monotonic clock must not trigger')
-
 // ── the setting ───────────────────────────────────────────────────────────
 assert.equal(suspensionMs(5), 5000, 'the default is five seconds')
-assert.equal(suspensionMs(0), 0, '0 disables the gesture')
+assert.equal(suspensionMs(30), 30000, 'the slider ceiling is honoured')
+assert.equal(suspensionMs(1.5), 1500, 'fractional seconds are honoured')
+assert.equal(suspensionMs(0), 0, '0 disables the button')
 assert.equal(suspensionMs(-3), 0, 'a negative value cannot shorten the window')
 assert.equal(suspensionMs(Number.NaN), 0, 'a corrupt stored value disables it')
-assert.equal(suspensionMs(1.5), 1500, 'fractional seconds are honoured')
+
+// ── the suspension itself ─────────────────────────────────────────────────
+const until = 10_000
+assert.equal(isSuspended(until, 9_999), true, 'still hidden just before the deadline')
+assert.equal(isSuspended(until, 10_000), false, 'expires exactly on the deadline')
+assert.equal(isSuspended(until, 10_001), false, 'stays expired afterwards')
+assert.equal(isSuspended(0, 1), false, 'no suspension recorded means not hidden')
+
+// ── which tiles get the button ────────────────────────────────────────────
+assert.equal(showsHideControl('extension'), true, 'extension tiles own their corner')
+assert.equal(showsHideControl('term'), false, 'built-in tiles keep their chrome untouched')
+assert.equal(showsHideControl('code'), false, 'only extensions opt in')
+assert.equal(showsHideControl(undefined), false, 'an empty pane has no toolbar to hide')
 
 // ── the classes ───────────────────────────────────────────────────────────
 const normal = cornerClasses(false)
@@ -36,8 +44,8 @@ assert.equal(normal.zone, '', 'the zone must keep receiving pointer events to re
 assert.match(normal.toolbar, /group-hover\/corner:pointer-events-auto/, 'normal mode reveals on hover')
 assert.match(normal.toolbar, /group-hover\/corner:opacity-100/, 'normal mode fades the toolbar in')
 
-const suspended = cornerClasses(true)
-assert.equal(suspended.zone, 'pointer-events-none', 'a suspended toolbar hands the corner to the tile')
-assert.equal(suspended.toolbar, '', 'suspension must not reintroduce any hover reveal')
+const hidden = cornerClasses(true)
+assert.equal(hidden.zone, 'pointer-events-none', 'a hidden toolbar hands the corner to the extension')
+assert.equal(hidden.toolbar, '', 'hiding must not reintroduce any hover reveal')
 
 console.log('toolbar-suspension: all assertions passed')

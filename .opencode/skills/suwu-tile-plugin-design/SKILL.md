@@ -373,10 +373,13 @@ page** (whose entire surface is a tile): the toolbar covers it or steals its
 attention. Keep the top-right corner empty — cluster actions to the left or
 inline, and place secondary content below the zone.
 
-The toolbar is not permanently in the way: **double-tap Shift while it is
-showing** and it hides for a few seconds (App settings → Header → *Tile
-toolbar*, 0 disables the gesture), staying away even if the pointer returns.
-That is an escape hatch for a user, not a licence — a control that needs the
+The toolbar is not permanently in the way: an **extension tile** carries a hide
+button next to its close button, which hides the toolbar for a few seconds (App
+settings → Header → *Tile toolbar*; 0 removes the button). While hidden the
+corner takes no pointer events, so whatever the extension placed there is
+clickable, and it stays hidden even if the pointer returns. Built-in tiles do not
+get the button — their chrome is the only thing that ever lives under the corner.
+That is an escape hatch for a user, not a licence: a control that needs the
 corner still breaks the design; it just is no longer unreachable.
 
 **Typography — the type scale.** Suwu uses a fixed seven-step scale. This table

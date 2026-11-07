@@ -1,10 +1,17 @@
-import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { useSetAtom } from 'jotai';
+import { useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cornerClasses } from './toolbarSuspension';
-import { toolbarHoveredAtom, useToolbarSuspended } from './toolbarSuspensionState';
+import { cornerClasses, showsHideControl } from './toolbarSuspension';
+import { useToolbarSuspension } from './toolbarSuspensionState';
 import type { TilePlugin } from './tilePlugins';
-import { CloseIcon, ExitFocusIcon, FocusIcon, GripIcon, MoveToSpaceIcon, SwapIcon } from './icons';
+import {
+  CloseIcon,
+  ExitFocusIcon,
+  FocusIcon,
+  GripIcon,
+  HideToolsIcon,
+  MoveToSpaceIcon,
+  SwapIcon,
+} from './icons';
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 
 const toolBtn =
@@ -61,12 +68,10 @@ export function TileTools({
 }: TileToolsProps) {
   const { t } = useTranslation();
   const [showSpaceDialog, setShowSpaceDialog] = useState(false);
-  // A double-tap of Shift (while this corner is hovered) suspends the toolbar
-  // for a few seconds, so the tile's own controls under it are reachable.
-  const suspended = useToolbarSuspended();
-  const setCornerHovered = useSetAtom(toolbarHoveredAtom);
-  // A tile closing while its corner is hovered would leave the shared flag stuck.
-  useEffect(() => () => setCornerHovered(false), [setCornerHovered]);
+  // Extension tiles get an explicit "hide the toolbar" button: the corner is
+  // theirs, and no modifier gesture asked them to give it up.
+  const { suspended, durationMs, hide } = useToolbarSuspension(paneId);
+  const showHideControl = showsHideControl(plugin?.id) && durationMs > 0;
   const pluginToolbar = plugin?.renderToolbar?.({
     paneId,
     fontSize,
@@ -82,11 +87,6 @@ export function TileTools({
   return (
     <div
       className={`group/corner absolute right-0 top-0 z-10 h-12 w-56 ${cornerClasses(suspended).zone}`}
-      onMouseEnter={() => setCornerHovered(true)}
-      onMouseLeave={() => {
-        setCornerHovered(false);
-        // Leaving also ends a hover-driven reveal; suspension is time-based.
-      }}
     >
       <div
         className={`pointer-events-none absolute right-1.5 top-1.5 flex gap-0.5 rounded-[6px] menu-glass p-0.5 opacity-0 transition-opacity duration-150 motion-reduce:transition-none ${cornerClasses(suspended).toolbar}`}
@@ -139,6 +139,21 @@ export function TileTools({
               className={toolBtn}
             >
               <MoveToSpaceIcon />
+            </button>
+          </>
+        )}
+        {/* Extension tiles: hide the toolbar so its own controls are reachable */}
+        {showHideControl && (
+          <>
+            <div className="mx-0.5 my-0.5 w-px self-stretch bg-white/10" />
+            <button
+              type="button"
+              onClick={hide}
+              aria-label={t('wm.hideTools')}
+              title={t('wm.hideToolsHint', { seconds: Math.round(durationMs / 1000) })}
+              className={toolBtn}
+            >
+              <HideToolsIcon />
             </button>
           </>
         )}

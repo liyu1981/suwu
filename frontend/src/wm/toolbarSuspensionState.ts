@@ -1,66 +1,60 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { toolbarSuspensionSecondsAtom } from '../store/settings';
-import { isDoubleShift, suspensionMs } from './toolbarSuspension';
+import { isSuspended, suspensionMs } from './toolbarSuspension';
 
 /**
- * State and wiring for suspending the per-tile hover toolbar. The pure contract
- * lives in ./toolbarSuspension.ts so it can be checked without a DOM.
- */
-
-/** Is the pointer currently inside some tile's tool corner? */
-export const toolbarHoveredAtom = atom(false);
-
-/** Timestamp (ms) until which the toolbar stays hidden; 0 = not suspended. */
-export const toolbarSuspendedUntilAtom = atom(0);
-
-/**
- * Installs the double-tap-Shift gesture. Mount once (TilingWM), not per tile.
+ * Per-pane toolbar hiding. The hide button lives on one tile, so the state does
+ * too: clicking it on the Excalidraw tile must not disable the toolbar of the
+ * terminal next to it.
  *
- * The gesture only arms while a tool corner is hovered — otherwise a fast
- * Shift-Shift while typing would hide a toolbar the user was not reaching for.
+ * The pure contract lives in ./toolbarSuspension.ts.
  */
-export function useToolbarSuspensionGesture(): void {
-  const seconds = useAtomValue(toolbarSuspensionSecondsAtom);
-  const hovered = useAtomValue(toolbarHoveredAtom);
-  const setUntil = useSetAtom(toolbarSuspendedUntilAtom);
-  const lastPress = useRef(0);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Shift' || e.repeat) return;
-      const now = performance.now();
-      const double = isDoubleShift(lastPress.current, now);
-      lastPress.current = now;
-      if (!double) return;
-      // Reset so a third press does not re-trigger immediately.
-      lastPress.current = 0;
-      const ms = suspensionMs(seconds);
-      if (ms === 0) return;
-      // Only when the toolbar is actually showing over the tile's corner.
-      if (!hovered) return;
-      setUntil(Date.now() + ms);
-    };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [hovered, seconds, setUntil]);
-}
+/** paneId → timestamp (ms) until which that pane's toolbar stays hidden. */
+export const suspendedPanesAtom = atom<Record<string, number>>({});
 
 /**
- * True while the toolbar is suspended. Schedules the expiry so every tile
- * re-renders the moment the suspension ends, instead of waiting for a mouse move.
+ * Suspension state for one pane, plus the action the hide button calls.
+ *
+ * Expiry is scheduled, so the toolbar returns the moment the time is up instead
+ * of waiting for the next mouse move. A zero-length suspension (setting = 0) is
+ * a no-op, which is how the rollback/disable case behaves without a second flag.
  */
-export function useToolbarSuspended(): boolean {
-  const until = useAtomValue(toolbarSuspendedUntilAtom);
-  const setUntil = useSetAtom(toolbarSuspendedUntilAtom);
-  const remaining = until - Date.now();
-  const suspended = remaining > 0;
+export function useToolbarSuspension(paneId: string): {
+  suspended: boolean;
+  /** Milliseconds the button hides for; 0 means the feature is off. */
+  durationMs: number;
+  hide: () => void;
+} {
+  const seconds = useAtomValue(toolbarSuspensionSecondsAtom);
+  const durationMs = suspensionMs(seconds);
+  const panes = useAtomValue(suspendedPanesAtom);
+  const setPanes = useSetAtom(suspendedPanesAtom);
+
+  const until = panes[paneId] ?? 0;
+  const suspended = isSuspended(until, Date.now());
+
+  const hide = useCallback(() => {
+    if (durationMs === 0) return;
+    setPanes((prev) => ({ ...prev, [paneId]: Date.now() + durationMs }));
+  }, [durationMs, paneId, setPanes]);
 
   useEffect(() => {
     if (!suspended) return;
-    const timer = window.setTimeout(() => setUntil(0), remaining);
+    const timer = window.setTimeout(
+      () => {
+        setPanes((prev) => {
+          if (!(paneId in prev)) return prev;
+          const next = { ...prev };
+          delete next[paneId];
+          return next;
+        });
+      },
+      Math.max(0, until - Date.now()),
+    );
     return () => window.clearTimeout(timer);
-  }, [suspended, remaining, setUntil]);
+  }, [paneId, suspended, until, setPanes]);
 
-  return suspended;
+  return { suspended, durationMs, hide };
 }

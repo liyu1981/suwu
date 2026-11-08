@@ -1,11 +1,12 @@
 // Package session manages keyed, long-lived PTY sessions with server-side
-// terminal state kept by the libghostty-vt emulator (Ghostty's VT engine,
-// compiled to WASM and run in-process via wazero).
+// terminal state kept by the libghostty-vt emulator (Ghostty's VT engine 1.0,
+// compiled to WASM and run in-process via wazero — see pkg/vt).
 //
 // A session outlives its WebSocket client: a browser refresh or transient
 // disconnect can reattach to the same shell with the same key and receive a
-// fresh screen snapshot. The browser terminal is disposable; the PTY and VT
-// state owned by this package are authoritative.
+// fresh snapshot of the screen and its retained scrollback. The browser
+// terminal is disposable; the PTY and VT state owned by this package are
+// authoritative.
 package session
 
 import (
@@ -19,9 +20,8 @@ import (
 	"syscall"
 	"time"
 
-	libghostty "github.com/shintaoku/libghostty-go"
-
 	"suwu/pkg/pty"
+	"suwu/pkg/vt"
 )
 
 const (
@@ -34,8 +34,9 @@ const (
 	// this far behind is dropped and left to reattach.
 	subBuffer = 256
 
+	// vtScrollback is the history depth the server keeps per session; the
+	// browser gets it back in the reattach snapshot (xterm.js holds 5000).
 	vtScrollback = 1000
-	wasmTimeout  = 5 * time.Second
 
 	// statePollInterval controls how often we poll /proc for session state.
 	statePollInterval = 2 * time.Second
@@ -55,17 +56,42 @@ type SessionState struct {
 // continue writing into the PTY.
 type Manager struct {
 	mu       sync.Mutex
-	rt       *libghostty.Runtime
+	rt       *vt.Runtime
 	sessions map[string]*session
 	ttl      time.Duration
 	nextID   uint64
 }
 
-func NewManager() (*Manager, error) {
-	rt, err := libghostty.NewRuntime(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("session: libghostty runtime: %w", err)
+// Option configures a Manager.
+type Option func(*managerOptions)
+
+type managerOptions struct {
+	wasmCacheDir string
+}
+
+// WithWasmCacheDir keeps the compiled terminal engine in dir. Compiling the
+// embedded module costs ~0.6 s, so a persisted wazero compilation cache makes
+// restarts and upgrades fast. The directory is wazero-version specific and
+// must only be written by suwu.
+func WithWasmCacheDir(dir string) Option {
+	return func(o *managerOptions) { o.wasmCacheDir = dir }
+}
+
+func NewManager(opts ...Option) (*Manager, error) {
+	var cfg managerOptions
+	for _, opt := range opts {
+		opt(&cfg)
 	}
+	var vtOpts []vt.Option
+	if cfg.wasmCacheDir != "" {
+		vtOpts = append(vtOpts, vt.WithCacheDir(cfg.wasmCacheDir))
+	}
+	rt, err := vt.NewRuntime(context.Background(), vtOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("session: libghostty-vt runtime: %w", err)
+	}
+	slog.Debug("session: terminal engine ready",
+		"libghostty-vt", rt.Info().LibraryVersion, "wasmCache", cfg.wasmCacheDir)
 	return &Manager{rt: rt, sessions: map[string]*session{}, ttl: DefaultTTL}, nil
 }
 
@@ -247,9 +273,7 @@ func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []
 		m.revokeLocked(s)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), wasmTimeout)
-	defer cancel()
-	dump, err := s.vt.DumpScreen(ctx, libghostty.DumpVTFull)
+	dump, err := s.vt.DumpVT(vt.ExtrasRestore)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("session: dump screen state: %w", err)
 	}
@@ -259,7 +283,7 @@ func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []
 	s.client = c
 	var snapshot []byte
 	if !created {
-		snapshot = dump.VT
+		snapshot = dump
 	}
 	return c, snapshot, created, nil
 }
@@ -270,15 +294,13 @@ func (m *Manager) start(key string, cols, rows uint16, cwd string) (*session, er
 	if err != nil {
 		return nil, fmt.Errorf("session: start shell: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), wasmTimeout)
-	vt, err := m.rt.NewTerminal(ctx, uint32(cols), uint32(rows), vtScrollback)
-	cancel()
+	term, err := m.rt.NewTerminal(cols, rows, vtScrollback)
 	if err != nil {
 		_ = ps.Kill()
 		return nil, fmt.Errorf("session: create emulator: %w", err)
 	}
 
-	s := &session{key: key, pty: ps, vt: vt, cols: cols, rows: rows, done: make(chan struct{}), pollerDone: make(chan struct{})}
+	s := &session{key: key, pty: ps, vt: term, cols: cols, rows: rows, done: make(chan struct{}), pollerDone: make(chan struct{})}
 	m.sessions[key] = s
 	go m.readLoop(s)
 	go m.statePoller(s)
@@ -307,9 +329,9 @@ func (m *Manager) broadcast(s *session, data []byte) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), wasmTimeout)
-	defer cancel()
-	_ = s.vt.Feed(ctx, data)
+	// vt_write cannot fail: malformed PTY output is logged inside the
+	// library and never corrupts the screen.
+	_ = s.vt.Write(data)
 
 	c := s.client
 	if c == nil || !c.active {
@@ -430,9 +452,7 @@ func (m *Manager) resizeLocked(s *session, cols, rows uint16) {
 		return
 	}
 	_ = s.pty.Resize(cols, rows)
-	ctx, cancel := context.WithTimeout(context.Background(), wasmTimeout)
-	defer cancel()
-	_ = s.vt.Resize(ctx, uint32(cols), uint32(rows))
+	_ = s.vt.Resize(cols, rows)
 	s.cols, s.rows = cols, rows
 }
 
@@ -441,7 +461,7 @@ func (m *Manager) resizeLocked(s *session, cols, rows uint16) {
 type session struct {
 	key    string
 	pty    *pty.Session
-	vt     *libghostty.Terminal
+	vt     *vt.Terminal
 	vtOnce sync.Once
 
 	cols, rows uint16
@@ -459,9 +479,7 @@ type session struct {
 
 func (s *session) releaseVT() {
 	s.vtOnce.Do(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), wasmTimeout)
-		defer cancel()
-		_ = s.vt.Close(ctx)
+		_ = s.vt.Close()
 	})
 }
 

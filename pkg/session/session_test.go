@@ -1,6 +1,8 @@
 package session
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -220,5 +222,25 @@ func TestRefreshRepaintsForegroundApp(t *testing.T) {
 	client.Refresh()
 	if !readUntil(t, client.Frames(), "REFRESH-MARK-42", 8*time.Second) {
 		t.Fatal("SIGWINCH repaint marker not received")
+	}
+}
+
+// TestWasmCacheDirIsUsed covers the wiring the server relies on: the compiled
+// terminal engine must land in the persisted cache so a restart does not pay
+// the ~0.6 s wasm compile again.
+func TestWasmCacheDirIsUsed(t *testing.T) {
+	cacheDir := filepath.Join(t.TempDir(), "wasm-cache")
+	mgr, err := NewManager(WithWasmCacheDir(cacheDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Close()
+
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		t.Fatalf("cache dir not created: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("compiled module was not cached")
 	}
 }

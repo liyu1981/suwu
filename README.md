@@ -260,6 +260,7 @@ pkg/
   envfile/           minimal .env loader (first occurrence of a key wins)
   pty/               shell PTY sessions (creack/pty)
   session/           keyed PTY sessions with libghostty-vt screen state
+  vt/                libghostty-vt 1.0 binding (embedded official WASM, wazero)
   server/            HTTP + WebSocket endpoints
   assets/web/        built frontend (vite output, embedded into the binary)
 frontend/            Vite + React + TypeScript + Tailwind v4
@@ -279,9 +280,10 @@ frontend/            Vite + React + TypeScript + Tailwind v4
   bind to loopback unless you understand the exposure.
 - **Session reattach**: each pane connects with a stable `session` key (the
   tiling pane id, persisted across reloads). The server keeps the shell and a
-  libghostty-vt screen model alive for a TTL (10 min) after the last client
-  detaches; reconnecting replays `DumpVTFull` before live output. Scrollback
-  is intentionally not restored — only the visible screen.
+  libghostty-vt 1.0 screen model alive for a TTL (24 h by default,
+  `SESSION_TTL`) after the last client detaches; reconnecting replays a VT dump
+  of the screen *and its retained scrollback* before live output, so a refresh
+  brings the pane back with its history.
 - **Tiling**: the layout is a tree of leaves (terminals) and split nodes with
   flex weights, persisted in `localStorage`. Panes render as same-origin
   iframes loading `/term?pane=<id>`, positioned absolutely from pixel rects

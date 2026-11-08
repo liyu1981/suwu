@@ -22,7 +22,7 @@ new `cmd/Suwu/launchd.go`, `cmd/Suwu/serve_suwu.sh`, `serve-dev.sh`,
 Suwu is a Linux-first server, but nothing in it is actually Linux-specific at
 the language level: it already cross-compiles (`GOOS=darwin GOARCH=arm64
 CGO_ENABLED=0 go build ./...` exits 0), and its dependencies — `creack/pty`,
-`xgb`, `modernc.org/sqlite`, the wazero-backed `libghostty-go` and `qjs` — are
+`xgb`, `modernc.org/sqlite`, the wazero-backed `libghostty-vt` (`pkg/vt`) and `qjs` — are
 pure Go. The gaps are:
 
 - there is no `darwin` release artifact and no install path for one;

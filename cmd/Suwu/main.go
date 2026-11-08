@@ -614,11 +614,23 @@ func run() error {
 		return err
 	}
 
+	// Data directory (default ~/.suwu, override with SUWU_VAR).
+	dataDir := os.Getenv("SUWU_VAR")
+	if dataDir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			dataDir = filepath.Join(home, ".suwu")
+		}
+	}
+
 	// Keyed PTY sessions with server-side terminal state (libghostty-vt), so
-	// a browser refresh reattaches to the same shell with its screen intact.
-	// Closed explicitly on every exit path below (no defer): a wedged close
-	// must not depend on unwinding order.
-	sessions, err := session.NewManager()
+	// a browser refresh reattaches to the same shell with its screen and
+	// scrollback intact. Closed explicitly on every exit path below (no
+	// defer): a wedged close must not depend on unwinding order.
+	//
+	// The compiled terminal engine is cached under the data directory: the
+	// embedded wasm takes ~0.6 s to compile, and restarts are frequent during
+	// upgrades.
+	sessions, err := session.NewManager(session.WithWasmCacheDir(filepath.Join(dataDir, "wasm-cache")))
 	if err != nil {
 		return err
 	}
@@ -646,14 +658,6 @@ func run() error {
 	forwardManager := forward.NewManager()
 	registerForwardHandlers(notifyListener, forwardManager)
 	registerXDisplayHandlers(notifyListener)
-
-	// Data directory (default ~/.suwu, override with SUWU_VAR).
-	dataDir := os.Getenv("SUWU_VAR")
-	if dataDir == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			dataDir = filepath.Join(home, ".suwu")
-		}
-	}
 
 	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager, dataDir)
 	registerStaticServeHandlers(notifyListener, srv.StaticServe())

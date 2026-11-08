@@ -50,10 +50,11 @@ Layout: `runner/` (library), `cmd/gqjs/` (CLI), `examples/`, `plan/`.
 
 ### 3.1 Current wazero in Suwu
 
-**`github.com/tetratelabs/wazero v1.11.0`**, an indirect dependency:
+**`github.com/tetratelabs/wazero v1.11.0`**, a direct dependency since the
+libghostty-vt 1.0 upgrade:
 
 ```
-suwu/pkg/session → github.com/shintaoku/libghostty-go → github.com/tetratelabs/wazero v1.11.0
+suwu/pkg/session → suwu/pkg/vt (embedded ghostty-vt.wasm) → github.com/tetratelabs/wazero v1.11.0
 ```
 
 gqjs's own `go.mod` pins **wazero v1.9.0** (qjs v0.0.6's tested version). Go's
@@ -66,7 +67,7 @@ minimum-version selection takes the maximum, so adding qjs resolves to
 - The **entire gqjs `runner` test suite passes** with wazero forced to v1.11.0.
 
 So no downgrade and no `replace` is needed; the module graph already satisfies
-both `libghostty-go` and qjs.
+both `pkg/vt` and qjs.
 
 ### 3.3 Why wazero v1.12.0 breaks qjs
 

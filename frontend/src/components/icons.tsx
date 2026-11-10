@@ -408,3 +408,25 @@ export function SnippetIcon({ className = 'h-3 w-3' }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * Key combination mark: a keyboard outline, i.e. "send the key I cannot type
+ * here". Used by the terminal status bar trigger next to the snippets bolt.
+ */
+export function KeyCommandIcon({ className = 'h-3 w-3' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01" />
+      <path d="M9 14h6" />
+    </svg>
+  );
+}

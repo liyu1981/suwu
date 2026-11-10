@@ -76,6 +76,10 @@ export const REGISTRY: readonly Entry[] = [
   { category: 'settings', key: 'suwu.term-snippets' },
   { category: 'settings', key: 'suwu.term-record-inputs' },
   { category: 'settings', key: 'suwu.term-snippets-settings' },
+  // store/termKeyChords.ts — key combinations sent from the status bar. Not
+  // secret text (it is a shortcut the user wrote), unlike the recorded inputs
+  // denied at the bottom of this file, so it is worth carrying across devices.
+  { category: 'settings', key: 'suwu.term-key-chords' },
   // store/sftp.ts — saved SFTP connection targets (no passwords/keys stored).
   { category: 'settings', key: 'suwu:sftp-connections' },
 

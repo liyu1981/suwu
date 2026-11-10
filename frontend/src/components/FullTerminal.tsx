@@ -19,10 +19,11 @@ import { useTermCopy } from './hooks/useTermCopy';
 import { useBell } from './hooks/useBell';
 import { useInputRecorder } from './hooks/useInputRecorder';
 import { CommonTileContainer } from './CommonTileContainer';
+import { KeyChordMenu } from './term/KeyChordMenu';
 import { SnippetMenu } from './term/SnippetMenu';
 import { SnippetManagerDialog, type SnippetEditTarget } from './term/SnippetManagerDialog';
 import { SnippetSaveDialog } from './term/SnippetSaveDialog';
-import { CloseIcon, CopyIcon, RefreshIcon, SnippetIcon } from './icons';
+import { CloseIcon, CopyIcon, KeyCommandIcon, RefreshIcon, SnippetIcon } from './icons';
 import { Toast } from './Toast';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
@@ -121,6 +122,27 @@ export default function FullTerminal() {
   const setSnippets = useSetAtom(termSnippetsAtom);
   // Typing is blocked in selection mode, so there is nothing to record there.
   const { getCurrentLine, recordSent } = useInputRecorder(term, { paused: selectionMode });
+
+  // ── Send a key combination: the browser eats some of what a term needs ──
+  const [keysOpen, setKeysOpen] = useState(false);
+  const applicationCursorKeys = Boolean(term?.modes.applicationCursorKeysMode);
+
+  // term.input() is the right door: it goes through xterm's onData, so the
+  // bytes take the same path as typed keys and the line recorder sees them too
+  // (a chord either leaves the line alone or, for escape sequences, marks it
+  // untrustworthy — never a guess that could be saved and re-run).
+  const sendChord = useCallback(
+    (bytes: string) => {
+      if (!term) return false;
+      if (status !== 'connected') {
+        showToast(t('terminal.snippets.notReady'));
+        return false;
+      }
+      term.input(bytes);
+      return true;
+    },
+    [showToast, status, t, term],
+  );
 
   // The menu closes into one of three places: back to the terminal, or into one
   // of the two dialogs, which must own the focus — otherwise keystrokes would
@@ -278,6 +300,23 @@ export default function FullTerminal() {
           )}
           {/* Clickable char-count badge — only in selection mode */}
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            <KeyChordMenu
+              open={keysOpen}
+              onOpenChange={setKeysOpen}
+              applicationCursorKeys={applicationCursorKeys}
+              onSend={sendChord}
+              trigger={
+                <button
+                  type="button"
+                  className="rounded p-0.5 hover:bg-white/10"
+                  title={t('terminal.keys.button')}
+                  aria-label={t('terminal.keys.button')}
+                >
+                  <KeyCommandIcon className="h-3 w-3" />
+                </button>
+              }
+              onClosed={() => term?.focus()}
+            />
             <SnippetMenu
               open={snippetsOpen}
               onOpenChange={setSnippetsOpen}

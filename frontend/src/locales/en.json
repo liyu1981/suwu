@@ -328,6 +328,24 @@
       "savedToast": "Snippet saved",
       "deletedToast": "Snippet deleted",
       "historyClearedToast": "Recent inputs cleared"
+    },
+    "keys": {
+      "button": "Send a key",
+      "placeholder": "ctrl+shift+a · esc space",
+      "send": "Send",
+      "recent": "Recent",
+      "empty": "Nothing sent yet.",
+      "delete": "Remove from history",
+      "hint": "Type a combination, or click a key to insert it.",
+      "byteHint": "Bytes sent, per key:",
+      "insertModifier": "Insert {{key}} (prefixes the next key)",
+      "insertKey": "Insert {{key}}",
+      "captureHint": "A space starts a new key, so \"esc space b\" sends Esc, Space, b. Enter sends, Esc closes.",
+      "errorEmpty": "Type a combination first.",
+      "errorMissingKey": "Add a key after the modifiers.",
+      "errorUnknownKey": "Unknown key: {{key}}.",
+      "errorMeta": "Cmd/Meta combinations cannot be sent from a browser.",
+      "errorUnsupported": "This combination has no terminal encoding."
     }
   },
   "pty": {

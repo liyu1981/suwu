@@ -327,6 +327,24 @@
       "savedToast": "片段已保存",
       "deletedToast": "片段已删除",
       "historyClearedToast": "最近输入已清空"
+    },
+    "keys": {
+      "button": "发送按键",
+      "placeholder": "ctrl+shift+a · esc space",
+      "send": "发送",
+      "recent": "最近",
+      "empty": "尚未发送过按键。",
+      "delete": "从历史中移除",
+      "hint": "输入组合键，或点击按键插入。",
+      "byteHint": "实际发送的字节（按按键顺序）：",
+      "insertModifier": "插入 {{key}}（作为下一个按键的修饰键）",
+      "insertKey": "插入 {{key}}",
+      "captureHint": "空格开始一个新按键，例如 “esc space b” 会依次发送 Esc、空格、b。回车发送，Esc 关闭。",
+      "errorEmpty": "请先输入一个组合键。",
+      "errorMissingKey": "修饰键后面需要一个按键。",
+      "errorUnknownKey": "无法识别的按键：{{key}}。",
+      "errorMeta": "浏览器无法发送 Cmd/Meta 组合键。",
+      "errorUnsupported": "该组合键没有对应的终端编码。"
     }
   },
   "pty": {

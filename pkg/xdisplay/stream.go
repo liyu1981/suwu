@@ -119,6 +119,17 @@ func startReaper(display string) {
 // browser → X11 input events on a reader goroutine, X11 → browser JPEG
 // frames on a capture ticker. Frames identical to the previous one are
 // skipped so a static screen costs no bandwidth.
+// streamWriteTimeout bounds one frame or control write. The request context of
+// a hijacked connection is never cancelled when the peer goes away, so an
+// unbounded write can park this goroutine (and its sockets) forever.
+const streamWriteTimeout = 15 * time.Second
+
+func writeStream(ctx context.Context, conn *websocket.Conn, mt websocket.MessageType, data []byte) error {
+	wctx, cancel := context.WithTimeout(ctx, streamWriteTimeout)
+	defer cancel()
+	return conn.Write(wctx, mt, data)
+}
+
 func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams) {
 	if params.Display == "" {
 		params.Display = ":99"
@@ -140,7 +151,7 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 	if depErr := CheckDependencies(); depErr != nil {
 		slog.Warn("graphic: missing dependencies", "error", depErr)
 		data, _ := json.Marshal(depErr)
-		_ = conn.Write(ctx, websocket.MessageText, data)
+		_ = writeStream(ctx, conn, websocket.MessageText, data)
 		_ = conn.Close(websocket.StatusPolicyViolation, "missing dependencies")
 		return
 	}
@@ -152,7 +163,7 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 	if err := TryAcquireDisplay(params.Display, connectionID); err != nil {
 		slog.Warn("graphic: display in use", "display", params.Display, "error", err)
 		data, _ := json.Marshal(err)
-		_ = conn.Write(ctx, websocket.MessageText, data)
+		_ = writeStream(ctx, conn, websocket.MessageText, data)
 		_ = conn.Close(websocket.StatusPolicyViolation, "display in use")
 		return
 	}
@@ -325,7 +336,7 @@ func HandleStream(ctx context.Context, conn *websocket.Conn, params StreamParams
 			if bytesEqual(frame, lastFrame) {
 				continue
 			}
-			if err := conn.Write(ctx, websocket.MessageBinary, frame); err != nil {
+			if err := writeStream(ctx, conn, websocket.MessageBinary, frame); err != nil {
 				return
 			}
 			lastFrame = frame

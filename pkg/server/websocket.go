@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sync"
+	"time"
 
 	"suwu/pkg/auth"
 
@@ -22,6 +24,24 @@ const (
 	maxWSCols     = 4096
 	maxWSRows     = 4096
 )
+
+// wsWriteTimeout bounds a single WebSocket write.
+//
+// The request context of a hijacked connection is never cancelled when the peer
+// disappears, so an unbounded Write parks the goroutine that owns the socket —
+// and with it the fd — for as long as the peer keeps the socket open without
+// reading. cloudflared does exactly this when it drops a tunnel connection
+// (see docs/MEMORY_GROWTH_INVESTIGATION.md §5), so every write that can outlive
+// a request must carry its own deadline.
+const wsWriteTimeout = 15 * time.Second
+
+// writeWS writes one frame with a deadline, so a stuck peer cannot pin the
+// handler that owns the connection.
+func writeWS(ctx context.Context, conn *websocket.Conn, mt websocket.MessageType, data []byte) error {
+	wctx, cancel := context.WithTimeout(ctx, wsWriteTimeout)
+	defer cancel()
+	return conn.Write(wctx, mt, data)
+}
 
 func wsDimension(value, fallback, maximum int) uint16 {
 	if value <= 0 {
@@ -84,12 +104,12 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		"cols":       cols,
 		"rows":       rows,
 	})
-	if werr := conn.Write(ctx, websocket.MessageText, attachInfo); werr != nil {
+	if werr := writeWS(ctx, conn, websocket.MessageText, attachInfo); werr != nil {
 		return
 	}
 
 	if len(snapshot) > 0 {
-		if werr := conn.Write(ctx, websocket.MessageBinary, snapshot); werr != nil {
+		if werr := writeWS(ctx, conn, websocket.MessageBinary, snapshot); werr != nil {
 			return
 		}
 	}
@@ -99,7 +119,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		"attachment": client.AttachmentID(),
 		"input":      false,
 	})
-	if werr := conn.Write(ctx, websocket.MessageText, readyInfo); werr != nil {
+	if werr := writeWS(ctx, conn, websocket.MessageText, readyInfo); werr != nil {
 		return
 	}
 	// The browser acknowledges the ready message after it has applied the
@@ -112,7 +132,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		for data := range client.Frames() {
 			// PTY output is arbitrary bytes, so it must remain binary all the way
 			// to the browser. The browser xterm accepts Uint8Array directly.
-			if werr := conn.Write(ctx, websocket.MessageBinary, data); werr != nil {
+			if werr := writeWS(ctx, conn, websocket.MessageBinary, data); werr != nil {
 				return
 			}
 		}
@@ -143,7 +163,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 						resp["state"] = state
 					}
 					if jsonData, err := json.Marshal(resp); err == nil {
-						_ = conn.Write(ctx, websocket.MessageText, jsonData)
+						_ = writeWS(ctx, conn, websocket.MessageText, jsonData)
 					}
 					continue
 				}

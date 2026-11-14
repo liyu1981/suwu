@@ -222,6 +222,15 @@ func (l *Listener) Unsubscribe(out <-chan Notification) {
 	}
 }
 
+// SubscriberCount reports how many subscribers are attached. Diagnostics only:
+// a number that keeps growing means handlers are not unsubscribing, which is
+// how a leaked WebSocket used to hide.
+func (l *Listener) SubscriberCount() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return len(l.subs)
+}
+
 // RegisterHandler registers a handler for a command action.
 func (l *Listener) RegisterHandler(action string, handler CommandHandler) {
 	l.mu.Lock()

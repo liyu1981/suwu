@@ -46,6 +46,7 @@ import (
 	"suwu/pkg/assets"
 	"suwu/pkg/auth"
 	"suwu/pkg/certs"
+	"suwu/pkg/diagnostics"
 	"suwu/pkg/envfile"
 	"suwu/pkg/forward"
 	"suwu/pkg/gencerts"
@@ -494,6 +495,14 @@ Examples:
 func serveMain() {
 	logging.Init()
 
+	// Hidden debug flags are stripped before the flag package sees the
+	// arguments, so they stay out of `suwu serve -h`. See debug_flags.go.
+	debugCfg, rest, err := parseDebugFlags(os.Args[1:])
+	if err != nil {
+		log.Fatalf("serve: %v", err)
+	}
+	os.Args = append([]string{os.Args[0]}, rest...)
+
 	envFile := flag.String("env-file", "", "path to a .env file to load (default .env; when explicitly set, the global env is skipped)")
 	flag.Parse()
 
@@ -576,12 +585,12 @@ func serveMain() {
 		"SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL"),
 	)
 
-	if err := run(); err != nil {
+	if err := run(debugCfg); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run() error {
+func run(debugCfg debugConfig) error {
 	dev := os.Getenv("SUWU_DEV") == "true"
 	mode := strings.ToLower(strings.TrimSpace(os.Getenv("SERVER_MODE")))
 	if mode == "" {
@@ -635,6 +644,34 @@ func run() error {
 		return err
 	}
 
+	// Opt-in introspection (hidden --pprof flag): a loopback pprof listener plus
+	// periodic heap/goroutine snapshots under the data directory. Deliberately
+	// after the data dir is known and before the server starts serving, so a
+	// snapshot taken at startup already includes the compiled terminal engine.
+	var diag *diagnostics.Diagnostics
+	if debugCfg.Enabled {
+		diag, err = diagnostics.Start(context.Background(), diagnostics.Options{
+			Addr:     debugCfg.Addr,
+			Interval: debugCfg.Interval,
+			Dir:      filepath.Join(dataDir, "debug"),
+			Keep:     debugCfg.Keep,
+		})
+		if err != nil {
+			sessions.Close()
+			return fmt.Errorf("diagnostics: %w", err)
+		}
+	}
+
+	// One shutdown path for everything opened above: the debug listener (when
+	// enabled) then the sessions. Explicit, never deferred — a wedged close must
+	// not depend on unwinding order.
+	shutdown := func() {
+		if diag != nil {
+			_ = diag.Close()
+		}
+		sessions.Close()
+	}
+
 	// SESSION_TTL overrides the default idle session timeout (24h).
 	if ttlStr := os.Getenv("SESSION_TTL"); ttlStr != "" {
 		if d, err := time.ParseDuration(ttlStr); err == nil && d > 0 {
@@ -646,12 +683,12 @@ func run() error {
 
 	notifySock, err := notify.SocketPath()
 	if err != nil {
-		sessions.Close()
+		shutdown()
 		return err
 	}
 	notifyListener, err := notify.NewListener(notifySock)
 	if err != nil {
-		sessions.Close()
+		shutdown()
 		return fmt.Errorf("notify listener: %w", err)
 	}
 
@@ -672,7 +709,7 @@ func run() error {
 	if mode == "https" || mode == "https+http" {
 		certFile, keyFile, tlsSource, err = resolveTLS()
 		if err != nil {
-			sessions.Close()
+			shutdown()
 			return fmt.Errorf("SERVER_MODE=%s requires TLS certificates: %w\nhint: run 'suwu gencerts' to create a certificate pair, or use SERVER_MODE=http for plain HTTP", mode, err)
 		}
 	}
@@ -729,7 +766,7 @@ func run() error {
 
 	select {
 	case err := <-errCh:
-		sessions.Close()
+		shutdown()
 		return fmt.Errorf("%w\nhint: another server may already be running; check HTTPS_PORT and HTTP_PORT",
 			err)
 	case <-ctx.Done():
@@ -750,7 +787,7 @@ func run() error {
 	srv.CloseDB()
 	srv.CloseSFTP()
 	srv.CloseStatic()
-	sessions.Close()
+	shutdown()
 	notifyListener.Close()
 	forwardManager.StopAll()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3_000_000_000)

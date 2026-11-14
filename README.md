@@ -144,17 +144,22 @@ finishes or on any error.
 ## Quick start
 
 ```sh
-pnpm install && pnpm --dir frontend install
-pnpm start            # build web assets + server, then run on HTTPS :8181
+pnpm start            # install deps, build web assets + server, run on HTTPS :8181
 ```
 
 Or build and run manually:
 
 ```sh
-pnpm build:web        # vite build -> pkg/assets/web (embedded via go:embed)
-pnpm build            # go build -o suwu ./cmd/Suwu
+pnpm build            # install deps, vite build -> pkg/assets/web, go build -o suwu ./cmd/Suwu
 ./suwu serve          # production: https://127.0.0.1:8181
 ```
+
+`pnpm build` (and `start`, `build:max`, `build:ext`) runs `pnpm install` for the
+workspace first, so pulling a change that adds or bumps a dependency needs no
+separate install step. It is a no-op when the lockfiles are already satisfied,
+and pnpm freezes the lockfile automatically when `CI` is set, so CI stays strict.
+`pnpm build:web` alone deliberately skips it — that is the step the dev loop
+(air) runs on every change.
 
 The web assets are always embedded in the binary — a single `suwu` binary is
 all you need to deploy.
@@ -239,6 +244,7 @@ For frontend-only iteration you can also run the Vite dev server directly —
 it proxies API and WebSocket traffic to the Go server:
 
 ```sh
+pnpm run install:deps  # dependencies for both workspaces (the dev loop skips this)
 pnpm dev:web           # Vite on :5173, proxying /api and /ws to DEMO_PORT
 ```
 

@@ -12,6 +12,8 @@ importers:
         specifier: ^8.2.0
         version: 8.3.6
 
+  bento: {}
+
   excalidraw:
     dependencies:
       '@excalidraw/excalidraw':
@@ -30,9 +32,17 @@ importers:
 
   eye: {}
 
-  hn-top-stories: {}
+  hn-top-stories:
+    devDependencies:
+      vite:
+        specifier: ^8.2.0
+        version: 8.3.6
 
-  note: {}
+  note:
+    devDependencies:
+      vite:
+        specifier: ^8.2.0
+        version: 8.3.6
 
 packages:
 

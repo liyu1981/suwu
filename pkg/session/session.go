@@ -38,8 +38,13 @@ const (
 	// browser gets it back in the reattach snapshot (xterm.js holds 5000).
 	vtScrollback = 1000
 
-	// statePollInterval controls how often we poll /proc for session state.
-	statePollInterval = 2 * time.Second
+	// statePollInterval is how often /proc is read for a session's state (cwd
+	// and foreground command) *while a client is attached*. Detached sessions
+	// are skipped entirely — nobody can read their state — and the reading is
+	// refreshed once when a client attaches again. /proc polling was the largest
+	// allocator in the process before these changes: four reads per session
+	// every 2 s, attached or not (docs/MEMORY_GROWTH_INVESTIGATION.md §5.6).
+	statePollInterval = 5 * time.Second
 )
 
 // SessionState tracks the observable state of a running PTY session.
@@ -60,6 +65,9 @@ type Manager struct {
 	sessions map[string]*session
 	ttl      time.Duration
 	nextID   uint64
+	// pollInterval is how often attached sessions have their state refreshed;
+	// statePollInterval unless a test overrides it.
+	pollInterval time.Duration
 }
 
 // Option configures a Manager.
@@ -92,7 +100,12 @@ func NewManager(opts ...Option) (*Manager, error) {
 	}
 	slog.Debug("session: terminal engine ready",
 		"libghostty-vt", rt.Info().LibraryVersion, "wasmCache", cfg.wasmCacheDir)
-	return &Manager{rt: rt, sessions: map[string]*session{}, ttl: DefaultTTL}, nil
+	return &Manager{
+		rt:           rt,
+		sessions:     map[string]*session{},
+		ttl:          DefaultTTL,
+		pollInterval: statePollInterval,
+	}, nil
 }
 
 func (m *Manager) SetTTL(d time.Duration) {
@@ -281,6 +294,11 @@ func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []
 	m.nextID++
 	c := &Client{m: m, s: s, ch: make(chan []byte, subBuffer), id: m.nextID, active: true}
 	s.client = c
+	// The poller skips detached sessions, so whatever the browser reads back on
+	// this attachment (cwd, foreground command it may relaunch) could be hours
+	// old. Refresh it now, off the manager lock: Attach holds m.mu and reading
+	// /proc under it would block every other session.
+	go m.pollState(s)
 	var snapshot []byte
 	if !created {
 		snapshot = dump
@@ -348,7 +366,11 @@ func (m *Manager) broadcast(s *session, data []byte) {
 
 func (m *Manager) statePoller(s *session) {
 	defer close(s.pollerDone)
-	ticker := time.NewTicker(statePollInterval)
+	interval := m.pollInterval
+	if interval <= 0 {
+		interval = statePollInterval
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -361,6 +383,15 @@ func (m *Manager) statePoller(s *session) {
 }
 
 func (m *Manager) pollState(s *session) {
+	// Nobody can observe the state of a detached session: skip the /proc reads
+	// (and the garbage they create). Attach() refreshes it once on reattach.
+	m.mu.Lock()
+	attached := s.client != nil && !s.closed
+	m.mu.Unlock()
+	if !attached {
+		return
+	}
+
 	pid := s.pty.Pid()
 	if pid <= 0 {
 		return

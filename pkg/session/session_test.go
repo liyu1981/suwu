@@ -244,3 +244,66 @@ func TestWasmCacheDirIsUsed(t *testing.T) {
 		t.Fatal("compiled module was not cached")
 	}
 }
+
+// /proc polling is the process's largest allocator, so it must stop when nobody
+// can read the result: a detached session is not polled, and reattaching
+// refreshes the state once so the browser's restore data is not hours old.
+func TestStatePollingSkipsDetachedSessions(t *testing.T) {
+	mgr, err := NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Close()
+	mgr.pollInterval = 20 * time.Millisecond
+
+	client, _, _, err := mgr.Attach("state-test", 80, 24, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Activate()
+
+	waitForState := func(what string, cond func(SessionState) bool) SessionState {
+		t.Helper()
+		deadline := time.Now().Add(8 * time.Second)
+		for time.Now().Before(deadline) {
+			if state, ok := mgr.State("state-test"); ok && cond(state) {
+				return state
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		t.Fatalf("timed out waiting for %s", what)
+		return SessionState{}
+	}
+
+	// Attached: the poller fills the state in.
+	attached := waitForState("state while attached", func(s SessionState) bool { return s.CWD != "" })
+
+	client.Detach()
+
+	// Replace the state with a sentinel: a poller that kept running would wipe
+	// it within a couple of intervals.
+	mgr.mu.Lock()
+	s := mgr.sessions["state-test"]
+	mgr.mu.Unlock()
+	if s == nil {
+		t.Fatal("session vanished on detach")
+	}
+	s.stateMu.Lock()
+	s.state = SessionState{CWD: "sentinel-not-polled"}
+	s.stateMu.Unlock()
+
+	time.Sleep(10 * mgr.pollInterval)
+	if state, _ := mgr.State("state-test"); state.CWD != "sentinel-not-polled" {
+		t.Fatalf("detached session was polled: cwd = %q, want the sentinel", state.CWD)
+	}
+
+	// Reattaching refreshes it immediately, without waiting a full interval.
+	client2, _, _, err := mgr.Attach("state-test", 80, 24, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client2.Detach()
+	waitForState("state refresh on reattach", func(state SessionState) bool {
+		return state.CWD != "" && state.CWD != "sentinel-not-polled" && state.CWD == attached.CWD
+	})
+}

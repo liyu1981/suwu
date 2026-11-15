@@ -384,6 +384,77 @@ fragmented by 2244 long-lived connection objects interleaved with churn. The
 `VmHWM` of 7.78 GiB ≈ 2 × `VmRSS` is Go's `GOGC=100` doing its normal
 doubling, not a leak of its own.
 
+### 5.5 Post-fix verification (2026-11-15, 4 h run with snapshots)
+
+A build with the fix and `--pprof` ran for 4 hours with two shells. The four
+snapshots (2 h apart) are unambiguous:
+
+| time (UTC) | goroutines | heap alloc | heap inuse | heap idle | released | objects | GCs | GC pause total |
+|---|---|---|---|---|---|---|---|---|
+| 23:14 (startup) | 2 | 45.0 MiB | 48.0 | 11.6 | 9.7 | 40 799 | 7 | 0.8 ms |
+| 01:14 | 13 | 13.4 | 15.3 | 64.2 | 63.5 | 15 837 | 77 | 15.4 ms |
+| 03:14 | 13 | 13.6 | 15.5 | 64.0 | 63.5 | 16 775 | 136 | 27.0 ms |
+| 05:14 | 13 | 13.4 | 15.2 | 64.2 | 63.5 | 16 033 | 196 | 37.5 ms |
+
+- **`inuse_space` diff between 01:14 and 05:14 is exactly 0 bytes.** Nothing is
+  accumulating: live heap 13.4 MiB, 16 k objects, flat.
+- **Goroutines flat at 13**, and every one is accounted for: 2 `session.readLoop`
+  and 2 `session.statePoller` (the two shells), 3 accept loops (HTTP, pprof,
+  notify socket), 2 cleanup loops (db, sftp), `main.run`, two signal goroutines
+  and the snapshot writer itself. **No `handleWS` and no `handleNotifyWS`** — on
+  the ARM box this is exactly where 2244 parked handlers and their fds would
+  have been visible, so the leak is gone.
+- Startup's 45 MiB is wazero's compiler (module compilation); the profile shows
+  the wazevo pools at 20 MiB and they are gone by the next snapshot.
+  `HeapReleased` 63.5 MiB confirms Go hands the idle spans back, which is why RSS
+  (~50 MiB) is well below `Sys` (86 MiB).
+- The 13.2 MiB of live heap: **5.0 MiB gzip cache** (compressed static assets,
+  bounded at 32 MiB by design), **4.6 MiB wazero `MemoryInstance.Grow`** (the two
+  terminal emulators — the 1.2-1.4 MiB/terminal predicted by the libghostty-vt 1.0
+  upgrade), and ~3.5 MiB of one-off package/runtime tables (xgbutil keybind maps,
+  x/text language map, hpack, wazero data segments, regexp).
+
+### 5.6 Follow-up applied: the session state poller was the top allocator
+
+The run also showed where the remaining garbage comes from: **28 % of all 247 MiB
+allocated in 4 h (69.6 MiB) was the session state poller** —
+`session.statePoller` → `pty.GetSessionState` → `foregroundPgid` →
+`os.ReadFile` + `strings.Fields`: four `/proc` reads per session every 2 s,
+*including while nothing was attached*. That is why GC ran every ~2 min (0.2 ms
+each, 37.5 ms total for the run).
+
+Measured and fixed:
+
+| | before | after |
+|---|---|---|
+| bytes allocated per `GetSessionState` | 5 278 | **826** |
+| allocations per call | 25 | 17 |
+| calls while detached | 1 800/h per session | **0** |
+| steady garbage, 2 idle shells | ~19 MiB/h | **0** |
+| steady garbage, 2 attached shells | ~19 MiB/h | ~1.2 MiB/h |
+
+- `pkg/session`: the interval is 5 s instead of 2 s, `pollState` returns before
+  touching `/proc` when no client is attached (nobody can observe the state), and
+  `Attach` refreshes it once through a goroutine — so reattaching still gets a
+  current cwd and foreground command, without reading `/proc` under the manager
+  lock. `Manager.pollInterval` is a field so tests can drive it at 20 ms.
+- `pkg/pty`: the `/proc` reads go through a `sync.Pool` of `bytes.Buffer`s
+  (capped at 64 KiB per buffer, so a huge `cmdline` is not pinned), and the
+  `tpgid` field is parsed by walking the bytes instead of `strings.Fields`, which
+  had allocated more than the read itself.
+
+Pinned by tests: `TestParseTpgid` (including a `comm` containing spaces and
+parentheses), `TestGetSessionStateAllocations` (a ceiling on bytes allocated per
+call, which is the property that mattered), and
+`TestStatePollingSkipsDetachedSessions` (a sentinel state survives while
+detached, and a reattach replaces it immediately).
+
+Still open from §2 (latent, not observed here): a session whose client is revoked
+by `broadcast` never arms its TTL, `Attach` can leave one clientless without a
+timer, and a fired-timer race can leave `s.timer` non-nil. None fired on this
+run — the two shells had simply been left open — but they are one slow client
+away from pinning a shell forever.
+
 ## 6. Classify descriptors by hand (kept for reference)
 
 ```sh

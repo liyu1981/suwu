@@ -28,7 +28,7 @@ func Send(socketPath string, msgs ...string) error {
 	}
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
-		return fmt.Errorf("notify: connect %s: %w\nhint: is the suwu server running?", socketPath, err)
+		return fmt.Errorf("notify: connect %s: %w\nhint: is the suwu server running? a development server uses suwu-dev.sock in the same directory (SUWU_DEV=true), so check which instance you mean", socketPath, err)
 	}
 	defer conn.Close()
 

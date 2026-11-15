@@ -455,6 +455,89 @@ timer, and a fired-timer race can leave `s.timer` non-nil. None fired on this
 run — the two shells had simply been left open — but they are one slow client
 away from pinning a shell forever.
 
+### 5.7 Follow-up fixed: the notify socket could be stolen, and lost for good
+
+`suwu open` started failing on the dev box with
+
+```
+notify: connect /home/yli/.suwu/suwu.sock: dial unix …: connect: no such file
+or directory
+hint: is the suwu server running?
+```
+
+while the server *was* running. On that box:
+
+```
+$ ls -l ~/.suwu/suwu.sock           → No such file or directory
+$ pgrep -a suwu                     → 1556792 /home/yli/.local/bin/suwu serve
+$ ss -xlp | grep suwu               → u_str LISTEN … /home/yli/.suwu/suwu.sock
+                                      users:(("suwu",pid=1556792,fd=3))
+```
+
+The listener was alive; only the *name* was gone. Two bugs did that:
+
+1. `notify.NewListener` ran `os.Remove(socketPath)` unconditionally before
+   binding ("remove stale socket from an unclean shutdown"). It could not tell a
+   stale file from a **live** one, so a dev `suwu serve` (air, on 8000/8001,
+   while production kept 8181) unlinked the production socket and bound its own.
+2. `Close()` removed the path by name — and so does `net.UnixListener` by
+   default. When the dev instance stopped (air restarts on every change) the path
+   was deleted again, this time outright, while production kept accepting on an
+   inode that no longer had a name.
+
+Nothing could repair that from outside: a socket inode cannot be given a name
+back (the only handle is the path, and `connect` via `/proc/<pid>/fd/<n>` does
+not work), and binding a new socket at the path would answer on a *different*
+listener and silently swallow the CLI's messages. Hence: restart required, and
+PTY sessions lost. Worth recording, because it is the kind of failure that looks
+like "the server is down" when it is not.
+
+Three fixes:
+
+- **Probe before bind** (`prepareSocketPath`): an existing path is probed with a
+  250 ms `connect`. A live listener means *refuse to start*, with an error that
+  names the conflict and `SUWU_SOCK_PATH` as the way out; `ECONNREFUSED`/`ENOENT`
+  means the previous server died, so the file is replaced. A non-socket at the
+  path is never deleted.
+- **Remove by identity** (`removeOwnSocket`): the listener stat'ed its own entry
+  right after binding and deletes it on close only while `os.SameFile` still
+  matches. `SetUnlinkOnClose(false)` turns off the library's remove-by-name.
+- **Per-instance path** (`SocketPath`): `$SUWU_SOCK_PATH` (verbatim, absolute) →
+  `<data dir>/suwu.sock` where the data dir is `$SUWU_VAR` or `~/.suwu` →
+  `suwu-dev.sock` instead when `SUWU_DEV=true`. The installed service keeps
+  `~/.suwu/suwu.sock` (its unit sets `SUWU_VAR`), and a dev server under air no
+  longer shares it. Note `SocketPath` previously ignored `SUWU_VAR` entirely, so
+  even separate data dirs collided.
+
+Tests come in two layers.
+
+`pkg/notify` (unit): a live socket is refused *and still answers afterwards*, a
+stale file is replaced, closing an old listener leaves a replacement's socket
+alone (both of these fail against the old code), a regular file is never
+deleted, and the path resolution matrix.
+
+`cmd/Suwu/serve_sock_test.go` (end to end, bounded): the real binary is built and
+run in a temp `SUWU_VAR`/`HOME`/`SUWU_CONFIG_DIR` with `--env-file /dev/null`, so
+nothing from the developer's shell or config leaks in. Every child goes through
+`exec.CommandContext` with a deadline and every "must fail" case asserts it exits
+*within* that deadline — a run that instead starts serving fails the test rather
+than hanging it (which is exactly how the first hand-written version of this
+check wedged a shell twice). It covers: a second instance on a live socket exits
+non-zero with a message naming the conflict and `SUWU_SOCK_PATH`, and the running
+server still answers `notify send`; `SUWU_DEV=true` gets `suwu-dev.sock` and both
+instances answer their own socket; stopping one removes only its own file; and
+the fatal-error path prints why it failed. Against the old `notify.go` the first
+case fails after 22 s (the second instance bound over the first), which is the
+regression this pins.
+
+The CLI hint now mentions the `-dev` socket so "no such file" points at the right
+instance.
+
+One thing for operators: on Linux a *hard link* to a socket inode is allowed, so
+taking `ln ~/.suwu/suwu.sock ~/.suwu/suwu.sock.bak` right after start makes the
+socket repairable without a restart (`ln .bak .sock` restores the same listener).
+That is a workaround, not a design: the probing bind above removes the need.
+
 ## 6. Classify descriptors by hand (kept for reference)
 
 ```sh

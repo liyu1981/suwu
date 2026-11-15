@@ -276,7 +276,7 @@ Environment variables:
   SUWU_LOG_LEVEL       Log level: debug, info, warn, error (default: error)
   TLS_CERT_FILE        TLS certificate file path
   TLS_KEY_FILE         TLS key file path
-  SUWU_SOCK_PATH       Unix socket path (default ~/.suwu/suwu.sock)
+  SUWU_SOCK_PATH       Unix socket path (default: <data dir>/suwu.sock)
 
 Server modes:
   https (default)      HTTPS only; certs are required.
@@ -307,7 +307,7 @@ Flags:
   --remove <id>        Remove a static serve (--stop is an alias)
   --new                Create a duplicate entry for an already-served dir
   --json               Print the raw JSON response
-  --sock <path>        Path to the notify socket (default ~/.suwu/suwu.sock)
+  --sock <path>        Path to the notify socket (default: <data dir>/suwu.sock)
 
 Examples:
   suwu static-serve ./website
@@ -326,7 +326,7 @@ not exceed 1 MiB (1048576 bytes), including escaping and metadata. Oversized
 messages are rejected before sending; no part of the message is sent.
 
 Flags:
-  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
+  --sock <path>    Path to the notify socket (default: <data dir>/suwu.sock,
                    or $SUWU_SOCK_PATH)
 
 Examples:
@@ -341,7 +341,7 @@ Open a file or directory in the running Suwu session. Sends a notification
 to the browser which can open the file in the file browser or viewer.
 
 Flags:
-  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
+  --sock <path>    Path to the notify socket (default: <data dir>/suwu.sock,
                    or $SUWU_SOCK_PATH)
 
 Examples:
@@ -358,7 +358,7 @@ Flags:
   --proto <tcp|udp>    Protocol (default tcp)
   --stop <port>        Stop forward by local port
   --list               List all active forwards
-  --sock <path>        Path to the notify socket (default ~/.suwu/suwu.sock)
+  --sock <path>        Path to the notify socket (default: <data dir>/suwu.sock)
 
 Examples:
   suwu forward 23000 localhost 3000
@@ -374,7 +374,7 @@ Open a side-by-side diff view between two files in the browser.
 Sends a notification to the running server which opens a diff tile.
 
 Flags:
-  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
+  --sock <path>    Path to the notify socket (default: <data dir>/suwu.sock,
                    or $SUWU_SOCK_PATH)
 
 Examples:
@@ -393,7 +393,7 @@ that directory as its default directory (use '.' for the current directory).
 For file arguments the default directory is the first file's base directory.
 
 Flags:
-  --sock <path>    Path to the notify socket (default ~/.suwu/suwu.sock,
+  --sock <path>    Path to the notify socket (default: <data dir>/suwu.sock,
                    or $SUWU_SOCK_PATH)
 
 Examples:
@@ -689,7 +689,7 @@ func run(debugCfg debugConfig) error {
 	notifyListener, err := notify.NewListener(notifySock)
 	if err != nil {
 		shutdown()
-		return fmt.Errorf("notify listener: %w", err)
+		return err // already prefixed with the socket path and a way out
 	}
 
 	forwardManager := forward.NewManager()
@@ -912,7 +912,7 @@ func devLabel(dev bool) string {
 
 func sendMsg(args []string) error {
 	fs := flag.NewFlagSet("send", flag.ContinueOnError)
-	sock := fs.String("sock", "", "path to the notify socket (default ~/.suwu/suwu.sock, or $SUWU_SOCK_PATH)")
+	sock := fs.String("sock", "", "path to the notify socket (default: $SUWU_SOCK_PATH, else <data dir>/suwu.sock)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -978,7 +978,7 @@ type openPayload struct {
 
 func openMain(args []string) error {
 	fs := flag.NewFlagSet("open", flag.ContinueOnError)
-	sock := fs.String("sock", "", "path to the notify socket (default ~/.suwu/suwu.sock, or $SUWU_SOCK_PATH)")
+	sock := fs.String("sock", "", "path to the notify socket (default: $SUWU_SOCK_PATH, else <data dir>/suwu.sock)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -1051,7 +1051,7 @@ type gitgraphPayload struct {
 
 func gitgraphMain(args []string) error {
 	fs := flag.NewFlagSet("gitgraph", flag.ContinueOnError)
-	sock := fs.String("sock", "", "path to the notify socket (default ~/.suwu/suwu.sock, or $SUWU_SOCK_PATH)")
+	sock := fs.String("sock", "", "path to the notify socket (default: $SUWU_SOCK_PATH, else <data dir>/suwu.sock)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

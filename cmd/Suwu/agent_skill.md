@@ -26,7 +26,9 @@ suwu serve              # foreground
 suwu daemon start       # background
 ```
 
-All commands talk to a Unix socket, default `~/.suwu/suwu.sock` (override
+All commands talk to a Unix socket, default `<SUWU_VAR>/suwu.sock` or
+`~/.suwu/suwu.sock` — a server started with `SUWU_DEV=true` uses
+`suwu-dev.sock` in the same directory (override
 with `--sock <path>` or `$SUWU_SOCK_PATH`). If the server is not running the
 command fails with a connection error — start the server first.
 
@@ -147,7 +149,7 @@ Extensions still need a tile whose `id` matches, created in the App Menu.
 
 | Flag | Applies to | Meaning |
 |---|---|---|
-| `--sock <path>` | send, open, code, diff, gitgraph, forward, use | Notify socket path (default `~/.suwu/suwu.sock`) |
+| `--sock <path>` | send, open, code, diff, gitgraph, forward, use | Notify socket path (default `<data dir>/suwu.sock`; `-dev` name under `SUWU_DEV=true`) |
 | `--proto <tcp\|udp>` | forward | Protocol (default `tcp`) |
 | `--stop <port>` | forward | Stop the forward bound to that local port |
 | `--list` | forward, install | List active forwards; list the install catalog |

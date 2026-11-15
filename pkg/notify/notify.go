@@ -9,14 +9,21 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
+
+// probeTimeout bounds the liveness check against an existing socket path.
+const probeTimeout = 250 * time.Millisecond
 
 // Notification is a single message flowing through the hub.
 type Notification struct {
@@ -56,6 +63,11 @@ type sub struct {
 type Listener struct {
 	sockPath string
 	listener net.Listener
+	// sockInfo is the filesystem entry this listener created. Close() removes
+	// the path only while it is still that entry: another instance may have
+	// replaced the path in the meantime, and deleting *its* socket is exactly
+	// how a running server used to lose its CLI ingress for good.
+	sockInfo os.FileInfo
 	mu       sync.Mutex
 	subs     map[*sub]struct{}
 	done     chan struct{}
@@ -63,33 +75,61 @@ type Listener struct {
 }
 
 // SocketPath returns the Unix socket path. Resolution:
-//  1. SUWU_SOCK_PATH env var (explicit path)
-//  2. ~/.suwu/suwu.sock (same directory as logs)
+//  1. SUWU_SOCK_PATH, used verbatim (an absolute path: nothing here expands ~)
+//  2. <data dir>/suwu.sock, where the data dir is $SUWU_VAR or ~/.suwu, named
+//     suwu-dev.sock instead when SUWU_DEV=true
+//
+// The path is a rendezvous with exactly one process, so two instances of the
+// same user must never share it: a second server that binds it strands the
+// first one's CLI ingress with no way to repair it short of a restart
+// (docs/MEMORY_GROWTH_INVESTIGATION.md §5.7). Deriving it from the data dir keeps
+// instances that already have separate data dirs separate, and the -dev suffix
+// covers the common case where a development server shares ~/.suwu with the
+// installed service.
 func SocketPath() (string, error) {
-	if p := os.Getenv("SUWU_SOCK_PATH"); p != "" {
+	if p := strings.TrimSpace(os.Getenv("SUWU_SOCK_PATH")); p != "" {
 		return p, nil
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve home dir: %w", err)
+	dir := strings.TrimSpace(os.Getenv("SUWU_VAR"))
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home dir: %w", err)
+		}
+		dir = filepath.Join(home, ".suwu")
 	}
-	return filepath.Join(home, ".suwu", "suwu.sock"), nil
+	name := "suwu.sock"
+	if os.Getenv("SUWU_DEV") == "true" {
+		name = "suwu-dev.sock"
+	}
+	return filepath.Join(dir, name), nil
 }
 
-// NewListener creates a Listener on the given socket path. It removes any
-// stale socket file, starts accepting connections, and returns. The caller
-// must call Close() when done.
+// NewListener creates a Listener on the given socket path, starts accepting
+// connections, and returns. The caller must call Close() when done.
+//
+// A socket file left behind by a crashed server is replaced. A socket that is
+// still *served* is not: binding over it would silently steal the path from a
+// running server, which then keeps accepting on a name that no longer exists and
+// can never be repaired without a restart. The caller should treat the error as
+// fatal and point the new instance somewhere else (SUWU_SOCK_PATH).
 func NewListener(socketPath string) (*Listener, error) {
 	slog.Debug("notify listener", "socket", socketPath)
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
 		return nil, fmt.Errorf("notify: mkdir: %w", err)
 	}
-	// Remove stale socket from a previous unclean shutdown.
-	_ = os.Remove(socketPath)
+	if err := prepareSocketPath(socketPath); err != nil {
+		return nil, err
+	}
 
 	ln, err := net.Listen("unix", socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("notify: listen %s: %w", socketPath, err)
+	}
+	// net.UnixListener removes the path on Close, unconditionally and by name —
+	// the same clobbering hazard as above. Removal is ours (see Close).
+	if ul, ok := ln.(*net.UnixListener); ok {
+		ul.SetUnlinkOnClose(false)
 	}
 
 	l := &Listener{
@@ -99,8 +139,47 @@ func NewListener(socketPath string) (*Listener, error) {
 		done:     make(chan struct{}),
 		handlers: make(map[string]CommandHandler),
 	}
+	// Remember which entry we created: Close only deletes this one.
+	if info, statErr := os.Lstat(socketPath); statErr == nil {
+		l.sockInfo = info
+	} else {
+		slog.Warn("notify: cannot stat own socket", "socket", socketPath, "error", statErr)
+	}
 	go l.acceptLoop()
 	return l, nil
+}
+
+// prepareSocketPath makes socketPath safe to bind: an absent path needs nothing,
+// a socket left behind by a dead server is removed, and anything else is
+// refused rather than deleted.
+func prepareSocketPath(path string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("notify: stat %s: %w", path, err)
+	}
+	if info.Mode()&os.ModeSocket == 0 {
+		return fmt.Errorf("notify: %s exists and is not a socket; refusing to remove it", path)
+	}
+
+	conn, dialErr := net.DialTimeout("unix", path, probeTimeout)
+	switch {
+	case dialErr == nil:
+		_ = conn.Close()
+		return fmt.Errorf("notify: %s is already in use by another running suwu; set SUWU_SOCK_PATH to give this instance its own socket, or stop the other server", path)
+	case errors.Is(dialErr, syscall.ECONNREFUSED), errors.Is(dialErr, syscall.ENOENT):
+		// Stale: a socket file whose server is gone.
+	default:
+		return fmt.Errorf("notify: probe %s: %w", path, dialErr)
+	}
+
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("notify: remove stale socket %s: %w", path, err)
+	}
+	slog.Info("notify: replaced stale socket", "socket", path)
+	return nil
 }
 
 // acceptLoop handles incoming Unix socket connections. Each connection sends
@@ -222,6 +301,23 @@ func (l *Listener) Unsubscribe(out <-chan Notification) {
 	}
 }
 
+// removeOwnSocket deletes the socket file only while it is still the entry this
+// listener created. Another instance may have replaced the path (that is what
+// used to happen when a dev server started over a production one), and deleting
+// that one would strand it: the path is its only rendezvous.
+func (l *Listener) removeOwnSocket() {
+	if l.sockInfo == nil {
+		return
+	}
+	current, err := os.Lstat(l.sockPath)
+	if err != nil || !os.SameFile(l.sockInfo, current) {
+		return
+	}
+	if err := os.Remove(l.sockPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		slog.Debug("notify: remove own socket failed", "socket", l.sockPath, "error", err)
+	}
+}
+
 // SubscriberCount reports how many subscribers are attached. Diagnostics only:
 // a number that keeps growing means handlers are not unsubscribing, which is
 // how a leaked WebSocket used to hide.
@@ -238,12 +334,12 @@ func (l *Listener) RegisterHandler(action string, handler CommandHandler) {
 	l.handlers[action] = handler
 }
 
-// Close shuts down the listener, removes the socket file, and closes all
+// Close shuts down the listener, removes its socket file, and closes all
 // subscriber channels.
 func (l *Listener) Close() error {
 	err := l.listener.Close()
 	<-l.done // wait for acceptLoop to exit
-	_ = os.Remove(l.sockPath)
+	l.removeOwnSocket()
 
 	l.mu.Lock()
 	for s := range l.subs {

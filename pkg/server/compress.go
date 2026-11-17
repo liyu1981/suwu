@@ -172,6 +172,32 @@ func gzipBytes(src []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// gzipEligible reports whether a response for name may be answered with the
+// compressed body: a type worth compressing, a body large enough to gain, no
+// byte range (a gzip stream would break it), and a client that accepts gzip.
+func gzipEligible(r *http.Request, name string, size int64) bool {
+	return compressible(name) &&
+		size >= gzipMinBytes &&
+		r.Header.Get("Range") == "" &&
+		acceptsGzip(r)
+}
+
+// serveCachedGzip writes body as the gzip-encoded response. The caller has
+// already set Content-Type and any security headers; this owns Vary,
+// Content-Encoding, Content-Length and the body.
+func serveCachedGzip(w http.ResponseWriter, r *http.Request, body []byte) {
+	// Always advertise the negotiation, even when answering identity: without
+	// it a shared proxy can hand gzip bytes to a client that never asked.
+	w.Header().Add("Vary", "Accept-Encoding")
+	w.Header().Set("Content-Encoding", "gzip")
+	// An accurate length is the point of caching: no chunked encoding.
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	w.WriteHeader(http.StatusOK)
+	if r.Method != http.MethodHead {
+		_, _ = w.Write(body)
+	}
+}
+
 // writeStaticBody serves one static body, compressed when the request allows it
 // and the type is worth it. key identifies the cached entry (handler family +
 // name + size + mtime); name decides the type; data is the raw body.
@@ -183,17 +209,9 @@ func (s *Server) writeStaticBody(w http.ResponseWriter, r *http.Request, key, na
 		_, _ = w.Write(data)
 		return
 	}
-	// Always advertise the negotiation, even when answering identity: without
-	// it a shared proxy can hand gzip bytes to a client that never asked.
-	w.Header().Add("Vary", "Accept-Encoding")
-
-	// Byte ranges own the body shape; a gzip stream would break them. The
-	// handlers that support ranges (ServeContent) take this path via identity.
-	if r.Header.Get("Range") != "" || len(data) < gzipMinBytes {
-		_, _ = w.Write(data)
-		return
-	}
-	if !acceptsGzip(r) {
+	if !gzipEligible(r, name, int64(len(data))) {
+		// Identity, but still advertise the negotiation.
+		w.Header().Add("Vary", "Accept-Encoding")
 		_, _ = w.Write(data)
 		return
 	}
@@ -205,16 +223,11 @@ func (s *Server) writeStaticBody(w http.ResponseWriter, r *http.Request, key, na
 		if err != nil {
 			// Compression is an optimization: fall back to identity rather than
 			// failing a request that would otherwise succeed.
+			w.Header().Add("Vary", "Accept-Encoding")
 			_, _ = w.Write(data)
 			return
 		}
 		s.gzipCache.put(key, body)
 	}
-	w.Header().Set("Content-Encoding", "gzip")
-	// An accurate length is the point of caching: no chunked encoding.
-	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
-	w.WriteHeader(http.StatusOK)
-	if r.Method != http.MethodHead {
-		_, _ = w.Write(body)
-	}
+	serveCachedGzip(w, r, body)
 }

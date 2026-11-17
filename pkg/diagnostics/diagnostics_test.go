@@ -183,3 +183,89 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// A snapshot must carry the counters that name a leak without a second tool:
+// open descriptors, and whatever the caller contributes (sessions, clients).
+func TestSnapshotRecordsCounters(t *testing.T) {
+	dir := t.TempDir()
+	d := &Diagnostics{
+		dir:   dir,
+		keep:  2,
+		extra: func() map[string]any { return map[string]any{"sessions": 3, "attached": 2} },
+	}
+	snap, err := d.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(snap.MemStats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stats struct {
+		OpenFDs int            `json:"openFds"`
+		Extra   map[string]any `json:"extra"`
+	}
+	if err := json.Unmarshal(raw, &stats); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	if stats.OpenFDs <= 0 {
+		t.Errorf("openFds = %d, want a positive count", stats.OpenFDs)
+	}
+	if got := stats.Extra["sessions"]; got != float64(3) {
+		t.Errorf("extra.sessions = %v, want 3", got)
+	}
+	if got := stats.Extra["attached"]; got != float64(2) {
+		t.Errorf("extra.attached = %v, want 2", got)
+	}
+}
+
+// The hook is caller code running inside our loop: a panic there must cost a
+// snapshot, not the server.
+func TestExtraPanicIsContained(t *testing.T) {
+	dir := t.TempDir()
+	d := &Diagnostics{dir: dir, keep: 1, extra: func() map[string]any { panic("boom") }}
+	snap, err := d.Snapshot()
+	if err != nil {
+		t.Fatalf("a panicking extra hook must not fail the snapshot: %v", err)
+	}
+	raw, err := os.ReadFile(snap.MemStats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stats struct {
+		OpenFDs int            `json:"openFds"`
+		Extra   map[string]any `json:"extra"`
+	}
+	if err := json.Unmarshal(raw, &stats); err != nil {
+		t.Fatal(err)
+	}
+	if stats.OpenFDs <= 0 {
+		t.Errorf("openFds = %d", stats.OpenFDs)
+	}
+	if stats.Extra != nil {
+		t.Errorf("extra = %v, want it dropped", stats.Extra)
+	}
+}
+
+// The fd count must move when descriptors are opened: that is the whole point.
+func TestOpenFDCountTracksDescriptors(t *testing.T) {
+	before := OpenFDCount()
+	if before < 0 {
+		t.Skip("no /proc/self/fd or /dev/fd on this platform")
+	}
+	var files []*os.File
+	for i := 0; i < 5; i++ {
+		f, err := os.Open(os.DevNull)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, f)
+	}
+	after := OpenFDCount()
+	for _, f := range files {
+		_ = f.Close()
+	}
+	if after < before+5 {
+		t.Fatalf("open fds %d -> %d after opening 5, want +5", before, after)
+	}
+}

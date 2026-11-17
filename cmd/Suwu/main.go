@@ -655,6 +655,17 @@ func run(debugCfg debugConfig) error {
 			Interval: debugCfg.Interval,
 			Dir:      filepath.Join(dataDir, "debug"),
 			Keep:     debugCfg.Keep,
+			// Counters this package cannot see: what the sessions and the
+			// WebSocket layer are actually holding. Open fds are collected by
+			// the snapshot itself.
+			Extra: func() map[string]any {
+				stats := sessions.Stats()
+				return map[string]any{
+					"sessions": stats.Live,
+					"attached": stats.Attached,
+					"wsConns":  server.ConnCount(),
+				}
+			},
 		})
 		if err != nil {
 			sessions.Close()

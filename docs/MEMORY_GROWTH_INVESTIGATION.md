@@ -538,6 +538,34 @@ taking `ln ~/.suwu/suwu.sock ~/.suwu/suwu.sock.bak` right after start makes the
 socket repairable without a restart (`ln .bak .sock` restores the same listener).
 That is a workaround, not a design: the probing bind above removes the need.
 
+### 5.8 Second-largest churn fixed: assets were re-read on every request
+
+The 22 h capture (§5.5 table, 2026-11-17) put 254 MB of the 389 MB allocated
+(65 %) in `serveAsset` → `io.ReadAll`: the handler read the *whole* embedded file
+for every request, and only then did `writeStaticBody` consult the compressed
+cache. Since these responses are `Cache-Control: no-store`, a browser reload
+re-fetches several megabytes — so every reload allocated ~7 MB of garbage, for a
+body that was already in the cache byte-for-byte.
+
+`serveAsset` is now cache-first: when the request is compressible, large enough,
+not a `Range` request and the client accepts gzip, a cached body is served
+through `serveCachedGzip` **without opening a read on the file at all**. The
+identity and range paths are unchanged (they still read), which is what
+`TestServeAssetIdentityStillReads` pins alongside
+`TestServeAssetServesFromCacheWithoutReading` — a counting `fs.FS` asserts the
+second gzip request and a `HEAD` request read **zero** additional bytes, and that
+`Vary`/`Content-Length` are still set.
+
+Still open on the same path, deliberately not done here: the browser is told
+`no-store` for hashed, immutable filenames, so it re-downloads them on every
+reload. An `ETag` plus `immutable` caching for `/assets/*` would cut the bytes on
+the wire (not just the server's allocations).
+
+The snapshot also grew the counters needed to see this next time without a
+second tool: `openFds` (exact on Linux/macOS, from `/proc/self/fd` or `/dev/fd`)
+and an `extra` object the server fills with `sessions`, `attached` and
+`wsConns`. A number that only climbs now names its own investigation.
+
 ## 6. Classify descriptors by hand (kept for reference)
 
 ```sh
@@ -600,8 +628,9 @@ What you get:
   - `goroutine-<ts>.txt` — `debug=1` grouped stacks, i.e. "how many goroutines
     are parked where", which is how the 2244-handler leak would have been
     obvious at a glance;
-  - `memstats-<ts>.json` — `runtime.MemStats` plus `numGoroutine` and
-    heap-alloc/inuse/idle/sys in MiB.
+  - `memstats-<ts>.json` — `runtime.MemStats` plus `numGoroutine`,
+    heap-alloc/inuse/idle/sys in MiB, `openFds`, and `extra`
+    (`sessions` / `attached` / `wsConns`).
 
 The very first snapshot is written at startup, so a process that is already
 bloated has a baseline before anyone uses it.

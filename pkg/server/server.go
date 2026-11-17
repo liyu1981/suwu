@@ -507,14 +507,9 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 	}
 	defer file.Close()
 
-	if info, err := file.Stat(); err == nil && info.IsDir() {
+	info, statErr := file.Stat()
+	if statErr == nil && info.IsDir() {
 		http.NotFound(w, r)
-		return
-	}
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -529,9 +524,29 @@ func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string)
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
+
 	// Embedded assets are immutable for the life of the process, so the name is
 	// a stable cache key (no size/mtime needed).
-	s.writeStaticBody(w, r, "app:"+name, name, data)
+	key := "app:" + name
+
+	// Cache first: a compressed body that is already known can be served without
+	// reading the file at all. A page load pulls several megabytes of assets and
+	// the browser cannot cache them (Cache-Control: no-store above), so reading
+	// them on every reload made this the largest source of garbage in a
+	// long-running server (docs/MEMORY_GROWTH_INVESTIGATION.md §5.8).
+	if statErr == nil && gzipEligible(r, name, info.Size()) {
+		if body, ok := s.gzipCache.get(key); ok {
+			serveCachedGzip(w, r, body)
+			return
+		}
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	s.writeStaticBody(w, r, key, name, data)
 }
 
 // RateLimiter tracks request counts per token for rate limiting.

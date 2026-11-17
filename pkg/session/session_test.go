@@ -307,3 +307,40 @@ func TestStatePollingSkipsDetachedSessions(t *testing.T) {
 		return state.CWD != "" && state.CWD != "sentinel-not-polled" && state.CWD == attached.CWD
 	})
 }
+
+// The snapshot needs a census: how many shells are being kept, and how many have
+// a client. "Live" is what must come down on close/expiry; "attached" is the
+// browser side.
+func TestStatsCountsLiveAndAttached(t *testing.T) {
+	mgr, err := NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Close()
+
+	if got := mgr.Stats(); got.Live != 0 || got.Attached != 0 {
+		t.Fatalf("fresh manager stats = %+v, want 0/0", got)
+	}
+
+	client, _, _, err := mgr.Attach("stats-test", 80, 24, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := mgr.Stats(); got.Live != 1 || got.Attached != 1 {
+		t.Fatalf("attached stats = %+v, want 1/1", got)
+	}
+
+	client.Detach()
+	if got := mgr.Stats(); got.Live != 1 || got.Attached != 0 {
+		t.Fatalf("detached stats = %+v, want 1/0 (the shell is kept for the TTL)", got)
+	}
+
+	client2, _, _, err := mgr.Attach("stats-test", 80, 24, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client2.Detach()
+	if got := mgr.Stats(); got.Live != 1 || got.Attached != 1 {
+		t.Fatalf("reattached stats = %+v, want 1/1", got)
+	}
+}

@@ -51,6 +51,12 @@ type Options struct {
 	// Keep is how many snapshots to retain (each snapshot is three files).
 	// Zero means DefaultKeep; negative means keep everything.
 	Keep int
+	// Extra is called for every snapshot and its values are recorded alongside
+	// the heap numbers. It is how the caller contributes counters this package
+	// cannot know about (live sessions, attached clients, …) without importing
+	// them — the same reason a snapshot holds the goroutine dump next to
+	// MemStats. Must be cheap and must not block.
+	Extra func() map[string]any
 }
 
 // Diagnostics is a running collector.
@@ -59,6 +65,7 @@ type Diagnostics struct {
 	dir      string
 	keep     int
 	interval time.Duration
+	extra    func() map[string]any
 	server   *http.Server
 	stop     chan struct{}
 	stopOnce sync.Once
@@ -121,6 +128,7 @@ func Start(ctx context.Context, opts Options) (*Diagnostics, error) {
 		dir:      opts.Dir,
 		keep:     opts.Keep,
 		interval: opts.Interval,
+		extra:    opts.Extra,
 		server:   srv,
 		stop:     make(chan struct{}),
 		done:     make(chan struct{}),
@@ -211,21 +219,25 @@ func (d *Diagnostics) Snapshot() (Snapshot, error) {
 	stats := struct {
 		At            string           `json:"at"`
 		NumGoroutine  int              `json:"numGoroutine"`
+		OpenFDs       int              `json:"openFds"`
 		MemStats      runtime.MemStats `json:"memStats"`
 		HeapAllocMiB  float64          `json:"heapAllocMiB"`
 		HeapInuseMiB  float64          `json:"heapInuseMiB"`
 		HeapIdleMiB   float64          `json:"heapIdleMiB"`
 		HeapSysMiB    float64          `json:"heapSysMiB"`
 		TotalAllocMiB float64          `json:"totalAllocMiB"`
+		Extra         map[string]any   `json:"extra,omitempty"`
 	}{
 		At:            stamp,
 		NumGoroutine:  runtime.NumGoroutine(),
+		OpenFDs:       OpenFDCount(),
 		MemStats:      ms,
 		HeapAllocMiB:  mib(ms.HeapAlloc),
 		HeapInuseMiB:  mib(ms.HeapInuse),
 		HeapIdleMiB:   mib(ms.HeapIdle),
 		HeapSysMiB:    mib(ms.HeapSys),
 		TotalAllocMiB: mib(ms.TotalAlloc),
+		Extra:         d.extraValues(),
 	}
 	body, err := json.MarshalIndent(stats, "", "  ")
 	if err != nil {
@@ -242,6 +254,47 @@ func (d *Diagnostics) Snapshot() (Snapshot, error) {
 }
 
 func mib(v uint64) float64 { return float64(v) / (1 << 20) }
+
+// extraValues calls the caller's counter hook, tolerating a nil hook and a
+// panicking one: a snapshot is not worth failing a server over.
+func (d *Diagnostics) extraValues() (values map[string]any) {
+	if d.extra == nil {
+		return nil
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Warn("diagnostics: extra counters panicked", "panic", r)
+			values = nil
+		}
+	}()
+	values = d.extra()
+	if len(values) == 0 {
+		return nil
+	}
+	return values
+}
+
+// OpenFDCount reports how many file descriptors the process holds. It is the
+// cheapest leak signal there is: a number that only climbs names its own
+// investigation (the ARM box reached 2244 before the notify-socket fix), and it
+// belongs in every snapshot for the same reason the goroutine dump does.
+//
+// The value is exact on Linux and macOS to within a descriptor, because reading
+// the directory itself briefly holds one.
+func OpenFDCount() int {
+	for _, dir := range []string{"/proc/self/fd", "/dev/fd"} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		n := len(entries) - 1 // the descriptor held to read the directory
+		if n < 0 {
+			n = 0
+		}
+		return n
+	}
+	return -1
+}
 
 func writeProfile(path, name string, debug int) error {
 	profile := runtimepprof.Lookup(name)

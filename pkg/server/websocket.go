@@ -187,6 +187,16 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ConnCount reports how many WebSocket connections this process is serving:
+// terminal panes, notification subscribers and X display streams. Diagnostics
+// only, and the number to watch when a deployment leaks connections (the fd
+// leak of docs/MEMORY_GROWTH_INVESTIGATION.md §5 showed up as thousands).
+func ConnCount() int {
+	connMu.Lock()
+	defer connMu.Unlock()
+	return len(conns)
+}
+
 // CloseAll closes every active websocket connection, which detaches the
 // associated session clients. Sessions themselves live in the Manager until
 // their normal idle TTL expires.

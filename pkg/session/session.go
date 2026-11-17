@@ -108,6 +108,30 @@ func NewManager(opts ...Option) (*Manager, error) {
 	}, nil
 }
 
+// Stats is a point-in-time census of the manager.
+type Stats struct {
+	// Live is how many shells are being kept (attached or not) — the number
+	// that must come down when a session is closed or expires.
+	Live int `json:"live"`
+	// Attached is how many of those have a browser client attached.
+	Attached int `json:"attached"`
+}
+
+// Stats reports the current census. It is diagnostics only: the snapshot
+// records it next to the heap numbers so a session pile-up is visible without
+// counting shells by hand (docs/MEMORY_GROWTH_INVESTIGATION.md §5.5).
+func (m *Manager) Stats() Stats {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	stats := Stats{Live: len(m.sessions)}
+	for _, s := range m.sessions {
+		if s.client != nil && !s.closed {
+			stats.Attached++
+		}
+	}
+	return stats
+}
+
 func (m *Manager) SetTTL(d time.Duration) {
 	m.mu.Lock()
 	m.ttl = d

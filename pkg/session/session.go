@@ -38,6 +38,19 @@ const (
 	// browser gets it back in the reattach snapshot (xterm.js holds 5000).
 	vtScrollback = 1000
 
+	// Why an attachment was revoked. Recorded in the log; the slow-client case is
+	// the one an operator must be able to see.
+	revokeSlowClient    = "slow client"
+	revokeNewAttachment = "new attachment"
+	revokeDetached      = "detached"
+	revokeShellExited   = "shell exited"
+	revokeShutdown      = "shutdown"
+
+	// inputQueue is how many input frames may wait while the application is not
+	// reading. The writer blocks after that, which stops the WebSocket read loop
+	// and lets TCP push back on the browser; nothing is dropped.
+	inputQueue = 32
+
 	// statePollInterval is how often /proc is read for a session's state (cwd
 	// and foreground command) *while a client is attached*. Detached sessions
 	// are skipped entirely — nobody can read their state — and the reading is
@@ -163,13 +176,14 @@ func (m *Manager) Close() {
 			s.timer.Stop()
 			s.timer = nil
 		}
-		m.revokeLocked(s)
+		m.revokeLocked(s, revokeShutdown)
 	}
 	m.mu.Unlock()
 
 	for _, s := range live {
 		_ = s.pty.Kill()
 		<-s.pollerDone
+		<-s.writerDone
 		s.releaseVT()
 	}
 	if m.rt != nil {
@@ -210,24 +224,41 @@ func (c *Client) Activate() {
 func (c *Client) Write(data []byte) {
 	m := c.m
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if c.s.closed || c.s.client != c || !c.active || !c.ready {
+		m.mu.Unlock()
 		slog.Debug("session input rejected", "key", c.s.key, "attachment", c.id, "closed", c.s.closed, "current", c.s.client == c, "active", c.active, "ready", c.ready, "bytes", len(data))
 		return
 	}
-	slog.Debug("session input accepted", "key", c.s.key, "attachment", c.id, "bytes", len(data))
+	s := c.s
+	m.mu.Unlock()
+
+	slog.Debug("session input accepted", "key", s.key, "attachment", c.id, "bytes", len(data))
 	// A TUI that exits without restoring mouse modes can leave the browser
 	// emitting mouse reports after the shell regains the foreground. Keep
 	// ordinary keyboard input intact, but discard recognized mouse reports at
 	// the PTY boundary while the shell itself is foreground.
-	_, foreground := pty.GetSessionState(c.s.pty.Pid())
+	_, foreground := pty.GetSessionState(s.pty.Pid())
 	if foreground == "" {
+		// StripMouseReports always returns a fresh slice, so it doubles as the
+		// private copy the queue needs.
 		data = pty.StripMouseReports(data)
+	} else {
+		// The caller reuses its read buffer the moment we return, so the queued
+		// bytes have to be ours.
+		payload := make([]byte, len(data))
+		copy(payload, data)
+		data = payload
 	}
 	if len(data) == 0 {
 		return
 	}
-	_, _ = c.s.pty.Write(data)
+	// Queue it for the writer. The send blocks while the application is behind —
+	// which is the backpressure we want — but it holds no lock, so the PTY read
+	// loop can keep draining and the application can get back to reading.
+	select {
+	case s.in <- data:
+	case <-s.done:
+	}
 }
 
 func (c *Client) Resize(cols, rows uint16) {
@@ -307,7 +338,7 @@ func (m *Manager) Attach(key string, cols, rows uint16, cwd string) (*Client, []
 			s.timer = nil
 		}
 		m.resizeLocked(s, cols, rows)
-		m.revokeLocked(s)
+		m.revokeLocked(s, revokeNewAttachment)
 	}
 
 	dump, err := s.vt.DumpVT(vt.ExtrasRestore)
@@ -342,10 +373,21 @@ func (m *Manager) start(key string, cols, rows uint16, cwd string) (*session, er
 		return nil, fmt.Errorf("session: create emulator: %w", err)
 	}
 
-	s := &session{key: key, pty: ps, vt: term, cols: cols, rows: rows, done: make(chan struct{}), pollerDone: make(chan struct{})}
+	s := &session{
+		key:        key,
+		pty:        ps,
+		vt:         term,
+		cols:       cols,
+		rows:       rows,
+		in:         make(chan []byte, inputQueue),
+		done:       make(chan struct{}),
+		pollerDone: make(chan struct{}),
+		writerDone: make(chan struct{}),
+	}
 	m.sessions[key] = s
 	go m.readLoop(s)
 	go m.statePoller(s)
+	go m.writeLoop(s)
 	return s, nil
 }
 
@@ -362,6 +404,32 @@ func (m *Manager) readLoop(s *session) {
 	}
 	code := s.pty.Wait()
 	m.finish(s, code)
+}
+
+// writeLoop drains the session's input queue into the PTY.
+//
+// Everything the browser sends for this session goes through here, so input
+// keeps its order, and no lock is held while the write blocks. That matters:
+// a PTY write blocks once the tty's input buffer is full, which happens while
+// the application is busy writing output instead of reading — and draining that
+// output needs the manager lock. Writing inline under the lock deadlocked the
+// session, and the lock is manager-wide, so it took every other session with
+// it. A 200 KB paste into a redrawing TUI was enough.
+func (m *Manager) writeLoop(s *session) {
+	defer close(s.writerDone)
+	for {
+		select {
+		case <-s.done:
+			return
+		case data := <-s.in:
+			if len(data) == 0 {
+				continue
+			}
+			if _, err := s.pty.Write(data); err != nil {
+				slog.Debug("session pty write failed", "key", s.key, "bytes", len(data), "error", err)
+			}
+		}
+	}
 }
 
 func (m *Manager) broadcast(s *session, data []byte) {
@@ -384,7 +452,7 @@ func (m *Manager) broadcast(s *session, data []byte) {
 	select {
 	case c.ch <- cp:
 	default:
-		m.revokeLocked(s)
+		m.revokeLocked(s, revokeSlowClient)
 	}
 }
 
@@ -453,7 +521,7 @@ func (m *Manager) finish(s *session, code int) {
 		case c.ch <- msg:
 		default:
 		}
-		m.revokeLocked(s)
+		m.revokeLocked(s, revokeShellExited)
 	}
 	m.mu.Unlock()
 
@@ -480,15 +548,18 @@ func (m *Manager) expire(s *session) {
 }
 
 func (m *Manager) detachLocked(s *session) {
-	m.revokeLocked(s)
+	m.revokeLocked(s, revokeDetached)
 	if s.timer == nil && !s.closed {
 		s.timer = time.AfterFunc(m.ttl, func() { m.expire(s) })
 	}
 }
 
 // revokeLocked closes the current attachment's frame stream and removes its
-// write authority. It is idempotent and must be called with m.mu held.
-func (m *Manager) revokeLocked(s *session) {
+// write authority. It is idempotent and must be called with m.mu held. The
+// reason is logged: losing a client is the visible "the terminal reconnected"
+// symptom, so it must not be silent (a slow client used to be Debug-only, which
+// is why a dropped attachment was invisible in production).
+func (m *Manager) revokeLocked(s *session, reason string) {
 	c := s.client
 	if c == nil {
 		return
@@ -497,6 +568,11 @@ func (m *Manager) revokeLocked(s *session) {
 	if c.active {
 		c.active = false
 		c.ready = false
+		if reason == revokeSlowClient {
+			slog.Warn("session client dropped", "key", s.key, "attachment", c.id, "reason", reason, "queued", len(c.ch), "cap", cap(c.ch))
+		} else {
+			slog.Debug("session client revoked", "key", s.key, "attachment", c.id, "reason", reason)
+		}
 		close(c.ch)
 	}
 }
@@ -519,6 +595,14 @@ type session struct {
 	vt     *vt.Terminal
 	vtOnce sync.Once
 
+	// in carries browser input to the single writer goroutine. Input is queued
+	// rather than written inline because a PTY write blocks when the
+	// application is not reading its input — and writing it under the manager
+	// lock would deadlock the session (the PTY read loop needs that lock to
+	// drain the application's output, which is what stops it from getting back
+	// to reading). See writeLoop.
+	in chan []byte
+
 	cols, rows uint16
 	client     *Client
 	timer      *time.Timer
@@ -530,6 +614,7 @@ type session struct {
 	stateMu    sync.RWMutex
 	done       chan struct{} // closed on session exit to stop state poller
 	pollerDone chan struct{} // closed when the state poller has exited
+	writerDone chan struct{} // closed when the input writer has exited
 }
 
 func (s *session) releaseVT() {

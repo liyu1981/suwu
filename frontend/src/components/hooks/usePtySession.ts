@@ -4,6 +4,7 @@ import type { Terminal } from '@xterm/xterm';
 import i18n from 'i18next';
 import { connectionMessageAtom, connectionStatusAtom } from '../../store/connection';
 import { fetchToken } from '../../lib/api';
+import { chunkInput } from '../../lib/wsChunks';
 
 const RECONNECT_DELAY_MS = 2000;
 const COUNTDOWN_TICK_MS = 1000;
@@ -128,7 +129,9 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
     senderRef.current = (data: string) => {
       const ws = currentWs;
       if (!inputReady || !ws || ws.readyState !== WebSocket.OPEN) return false;
-      ws.send(data);
+      // Chunked: a snippet or a key sequence can be longer than one frame, and a
+      // paste-sized payload must never be a single frame (see lib/wsChunks.ts).
+      for (const part of chunkInput(data)) ws.send(part);
       return true;
     };
 
@@ -477,15 +480,20 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
         }
         return;
       }
+      const parts = chunkInput(data);
       if (inputDebugCount < 10) {
         inputDebugCount++;
         console.debug('[term input] sending', {
           length: data.length,
+          frames: parts.length,
           wsState: ws.readyState,
           generation: currentGeneration,
         });
       }
-      ws.send(data);
+      // A paste arrives as one onData event; send it as frames the server will
+      // not refuse (it used to close the connection past 32 KiB, which the
+      // browser saw as a dropped session).
+      for (const part of parts) ws.send(part);
     });
 
     const onResize = term.onResize(({ cols, rows }) => {

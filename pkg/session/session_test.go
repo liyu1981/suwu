@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -342,5 +343,39 @@ func TestStatsCountsLiveAndAttached(t *testing.T) {
 	defer client2.Detach()
 	if got := mgr.Stats(); got.Live != 1 || got.Attached != 1 {
 		t.Fatalf("reattached stats = %+v, want 1/1", got)
+	}
+}
+
+// Input must reach the shell even while the application is writing output and
+// not reading its PTY.
+//
+// The write used to happen inline under the manager lock. A PTY write blocks
+// once the tty input buffer is full, and the PTY read loop needs that same lock
+// to drain the output, so an app that floods output and stops reading input
+// deadlocked the session — and every other session, since the lock is
+// manager-wide. A large paste into a redrawing TUI did exactly that.
+func TestLargeInputWhileAppFloodsOutput(t *testing.T) {
+	mgr, err := NewManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Close()
+
+	client, _, _, err := mgr.Attach("flood-test", 80, 24, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Activate()
+
+	// An app that writes a lot and does not read its input while it runs.
+	client.Write([]byte("head -c 400000 /dev/zero | tr '\\0' x\r"))
+	// A paste far larger than the PTY input buffer, queued while that runs.
+	client.Write(bytes.Repeat([]byte("y"), 200_000))
+	// Then interrupt it and prove the session still works end to end.
+	client.Write([]byte("\x03"))
+	client.Write([]byte("echo MARK-AFTER-FLOOD\r"))
+
+	if !readUntil(t, client.Frames(), "MARK-AFTER-FLOOD", 20*time.Second) {
+		t.Fatal("input after a flood was never echoed: the session is wedged")
 	}
 }

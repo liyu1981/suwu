@@ -23,6 +23,18 @@ const (
 	defaultWSRows = 24
 	maxWSCols     = 4096
 	maxWSRows     = 4096
+
+	// maxInputFrame bounds a single input frame.
+	//
+	// A browser paste arrives as one xterm onData event, so the whole payload —
+	// a 92 KB log file, say — lands in one WebSocket frame. coder/websocket's
+	// default read limit is 32 KiB, and past it the library closes the
+	// connection with StatusMessageTooBig; the browser reports that as a lost
+	// connection and reattaches, losing the paste (and anything typed
+	// afterwards). The client chunks its input (lib/wsChunks.ts), so this is
+	// the backstop for clients that do not, and the ceiling on what one
+	// attachment may ask the server to buffer.
+	maxInputFrame = 4 << 20
 )
 
 // wsWriteTimeout bounds a single WebSocket write.
@@ -74,6 +86,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close(websocket.StatusInternalError, "")
+	conn.SetReadLimit(maxInputFrame)
 
 	connMu.Lock()
 	conns[conn] = struct{}{}
@@ -144,6 +157,16 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	for {
 		mt, data, err := conn.Read(ctx)
 		if err != nil {
+			// A connection that ends for an unexpected reason is worth a line at
+			// Warn: "the terminal reconnected" is the visible symptom of a
+			// protocol or size problem (see maxInputFrame and
+			// docs/TERM_INPUT_LIMITS.md). A clean close stays at Debug.
+			status := websocket.CloseStatus(err)
+			if status == websocket.StatusNormalClosure || status == websocket.StatusGoingAway || status < 0 {
+				slog.Debug("ws read ended", "session", key, "error", err)
+			} else {
+				slog.Warn("ws read ended", "session", key, "status", status, "error", err)
+			}
 			return
 		}
 		if mt != websocket.MessageText && mt != websocket.MessageBinary {

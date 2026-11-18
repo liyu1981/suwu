@@ -12,7 +12,14 @@ import { useEffect } from 'react';
  *
  * The listener is coalesced into a frame: iOS fires `resize` for every pixel of
  * a keyboard animation.
+ *
+ * Two guards matter more than they look. A height of a few pixels arrives while
+ * the browser UI animates (and `0` when the page is being torn down); writing it
+ * would collapse the shell, resize every iframe and leave a terminal fitted to
+ * zero rows. And rewriting an unchanged value would resize nothing but still
+ * invalidate layout on every scroll event, so only real changes are applied.
  */
+const MIN_HEIGHT = 100;
 export function useVisualViewportVar(): void {
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -21,9 +28,16 @@ export function useVisualViewportVar(): void {
     const root = document.documentElement;
     let frame = 0;
 
+    let applied = '';
+
     const apply = () => {
       frame = 0;
-      root.style.setProperty('--vvh', `${Math.round(viewport.height)}px`);
+      const height = Math.round(viewport.height);
+      if (height < MIN_HEIGHT) return;
+      const next = `${height}px`;
+      if (next === applied) return;
+      applied = next;
+      root.style.setProperty('--vvh', next);
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(apply);

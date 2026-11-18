@@ -332,3 +332,38 @@ The phone shell is also installable:
   and Chrome refuses to install from that. Both the manifest and the worker keep
   `Cache-Control: no-store`, so a pinned worker cannot outlive a deploy.
   Covered by `TestPwaFilesAreServedWithCorrectType`.
+
+## 14. Fixes from the first real phone test
+
+Four things the first pass got wrong, and what they were:
+
+1. **The tile was edge to edge.** `MobileShell` put the panes in `absolute inset-0`
+   children of a `p-2` container, and an absolutely positioned child spans its
+   containing block's *padding box* — the padding was ignored. The panes now live
+   in a `relative h-full w-full` box inside the padded `main`, and carry the same
+   `rounded-[6px] border border-white/5 shadow` the desktop's panes do, so a
+   phone tile looks like a tile (8 px margin, matching `AppShell`'s `p-2` and
+   `wm/layout.ts`'s 8 px gutter).
+2. **A terminal born in a hidden box could paint nothing.** Every pane of every
+   space was mounted up front, and a pane inside `display: none` has a 0×0
+   viewport: xterm fits itself to zero rows and a terminal that reports
+   "Connected" draws an empty screen. Panes are now mounted on their first reveal
+   (`seen`) and never unmounted again — the session-preservation invariant is
+   untouched, and a phone no longer opens a PTY per unvisited tile.
+3. **The settings dialog was 576 px wide on a 390 px screen** — it rendered off
+   the edge. `SuwuDialog` is now `w-[min(92vw,36rem)]` / `h-[min(682px,92dvh)]`
+   (identical to 576×682 on a desktop) and `SettingsView` turns its vertical tab
+   rail into a horizontally scrolling row on `/mobile`.
+4. **A lost GPU context left the terminal blank.** Each terminal tile loads a
+   WebglAddon; when the browser reclaims a context (routine on phones after
+   backgrounding, and more likely with one context per tile) the terminal kept its
+   buffer and its WebSocket — status "Connected" — but painted nothing.
+   `useTerminal` now re-attaches the renderer once and repaints through the
+   fallback, and `usePtySession` backs its reconnect off (2 s → 15 s) instead of
+   retrying every 2 s forever.
+
+Known limitation, not fixed here: **two views of the same layout in one browser**
+(a desktop tab plus `/mobile`, or two tabs) share one PTY, keyed by pane id, and
+the newest attachment evicts the older one, so the two fight. The backoff makes it
+degrade to "the visible view owns the terminal" instead of a 2 s hot loop. The
+proper fix (several viewers per session, or a cross-tab lease) is its own change.

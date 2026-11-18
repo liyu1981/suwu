@@ -70,7 +70,7 @@ export default function SuwuDialog() {
       <DialogContent
         aria-describedby={undefined}
         onKeyDown={onKeyDown}
-        className="flex h-[682px] w-[576px] max-h-[95dvh] flex-col gap-0 overflow-hidden p-4"
+        className="flex h-[min(682px,92dvh)] w-[min(92vw,36rem)] flex-col gap-0 overflow-hidden p-4"
       >
         <DialogTitle className="sr-only">{TITLES[view]}</DialogTitle>
 

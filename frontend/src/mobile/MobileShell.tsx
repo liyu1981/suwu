@@ -63,6 +63,13 @@ import { useVisualViewportVar } from './useVisualViewportVar';
  * `display`. A terminal therefore keeps its WebSocket session, a folder sync
  * keeps running, and a half-typed form survives, exactly as when the desktop
  * hides a space.
+ *
+ * The one exception is the *first* mount: a pane's iframe is not created until
+ * that pane has been on screen once (`seen`). A tile that is born inside a
+ * `display: none` box has a 0×0 viewport, so xterm fits itself to zero rows and
+ * a terminal that "Connecting…" happily can paint nothing at all — and on a
+ * phone it would also open a PTY per unvisited tile. Mounting on first reveal
+ * fixes both; once mounted, a pane is never unmounted again.
  */
 export function MobileShell() {
   const { t } = useTranslation();
@@ -78,6 +85,8 @@ export function MobileShell() {
 
   const [pickerPaneId, setPickerPaneId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'overview' | 'space' | null>(null);
+  // Panes that have been on screen at least once; only these are mounted.
+  const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
 
   // Height from the visual viewport, so the soft keyboard cannot cover the tile
   // or the header on iOS (see the hook).
@@ -243,6 +252,14 @@ export function MobileShell() {
     [spaces],
   );
 
+  // Remember the current tile once it has actually been shown. The visible pane
+  // mounts in the same render anyway (see the layer below), so this only has to
+  // keep it mounted when the user moves on.
+  useEffect(() => {
+    if (!selected) return;
+    setSeen((prev) => (prev.has(selected) ? prev : new Set(prev).add(selected)));
+  }, [selected]);
+
   const tileLabel = useMemo(() => {
     if (!selected) return t('mobile.emptyTitle');
     const leaf = findLeaf(layout, selected);
@@ -271,47 +288,57 @@ export function MobileShell() {
       </MobileHeader>
 
       <main
-        className="relative z-0 min-h-0 flex-1"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="relative z-0 min-h-0 flex-1 p-2"
+        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
-        {ids.length === 0 && (
-          <div className="flex h-full items-center justify-center">
-            <button
-              type="button"
-              onClick={openPickerInNewLeaf}
-              className="glass-control glass-btn rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 transition hover:text-white"
-            >
-              + {t('wm.openApp')}
-            </button>
-          </div>
-        )}
-
-        {/* Flat, keyed pane layer across every space (see the doc comment). */}
-        {spaces.map((space, spaceIndex) =>
-          leaves(space.layout).map((paneId) => {
-            const leaf = findLeaf(space.layout, paneId);
-            const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
-            const plugin = tileType ? getTilePlugin(tileType) : undefined;
-            const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined;
-            const params = leaf?.type === 'leaf' ? leaf.params : undefined;
-            const visible = spaceIndex === activeSpace && paneId === selected;
-
-            return (
-              <div
-                key={paneId}
-                className="absolute inset-0 overflow-hidden"
-                style={{ display: visible ? undefined : 'none' }}
+        {/* The panes are absolutely positioned, so they need a positioned box
+            *inside* main's padding — `inset-0` on a child of a padded element
+            spans the padding box and would swallow the tile margin. */}
+        <div className="relative h-full w-full">
+          {ids.length === 0 && (
+            <div className="flex h-full items-center justify-center">
+              <button
+                type="button"
+                onClick={openPickerInNewLeaf}
+                className="glass-control glass-btn rounded-[6px] px-6 py-3 text-sm font-medium text-slate-300 transition hover:text-white"
               >
-                {(plugin ?? getTilePlugin('empty'))?.render(paneId, {
-                  paneId,
-                  initialPath,
-                  onOpenPicker: setPickerPaneId,
-                  params,
-                })}
-              </div>
-            );
-          }),
-        )}
+                + {t('wm.openApp')}
+              </button>
+            </div>
+          )}
+
+          {/* Flat, keyed pane layer across every space (see the doc comment). The
+            wrapper is the tile: the same 8 px margin, radius, border and shadow
+            the desktop gives a pane (AppShell pads its grid by 8 px and
+            wm/layout.ts uses an 8 px gutter), so a phone tile reads as a tile
+            instead of a bare iframe. */}
+          {spaces.map((space, spaceIndex) =>
+            leaves(space.layout).map((paneId) => {
+              const leaf = findLeaf(space.layout, paneId);
+              const tileType = leaf?.type === 'leaf' ? leaf.tileType : undefined;
+              const plugin = tileType ? getTilePlugin(tileType) : undefined;
+              const initialPath = leaf?.type === 'leaf' ? leaf.initialPath : undefined;
+              const params = leaf?.type === 'leaf' ? leaf.params : undefined;
+              const visible = spaceIndex === activeSpace && paneId === selected;
+              if (!visible && !seen.has(paneId)) return null;
+
+              return (
+                <div
+                  key={paneId}
+                  className="absolute inset-0 overflow-hidden rounded-[6px] border border-white/5 bg-black/20 shadow-[0_8px_32px_rgb(0_0_0/0.25)]"
+                  style={{ display: visible ? undefined : 'none' }}
+                >
+                  {(plugin ?? getTilePlugin('empty'))?.render(paneId, {
+                    paneId,
+                    initialPath,
+                    onOpenPicker: setPickerPaneId,
+                    params,
+                  })}
+                </div>
+              );
+            }),
+          )}
+        </div>
       </main>
 
       <SuwuDialog />

@@ -45,18 +45,45 @@ export function useTerminal(
     // the grid is sane even if the container has no measurable box yet.
     if (initialSize) t.resize(initialSize.cols, initialSize.rows);
 
+    // A lost GPU context is routine on a phone: the browser reclaims WebGL
+    // contexts when the app is backgrounded or when the page already holds too
+    // many (every terminal tile has its own). When that happens the terminal
+    // keeps its buffer and its WebSocket, so the status still says "Connected",
+    // but the renderer paints nothing — a blank tile with no prompt. Re-attach
+    // once, then repaint through whatever renderer is left.
+    let disposed = false;
     let webgl: WebglAddon | null = null;
-    try {
-      webgl = new WebglAddon();
-      webgl.onContextLoss(() => {
+    let retry: number | undefined;
+
+    const repaint = () => {
+      try {
+        t.refresh(0, Math.max(0, t.rows - 1));
+      } catch {
+        // The renderer may not be ready yet; the next resize repaints anyway.
+      }
+    };
+
+    const attachWebgl = (attempt: number) => {
+      if (disposed) return;
+      try {
+        const addon = new WebglAddon();
+        addon.onContextLoss(() => {
+          addon.dispose();
+          if (webgl === addon) webgl = null;
+          repaint();
+          if (attempt < 1) {
+            retry = window.setTimeout(() => attachWebgl(attempt + 1), 300);
+          }
+        });
+        t.loadAddon(addon);
+        webgl = addon;
+      } catch {
         webgl?.dispose();
         webgl = null;
-      });
-      t.loadAddon(webgl);
-    } catch {
-      webgl?.dispose();
-      webgl = null;
-    }
+        repaint();
+      }
+    };
+    attachWebgl(0);
 
     // Suppress the browser's native context menu inside the terminal so
     // right-click stays available for copy/paste handling.
@@ -73,6 +100,8 @@ export function useTerminal(
     (window as unknown as Record<string, unknown>).__term = t;
 
     return () => {
+      disposed = true;
+      if (retry) window.clearTimeout(retry);
       el.removeEventListener('contextmenu', suppressMenu);
       ro.disconnect();
       webgl?.dispose();

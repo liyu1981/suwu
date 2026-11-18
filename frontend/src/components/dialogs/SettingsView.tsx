@@ -63,7 +63,7 @@ const sectionLabel = 'text-xs font-medium text-muted-foreground';
 const sectionHint = 'mt-2 text-[11px] leading-relaxed text-muted-foreground';
 
 const tabBtn =
-  'rounded px-2.5 py-1.5 text-left text-xs text-muted-foreground outline-none transition-colors ' +
+  'shrink-0 whitespace-nowrap rounded px-2.5 py-1.5 text-left text-xs text-muted-foreground outline-none transition-colors ' +
   'hover:bg-white/5 hover:text-popover-foreground focus-visible:ring-1 focus-visible:ring-sky-400/60 ' +
   'data-[state=active]:bg-white/10 data-[state=active]:text-popover-foreground';
 
@@ -954,14 +954,20 @@ export default function SettingsView() {
 
   return (
     <div>
+      {/* A phone has no room for a vertical tab rail next to the content, so the
+          rail becomes a horizontally scrolling row above it. */}
       <TabsPrimitive.Root
         defaultValue="notifications"
-        orientation="vertical"
-        className="flex items-start gap-3"
+        orientation={mobile ? 'horizontal' : 'vertical'}
+        className={mobile ? 'flex flex-col items-stretch gap-2' : 'flex items-start gap-3'}
       >
         <TabsPrimitive.List
           aria-label="Settings sections"
-          className="flex w-28 shrink-0 flex-col gap-1"
+          className={
+            mobile
+              ? 'flex shrink-0 flex-row gap-1 overflow-x-auto scrollbar-thin pb-1'
+              : 'flex w-28 shrink-0 flex-col gap-1'
+          }
         >
           <TabsPrimitive.Trigger value="notifications" className={tabBtn}>
             {t('settings.notificationsTab')}

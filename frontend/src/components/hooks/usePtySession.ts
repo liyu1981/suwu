@@ -8,6 +8,11 @@ import { chunkInput } from '../../lib/wsChunks';
 
 const RECONNECT_DELAY_MS = 2000;
 const COUNTDOWN_TICK_MS = 1000;
+// Repeated failures back off, up to this cap. Two views of the same layout (a
+// desktop tab plus the phone view, or two tabs) share one PTY and the newest
+// attachment evicts the older one, so an immediate retry turns into a hot
+// takeover loop where neither side ever stays attached.
+const MAX_RECONNECT_DELAY_MS = 15000;
 const KEEPALIVE_MS = 30_000;
 
 /** Session state tracked by the backend and mirrored in localStorage. */
@@ -108,6 +113,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
     let currentGeneration = 0;
     let reconnectTimer: number | undefined;
     let reconnectInterval: number | undefined;
+    let reconnectAttempts = 0;
     let connectInFlight = false;
     let inputReady = false;
     let shellExited = false;
@@ -173,15 +179,20 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       setInputEnabled(false);
       setStatus('disconnected');
 
+      const delay = Math.min(
+        RECONNECT_DELAY_MS * 2 ** Math.min(reconnectAttempts, 3),
+        MAX_RECONNECT_DELAY_MS,
+      );
+      reconnectAttempts += 1;
       const message = (seconds: number) => i18n.t('pty.reconnecting', { reason, seconds });
-      let remaining = Math.max(1, Math.round(RECONNECT_DELAY_MS / COUNTDOWN_TICK_MS));
+      let remaining = Math.max(1, Math.round(delay / COUNTDOWN_TICK_MS));
       setMessage(message(remaining));
       reconnectTimer = window.setTimeout(() => {
         if (reconnectInterval !== undefined) window.clearInterval(reconnectInterval);
         reconnectInterval = undefined;
         reconnectTimer = undefined;
         void connect();
-      }, RECONNECT_DELAY_MS);
+      }, delay);
       reconnectInterval = window.setInterval(() => {
         remaining -= 1;
         if (remaining > 0) setMessage(message(remaining));
@@ -260,6 +271,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
           readyAckSent = true;
           console.debug('[term ready] client acknowledgement sent', { attachment, generation });
         }
+        reconnectAttempts = 0;
         setInputEnabled(true);
         console.debug('[term ready] input enabled', { attachment, generation });
         setStatus('connected');

@@ -335,6 +335,20 @@ function TreeNodeItem({
 
 // ── Main file browser ──
 
+/** Sort arrow for a table header; flat, so it can sit inside a button. */
+function SortIndicator({
+  col,
+  sortKey,
+  sortDir,
+}: {
+  col: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+}) {
+  if (sortKey !== col) return null;
+  return <span className="ml-1 text-[10px]">{sortDir === 'asc' ? '▲' : '▼'}</span>;
+}
+
 export default function FileBrowserPage() {
   const { t } = useTranslation();
   const savedState = useTileSessionState<FileBrowserSessionState>();
@@ -528,11 +542,6 @@ export default function FileBrowserPage() {
 
   const breadcrumbs = currentPath.split('/').filter(Boolean);
 
-  const SortIndicator = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return null;
-    return <span className="ml-1 text-[10px]">{sortDir === 'asc' ? '▲' : '▼'}</span>;
-  };
-
   return (
     <CommonTileContainer zoomAtom={fileBrowserZoomAtom} noPadding background={DENSE_TILE_BG}>
       <div className="flex min-h-0 flex-1 flex-col">
@@ -648,7 +657,7 @@ export default function FileBrowserPage() {
                 className="flex-1 py-2 text-left transition-colors duration-150 hover:text-white/60 active:scale-[0.99]"
               >
                 {t('filebrowser.name')}
-                <SortIndicator col="name" />
+                <SortIndicator col="name" sortKey={sortKey} sortDir={sortDir} />
               </button>
               <button
                 type="button"
@@ -656,7 +665,7 @@ export default function FileBrowserPage() {
                 className="w-24 py-2 text-right transition-colors duration-150 hover:text-white/60 active:scale-[0.99]"
               >
                 {t('filebrowser.size')}
-                <SortIndicator col="size" />
+                <SortIndicator col="size" sortKey={sortKey} sortDir={sortDir} />
               </button>
               <button
                 type="button"
@@ -664,7 +673,7 @@ export default function FileBrowserPage() {
                 className="w-32 py-2 text-right transition-colors duration-150 hover:text-white/60 active:scale-[0.99]"
               >
                 {t('filebrowser.modified')}
-                <SortIndicator col="modTime" />
+                <SortIndicator col="modTime" sortKey={sortKey} sortDir={sortDir} />
               </button>
             </div>
 

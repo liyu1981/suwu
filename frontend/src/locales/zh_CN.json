@@ -868,6 +868,17 @@
     "previousTile": "上一个窗口",
     "nextTile": "下一个窗口",
     "overview": "全部窗口",
-    "emptyTitle": "无窗口"
+    "emptyTitle": "无窗口",
+    "overviewTitle": "全部窗口",
+    "overviewEmpty": "该空间还没有窗口。",
+    "tileActions": "窗口操作",
+    "fontSize": "字体",
+    "moveToSpace": "移动到空间",
+    "spacesTitle": "空间",
+    "addSpace": "新建空间",
+    "removeSpace": "删除",
+    "current": "当前",
+    "tileCount_one": "{{count}} 个窗口",
+    "tileCount_other": "{{count}} 个窗口"
   }
 }

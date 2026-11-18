@@ -9,6 +9,8 @@ import {
   MOBILE_MAX_WIDTH,
   basename,
   cycleTile,
+  sessionHint,
+  tileAfterClose,
   parsePreference,
   preferenceFromSearch,
   shouldUseMobileView,
@@ -128,5 +130,25 @@ assert.equal(
   'Terminal',
   'blank fields fall through, whitespace is trimmed',
 )
+
+// ── what to select after a close ─────────────────────────────────────────
+assert.equal(tileAfterClose(['a', 'b', 'c'], 'a'), 'b', 'closing the first selects the next')
+assert.equal(tileAfterClose(['a', 'b', 'c'], 'b'), 'c', 'closing a middle tile selects the next')
+assert.equal(tileAfterClose(['a', 'b', 'c'], 'c'), 'b', 'closing the last falls back to the previous')
+assert.equal(tileAfterClose(['only'], 'only'), '', 'closing the only tile selects nothing')
+assert.equal(tileAfterClose(['a', 'b'], 'gone'), 'a', 'an unknown id selects the first')
+assert.equal(tileAfterClose([], 'x'), '')
+
+// ── overview hint from persisted tile state ──────────────────────────────
+assert.equal(sessionHint(undefined), '')
+assert.equal(sessionHint({}), '')
+assert.equal(sessionHint({ currentPath: '/video/tv' }), '/video/tv')
+assert.equal(sessionHint({ path: '  /home/yli  ' }), '/home/yli', 'trimmed')
+assert.equal(sessionHint({ repoPath: '/src/suwu', branch: 'main' }), '/src/suwu')
+assert.equal(sessionHint({ path: 42, file: '/a/b.ts' }), '/a/b.ts', 'non-strings are skipped')
+assert.equal(sessionHint({ path: '   ' }), '', 'blank values are skipped')
+assert.equal(sessionHint({ path: 's' }), '', 'values that are not path-shaped are skipped')
+assert.equal(sessionHint({ directory: '~/code' }), '~/code', 'home paths count')
+assert.equal(sessionHint({ dir: '/other', path: '/first' }), '/first', 'declaration order wins')
 
 console.log('check-mobile: ok')

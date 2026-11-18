@@ -104,6 +104,40 @@ export function tileInfoLine(input: {
   return input.description?.trim() ?? '';
 }
 
+/**
+ * The tile to select after `closedId` disappears: the next one in the order the
+ * header arrows walk, else the previous, else nothing. Using the arrow order
+ * keeps the visible behaviour consistent — the tile that slides into the closed
+ * one's place is the one `` would have shown next.
+ */
+export function tileAfterClose(ids: readonly string[], closedId: string): string {
+  if (ids.length === 0) return '';
+  const at = ids.indexOf(closedId);
+  if (at < 0) return ids[0];
+  return ids[at + 1] ?? ids[at - 1] ?? '';
+}
+
+/**
+ * A short hint from a tile's persisted session state, for the overview cards.
+ *
+ * Each plugin keeps its own shape (`currentPath`, a git tab, a code file…), and
+ * the overview has no business knowing all of them, so this picks the first
+ * string under the field names the plugins actually use. Unknown shapes yield ''
+ * and the card falls back to the plugin description.
+ */
+export function sessionHint(state: Record<string, unknown> | undefined): string {
+  if (!state) return '';
+  for (const key of ['currentPath', 'path', 'filePath', 'file', 'repoPath', 'dir', 'directory']) {
+    const value = state[key];
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    // Only path-shaped values: some plugins keep short flags under ordinary
+    // names, and a card that says "s" is worse than a card that says nothing.
+    if (trimmed.startsWith('/') || trimmed.startsWith('~')) return trimmed;
+  }
+  return '';
+}
+
 // ── browser helpers ────────────────────────────────────────────────────────
 
 /** The viewport's mobile-relevant capabilities. Desktop defaults when there is no window. */

@@ -6,7 +6,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { NotificationPanel } from '../components/NotificationPanel';
 import SuwuDialog from '../components/dialogs/SuwuDialog';
 import { initBackup } from '../lib/backup/client';
-import { cycleTile } from '../lib/mobile';
+import { cycleTile, tileAfterClose } from '../lib/mobile';
 import { useNotifications } from '../routes/hooks/useNotifications';
 import { useUpdateCheck } from '../routes/hooks/useUpdateCheck';
 import { fontDefaultAtom } from '../store/fonts';
@@ -19,12 +19,26 @@ import {
   menuViewAtom,
   spacesAtom,
 } from '../wm/atoms';
-import { createLeaf, findLeaf, leaves } from '../wm/layout';
+import {
+  addSpace,
+  closeAt,
+  createLeaf,
+  findLeaf,
+  getPaneData,
+  leaves,
+  moveLeafBetweenSpaces,
+  removeSpace,
+  setPaneData,
+  spaceIndexForPane,
+  splitAndFocus,
+} from '../wm/layout';
 import { getTilePlugin } from '../wm/tilePlugins';
 import '../wm/registerPlugins';
 import { TileTypePicker } from '../wm/TileTypePicker';
 import { usePaneBus } from '../wm/usePaneBus';
 import { MobileHeader } from './MobileHeader';
+import { OverviewSheet } from './OverviewSheet';
+import { SpaceSheet } from './SpaceSheet';
 
 /**
  * The phone shell at `/mobile`.
@@ -62,10 +76,11 @@ export function MobileShell() {
   const [, setMenuView] = useAtom(menuViewAtom);
 
   const [pickerPaneId, setPickerPaneId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<'overview' | 'space' | null>(null);
 
   // The same shell <-> tile protocol as the desktop: server-started-at, per-pane
   // font size, per-tile session state.
-  usePaneBus({ layout, spaces, activeSpace, fontPreset });
+  const { sessionState } = usePaneBus({ layout, spaces, activeSpace, fontPreset });
 
   useNotifications();
   useUpdateCheck();
@@ -111,6 +126,118 @@ export function MobileShell() {
     setPickerPaneId(leaf.id);
   }, [setFocused, store]);
 
+  // The overview's cards: the active space's tiles, in arrow order, with the
+  // per-tile font the shell would use (paneData, else the preset).
+  // Close a tile from the overview. Mobile never uses the desktop's focus mode,
+  // so the plain close path applies: remove the leaf, then select the tile that
+  // takes its place in the arrow order.
+  const closeTile = useCallback(
+    (paneId: string) => {
+      const cur = store.get(layoutAtom);
+      if (!cur) return;
+      const order = leaves(cur);
+      const next = closeAt(cur, paneId);
+      const survivor = tileAfterClose(order, paneId);
+      store.set(layoutAtom, next);
+      if (survivor) setFocused(survivor);
+      setSheet(null);
+    },
+    [setFocused, store],
+  );
+
+  // Per-tile font, stored in the paneData of the space that owns the tile (the
+  // same place the desktop's A−/A+ writes).
+  const setTileFontSize = useCallback(
+    (paneId: string, size: number) => {
+      const current = store.get(spacesAtom);
+      const index = spaceIndexForPane(current, paneId);
+      if (index < 0) return;
+      store.set(
+        spacesAtom,
+        current.map((space, i) =>
+          i === index ? setPaneData(space, paneId, 'fontSize', size) : space,
+        ),
+      );
+    },
+    [store],
+  );
+
+  const moveTileToSpace = useCallback(
+    (paneId: string, target: number) => {
+      const current = store.get(spacesAtom);
+      const from = spaceIndexForPane(current, paneId);
+      if (from < 0 || from === target) return;
+      store.set(spacesAtom, moveLeafBetweenSpaces(current, paneId, from, target));
+      store.set(activeSpaceAtom, target);
+      setFocused(paneId);
+      setSheet(null);
+    },
+    [setFocused, store],
+  );
+
+  // "+ Open app" adds a tile beside the selected one and opens the picker on it.
+  // The split geometry is invisible on a phone and stays correct on the desktop.
+  const addTile = useCallback(() => {
+    const cur = store.get(layoutAtom);
+    const id = selected || store.get(focusedIdAtom);
+    if (!cur || !id) {
+      openPickerInNewLeaf();
+      return;
+    }
+    const { next, focus } = splitAndFocus(cur, id, 'vertical');
+    store.set(layoutAtom, next);
+    setFocused(focus);
+    setPickerPaneId(focus);
+    setSheet(null);
+  }, [openPickerInNewLeaf, selected, setFocused, store]);
+
+  const selectSpace = useCallback(
+    (index: number) => {
+      store.set(activeSpaceAtom, index);
+      setSheet(null);
+    },
+    [store],
+  );
+
+  const addSpaceHere = useCallback(() => {
+    const { spaces: next, index } = addSpace(store.get(spacesAtom));
+    store.set(spacesAtom, next);
+    store.set(activeSpaceAtom, index);
+    setFocused('');
+    setSheet(null);
+  }, [setFocused, store]);
+
+  const removeSpaceHere = useCallback(
+    (index: number) => {
+      const { spaces: next, index: active } = removeSpace(store.get(spacesAtom), index);
+      store.set(spacesAtom, next);
+      store.set(activeSpaceAtom, active);
+      setFocused('');
+      setSheet(null);
+    },
+    [setFocused, store],
+  );
+
+  const overviewTiles = useMemo(() => {
+    const space = spaces[activeSpace];
+    if (!space) return [];
+    return leaves(space.layout).map((paneId) => {
+      const leaf = findLeaf(space.layout, paneId);
+      const pane = getPaneData<{ fontSize?: number }>(space, paneId);
+      return {
+        paneId,
+        tileType: leaf?.type === 'leaf' ? leaf.tileType : undefined,
+        initialPath: leaf?.type === 'leaf' ? leaf.initialPath : undefined,
+        fontSize: pane?.fontSize,
+      };
+    });
+  }, [activeSpace, spaces]);
+
+  const spaceSummaries = useMemo(
+    () => spaces.map((space) => ({ name: space.name, tileCount: leaves(space.layout).length })),
+    [spaces],
+  );
+
   const tileLabel = useMemo(() => {
     if (!selected) return t('mobile.emptyTitle');
     const leaf = findLeaf(layout, selected);
@@ -125,6 +252,8 @@ export function MobileShell() {
       <MobileHeader
         onMenu={openMenu}
         spaceLabel={String(activeSpace + 1)}
+        onSpace={() => setSheet('space')}
+        onOverview={() => setSheet('overview')}
         tileLabel={tileLabel}
         onPrev={() => step(-1)}
         onNext={() => step(1)}
@@ -179,6 +308,35 @@ export function MobileShell() {
 
       <SuwuDialog />
       <NotificationPanel />
+
+      <OverviewSheet
+        open={sheet === 'overview'}
+        onOpenChange={(open) => setSheet(open ? 'overview' : null)}
+        tiles={overviewTiles}
+        selected={selected}
+        sessionState={sessionState}
+        fontDefault={fontPreset}
+        spaces={spaceSummaries}
+        activeSpace={activeSpace}
+        onSelect={(paneId) => {
+          setFocused(paneId);
+          setSheet(null);
+        }}
+        onCloseTile={closeTile}
+        onFontSize={setTileFontSize}
+        onMoveToSpace={moveTileToSpace}
+        onAddApp={addTile}
+      />
+
+      <SpaceSheet
+        open={sheet === 'space'}
+        onOpenChange={(open) => setSheet(open ? 'space' : null)}
+        spaces={spaceSummaries}
+        activeSpace={activeSpace}
+        onSelect={selectSpace}
+        onAdd={addSpaceHere}
+        onRemove={removeSpaceHere}
+      />
 
       {pickerPaneId && (
         <TileTypePicker

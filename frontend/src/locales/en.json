@@ -871,6 +871,17 @@
     "previousTile": "Previous tile",
     "nextTile": "Next tile",
     "overview": "All tiles",
-    "emptyTitle": "No tile"
+    "emptyTitle": "No tile",
+    "overviewTitle": "All tiles",
+    "overviewEmpty": "This space has no tiles yet.",
+    "tileActions": "Tile actions",
+    "fontSize": "Font",
+    "moveToSpace": "Move to space",
+    "spacesTitle": "Spaces",
+    "addSpace": "New space",
+    "removeSpace": "Remove",
+    "current": "Current",
+    "tileCount_one": "{{count}} tile",
+    "tileCount_other": "{{count}} tiles"
   }
 }

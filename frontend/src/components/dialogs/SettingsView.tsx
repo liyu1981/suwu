@@ -30,6 +30,7 @@ import { reloadExtensions } from '../../lib/extensions';
 import { Avatar } from '../Avatar';
 import { DiceIcon, RefreshIcon } from '../icons';
 import { BackupTab } from './BackupTab';
+import { isMobileShell } from '@/lib/mobile';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import {
@@ -823,6 +824,8 @@ export default function SettingsView() {
   const [webgpuBackground, setWebgpuBackground] = useAtom(webgpuBackgroundAtom);
   const [spacesIdle, setSpacesIdle] = useAtom(spacesIdleAtom);
   const [headerPosition, setHeaderPosition] = useAtom(headerPositionAtom);
+  // The phone shell fixes its header; see the header-position section below.
+  const mobile = isMobileShell();
   const [avatar, setAvatar] = useAtom(avatarAtom);
   const [userName, setUserName] = useAtom(userNameAtom);
   const [userNameDraft, setUserNameDraft] = useState(userName);
@@ -1070,31 +1073,36 @@ export default function SettingsView() {
         </TabsPrimitive.Content>
 
         <TabsPrimitive.Content value="header" className="min-w-0 flex-1">
-          <div className={section}>
-            <div className="flex items-center justify-between">
-              <span className={sectionLabel}>{t('settings.headerPosition')}</span>
+          {/* The phone shell's header is fixed at the top by design, so the
+              docking control is hidden there rather than left to claim
+              something the phone does not do. */}
+          {!mobile && (
+            <div className={section}>
+              <div className="flex items-center justify-between">
+                <span className={sectionLabel}>{t('settings.headerPosition')}</span>
+              </div>
+              <div
+                role="radiogroup"
+                aria-label={t('settings.headerPosition')}
+                className="mt-2 grid grid-cols-4 gap-1"
+              >
+                {HEADER_POSITIONS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    role="radio"
+                    aria-checked={headerPosition === p}
+                    data-active={headerPosition === p}
+                    onClick={() => setHeaderPosition(p)}
+                    className={segBtn}
+                  >
+                    {t(`settings.headerPosition_${p}`)}
+                  </button>
+                ))}
+              </div>
+              <p className={sectionHint}>{t('settings.headerPositionHint')}</p>
             </div>
-            <div
-              role="radiogroup"
-              aria-label={t('settings.headerPosition')}
-              className="mt-2 grid grid-cols-4 gap-1"
-            >
-              {HEADER_POSITIONS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  role="radio"
-                  aria-checked={headerPosition === p}
-                  data-active={headerPosition === p}
-                  onClick={() => setHeaderPosition(p)}
-                  className={segBtn}
-                >
-                  {t(`settings.headerPosition_${p}`)}
-                </button>
-              ))}
-            </div>
-            <p className={sectionHint}>{t('settings.headerPositionHint')}</p>
-          </div>
+          )}
 
           <div className={section}>
             <div className="flex items-center justify-between">

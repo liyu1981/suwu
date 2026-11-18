@@ -220,3 +220,50 @@ func TestServeAssetIdentityStillReads(t *testing.T) {
 		t.Fatal("identity responses differ")
 	}
 }
+
+// The PWA files are served from the same embedded tree as everything else, but
+// two details matter for installability: the manifest must carry its own media
+// type (Chrome will not install from a sniffed text/plain), and neither the
+// manifest nor the worker may be cached by the browser — a pinned service
+// worker is the classic way to get stuck on an old build.
+func TestPwaFilesAreServedWithCorrectType(t *testing.T) {
+	web, err := fs.Sub(assets.FS, "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := assetServer(t, web)
+	client := ts.Client()
+
+	for _, tc := range []struct {
+		path string
+		want string
+	}{
+		{"/manifest.webmanifest", "application/manifest+json"},
+		{"/sw.js", "application/javascript"},
+	} {
+		req, err := http.NewRequest(http.MethodGet, ts.URL+tc.path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = "127.0.0.1"
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.path, err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s: status = %d, want 200", tc.path, resp.StatusCode)
+		}
+		if got := resp.Header.Get("Content-Type"); got != tc.want {
+			t.Errorf("%s: Content-Type = %q, want %q", tc.path, got, tc.want)
+		}
+		if got := resp.Header.Get("Cache-Control"); got != "no-store" {
+			t.Errorf("%s: Cache-Control = %q, want no-store", tc.path, got)
+		}
+		if !strings.Contains(string(body), "Suwu") {
+			t.Errorf("%s: body does not mention Suwu: %q", tc.path, string(body[:min(80, len(body))]))
+		}
+	}
+}

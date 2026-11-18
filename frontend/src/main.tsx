@@ -14,3 +14,13 @@ startCloudflareSessionWatch();
 hydrateExternalBackgrounds();
 
 createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />);
+
+// PWA: cache the hashed build output, nothing else (see public/sw.js). Skipped in
+// dev, where Vite serves unhashed modules that a cache-first worker would pin.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // A worker is an optimisation; the app works without one.
+    });
+  });
+}

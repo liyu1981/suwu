@@ -105,6 +105,15 @@ export function tileInfoLine(input: {
 }
 
 /**
+ * Whether this document is the phone shell. Desktop-only settings (the header
+ * docking position) are hidden here rather than silently ignored: a switch that
+ * does nothing is worse than no switch.
+ */
+export function isMobileShell(pathname: string = window.location.pathname): boolean {
+  return pathname === '/mobile' || pathname.startsWith('/mobile/');
+}
+
+/**
  * The tile to select after `closedId` disappears: the next one in the order the
  * header arrows walk, else the previous, else nothing. Using the arrow order
  * keeps the visible behaviour consistent — the tile that slides into the closed

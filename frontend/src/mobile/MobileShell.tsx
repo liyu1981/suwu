@@ -39,6 +39,7 @@ import { usePaneBus } from '../wm/usePaneBus';
 import { MobileHeader } from './MobileHeader';
 import { OverviewSheet } from './OverviewSheet';
 import { SpaceSheet } from './SpaceSheet';
+import { useVisualViewportVar } from './useVisualViewportVar';
 
 /**
  * The phone shell at `/mobile`.
@@ -77,6 +78,10 @@ export function MobileShell() {
 
   const [pickerPaneId, setPickerPaneId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'overview' | 'space' | null>(null);
+
+  // Height from the visual viewport, so the soft keyboard cannot cover the tile
+  // or the header on iOS (see the hook).
+  useVisualViewportVar();
 
   // The same shell <-> tile protocol as the desktop: server-started-at, per-pane
   // font size, per-tile session state.
@@ -246,7 +251,10 @@ export function MobileShell() {
   }, [layout, selected, t]);
 
   return (
-    <div className="ambient-bg flex h-dvh w-full flex-col overflow-hidden text-slate-100">
+    <div
+      className="ambient-bg flex w-full flex-col overflow-hidden text-slate-100"
+      style={{ height: 'var(--vvh, 100dvh)' }}
+    >
       <BackgroundCanvas background={background} />
 
       <MobileHeader

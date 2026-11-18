@@ -1,0 +1,19 @@
+{
+  "name": "Suwu",
+  "short_name": "Suwu",
+  "description": "A browser terminal, file browser and dev toolbox over a single Go server.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

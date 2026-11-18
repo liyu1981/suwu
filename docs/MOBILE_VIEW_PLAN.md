@@ -1,6 +1,7 @@
 # Mobile View — Plan
 
-Status: **planned, not started.**
+Status: **shipped** (phases 0–4 and the PWA; see §12–§13 for what landed and
+where it differs from this plan).
 Owner area: `frontend/src/main.tsx`, `frontend/src/router.tsx`,
 `frontend/src/routes/AuthGate.tsx`, new `frontend/src/routes/MobilePage.tsx` +
 `frontend/src/mobile/`, `frontend/src/lib/mobile.ts`, locales.
@@ -257,3 +258,77 @@ Total ≈ 4–4.5 days, with the phone build usable after phase 2.
    single "All tiles" list? Default: keep spaces, they are cheap.
 4. PWA install (manifest + icon + `display: standalone`) is out of scope here but
    would make the "phone app" feel complete — see a follow-up doc if wanted.
+
+---
+
+## 12. What shipped
+
+Phases 0–4 landed in four commits, each with the plan's exit criteria:
+
+| Phase | Commit | Contents |
+|---|---|---|
+| 0 | `refactor(wm): extract the pane message bus into usePaneBus` | the shell↔tile postMessage protocol (`server-started-at`, `tile-font-size`, `tile-state-update`, `request-session-state`, `request-font-size`, restarts, FIFO pruning) moved out of `TilingWM.tsx` into `wm/usePaneBus.ts`; move-only |
+| 1 + 2 | `feat(mobile): a phone shell at /mobile, one tile per screen` | `lib/mobile.ts` + `scripts/check-mobile.mjs`, `/mobile` route, `AuthGate` children, both redirect points, `?desktop=1` escape hatch, `mobile/MobileShell.tsx` + `MobileHeader.tsx`, shared `wm/registerPlugins.ts` and `wm/TileTypePicker.tsx` |
+| 3 | `feat(mobile): the overview sheet, the space sheet and per-tile actions` | `mobile/BottomSheet.tsx`, `OverviewSheet.tsx` (cards, ⋯ → close/font/move, "+ Open app"), `SpaceSheet.tsx` (rows, add/remove) |
+| 4 | `feat(pwa): installable manifest and a hashed-asset service worker` | `--vvh` visual-viewport hook, header-position control hidden on `/mobile`, `manifest.webmanifest`, `sw.js`, `.webmanifest` media type |
+
+Phases 1 and 2 were committed together: the `/mobile` route with no shell in it
+would have been dead code, and the shell without the route could not be opened.
+
+Deviations from the plan, and why:
+
+- **The redirect lives in `router.tsx` module scope**, before `createRouter`, not
+  only in `indexRoute.beforeLoad`. `beforeLoad` runs after the router has read
+  `window.location`, so a phone would paint the desktop shell for a frame.
+  `beforeLoad` is kept as the second line of defence for in-app navigation.
+- **No swipe-to-switch.** It conflicts with xterm's horizontal scroll and text
+  selection; the header arrows and the sheet are the navigation. (§4.1)
+- **`sessionHint` only trusts path-shaped values.** The plugins persist short
+  flags under ordinary-looking names (`path: "s"`), and a card that reads "s" is
+  worse than a card that reads the plugin description.
+- **Close selects the next tile in arrow order**, else the previous — the plan
+  said "nearest by geometry", but the geometry is invisible on a phone and the
+  arrow order is what the user just saw.
+- **The overview is a bottom sheet, not a full-screen takeover**: the tile stays
+  visible behind it, which is what makes "switch and look" one gesture.
+- **`--vvh` instead of relying on `dvh` alone**: iOS shrinks only the visual
+  viewport when the keyboard opens.
+
+Verified (headless Chromium over CDP, 390×844, seeded two-space/three-tile
+profile): one visible tile with the other two still mounted
+(`iframe[data-pane]` = 3, visible = 1), a live terminal prompt in a full-screen
+tile, arrows cycling Terminal → File Browser → Terminal, overview cards with
+labels and hints, A+ writing `paneData.fontSize` into the same `tiling-spaces`
+the desktop reads, close removing its leaf and keeping focus, "+ Open
+Application" opening the picker, the space sheet with correct `1 tile`/`2 tiles`
+plurals, and `/` at 1440×900 unchanged.
+
+Not verified here (needs a real phone): iOS keyboard behaviour, safe-area insets
+on a notched device, PWA install from the home screen, and the 44 px tap targets
+under a thumb. These are the manual matrix items in §9.
+
+## 13. PWA
+
+The phone shell is also installable:
+
+- `frontend/public/manifest.webmanifest` — `name`/`short_name` Suwu,
+  `start_url: "/"` (the redirect decides), `display: "standalone"`,
+  `theme_color` `#0b1020`, and `logo.svg` as an `image/svg+xml` icon with
+  `sizes: "any"`. No PNG set: `logo.svg` *is* the 512-unit logo, and adding
+  raster copies would mean a build step with an image toolchain this repo does
+  not have. Chrome accepts an SVG icon with `sizes: any` for installability.
+- `frontend/public/sw.js` — deliberately minimal: **cache-first for
+  `/assets/<hashed-name>` only**, everything else passes through untouched. No
+  navigation, `/api/*`, `/ws/*` or tile-route caching: a cached shell or API
+  response would show a stale build or a stale file list, and a terminal
+  reconnecting to a server it does not match is worse than a slower start. The
+  cache is pruned to 80 entries and old cache names are dropped on activate.
+  Registered in `main.tsx` in production builds only — a cache-first worker over
+  Vite's dev server would pin unhashed modules.
+- `index.html` — manifest link, `theme-color`, `mobile-web-app-capable` and the
+  three `apple-mobile-web-app-*` metas so iOS launches it without browser chrome.
+- `pkg/server` — `.webmanifest` joined `mimeTypes` as
+  `application/manifest+json`; without it the file was sniffed as `text/plain`
+  and Chrome refuses to install from that. Both the manifest and the worker keep
+  `Cache-Control: no-store`, so a pinned worker cannot outlive a deploy.
+  Covered by `TestPwaFilesAreServedWithCorrectType`.

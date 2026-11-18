@@ -70,11 +70,13 @@ var mimeTypes = map[string]string{
 	".mjs":  "application/javascript",
 	".css":  "text/css",
 	".json": "application/json",
-	".wasm": "application/wasm",
-	".png":  "image/png",
-	".webp": "image/webp",
-	".svg":  "image/svg+xml",
-	".ico":  "image/x-icon",
+	// A PWA manifest needs its own type (Chrome ignores a sniffed text/plain).
+	".webmanifest": "application/manifest+json",
+	".wasm":        "application/wasm",
+	".png":         "image/png",
+	".webp":        "image/webp",
+	".svg":         "image/svg+xml",
+	".ico":         "image/x-icon",
 }
 
 // Server is the demo HTTP + WebSocket server.

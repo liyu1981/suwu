@@ -9,6 +9,7 @@ import {
   MOBILE_MAX_WIDTH,
   basename,
   cycleTile,
+  isMobileShell,
   sessionHint,
   tileAfterClose,
   parsePreference,
@@ -130,6 +131,13 @@ assert.equal(
   'Terminal',
   'blank fields fall through, whitespace is trimmed',
 )
+
+// ── desktop-only settings ───────────────────────────────────────────────
+assert.equal(isMobileShell('/mobile'), true)
+assert.equal(isMobileShell('/mobile/'), true)
+assert.equal(isMobileShell('/'), false, 'the desktop shell keeps its settings')
+assert.equal(isMobileShell('/term'), false, 'tile iframes are not the mobile shell')
+assert.equal(isMobileShell('/mobileish'), false, 'prefix must be a path segment')
 
 // ── what to select after a close ─────────────────────────────────────────
 assert.equal(tileAfterClose(['a', 'b', 'c'], 'a'), 'b', 'closing the first selects the next')

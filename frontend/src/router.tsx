@@ -1,5 +1,8 @@
-import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
 import AuthGate from './routes/AuthGate';
+import AppShell from './routes/AppShell';
+import MobilePage from './routes/MobilePage';
+import { mobileRedirectTarget } from './lib/mobile';
 import DemoPage from './routes/DemoPage';
 import TermPage from './routes/TermPage';
 import FileViewerPage from './routes/FileViewerPage';
@@ -20,17 +23,51 @@ import StaticBrowsePage from './routes/StaticBrowsePage';
 
 const rootRoute = createRootRoute();
 
-// App shell (header + content) for the interactive pages.
+/**
+ * Phones are sent to `/mobile` before the router reads `window.location`.
+ *
+ * A redirect inside the router would still boot with the desktop URL: TanStack
+ * captures the location when the router is created (below), so the desktop shell
+ * would paint for a frame, and the first match would be the tiling WM. Running
+ * the same decision here keeps the URL and the router in agreement from the
+ * first render. The check is the pure predicate in `lib/mobile.ts`; `?desktop=1`
+ * and a stored preference opt out.
+ */
+const mobileTarget = mobileRedirectTarget(window.location.pathname, window.location.search);
+if (mobileTarget) {
+  window.history.replaceState(null, '', mobileTarget + window.location.search);
+}
+
+// Desktop shell: header + content, dockable header, tiling spaces.
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
-  component: AuthGate,
+  component: () => (
+    <AuthGate>
+      <AppShell />
+    </AuthGate>
+  ),
 });
 
 const indexRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/',
   component: DemoPage,
+  // In-app navigations back to `/` (the brand, the back button) go through the
+  // router rather than a page load, so the module-level redirect above never
+  // sees them.
+  beforeLoad: () => {
+    if (mobileRedirectTarget(window.location.pathname, window.location.search)) {
+      throw redirect({ to: '/mobile', search: true });
+    }
+  },
+});
+
+// Phone shell: same tiles and atoms, one tile per screen, fixed header.
+const mobileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mobile',
+  component: MobilePage,
 });
 
 // Full-space terminal page, loaded inside each tiling pane's iframe.
@@ -141,6 +178,7 @@ const staticBrowseRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
+  mobileRoute,
   termRoute,
   fileViewerRoute,
   filebrowserRoute,

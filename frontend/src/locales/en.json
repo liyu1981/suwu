@@ -864,5 +864,13 @@
     "close": "Close preview",
     "hint": "Scroll or double-click to zoom · drag to pan",
     "failed": "This image could not be loaded"
+  },
+  "mobile": {
+    "menu": "Menu",
+    "spaces": "Spaces",
+    "previousTile": "Previous tile",
+    "nextTile": "Next tile",
+    "overview": "All tiles",
+    "emptyTitle": "No tile"
   }
 }

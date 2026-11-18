@@ -1,10 +1,9 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { BackgroundCanvas } from '../components/background';
 import { Avatar } from '../components/Avatar';
 import { userNameAtom } from '../store/settings';
-import AppShell from './AppShell';
 import { AuthRequiredError, authenticate, fetchToken } from '../lib/api';
 
 function LoginPage({ onAuthenticated }: { onAuthenticated: () => void }) {
@@ -81,7 +80,14 @@ function LoginPage({ onAuthenticated }: { onAuthenticated: () => void }) {
   );
 }
 
-export default function AuthGate() {
+/**
+ * Holds the login gate in front of a shell.
+ *
+ * It takes the shell as children rather than importing one, because there are
+ * two: the desktop tiling shell (`AppShell`) and the phone shell (`MobileShell`,
+ * at `/mobile`). The token/login flow itself is identical for both.
+ */
+export default function AuthGate({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'checking' | 'login' | 'ready'>('checking');
 
   useEffect(() => {
@@ -107,7 +113,7 @@ export default function AuthGate() {
     };
   }, []);
 
-  if (status === 'ready') return <AppShell />;
+  if (status === 'ready') return <>{children}</>;
   if (status === 'login') return <LoginPage onAuthenticated={() => setStatus('ready')} />;
 
   return (

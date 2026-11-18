@@ -861,5 +861,13 @@
     "close": "关闭预览",
     "hint": "滚轮或双击缩放 · 拖动平移",
     "failed": "无法加载这张图片"
+  },
+  "mobile": {
+    "menu": "菜单",
+    "spaces": "空间",
+    "previousTile": "上一个窗口",
+    "nextTile": "下一个窗口",
+    "overview": "全部窗口",
+    "emptyTitle": "无窗口"
   }
 }

@@ -105,6 +105,19 @@ export function tileInfoLine(input: {
 }
 
 /**
+ * Whether this document looks like a phone or tablet: a coarse primary pointer.
+ * A touch-screen laptop still reports `fine`, so this does not punish them. Used
+ * both for the phone shell's detection and for the terminal's soft-input keypad.
+ */
+export function isTouchFirst(): boolean {
+  try {
+    return window.matchMedia('(pointer: coarse)').matches;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Whether this document is the phone shell. Desktop-only settings (the header
  * docking position) are hidden here rather than silently ignored: a switch that
  * does nothing is worse than no switch.

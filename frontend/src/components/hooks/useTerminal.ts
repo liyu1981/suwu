@@ -4,6 +4,7 @@ import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { readRendererPreference, shouldUseWebgl } from '../../lib/termRenderer';
+import { isTouchFirst } from '../../lib/mobile';
 
 /**
  * Which renderer this document ended up with, for debugging and headless checks.
@@ -95,7 +96,7 @@ export function useTerminal(
         repaint();
       }
     };
-    if (shouldUseWebgl(readRendererPreference())) attachWebgl(0);
+    if (shouldUseWebgl(readRendererPreference(), isTouchFirst())) attachWebgl(0);
 
     // Suppress the browser's native context menu inside the terminal so
     // right-click stays available for copy/paste handling.

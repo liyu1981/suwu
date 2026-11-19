@@ -44,10 +44,10 @@ import {
   type RendererPreference,
   glRendererName,
   hasSoftwareGl,
-  isTouchFirst,
   readRendererPreference,
   writeRendererPreference,
 } from '../lib/termRenderer';
+import { isTouchFirst } from '../lib/mobile';
 
 /**
  * The phone shell at `/mobile`.

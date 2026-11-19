@@ -90,18 +90,6 @@ export function glRendererName(win: Window): string {
 }
 
 /**
- * Whether this document looks like a phone or tablet: a coarse primary pointer.
- * A touch-screen laptop still reports `fine`, so this does not punish them.
- */
-export function isTouchFirst(): boolean {
-  try {
-    return window.matchMedia('(pointer: coarse)').matches;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Whether a fresh document with this preference should load the WebGL addon.
  *
  * `auto` is deliberately conservative on phones: that is where a WebGL canvas
@@ -109,8 +97,8 @@ export function isTouchFirst(): boolean {
  * terminal's throughput matters least. Anyone who prefers the accelerated
  * renderer can pin `webgl` from the tile's ⋯ panel.
  */
-export function shouldUseWebgl(preference: RendererPreference): boolean {
+export function shouldUseWebgl(preference: RendererPreference, touchFirst: boolean): boolean {
   if (preference === 'dom') return false;
   if (preference === 'webgl') return true;
-  return !isTouchFirst() && !hasSoftwareGl();
+  return !touchFirst && !hasSoftwareGl();
 }

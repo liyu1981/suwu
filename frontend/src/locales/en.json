@@ -889,5 +889,17 @@
     "rendererGl": "GL",
     "diagnosticsUnavailable": "Tile not mounted",
     "diagnosticsLine": "{{renderer}} · {{grid}} · dpr {{dpr}} · {{gpu}} · {{gl}}"
+  },
+  "softInput": {
+    "toggle": "Terminal input",
+    "placeholder": "Type for the terminal",
+    "send": "Send",
+    "left": "Cursor left",
+    "up": "Cursor up",
+    "down": "Cursor down",
+    "right": "Cursor right",
+    "pageUp": "PgUp",
+    "pageDown": "PgDn",
+    "collapse": "Hide the input panel"
   }
 }

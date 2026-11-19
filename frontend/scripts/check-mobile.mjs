@@ -6,6 +6,12 @@
 // (`detectMobileEnv`, `mobileRedirectTarget`) are exercised by hand on a phone.
 import assert from 'node:assert/strict'
 import {
+  PAGE_DOWN_SEQUENCE,
+  PAGE_UP_SEQUENCE,
+  cursorSequence,
+  softInputText,
+} from '../src/lib/termSoftKeys.ts';
+import {
   parseRendererPreference,
   RENDERER_PREFERENCES,
 } from '../src/lib/termRenderer.ts';
@@ -170,5 +176,19 @@ assert.equal(parseRendererPreference('auto'), 'auto')
 assert.equal(parseRendererPreference(null), 'auto', 'unset means auto')
 assert.equal(parseRendererPreference('garbage'), 'auto', 'unknown values fall back')
 assert.deepEqual([...RENDERER_PREFERENCES], ['auto', 'dom', 'webgl'])
+
+// ── soft-input keypad ────────────────────────────────────────────────────
+assert.equal(cursorSequence('up', false), '\u001b[A', 'a shell prompt wants CSI arrows')
+assert.equal(cursorSequence('down', false), '\u001b[B')
+assert.equal(cursorSequence('right', false), '\u001b[C')
+assert.equal(cursorSequence('left', false), '\u001b[D')
+assert.equal(cursorSequence('up', true), '\u001bOA', 'DECCKM apps (vim, less) want SS3 arrows')
+assert.equal(PAGE_UP_SEQUENCE, '\u001b[5~')
+assert.equal(PAGE_DOWN_SEQUENCE, '\u001b[6~')
+
+assert.equal(softInputText('ls -la'), 'ls -la', 'the typed text is data: untouched')
+assert.equal(softInputText('  Mixed Case  '), '  Mixed Case  ', 'spaces and case survive')
+assert.equal(softInputText('cmd|pipe > out'), 'cmd|pipe > out', 'no shell-quoting games')
+assert.equal(softInputText(''), null, 'nothing typed means nothing to send')
 
 console.log('check-mobile: ok')

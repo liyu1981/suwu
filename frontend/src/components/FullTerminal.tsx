@@ -20,6 +20,8 @@ import { useBell } from './hooks/useBell';
 import { useInputRecorder } from './hooks/useInputRecorder';
 import { CommonTileContainer } from './CommonTileContainer';
 import { KeyChordMenu } from './term/KeyChordMenu';
+import { SoftInputBar, SoftInputIcon } from './term/SoftInputBar';
+import { isTouchFirst } from '../lib/mobile';
 import { SnippetMenu } from './term/SnippetMenu';
 import { SnippetManagerDialog, type SnippetEditTarget } from './term/SnippetManagerDialog';
 import { SnippetSaveDialog } from './term/SnippetSaveDialog';
@@ -126,6 +128,13 @@ export default function FullTerminal() {
   // ── Send a key combination: the browser eats some of what a term needs ──
   const [keysOpen, setKeysOpen] = useState(false);
   const applicationCursorKeys = Boolean(term?.modes.applicationCursorKeysMode);
+
+  // Phones get a soft-input panel: the keyboard has no arrows, no PgUp/PgDn and
+  // no reliable Escape. It is a tile feature rather than a shell one because the
+  // panel takes its space from the terminal (so xterm refits and the PTY is told
+  // the new size) and because input can then go through the same door as keys.
+  const touchFirst = isTouchFirst();
+  const [softInputOpen, setSoftInputOpen] = useState(false);
 
   // term.input() is the right door: it goes through xterm's onData, so the
   // bytes take the same path as typed keys and the line recorder sees them too
@@ -278,8 +287,20 @@ export default function FullTerminal() {
         </div>
         {/* Thin per-pane status bar: connection state lives here instead of
             floating over the terminal content. */}
+        {softInputOpen && (
+          <SoftInputBar
+            enabled={status === 'connected'}
+            applicationCursorKeys={applicationCursorKeys}
+            onSendText={(text) => insertInput({ text }, true)}
+            onSendKeys={sendChord}
+            onCollapse={() => {
+              setSoftInputOpen(false);
+              term?.focus();
+            }}
+          />
+        )}
         <footer
-          className={`flex h-5 shrink-0 items-center gap-1.5 border-t px-2 text-[11px] text-white/50 tracking-wide ${
+          className={`flex ${touchFirst ? 'h-9' : 'h-5'} shrink-0 items-center gap-1.5 border-t px-2 text-[11px] text-white/50 tracking-wide ${
             selectionMode
               ? 'border-sky-400/30 bg-sky-900/50 text-sky-300'
               : 'border-white/10 bg-black/40 text-white/60'
@@ -300,6 +321,20 @@ export default function FullTerminal() {
           )}
           {/* Clickable char-count badge — only in selection mode */}
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            {touchFirst && (
+              <button
+                type="button"
+                aria-label={t('softInput.toggle')}
+                aria-expanded={softInputOpen}
+                title={t('softInput.toggle')}
+                onClick={() => setSoftInputOpen((v) => !v)}
+                className={`rounded px-1.5 py-1 transition active:bg-white/15 ${
+                  softInputOpen ? 'bg-white/10 text-white' : 'hover:bg-white/10'
+                }`}
+              >
+                <SoftInputIcon className={touchFirst ? 'h-4 w-4' : 'h-3 w-3'} />
+              </button>
+            )}
             <KeyChordMenu
               open={keysOpen}
               onOpenChange={setKeysOpen}

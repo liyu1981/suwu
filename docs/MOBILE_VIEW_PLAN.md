@@ -540,3 +540,47 @@ openssl s_client -connect 192.168.0.221:8181 </dev/null 2>/dev/null |
 
 If the certificate is regenerated with a new CA, the old profile has to be removed
 from the device and the new one installed.
+
+## 15. The soft-input panel
+
+A phone keyboard has letters, but a terminal needs more: arrows, PgUp/PgDn and a
+reliable Enter. Without them a shell prompt is workable and a full-screen app
+(vim, less, htop) is not.
+
+The terminal tile's own status bar carries the toggle (`footer` grew from 20 to
+36 px on touch devices, and a keyboard button joined the icons). It expands a panel
+between the terminal and the footer:
+
+```
+[ type for the terminal            ] [ Send ]
+[ ← ] [ ↑ ] [ ↓ ] [ → ]      [ PgUp ] [ PgDn ] [ ⌄ ]
+```
+
+- **Send** takes the text through `insertInput({text}, true)` — bracketed paste
+  (when the app asks for it) then Enter — so it is recorded in the same line model
+  as typed keys and the shell's history stays honest.
+- An **empty box + Send is a bare Enter**, which is how "run what is on the line"
+  works after an arrow recall.
+- Arrows are the right bytes for the mode the app is in: `ESC [ A` normally,
+  `ESC O A` when xterm reports DECCKM (vim and friends), read at click time —
+  sending the wrong pair either prints `^[[A` or moves nothing.
+- PgUp/PgDn send `ESC [ 5 ~` / `ESC [ 6 ~`, which readline, less and tmux all know.
+- The text is sent **exactly as typed** — case, spaces and punctuation; only the
+  carriage return is added. The panel is not a command editor.
+- The panel takes its space **from the terminal**, which is what makes xterm refit
+  and the PTY receive the new size — the same path as a desktop window resize. It
+  is part of the tile, not of the shell, for that reason and because the input can
+  then use the terminal's own send path instead of a new postMessage protocol.
+- Collapsing it (the `⌄` button, or the status-bar toggle again) gives the space
+  back to the terminal and refocuses it.
+
+The pure part — `cursorSequence`, `PAGE_UP_SEQUENCE`, `PAGE_DOWN_SEQUENCE`,
+`softInputText` in `lib/termSoftKeys.ts` — is asserted in `check-mobile.mjs`:
+DECCKM on/off, the exact page sequences, and that text survives untouched
+(including leading spaces and case).
+
+Verified headlessly at 390×844, dpr 3, touch emulation: the toggle appears only on
+touch devices (the desktop footer stays 20 px with no toggle), opening it shrinks
+the terminal canvas from 712 to 623 px, typing `echo soft-input-ok` + Send runs it,
+`↑` recalls it, an empty Send runs it again, and the `⌄` button collapses the panel
+and restores the canvas.

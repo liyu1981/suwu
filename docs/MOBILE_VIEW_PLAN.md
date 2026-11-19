@@ -468,3 +468,45 @@ test.
 Slower on heavy output than WebGL, but it draws DOM nodes, which always
 composite — a renderer that can silently show nothing is not worth the
 throughput.
+
+### 13.3 Trusting Suwu's local CA on an iPhone
+
+`suwu serve` uses HTTPS with a leaf certificate signed by a **persistent local CA**
+(`pkg/certs`: `~/.config/suwu/CA/rootCA.pem`, ten years, named "suwu local CA"),
+because a private IP cannot get a public certificate. Browsers show a warning until
+the device trusts that CA — and until then iOS will not reliably fetch the
+home-screen icon, Chrome will not offer to install, and the service worker does not
+register. So trust the CA and everything else (icons, install, offline assets)
+falls into place.
+
+The CA **certificate** is public; the key next to it must stay on the server. Only
+the `.crt` goes to the phone.
+
+1. On the server, write a DER copy with a `.crt` name (iOS offers to install that,
+   not `.pem`):
+
+   ```sh
+   openssl x509 -in ~/.config/suwu/CA/rootCA.pem -outform DER \
+     -out ~/.suwu/dropbox/suwu-local-ca.crt
+   ```
+
+2. On the iPhone, open Suwu's Dropbox tile over the same origin, download
+   `suwu-local-ca.crt`, and accept the certificate warning one last time.
+3. **Settings → General → VPN & Device Management →** the downloaded profile **→
+   Install** (enter the passcode).
+4. **Settings → General → About → Certificate Trust Settings →** enable full trust
+   for "suwu local CA". Step 4 is the one people miss: installing the profile is
+   not the same as trusting it.
+5. Reload Safari — the ⚠️ is gone. Remove any Suwu home-screen icon and add it
+   again; the icon, the install prompt and the worker all work from here.
+
+Sanity checks from the phone's network (or from the server):
+
+```sh
+openssl s_client -connect 192.168.0.221:8181 </dev/null 2>/dev/null |
+  openssl x509 -noout -subject -issuer -ext subjectAltName
+# subject must list the IP you browse to, issuer must be "suwu local CA"
+```
+
+If the certificate is regenerated with a new CA, the old profile has to be removed
+from the device and the new one installed.

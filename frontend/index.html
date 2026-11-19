@@ -20,7 +20,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Suwu" />
-    <link rel="apple-touch-icon" href="/logo.svg" />
+    <!-- iOS ignores an SVG touch icon and invents a letter tile instead, so the
+         home-screen icon has to be a PNG. Regenerate with scripts/gen-icons.mjs. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
     <title>Suwu</title>
   </head>
   <body>

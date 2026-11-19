@@ -267,3 +267,45 @@ func TestPwaFilesAreServedWithCorrectType(t *testing.T) {
 		}
 	}
 }
+
+// The manifest's icons and the iOS touch icon are static PNGs; a missing one is
+// invisible in a browser (it just falls back to a generated letter tile) but
+// breaks PWA installability, so the build must carry them.
+func TestPwaIconsAreServed(t *testing.T) {
+	web, err := fs.Sub(assets.FS, "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := assetServer(t, web)
+	client := ts.Client()
+
+	for _, path := range []string{
+		"/icons/icon-180.png",
+		"/icons/icon-192.png",
+		"/icons/icon-512.png",
+		"/icons/icon-maskable-512.png",
+	} {
+		req, err := http.NewRequest(http.MethodGet, ts.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = "127.0.0.1"
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%s: status = %d, want 200", path, resp.StatusCode)
+			continue
+		}
+		if got := resp.Header.Get("Content-Type"); got != "image/png" {
+			t.Errorf("%s: Content-Type = %q, want image/png", path, got)
+		}
+		if len(body) < 100 || string(body[1:4]) != "PNG" {
+			t.Errorf("%s: not a PNG (len %d)", path, len(body))
+		}
+	}
+}

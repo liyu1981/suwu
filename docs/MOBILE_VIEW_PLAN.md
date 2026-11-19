@@ -313,10 +313,15 @@ The phone shell is also installable:
 
 - `frontend/public/manifest.webmanifest` — `name`/`short_name` Suwu,
   `start_url: "/"` (the redirect decides), `display: "standalone"`,
-  `theme_color` `#0b1020`, and `logo.svg` as an `image/svg+xml` icon with
-  `sizes: "any"`. No PNG set: `logo.svg` *is* the 512-unit logo, and adding
-  raster copies would mean a build step with an image toolchain this repo does
-  not have. Chrome accepts an SVG icon with `sizes: any` for installability.
+  `theme_color` `#0b1020`, and **PNG** icons: 192, 512 and a 512 `maskable` one
+  whose artwork sits inside the mask's safe zone.
+  The SVG is not enough: **iOS ignores an SVG `apple-touch-icon`** and invents a
+  letter tile ("S") instead, and a home-screen icon is the one part of a PWA you
+  cannot fix in CSS. `scripts/gen-icons.mjs` regenerates all four PNGs from
+  `logo.svg` by rendering it in a Chromium at each size — there is no image
+  toolchain in this repo, but the app is a browser app, so there is always a
+  Chromium. Run it by hand after editing the logo; `TestPwaIconsAreServed` keeps
+  a missing icon from shipping.
 - `frontend/public/sw.js` — deliberately minimal: **cache-first for
   `/assets/<hashed-name>` only**, everything else passes through untouched. No
   navigation, `/api/*`, `/ws/*` or tile-route caching: a cached shell or API
@@ -325,8 +330,30 @@ The phone shell is also installable:
   cache is pruned to 80 entries and old cache names are dropped on activate.
   Registered in `main.tsx` in production builds only — a cache-first worker over
   Vite's dev server would pin unhashed modules.
-- `index.html` — manifest link, `theme-color`, `mobile-web-app-capable` and the
-  three `apple-mobile-web-app-*` metas so iOS launches it without browser chrome.
+- `index.html` — manifest link, `theme-color`, `mobile-web-app-capable`, the
+  three `apple-mobile-web-app-*` metas so iOS launches it without browser chrome,
+  and `apple-touch-icon` pointing at the 180 px PNG.
+
+### 13.1 Why "Install app" may not appear
+
+Chrome only offers installation in a **secure context with a valid certificate**.
+`Page.getInstallabilityErrors` (CDP) on this build reports nothing but
+`in-incognito`, so the manifest, icons, `start_url`, `display` and the service
+worker all satisfy the criteria — but a LAN address over HTTPS with a
+self-signed certificate (`https://192.168.0.221:8080`, the ⚠️ in the address bar)
+is *not* a secure context: the service worker never registers and the install
+prompt never appears. Same for plain `http://` on a LAN IP.
+
+Ways to get a real install on a phone:
+
+- a certificate the device trusts (mkcert's CA installed on the phone, Caddy, or a
+  tunnel with a valid cert), or
+- `chrome://flags/#unsafely-treat-insecure-origin-as-secure` with the origin
+  added (a test-only escape hatch), or
+- `http://localhost:PORT` on the machine itself, which is secure by definition.
+
+iOS "Add to Home Screen" has no such requirement — it works from any page — which
+is why the iPhone install worked while Android's did not.
 - `pkg/server` — `.webmanifest` joined `mimeTypes` as
   `application/manifest+json`; without it the file was sniffed as `text/plain`
   and Chrome refuses to install from that. Both the manifest and the worker keep

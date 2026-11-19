@@ -367,3 +367,21 @@ Known limitation, not fixed here: **two views of the same layout in one browser*
 the newest attachment evicts the older one, so the two fight. The backoff makes it
 degrade to "the visible view owns the terminal" instead of a 2 s hot loop. The
 proper fix (several viewers per session, or a cross-tab lease) is its own change.
+
+### 14.1 The blank terminal was a software GPU
+
+The "Connected but no prompt" tile was reproduced exactly: **WebGL on a software
+rasteriser**. Such a driver (SwiftShader/llvmpipe — what a VM without GPU
+passthrough, a blocked GPU or Chrome's device emulation gives you) hands out a
+perfectly usable context: it clears, `readPixels` returns the right pixels,
+`onContextLoss` never fires. It just never composites the terminal's canvas into
+the page, so the tile shows its background and its status bar and nothing else.
+The buffer was always correct (`__term.buffer` held `yli@pvedev:~$`).
+
+`useTerminal` now probes `WEBGL_debug_renderer_info` once per document and keeps
+the built-in renderer when the driver name says software. Slower on heavy output,
+but it draws in DOM nodes, which always composite — correctness beats a renderer
+that can silently show nothing. `window.__termRenderer` reports the choice.
+
+Escape hatch, for isolating a rendering problem on someone else's machine:
+`?renderer=dom` on the tile URL, or `localStorage['suwu.term-renderer'] = 'dom'`.

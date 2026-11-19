@@ -40,7 +40,11 @@ const (
 	organization = "suwu"
 	caCommonName = "suwu local CA"
 	caValidFor   = 10 * 365 * 24 * time.Hour
-	// leafValidFor stays under Apple's 825-day limit for TLS certificates.
+	// leafValidFor is Apple's 825-day limit for TLS server certificates. It is
+	// applied to the whole validity window, not to "now": the one-hour backdate
+	// below exists to tolerate clock skew, and adding it on top would make the
+	// certificate 825 days and one hour — over the limit, which iOS rejects no
+	// matter how much the device trusts the CA.
 	leafValidFor = 825 * 24 * time.Hour
 )
 
@@ -224,6 +228,10 @@ func Issue(ca *CA, hosts []string) (certPEM, keyPEM []byte, err error) {
 		return nil, nil, err
 	}
 	now := time.Now()
+	// Backdate so a client clock that is a few minutes behind still accepts the
+	// certificate — but keep the total window inside Apple's 825-day cap by
+	// deriving the expiry from the same start.
+	notBefore := now.Add(-time.Hour)
 	cn := dnsNames
 	if len(cn) == 0 {
 		cn = []string{hosts[0]}
@@ -231,8 +239,8 @@ func Issue(ca *CA, hosts []string) (certPEM, keyPEM []byte, err error) {
 	tpl := &x509.Certificate{
 		SerialNumber:          serial,
 		Subject:               pkix.Name{Organization: []string{organization}, CommonName: cn[0]},
-		NotBefore:             now.Add(-time.Hour),
-		NotAfter:              now.Add(leafValidFor),
+		NotBefore:             notBefore,
+		NotAfter:              notBefore.Add(leafValidFor),
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,

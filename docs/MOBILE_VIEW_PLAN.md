@@ -504,6 +504,24 @@ browser will talk to it), the same certificate can be exported by hand:
 openssl x509 -in ~/.config/suwu/CA/rootCA.pem -outform DER -out suwu-local-ca.crt
 ```
 
+If everything above is done and Safari still refuses, check the certificate's
+**validity window** before blaming the trust store: Apple rejects a TLS server
+certificate whose total validity exceeds **825 days**, however much the device
+trusts the CA that signed it. The first version of `certs.Issue` backdated the
+start by an hour for clock-skew tolerance and then added the full 825 days on top,
+producing a 825-day-and-one-hour certificate — just over the limit. It now derives
+the expiry from the backdated start, so the window is exactly 825 days.
+
+Reissuing keeps the CA (only the leaf is replaced), so the phone's installed
+profile stays valid:
+
+```sh
+suwu gencerts --force --hosts "localhost,127.0.0.1,192.168.0.221,pvedev"
+# restart the server, then:
+openssl s_client -connect 192.168.0.221:8181 </dev/null 2>/dev/null |
+  openssl x509 -noout -dates     # notAfter - notBefore must be <= 825 days
+```
+
 Sanity checks from the phone's network (or from the server):
 
 ```sh

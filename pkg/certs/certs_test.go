@@ -390,3 +390,36 @@ func TestCACertForLeaf(t *testing.T) {
 		t.Error("CACertForLeaf published a CA for a missing leaf")
 	}
 }
+
+// Apple caps a TLS server certificate's validity at 825 days; iOS rejects one
+// that is longer however much the device trusts the CA that signed it. The
+// one-hour backdate (clock-skew tolerance) used to be added *on top* of the 825
+// days, which is exactly one hour too long.
+func TestIssuedLeafValidityFitsAppleLimit(t *testing.T) {
+	caDir := filepath.Join(t.TempDir(), CADirName)
+	ca := createCAIn(t, caDir)
+
+	certPEM, _, err := Issue(ca, []string{"localhost", "192.168.0.221"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		t.Fatal("no certificate in PEM")
+	}
+	leaf, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	span := leaf.NotAfter.Sub(leaf.NotBefore)
+	if span > 825*24*time.Hour {
+		t.Errorf("leaf validity = %v, want <= 825 days", span)
+	}
+	if leaf.NotBefore.After(time.Now()) {
+		t.Errorf("leaf NotBefore %v is in the future", leaf.NotBefore)
+	}
+	if slack := time.Until(leaf.NotAfter); slack < 800*24*time.Hour {
+		t.Errorf("leaf expires too soon: %v", slack)
+	}
+}

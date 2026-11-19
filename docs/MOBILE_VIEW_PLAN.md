@@ -548,8 +548,12 @@ reliable Enter. Without them a shell prompt is workable and a full-screen app
 (vim, less, htop) is not.
 
 The terminal tile's own status bar carries the toggle (`footer` grew from 20 to
-36 px on touch devices, and a keyboard button joined the icons). It expands a panel
-between the terminal and the footer:
+36 px on touch devices, and a keyboard button joined the icons). The panel lives
+*below* the status bar, at the very bottom edge of the tile, so it grows
+**downward**: its grid row animates `0fr → 1fr` and the terminal above (the flex-1
+row) gives up exactly that height, which is also what makes the PTY resize. It is
+kept mounted — `inert` while closed — so the row can animate and a half-typed line
+survives a collapse; focus lands 200 ms later, once the row is no longer clipped:
 
 ```
 [ type for the terminal            ] [ Send ]
@@ -580,7 +584,9 @@ DECCKM on/off, the exact page sequences, and that text survives untouched
 (including leading spaces and case).
 
 Verified headlessly at 390×844, dpr 3, touch emulation: the toggle appears only on
-touch devices (the desktop footer stays 20 px with no toggle), opening it shrinks
-the terminal canvas from 712 to 623 px, typing `echo soft-input-ok` + Send runs it,
-`↑` recalls it, an empty Send runs it again, and the `⌄` button collapses the panel
-and restores the canvas.
+touch devices (the desktop footer stays 20 px with no toggle); opening moves the
+status bar up to 647 px and the panel to the bottom edge (683 → 772), while the
+terminal canvas shrinks from 712 to 623 px; typing `echo soft-input-ok` + Send runs
+it; `↑` recalls it; an empty Send runs it again; the `⌄` button collapses and the
+canvas returns to 712 px. The text box keeps focus after Send, so the phone stays
+ready for the next command.

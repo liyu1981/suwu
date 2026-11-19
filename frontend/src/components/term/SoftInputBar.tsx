@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
@@ -21,6 +21,11 @@ import {
  * exactly as when a desktop window resizes), and the bytes can go through the
  * same door as typed keys (`term.input`), which keeps the line recorder — and the
  * shell's history — honest.
+ *
+ * The panel sits *below* the status bar and the parent animates its row from 0fr
+ * to 1fr, so it grows downward out of the bottom edge while the terminal above it
+ * gets shorter. Focus is the parent's job: it lands after the row has opened,
+ * because focusing a still-clipped input scrolls the tile.
  */
 export interface SoftInputBarProps {
   /** The session is attached and accepting input. */
@@ -52,12 +57,6 @@ export function SoftInputBar({
   const { t } = useTranslation();
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Opening the panel is a tap, so focusing here still counts as a user gesture
-  // for the keyboard. The user can always tap the box themselves.
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   const send = () => {
     if (!enabled) return;

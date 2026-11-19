@@ -57,9 +57,18 @@ const dir = join(publicDir, 'icons');
 mkdirSync(dir, { recursive: true });
 
 const targets = [
+  // iOS asks for a size that matches the device (120/152/167/180) and older
+  // versions fall back to a screenshot when none of the offered sizes match, so
+  // every size an iPhone or iPad may want is produced here.
+  { file: 'icon-120.png', size: 120, html: page(fullBleed) },
+  { file: 'icon-152.png', size: 152, html: page(fullBleed) },
+  { file: 'icon-167.png', size: 167, html: page(fullBleed) },
   { file: 'icon-180.png', size: 180, html: page(fullBleed) },
   { file: 'icon-192.png', size: 192, html: page(fullBleed) },
   { file: 'icon-512.png', size: 512, html: page(fullBleed) },
+  // Apple recommends 512 or 1024 for the manifest (a PWA's launcher icon is
+  // scaled by the platform, and a larger source survives any density).
+  { file: 'icon-1024.png', size: 1024, html: page(fullBleed) },
   { file: 'icon-maskable-512.png', size: 512, html: page(maskable) },
 ];
 

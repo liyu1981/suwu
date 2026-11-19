@@ -280,9 +280,13 @@ func TestPwaIconsAreServed(t *testing.T) {
 	client := ts.Client()
 
 	for _, path := range []string{
+		"/icons/icon-120.png",
+		"/icons/icon-152.png",
+		"/icons/icon-167.png",
 		"/icons/icon-180.png",
 		"/icons/icon-192.png",
 		"/icons/icon-512.png",
+		"/icons/icon-1024.png",
 		"/icons/icon-maskable-512.png",
 		// The root aliases iOS looks for without any <link>.
 		"/apple-touch-icon.png",

@@ -313,8 +313,11 @@ The phone shell is also installable:
 
 - `frontend/public/manifest.webmanifest` — `name`/`short_name` Suwu,
   `start_url: "/"` (the redirect decides), `display: "standalone"`,
-  `theme_color` `#0b1020`, and **PNG** icons: 192, 512 and a 512 `maskable` one
-  whose artwork sits inside the mask's safe zone.
+  `theme_color` `#0b1020`, and **PNG** icons: 192, 512, **1024** and a 512
+  `maskable` one whose artwork sits inside the mask's safe zone. Apple's guidance
+  for a PWA manifest is 512 or 1024 — the platform scales the launcher icon, so a
+  larger source survives any density — and Chrome keeps its 192 for the install
+  prompt.
   The SVG is not enough: **iOS ignores an SVG `apple-touch-icon`** and invents a
   letter tile ("S") instead, and a home-screen icon is the one part of a PWA you
   cannot fix in CSS. `scripts/gen-icons.mjs` regenerates all four PNGs from
@@ -369,14 +372,26 @@ Putting them behind auth fails in a way that is invisible on a logged-in desktop
 iOS falls back to a generated letter tile and Chrome silently drops the install
 prompt.
 
-iOS has two bites at the icon, and both are now present: the sized
-`<link rel="apple-touch-icon">`, and `/apple-touch-icon.png` (+ the `-precomposed`
-alias) at the site root for entry points that ignore the link. Safari caches a web
-app's icon per origin for a long time, so after changing it: delete the icon from
-the home screen, close the old tab, open the origin in a **fresh** tab and add it
-again — and make sure the origin and port are the ones running the current build
+iOS has three bites at the icon, and all are present: one
+`<link rel="apple-touch-icon">` per size the device may ask for (120/152/167/180 —
+older iOS falls back to a screenshot when no offered size matches),
+`/apple-touch-icon.png` (+ the `-precomposed` alias) at the site root for entry
+points that ignore the link, and the manifest's PNG icons.
+
+Safari caches a web app's icon **per icon URL**, so the links carry `?v=2`: bump
+that when the artwork changes and iOS fetches it again instead of reusing the old
+tile. If an icon is still stale, delete it from the home screen, close the old
+tab, open the origin in a **fresh** tab, and add it again — and make sure the
+origin and port are the ones running the current build
 (`curl -sk https://host:port/mobile | grep apple-touch-icon` prints nothing on an
 old binary).
+
+One environment note for self-signed deployments: the home-screen icon is fetched
+by the system's web-app machinery, not by the tab you are looking at. A
+certificate the device does not trust (the ⚠️ in the address bar) is the one thing
+that reliably gets in the way, and it is also why Chrome withholds the install
+prompt (§13.1). If everything above checks out and the icon is still a letter
+tile, test the same build over plain `http://` — no certificate, no argument.
 - `pkg/server` — `.webmanifest` joined `mimeTypes` as
   `application/manifest+json`; without it the file was sniffed as `text/plain`
   and Chrome refuses to install from that. Both the manifest and the worker keep

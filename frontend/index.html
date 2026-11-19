@@ -21,8 +21,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Suwu" />
     <!-- iOS ignores an SVG touch icon and invents a letter tile instead, so the
-         home-screen icon has to be a PNG. Regenerate with scripts/gen-icons.mjs. -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
+         home-screen icon has to be a PNG. One link per size: iOS asks for the
+         size its device wants (120/152/167/180) and older versions fall back to
+         a blank screenshot when none match. Bump ?v= when the artwork changes —
+         Safari caches a web app's icon per URL and will otherwise keep showing
+         the old one. Regenerate the PNGs with scripts/gen-icons.mjs. -->
+    <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-120.png?v=2" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png?v=2" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167.png?v=2" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png?v=2" />
     <title>Suwu</title>
   </head>
   <body>

@@ -3,61 +3,14 @@ import { Terminal, type ITerminalOptions, type ITheme } from '@xterm/xterm';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { readRendererPreference, shouldUseWebgl } from '../../lib/termRenderer';
 
 /**
- * Whether the GPU behind WebGL is real, or a software rasteriser.
- *
- * A software driver (SwiftShader, llvmpipe, swrast — what a VM, a blocked GPU or
- * Chrome's device emulation gives you) reports a perfectly usable WebGL context:
- * it clears, it reads back, `onContextLoss` never fires. It just fails to
- * composite the terminal's canvas into the page, so the terminal shows its
- * background and no glyphs at all while the session says "Connected" — a blank
- * terminal that looks dead but is not. The built-in renderer draws those pixels
- * in DOM nodes, which always composite, so software drivers get it.
- *
- * The probe runs once per document: a context is a scarce resource and every
- * terminal tile would otherwise allocate one just to measure it.
+ * Which renderer this document ended up with, for debugging and headless checks.
+ * The decision itself lives in lib/termRenderer.ts, shared with the setting that
+ * pins it — some devices, Android Chrome among them, break quietly on WebGL: the
+ * canvas composites nothing while the session still says "Connected".
  */
-let skipWebgl: boolean | null = null;
-
-/**
- * Escape hatch for isolating a rendering problem on someone else's machine:
- * `?renderer=dom` on the tile URL, or `localStorage['suwu.term-renderer'] = 'dom'`
- * in that document. Both are read per document, so the tile iframe honours the
- * query parameter while the shell can set the storage key for every tile.
- */
-function webglOptedOut(): boolean {
-  try {
-    const forced = new URLSearchParams(window.location.search).get('renderer');
-    if (forced === 'dom') return true;
-    return window.localStorage.getItem('suwu.term-renderer') === 'dom';
-  } catch {
-    return false;
-  }
-}
-
-function shouldSkipWebgl(): boolean {
-  if (skipWebgl !== null) return skipWebgl;
-  if (webglOptedOut()) return (skipWebgl = true);
-  skipWebgl = true;
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
-    if (!gl) return skipWebgl;
-    const info = gl.getExtension('WEBGL_debug_renderer_info');
-    const renderer = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
-    // Release the probe context instead of holding one for the tab's lifetime.
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
-    skipWebgl = /swiftshader|llvmpipe|swrast|software|basic render/i.test(renderer);
-  } catch {
-    skipWebgl = true;
-  }
-  return skipWebgl;
-}
-
-/** Which renderer this document ended up with, for debugging and headless checks. */
 export type TermRenderer = 'webgl' | 'dom';
 
 /**
@@ -142,7 +95,7 @@ export function useTerminal(
         repaint();
       }
     };
-    if (!shouldSkipWebgl()) attachWebgl(0);
+    if (shouldUseWebgl(readRendererPreference())) attachWebgl(0);
 
     // Suppress the browser's native context menu inside the terminal so
     // right-click stays available for copy/paste handling.

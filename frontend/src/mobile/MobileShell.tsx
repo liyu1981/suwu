@@ -40,6 +40,14 @@ import { MobileHeader } from './MobileHeader';
 import { OverviewSheet } from './OverviewSheet';
 import { SpaceSheet } from './SpaceSheet';
 import { useVisualViewportVar } from './useVisualViewportVar';
+import {
+  type RendererPreference,
+  glRendererName,
+  hasSoftwareGl,
+  isTouchFirst,
+  readRendererPreference,
+  writeRendererPreference,
+} from '../lib/termRenderer';
 
 /**
  * The phone shell at `/mobile`.
@@ -87,6 +95,8 @@ export function MobileShell() {
   const [sheet, setSheet] = useState<'overview' | 'space' | null>(null);
   // Panes that have been on screen at least once; only these are mounted.
   const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
+  const [rendererPreference, setRendererPreference] =
+    useState<RendererPreference>(readRendererPreference);
 
   // Height from the visual viewport, so the soft keyboard cannot cover the tile
   // or the header on iOS (see the hook).
@@ -204,6 +214,42 @@ export function MobileShell() {
     setPickerPaneId(focus);
     setSheet(null);
   }, [openPickerInNewLeaf, selected, setFocused, store]);
+
+  // Pinning a renderer is the escape hatch for devices whose WebGL composites
+  // nothing (Android Chrome has done it): every tile iframe is a document that
+  // reads the same key on boot, so the switch reloads them.
+  const changeRenderer = useCallback((preference: RendererPreference) => {
+    writeRendererPreference(preference);
+    setRendererPreference(preference);
+    for (const frame of document.querySelectorAll<HTMLIFrameElement>('iframe[data-pane]')) {
+      // Re-assigning the same URL is a reload: the tile document re-reads the
+      // preference on boot, and reattaches its server-side session by pane id.
+      frame.setAttribute('src', frame.getAttribute('src') ?? '');
+    }
+  }, []);
+
+  // One line of live facts about a tile's terminal, for the overview's ⋯ panel.
+  // Same origin, so the tile's debug handles are readable from here.
+  const diagnostics = useCallback(
+    (paneId: string) => {
+      const frame = document.querySelector<HTMLIFrameElement>(`iframe[data-pane="${paneId}"]`);
+      const win = frame?.contentWindow as
+        | (Window & { __termRenderer?: string; __term?: { rows?: number; cols?: number } })
+        | undefined;
+      if (!win) return t('mobile.diagnosticsUnavailable');
+      const term = win.__term;
+      const gl = glRendererName(win) || 'n/a';
+      const sw = hasSoftwareGl() ? 'software' : isTouchFirst() ? 'touch' : 'gpu';
+      return t('mobile.diagnosticsLine', {
+        renderer: win.__termRenderer ?? '?',
+        grid: `${term?.cols ?? 0}x${term?.rows ?? 0}`,
+        dpr: win.devicePixelRatio,
+        gpu: sw,
+        gl: gl.slice(0, 48),
+      });
+    },
+    [t],
+  );
 
   const selectSpace = useCallback(
     (index: number) => {
@@ -361,6 +407,9 @@ export function MobileShell() {
         onFontSize={setTileFontSize}
         onMoveToSpace={moveTileToSpace}
         onAddApp={addTile}
+        rendererPreference={rendererPreference}
+        onRendererPreference={changeRenderer}
+        diagnostics={diagnostics}
       />
 
       <SpaceSheet

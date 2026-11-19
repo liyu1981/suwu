@@ -378,10 +378,28 @@ perfectly usable context: it clears, `readPixels` returns the right pixels,
 the page, so the tile shows its background and its status bar and nothing else.
 The buffer was always correct (`__term.buffer` held `yli@pvedev:~$`).
 
-`useTerminal` now probes `WEBGL_debug_renderer_info` once per document and keeps
-the built-in renderer when the driver name says software. Slower on heavy output,
-but it draws in DOM nodes, which always composite — correctness beats a renderer
-that can silently show nothing. `window.__termRenderer` reports the choice.
+That was fixed for software GPUs, but **Android Chrome on a real GPU** showed the
+same blank tile while iOS Safari rendered fine, so "software" was not the whole
+story: a WebGL canvas can simply fail to composite on a phone. The renderer is
+therefore a preference (`lib/termRenderer.ts`, `localStorage['suwu.term-renderer']`,
+`auto` by default):
 
-Escape hatch, for isolating a rendering problem on someone else's machine:
-`?renderer=dom` on the tile URL, or `localStorage['suwu.term-renderer'] = 'dom'`.
+| preference | behaviour |
+|---|---|
+| `auto` | built-in renderer on touch-first devices and on software GPUs, WebGL elsewhere |
+| `dom` | always xterm's built-in renderer — slowest, always correct |
+| `webgl` | always the accelerated renderer, for devices known to be fine with it |
+
+`auto` is conservative on phones because that is exactly where the canvas
+disappears and where a terminal's throughput matters least. It is a preference,
+not a hidden heuristic: the tile's ⋯ panel has a **Renderer** row (Auto / DOM /
+GL) that writes the key and reloads the tile iframes so the change applies
+immediately, and the same panel shows the live diagnostics line
+(`dom · 39x38 · dpr 3 · software · ANGLE (…SwiftShader…)`) read from the tile's
+`__term` / `__termRenderer` handles. `window.__termRenderer` also reports the
+choice per document; `?renderer=dom` on a tile URL still forces it for a one-off
+test.
+
+Slower on heavy output than WebGL, but it draws DOM nodes, which always
+composite — a renderer that can silently show nothing is not worth the
+throughput.

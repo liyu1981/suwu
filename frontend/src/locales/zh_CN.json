@@ -879,6 +879,12 @@
     "removeSpace": "删除",
     "current": "当前",
     "tileCount_one": "{{count}} 个窗口",
-    "tileCount_other": "{{count}} 个窗口"
+    "tileCount_other": "{{count}} 个窗口",
+    "renderer": "渲染器",
+    "rendererAuto": "自动",
+    "rendererDom": "DOM",
+    "rendererGl": "GL",
+    "diagnosticsUnavailable": "窗口未加载",
+    "diagnosticsLine": "{{renderer}} · {{grid}} · dpr {{dpr}} · {{gpu}} · {{gl}}"
   }
 }

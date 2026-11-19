@@ -882,6 +882,12 @@
     "removeSpace": "Remove",
     "current": "Current",
     "tileCount_one": "{{count}} tile",
-    "tileCount_other": "{{count}} tiles"
+    "tileCount_other": "{{count}} tiles",
+    "renderer": "Renderer",
+    "rendererAuto": "Auto",
+    "rendererDom": "DOM",
+    "rendererGl": "GL",
+    "diagnosticsUnavailable": "Tile not mounted",
+    "diagnosticsLine": "{{renderer}} · {{grid}} · dpr {{dpr}} · {{gpu}} · {{gl}}"
   }
 }

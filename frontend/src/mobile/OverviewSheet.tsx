@@ -5,6 +5,7 @@ import { getTilePlugin } from '../wm/tilePlugins';
 import { getAppIconClasses, getAppIconLetter } from '../wm/appIcons';
 import { FONT_MAX, FONT_MIN, clampFont } from '../store/fonts';
 import { sessionHint, tileInfoLine } from '../lib/mobile';
+import { type RendererPreference, RENDERER_PREFERENCES } from '../lib/termRenderer';
 import type { TileSessionMap } from '../wm/sessionState';
 import { BottomSheet } from './BottomSheet';
 
@@ -42,7 +43,18 @@ export interface OverviewSheetProps {
   onFontSize: (paneId: string, size: number) => void;
   onMoveToSpace: (paneId: string, targetIndex: number) => void;
   onAddApp: () => void;
+  /** The terminal renderer preference shared by every tile document. */
+  rendererPreference: RendererPreference;
+  onRendererPreference: (preference: RendererPreference) => void;
+  /** Live terminal facts read from the tile's iframe, for the ⋯ panel. */
+  diagnostics?: (paneId: string) => string;
 }
+
+const RENDERER_LABEL: Record<RendererPreference, string> = {
+  auto: 'mobile.rendererAuto',
+  dom: 'mobile.rendererDom',
+  webgl: 'mobile.rendererGl',
+};
 
 const actionBtn =
   'rounded px-2 py-1 text-xs font-medium text-slate-300 transition active:bg-white/15';
@@ -61,6 +73,9 @@ export function OverviewSheet({
   onFontSize,
   onMoveToSpace,
   onAddApp,
+  rendererPreference,
+  onRendererPreference,
+  diagnostics,
 }: OverviewSheetProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -106,6 +121,9 @@ export function OverviewSheet({
                 className={cn(
                   'rounded-[8px] border bg-black/25 p-2 transition',
                   active ? 'border-sky-400/50' : 'border-white/10',
+                  // An open card needs the full width: its action rows (font,
+                  // renderer, diagnostics) do not fit a half-width column.
+                  open && 'col-span-2',
                 )}
               >
                 <div className="flex items-start gap-2">
@@ -191,6 +209,36 @@ export function OverviewSheet({
                           )}
                         </span>
                       </div>
+                    )}
+
+                    {tile.tileType === 'term' && (
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] uppercase tracking-wider text-white/35">
+                          {t('mobile.renderer')}
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          {RENDERER_PREFERENCES.map((preference) => (
+                            <button
+                              key={preference}
+                              type="button"
+                              aria-pressed={rendererPreference === preference}
+                              onClick={() => onRendererPreference(preference)}
+                              className={cn(
+                                actionBtn,
+                                rendererPreference === preference && 'bg-white/15 text-white',
+                              )}
+                            >
+                              {t(RENDERER_LABEL[preference])}
+                            </button>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+
+                    {tile.tileType === 'term' && diagnostics && (
+                      <p className="break-all font-mono text-[9px] leading-relaxed text-white/30">
+                        {diagnostics(tile.paneId)}
+                      </p>
                     )}
 
                     <button

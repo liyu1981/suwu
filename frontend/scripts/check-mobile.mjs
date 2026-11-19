@@ -6,6 +6,10 @@
 // (`detectMobileEnv`, `mobileRedirectTarget`) are exercised by hand on a phone.
 import assert from 'node:assert/strict'
 import {
+  parseRendererPreference,
+  RENDERER_PREFERENCES,
+} from '../src/lib/termRenderer.ts';
+import {
   MOBILE_MAX_WIDTH,
   basename,
   cycleTile,
@@ -158,5 +162,13 @@ assert.equal(sessionHint({ path: '   ' }), '', 'blank values are skipped')
 assert.equal(sessionHint({ path: 's' }), '', 'values that are not path-shaped are skipped')
 assert.equal(sessionHint({ directory: '~/code' }), '~/code', 'home paths count')
 assert.equal(sessionHint({ dir: '/other', path: '/first' }), '/first', 'declaration order wins')
+
+// ── terminal renderer preference ─────────────────────────────────────────
+assert.equal(parseRendererPreference('dom'), 'dom')
+assert.equal(parseRendererPreference('webgl'), 'webgl')
+assert.equal(parseRendererPreference('auto'), 'auto')
+assert.equal(parseRendererPreference(null), 'auto', 'unset means auto')
+assert.equal(parseRendererPreference('garbage'), 'auto', 'unknown values fall back')
+assert.deepEqual([...RENDERER_PREFERENCES], ['auto', 'dom', 'webgl'])
 
 console.log('check-mobile: ok')

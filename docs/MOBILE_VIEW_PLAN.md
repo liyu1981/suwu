@@ -590,3 +590,39 @@ terminal canvas shrinks from 712 to 623 px; typing `echo soft-input-ok` + Send r
 it; `↑` recalls it; an empty Send runs it again; the `⌄` button collapses and the
 canvas returns to 712 px. The text box keeps focus after Send, so the phone stays
 ready for the next command.
+
+## 16. Tunnels, reverse proxies and the "connecting forever" terminal
+
+Reaching Suwu through a tunnel (`devsuwu.example.com` → cloudflared → the local
+server) fails in a confusing way: the page and every asset load, and the terminal
+sits at "connecting" forever.
+
+The host allow-list is why. Assets are served with **no host check**, but
+`/api/*`, `/ws` and `/ws/notify` call `auth.ValidateWebSocketRequest` /
+`ValidateAPIRequest`, which require the request's `Host` to be in `AllowedHosts` —
+the machine's own names and addresses plus `HOST`/`EXTRA_HOSTS`. A tunnel hostname
+is none of those, so the handshake is rejected with a 403 that the browser cannot
+surface to the page. (DNS-rebinding protection is the reason the check exists and
+why it is not relaxed for proxied requests.)
+
+Fix, on the server:
+
+```sh
+EXTRA_HOSTS=devsuwu.example.com   # comma-separated; wildcards (*.example.com) allowed
+```
+
+Comma-separated list, then restart. Verify from outside with a raw handshake — a
+401 means the host is accepted and only the token is wrong:
+
+```sh
+curl -sk -i -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  -H "Origin: https://devsuwu.example.com" \
+  "https://devsuwu.example.com/ws?session=t&cols=80&rows=24&token=x" | head -3
+```
+
+Two server-side changes make the next occurrence a one-line diagnosis instead of a
+mystery: the rejection body names the host and the fix
+(`Forbidden: host "devsuwu.example.com" is not allowed. Add it to EXTRA_HOSTS
+(comma-separated) and restart.`), and `handleWS` logs every rejection at Warn with
+the host, origin and reason.

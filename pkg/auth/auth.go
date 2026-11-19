@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -347,7 +348,15 @@ func validateAllowedHost(cfg *Config, hostHeader string) (Decision, Host) {
 		return d, Host{}
 	}
 	if !contains(cfg.AllowedHosts, host.Hostname) {
-		d := forbidden()
+		// Name the host and the fix. This is the one rejection a reverse-proxied
+		// deployment hits on the WebSocket only: the page and its assets load
+		// without a host check, so the browser shows a terminal that says
+		// "connecting" forever and nothing else. The allow-list is built from the
+		// machine's own interfaces plus HOST/EXTRA_HOSTS, and a tunnel hostname
+		// (devsuwu.example.com) is none of those unless it is spelled out.
+		d := decision(403, fmt.Sprintf(
+			`Forbidden: host %q is not allowed. Add it to EXTRA_HOSTS (comma-separated) and restart.`,
+			host.Hostname))
 		return d, host
 	}
 	return allowed(), host

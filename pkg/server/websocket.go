@@ -76,6 +76,12 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	d := auth.ValidateWebSocketRequest(s.cfg, r.Host, r.Header.Get("Origin"), q.Get("token"))
 	if !d.OK {
+		// A rejected WebSocket is invisible in the browser (the API gives the
+		// page no access to the handshake's response), so it is worth a line in
+		// the log: "the terminal keeps connecting" is otherwise a mystery. The
+		// usual cause is a reverse-proxy hostname missing from EXTRA_HOSTS.
+		slog.Warn("websocket rejected", "host", r.Host, "origin", r.Header.Get("Origin"),
+			"status", d.Status, "reason", d.Reason)
 		writePlain(w, d.Status, d.Reason)
 		return
 	}

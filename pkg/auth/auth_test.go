@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/base64"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -535,5 +536,33 @@ func TestValidateExtensionAPIRequest(t *testing.T) {
 				t.Errorf("status = %d, want %d", d.Status, tc.status)
 			}
 		})
+	}
+}
+
+// A tunnel hostname is the one rejection that shows up as "the terminal keeps
+// saying connecting" rather than as a broken page, because assets are served
+// without a host check while /ws is not. The rejection has to say what to do.
+func TestUnknownHostRejectionNamesTheFix(t *testing.T) {
+	cfg := &Config{
+		Token:        "tok",
+		BindHost:     "127.0.0.1",
+		AllowedHosts: []string{"localhost", "127.0.0.1"},
+	}
+	d := ValidateWebSocketRequest(cfg, "devsuwu.example.com", "https://devsuwu.example.com", "tok")
+	if d.OK {
+		t.Fatal("an unknown host must be rejected")
+	}
+	if d.Status != 403 {
+		t.Errorf("status = %d, want 403", d.Status)
+	}
+	if !strings.Contains(d.Reason, "devsuwu.example.com") || !strings.Contains(d.Reason, "EXTRA_HOSTS") {
+		t.Errorf("reason %q should name the host and the fix", d.Reason)
+	}
+
+	// The same host is accepted once it is in the allow-list, which is what
+	// EXTRA_HOSTS feeds.
+	cfg.AllowedHosts = append(cfg.AllowedHosts, "devsuwu.example.com")
+	if d := ValidateWebSocketRequest(cfg, "devsuwu.example.com", "https://devsuwu.example.com", "tok"); !d.OK {
+		t.Fatalf("allowed host still rejected: %d %s", d.Status, d.Reason)
 	}
 }

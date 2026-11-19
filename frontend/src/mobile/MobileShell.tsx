@@ -320,18 +320,31 @@ export function MobileShell() {
     >
       <BackgroundCanvas background={background} />
 
-      <MobileHeader
-        onMenu={openMenu}
-        spaceLabel={String(activeSpace + 1)}
-        onSpace={() => setSheet('space')}
-        onOverview={() => setSheet('overview')}
-        tileLabel={tileLabel}
-        onPrev={() => step(-1)}
-        onNext={() => step(1)}
-        canSwitch={ids.length > 1}
+      {/* The header floats like the desktop's: an 8 px gap to every edge and the
+          same rounded glass panel, with the notch/status-bar inset added to that
+          gap rather than eaten out of the bar. main keeps its own p-2, which
+          supplies the 8 px between the panel and the tile. */}
+      <div
+        className="relative z-10 shrink-0"
+        style={{
+          paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
+          paddingLeft: 'max(0.5rem, env(safe-area-inset-left))',
+          paddingRight: 'max(0.5rem, env(safe-area-inset-right))',
+        }}
       >
-        <NotificationBell />
-      </MobileHeader>
+        <MobileHeader
+          onMenu={openMenu}
+          spaceLabel={String(activeSpace + 1)}
+          onSpace={() => setSheet('space')}
+          onOverview={() => setSheet('overview')}
+          tileLabel={tileLabel}
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+          canSwitch={ids.length > 1}
+        >
+          <NotificationBell />
+        </MobileHeader>
+      </div>
 
       <main
         className="relative z-0 min-h-0 flex-1 p-2"

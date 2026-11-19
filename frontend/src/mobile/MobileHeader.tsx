@@ -99,14 +99,7 @@ export function MobileHeader({
   const { t } = useTranslation();
 
   return (
-    <header
-      className="relative z-10 flex shrink-0 items-center gap-1 border-b border-white/10 bg-black/40 px-1 backdrop-blur-md"
-      style={{
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingLeft: 'max(0.25rem, env(safe-area-inset-left))',
-        paddingRight: 'max(0.25rem, env(safe-area-inset-right))',
-      }}
-    >
+    <header className="apple-panel relative flex shrink-0 items-center gap-1 rounded-[6px] px-1 py-1">
       <button
         type="button"
         aria-label={t('mobile.menu')}

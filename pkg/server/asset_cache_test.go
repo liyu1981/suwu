@@ -1,16 +1,21 @@
 package server
 
 import (
+	"crypto/x509"
 	"io"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	"suwu/pkg/assets"
 	"suwu/pkg/auth"
+	"suwu/pkg/certs"
 	"suwu/pkg/forward"
 )
 
@@ -359,4 +364,93 @@ func TestPwaFilesArePublic(t *testing.T) {
 			t.Errorf("%s without auth: status = %d, want 200", path, resp.StatusCode)
 		}
 	}
+}
+
+// /ca.crt is how a phone installs trust for a self-signed deployment. It has to
+// be public (a device must fetch it before it trusts anything), it has to be a
+// DER certificate that iOS and Android will accept as a profile, and it must not
+// exist at all when this server has no local CA to publish.
+func TestCACertRoute(t *testing.T) {
+	web, err := fs.Sub(assets.FS, "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := New(&auth.Config{
+		Token:        "testtoken",
+		BindHost:     "127.0.0.1",
+		AllowedHosts: []string{"localhost", "127.0.0.1", "::1"},
+	}, web, nil, nil, forward.NewManager(), "")
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	get := func(method string) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest(method, ts.URL+"/ca.crt", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = "127.0.0.1"
+		resp, err := ts.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+
+	resp := get(http.MethodGet)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("without a CA: status = %d, want 404", resp.StatusCode)
+	}
+
+	ca, err := serverCertsTestCA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.SetCACertificate(ca)
+
+	resp = get(http.MethodGet)
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("with a CA: status = %d, want 200", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Type"); got != "application/x-x509-ca-cert" {
+		t.Errorf("Content-Type = %q", got)
+	}
+	if got := resp.Header.Get("Content-Disposition"); !strings.Contains(got, "suwu-local-ca.crt") {
+		t.Errorf("Content-Disposition = %q, want the .crt filename iOS installs", got)
+	}
+	if got := resp.Header.Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
+	cert, err := x509.ParseCertificate(body)
+	if err != nil {
+		t.Fatalf("body is not a DER certificate: %v", err)
+	}
+	if cert.Subject.CommonName == "" {
+		t.Error("parsed certificate has no subject")
+	}
+
+	resp = get(http.MethodHead)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("HEAD status = %d, want 200", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Length"); got != strconv.Itoa(len(body)) {
+		t.Errorf("HEAD Content-Length = %q, want %d", got, len(body))
+	}
+}
+
+// serverCertsTestCA makes a throwaway local CA and returns its certificate as PEM.
+func serverCertsTestCA() ([]byte, error) {
+	dir, err := os.MkdirTemp("", "suwu-ca-test")
+	if err != nil {
+		return nil, err
+	}
+	caDir := certs.CADir(dir)
+	if _, _, err := certs.LoadOrCreateCA(caDir); err != nil {
+		return nil, err
+	}
+	return os.ReadFile(filepath.Join(caDir, certs.CACertFileName))
 }

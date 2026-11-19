@@ -447,3 +447,48 @@ func pemBlock(typ string, der []byte) *pem.Block {
 func writePEM(path string, block *pem.Block, perm os.FileMode) error {
 	return os.WriteFile(path, pem.EncodeToMemory(block), perm)
 }
+
+// CACertForLeaf returns the PEM of the local CA certificate when that CA
+// actually signed the leaf at leafPath, and nil otherwise.
+//
+// A client device can only silence its TLS warning by trusting the CA that
+// issued the certificate it is talking to, so serving an unrelated CA would be
+// worse than serving none: the device would download a certificate, trust it,
+// and still see the warning. The check is cryptographic (x509 verification),
+// not a guess from the file layout.
+func CACertForLeaf(leafPath, caDir string) []byte {
+	leafPEM, err := os.ReadFile(leafPath)
+	if err != nil {
+		return nil
+	}
+	block, _ := pem.Decode(leafPEM)
+	if block == nil {
+		return nil
+	}
+	leaf, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil
+	}
+
+	caPEM, err := os.ReadFile(filepath.Join(caDir, CACertFileName))
+	if err != nil {
+		return nil
+	}
+	caBlock, _ := pem.Decode(caPEM)
+	if caBlock == nil {
+		return nil
+	}
+	ca, err := x509.ParseCertificate(caBlock.Bytes)
+	if err != nil {
+		return nil
+	}
+
+	pool := x509.NewCertPool()
+	pool.AddCert(ca)
+	// The CA certificate is the issuer; verifying the leaf against it proves the
+	// pair belongs together.
+	if _, err := leaf.Verify(x509.VerifyOptions{Roots: pool, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}); err != nil {
+		return nil
+	}
+	return caPEM
+}

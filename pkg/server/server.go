@@ -5,6 +5,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/fs"
@@ -109,6 +110,26 @@ type Server struct {
 	// extLegacyWarned makes the one-time "move your extensions dir" warning
 	// fire at most once per server.
 	extLegacyWarned bool
+	// caCertDER is the local CA certificate (DER) served at /ca.crt so a phone
+	// can install it and stop warning about the self-signed certificate. Nil
+	// when this server does not run HTTPS behind Suwu's own CA.
+	caCertDER []byte
+}
+
+// SetCACertificate publishes the local CA certificate (PEM) at /ca.crt.
+//
+// A device can only stop warning about a self-signed certificate by trusting the
+// CA that signed it, and running openssl on a phone is not an option, so the
+// certificate — never the key — is served. Passing nil (or a non-PEM value) means
+// "no local CA": the endpoint 404s instead of handing out a certificate that does
+// not match the leaf the browser is looking at.
+func (s *Server) SetCACertificate(caPEM []byte) {
+	block, _ := pem.Decode(caPEM)
+	if block == nil || block.Type != "CERTIFICATE" {
+		s.caCertDER = nil
+		return
+	}
+	s.caCertDER = block.Bytes
 }
 
 // New creates a Server serving static assets from assetsFS (the web tree)
@@ -469,6 +490,14 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The local CA certificate, for installing trust on a phone. Public on
+	// purpose: a device has to be able to fetch it before it trusts anything this
+	// server says (the same reason the manifest and icons are public).
+	if r.URL.Path == caCertRoute {
+		s.handleCACert(w, r)
+		return
+	}
+
 	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 		s.serveAsset(w, r, "index.html")
 		return
@@ -498,6 +527,32 @@ func fileExists(fsys fs.FS, name string) bool {
 	defer f.Close()
 	info, err := f.Stat()
 	return err == nil && !info.IsDir()
+}
+
+// caCertRoute is where the local CA certificate is published. .crt is what iOS
+// and Android offer to install as a profile; the DER body is the format both
+// accept.
+const caCertRoute = "/ca.crt"
+
+func (s *Server) handleCACert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if len(s.caCertDER) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-x509-ca-cert")
+	w.Header().Set("Content-Disposition", `attachment; filename="suwu-local-ca.crt"`)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Length", strconv.Itoa(len(s.caCertDER)))
+	if r.Method == http.MethodHead {
+		return
+	}
+	_, _ = w.Write(s.caCertDER)
 }
 
 func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, name string) {

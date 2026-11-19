@@ -723,6 +723,10 @@ func run(debugCfg debugConfig) error {
 			shutdown()
 			return fmt.Errorf("SERVER_MODE=%s requires TLS certificates: %w\nhint: run 'suwu gencerts' to create a certificate pair, or use SERVER_MODE=http for plain HTTP", mode, err)
 		}
+		// A phone can only stop warning about a self-signed certificate by
+		// trusting the CA behind it, and fetching that CA from the phone is the
+		// hard part — so publish it at /ca.crt when it really signed this leaf.
+		srv.SetCACertificate(localCACertificate(certFile))
 	}
 
 	// Build the list of servers to start. ReadHeaderTimeout bounds slow-loris
@@ -812,6 +816,17 @@ func run(debugCfg debugConfig) error {
 // resolveTLS decides which certificate pair the server should use.
 // Precedence: TLS_CERT_FILE/TLS_KEY_FILE from the environment chain, then
 // the default pair 'suwu gencerts' writes into the suwu config directory.
+// localCACertificate returns the PEM of Suwu's local CA when it signed the leaf at
+// certFile, and nil otherwise (a certificate from another CA has no business being
+// published as ours — a device that trusts it would still see a warning).
+func localCACertificate(certFile string) []byte {
+	configDir, err := certs.DefaultDir()
+	if err != nil {
+		return nil
+	}
+	return certs.CACertForLeaf(certFile, certs.CADir(configDir))
+}
+
 func resolveTLS() (certFile, keyFile, source string, err error) {
 	envCert, envKey := os.Getenv("TLS_CERT_FILE"), os.Getenv("TLS_KEY_FILE")
 	if envCert != "" || envKey != "" {

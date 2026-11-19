@@ -479,26 +479,30 @@ home-screen icon, Chrome will not offer to install, and the service worker does 
 register. So trust the CA and everything else (icons, install, offline assets)
 falls into place.
 
-The CA **certificate** is public; the key next to it must stay on the server. Only
-the `.crt` goes to the phone.
+The CA **certificate** is public; the key next to it must stay on the server. So
+`suwu serve` publishes the certificate itself at **`/ca.crt`** — public, DER,
+`Content-Disposition: attachment; filename="suwu-local-ca.crt"` — whenever the CA
+in `~/.config/suwu/CA` cryptographically signed the leaf it is serving
+(`certs.CACertForLeaf`). A leaf from some other CA publishes nothing and the route
+is a 404, because a device that trusted an unrelated certificate would still see
+the warning.
 
-1. On the server, write a DER copy with a `.crt` name (iOS offers to install that,
-   not `.pem`):
-
-   ```sh
-   openssl x509 -in ~/.config/suwu/CA/rootCA.pem -outform DER \
-     -out ~/.suwu/dropbox/suwu-local-ca.crt
-   ```
-
-2. On the iPhone, open Suwu's Dropbox tile over the same origin, download
-   `suwu-local-ca.crt`, and accept the certificate warning one last time.
-3. **Settings → General → VPN & Device Management →** the downloaded profile **→
+1. On the iPhone, open **`https://192.168.0.221:8181/ca.crt`** and accept the
+   certificate warning one last time. iOS offers the download as a profile.
+2. **Settings → General → VPN & Device Management →** the downloaded profile **→
    Install** (enter the passcode).
-4. **Settings → General → About → Certificate Trust Settings →** enable full trust
-   for "suwu local CA". Step 4 is the one people miss: installing the profile is
+3. **Settings → General → About → Certificate Trust Settings →** enable full trust
+   for "suwu local CA". Step 3 is the one people miss: installing the profile is
    not the same as trusting it.
-5. Reload Safari — the ⚠️ is gone. Remove any Suwu home-screen icon and add it
+4. Reload Safari — the ⚠️ is gone. Remove any Suwu home-screen icon and add it
    again; the icon, the install prompt and the worker all work from here.
+
+If the phone cannot reach the server (or the CA has to be installed before the
+browser will talk to it), the same certificate can be exported by hand:
+
+```sh
+openssl x509 -in ~/.config/suwu/CA/rootCA.pem -outform DER -out suwu-local-ca.crt
+```
 
 Sanity checks from the phone's network (or from the server):
 

@@ -338,3 +338,55 @@ func TestCAValidity(t *testing.T) {
 		t.Error("CA CommonName should not be an IP")
 	}
 }
+
+// A device downloads /ca.crt so it can trust the certificate it is already
+// looking at. Publishing a CA that did not sign that leaf would be worse than
+// publishing nothing, so the relationship has to be verified, not assumed.
+func TestCACertForLeaf(t *testing.T) {
+	caDir := filepath.Join(t.TempDir(), CADirName)
+	ca := createCAIn(t, caDir)
+
+	certPEM, _, err := Issue(ca, []string{"localhost", "127.0.0.1", "192.168.0.221"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	leafPath := filepath.Join(t.TempDir(), CertFileName)
+	if err := os.WriteFile(leafPath, certPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got := CACertForLeaf(leafPath, caDir)
+	if len(got) == 0 {
+		t.Fatal("CACertForLeaf returned nothing for a leaf this CA issued")
+	}
+	block, _ := pem.Decode(got)
+	if block == nil || block.Type != "CERTIFICATE" {
+		t.Fatalf("published value is not a PEM certificate: %q", string(got))
+	}
+	wantCA, err := os.ReadFile(filepath.Join(caDir, CACertFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(wantCA) {
+		t.Error("published certificate is not the local CA")
+	}
+
+	// A leaf from a different CA must not cause ours to be published.
+	otherDir := filepath.Join(t.TempDir(), CADirName)
+	otherCA := createCAIn(t, otherDir)
+	foreignPEM, _, err := Issue(otherCA, []string{"localhost"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreignPath := filepath.Join(t.TempDir(), CertFileName)
+	if err := os.WriteFile(foreignPath, foreignPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := CACertForLeaf(foreignPath, caDir); got != nil {
+		t.Error("CACertForLeaf published our CA for a leaf signed by another CA")
+	}
+
+	if got := CACertForLeaf(filepath.Join(t.TempDir(), "missing.pem"), caDir); got != nil {
+		t.Error("CACertForLeaf published a CA for a missing leaf")
+	}
+}

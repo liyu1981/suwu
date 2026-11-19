@@ -11,6 +11,8 @@ import SQLEditor from './SQLEditor';
 import DataTable from './DataTable';
 import SchemaSidebar from './SchemaSidebar';
 import StatusBar from './StatusBar';
+import { useSidebarCollapse } from '../hooks/useSidebarCollapse';
+import { ChevronLeftIcon, ChevronRightIcon } from '../icons';
 
 const btnPrimary =
   'rounded-lg bg-cyan-500/25 px-3 py-1.5 text-xs font-medium text-cyan-300 transition-all hover:bg-cyan-500/35 hover:text-cyan-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30';
@@ -108,11 +110,32 @@ export default function DBBrowserPanel() {
 
   const connected = !!connection;
 
+  // The schema tree folds away when the tile is too narrow for a list beside the
+  // editor (a phone, or a half-width pane). The choice is remembered per tile.
+  const schemaPanel = useSidebarCollapse('dbbrowser');
+
   return (
     <CommonTileContainer zoomAtom={dbbrowserZoomAtom} noPadding background={DENSE_TILE_BG}>
-      <div className="flex h-full flex-col">
+      <div ref={schemaPanel.containerRef} className="flex h-full flex-col">
         {/* Header */}
         <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2">
+          {/* Nothing to fold before a connection exists. */}
+          {connected && (
+            <button
+              type="button"
+              onClick={schemaPanel.toggle}
+              aria-expanded={!schemaPanel.collapsed}
+              aria-label={t('dbbrowser.toggleSchema')}
+              title={t('dbbrowser.toggleSchema')}
+              className="-ml-1 grid h-6 w-6 shrink-0 place-items-center rounded text-white/45 transition hover:bg-white/10 hover:text-white/80"
+            >
+              {schemaPanel.collapsed ? (
+                <ChevronRightIcon className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronLeftIcon className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
           <span className="text-base font-semibold tracking-wide text-white/60">
             {t('dbbrowser.title')}
           </span>
@@ -138,27 +161,31 @@ export default function DBBrowserPanel() {
           </div>
         ) : (
           <div ref={splitRef} className="flex min-h-0 flex-1">
-            {/* Schema sidebar (resizable) */}
-            <div className="shrink-0 p-1.5 pr-0" style={{ width: schemaWidth }}>
-              <SchemaSidebar
-                tables={schema}
-                sessionId={connection.sessionId}
-                onInsertSQL={handleInsertSQL}
-                onRefresh={refreshSchema}
-              />
-            </div>
+            {/* Schema sidebar (resizable) — folded away on narrow tiles */}
+            {!schemaPanel.collapsed && (
+              <>
+                <div className="shrink-0 p-1.5 pr-0" style={{ width: schemaWidth }}>
+                  <SchemaSidebar
+                    tables={schema}
+                    sessionId={connection.sessionId}
+                    onInsertSQL={handleInsertSQL}
+                    onRefresh={refreshSchema}
+                  />
+                </div>
 
-            {/* Resize handle */}
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={t('dbbrowser.resizeSchema')}
-              title={t('dbbrowser.resizeSchema')}
-              onPointerDown={startSchemaResize}
-              className="group relative w-1.5 shrink-0 cursor-col-resize touch-none"
-            >
-              <div className="absolute inset-y-1.5 left-1/2 w-px -translate-x-1/2 rounded-full bg-white/[0.08] transition-colors group-hover:bg-cyan-400/60 group-active:bg-cyan-400" />
-            </div>
+                {/* Resize handle */}
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label={t('dbbrowser.resizeSchema')}
+                  title={t('dbbrowser.resizeSchema')}
+                  onPointerDown={startSchemaResize}
+                  className="group relative w-1.5 shrink-0 cursor-col-resize touch-none"
+                >
+                  <div className="absolute inset-y-1.5 left-1/2 w-px -translate-x-1/2 rounded-full bg-white/[0.08] transition-colors group-hover:bg-cyan-400/60 group-active:bg-cyan-400" />
+                </div>
+              </>
+            )}
 
             {/* Right panel: editor + table */}
             <div className="flex min-w-0 flex-1 flex-col p-1.5">

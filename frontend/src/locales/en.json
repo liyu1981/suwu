@@ -666,7 +666,8 @@
     "noRecentConnections": "No recent connections",
     "affectedRows_one": "{{count}} row affected",
     "affectedRows_other": "{{count}} rows affected",
-    "statementExecuted": "Statement executed successfully"
+    "statementExecuted": "Statement executed successfully",
+    "toggleSchema": "Schema panel"
   },
   "lang": {
     "en": "English",
@@ -901,5 +902,8 @@
     "pageUp": "PgUp",
     "pageDown": "PgDn",
     "collapse": "Hide the input panel"
+  },
+  "resthelper": {
+    "toggleSidebar": "History and collections panel"
   }
 }

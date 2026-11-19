@@ -663,7 +663,8 @@
     "recentConnections": "最近连接",
     "noRecentConnections": "暂无最近连接",
     "affectedRows_other": "{{count}} 行受影响",
-    "statementExecuted": "语句执行成功"
+    "statementExecuted": "语句执行成功",
+    "toggleSchema": "结构面板"
   },
   "lang": {
     "en": "English",
@@ -898,5 +899,8 @@
     "pageUp": "上一页",
     "pageDown": "下一页",
     "collapse": "收起输入面板"
+  },
+  "resthelper": {
+    "toggleSidebar": "历史与集合面板"
   }
 }

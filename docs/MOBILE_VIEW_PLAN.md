@@ -626,3 +626,30 @@ mystery: the rejection body names the host and the fix
 (`Forbidden: host "devsuwu.example.com" is not allowed. Add it to EXTRA_HOSTS
 (comma-separated) and restart.`), and `handleWS` logs every rejection at Warn with
 the host, origin and reason.
+
+## 17. Narrow tiles fold their side panels
+
+The REST helper and the DB browser put a list beside a workspace (history and
+collections; schemas). Side by side that needs roughly 500 px — below it the list
+eats the workspace, and on a phone tile the workspace was unusable.
+
+`hooks/useSidebarCollapse.ts` gives both the same behaviour:
+
+- a `‹` / `›` chevron in the tile header folds and unfolds the panel;
+- **with no stored choice**, a `ResizeObserver` on the tile root folds it whenever
+  the tile is narrower than 520 px — so a phone, or a half-width desktop pane,
+  opens with the workspace full width instead of a list and a sliver;
+- the first tap is an explicit choice: it is stored under
+  `suwu.sidebar-collapsed.<tile>` and the automatic rule stops applying to that
+  tile. Deleting the key returns it to automatic.
+
+The DB browser keeps its resizable width while folded and restores it when
+unfolded (the sidebar is not rendered while collapsed, so its saved width is
+untouched); it only offers the chevron once a connection exists, since there is
+nothing to fold before that.
+
+Verified at 390×800: both tiles load folded (`aria-expanded=false`, panel absent),
+the chevron unfolds them, the choice persists (`suwu.sidebar-collapsed.resthelper`
+= `0`) and a stored `0` keeps them unfolded even at 390 px; at 1000 px the REST
+helper opens unfolded with no stored choice. `pnpm check` and the typography check
+are green.

@@ -24,6 +24,8 @@ import RequestBuilder from './RequestBuilder';
 import ResponseViewer from './ResponseViewer';
 import SaveRequestDialog from './SaveRequestDialog';
 import SidebarTabs from './SidebarTabs';
+import { useSidebarCollapse } from '../hooks/useSidebarCollapse';
+import { ChevronLeftIcon, ChevronRightIcon } from '../icons';
 import { useRestCollections } from './hooks/useRestCollections';
 import { useRestCookies } from './hooks/useRestCookies';
 import { useRestHistory } from './hooks/useRestHistory';
@@ -191,6 +193,10 @@ export function RestHelperPanel({ paneId }: { paneId?: string }) {
     [setDraft, clear],
   );
 
+  // History and collections fold away when the tile is too narrow for a list
+  // beside a workspace (a phone, or a half-width pane); the choice sticks.
+  const sidebar = useSidebarCollapse('resthelper');
+
   return (
     <CommonTileContainer
       paneId={paneId}
@@ -198,8 +204,22 @@ export function RestHelperPanel({ paneId }: { paneId?: string }) {
       noPadding
       background={DENSE_TILE_BG}
     >
-      <div className="flex h-full min-h-0 flex-col">
+      <div ref={sidebar.containerRef} className="flex h-full min-h-0 flex-col">
         <header className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2">
+          <button
+            type="button"
+            onClick={sidebar.toggle}
+            aria-expanded={!sidebar.collapsed}
+            aria-label={t('resthelper.toggleSidebar')}
+            title={t('resthelper.toggleSidebar')}
+            className="-ml-1 grid h-6 w-6 shrink-0 place-items-center rounded text-white/45 transition hover:bg-white/10 hover:text-white/80"
+          >
+            {sidebar.collapsed ? (
+              <ChevronRightIcon className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronLeftIcon className="h-3.5 w-3.5" />
+            )}
+          </button>
           <span className="text-base font-semibold tracking-wide text-white/60">
             {t('plugin.resthelper')}
           </span>
@@ -212,7 +232,11 @@ export function RestHelperPanel({ paneId }: { paneId?: string }) {
           <div className="flex-1" />
         </header>
         <div className="flex min-h-0 flex-1">
-          <aside className="w-56 shrink-0 border-r border-white/[0.06] p-1.5">
+          <aside
+            className={`w-56 shrink-0 border-r border-white/[0.06] p-1.5 ${
+              sidebar.collapsed ? 'hidden' : ''
+            }`}
+          >
             <SidebarTabs
               history={history.entries}
               collections={collections.collections}

@@ -284,6 +284,9 @@ func TestPwaIconsAreServed(t *testing.T) {
 		"/icons/icon-192.png",
 		"/icons/icon-512.png",
 		"/icons/icon-maskable-512.png",
+		// The root aliases iOS looks for without any <link>.
+		"/apple-touch-icon.png",
+		"/apple-touch-icon-precomposed.png",
 	} {
 		req, err := http.NewRequest(http.MethodGet, ts.URL+path, nil)
 		if err != nil {
@@ -306,6 +309,50 @@ func TestPwaIconsAreServed(t *testing.T) {
 		}
 		if len(body) < 100 || string(body[1:4]) != "PNG" {
 			t.Errorf("%s: not a PNG (len %d)", path, len(body))
+		}
+	}
+}
+
+// The PWA files have to load before anyone logs in: a phone's home-screen
+// install fetches the manifest, the icons and the worker without the user's
+// session (and without cookies), so a server with a password set must still
+// serve them. This pins that, because putting them behind the token would make
+// iOS fall back to a generated letter tile and Chrome drop the install prompt —
+// failures that are invisible on a logged-in desktop.
+func TestPwaFilesArePublic(t *testing.T) {
+	web, err := fs.Sub(assets.FS, "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &auth.Config{
+		Token:        "testtoken",
+		PasswordHash: "$2a$10$notarealhash.BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+		BindHost:     "127.0.0.1",
+		AllowedHosts: []string{"localhost", "127.0.0.1", "::1"},
+	}
+	srv := New(cfg, web, nil, nil, forward.NewManager(), "")
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	for _, path := range []string{
+		"/manifest.webmanifest",
+		"/sw.js",
+		"/icons/icon-180.png",
+		"/apple-touch-icon.png",
+	} {
+		req, err := http.NewRequest(http.MethodGet, ts.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = "127.0.0.1"
+		// No cookie, no token, no referer: exactly what iOS sends.
+		resp, err := ts.Client().Do(req)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%s without auth: status = %d, want 200", path, resp.StatusCode)
 		}
 	}
 }

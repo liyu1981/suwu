@@ -63,6 +63,14 @@ const targets = [
   { file: 'icon-maskable-512.png', size: 512, html: page(maskable) },
 ];
 
+// iOS also looks for the icon at the site root without any <link>, on the theory
+// that some Safari versions and some "add to home screen" entry points skip the
+// link entirely. Two extra copies are cheap insurance.
+const rootCopies = [
+  ['icon-180.png', 'apple-touch-icon.png'],
+  ['icon-180.png', 'apple-touch-icon-precomposed.png'],
+];
+
 for (const { file, size, html } of targets) {
   // The page is written beside the output, not under /tmp: Chromium is a snap on
   // several distros and a snap cannot read /tmp or hidden directories in $HOME.
@@ -87,4 +95,10 @@ for (const { file, size, html } of targets) {
   } finally {
     rmSync(source, { force: true });
   }
+}
+
+for (const [from, to] of rootCopies) {
+  const bytes = readFileSync(join(dir, from));
+  writeFileSync(join(publicDir, to), bytes);
+  console.log(`gen-icons: ${to} (copy of ${from})`);
 }

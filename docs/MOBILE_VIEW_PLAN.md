@@ -354,6 +354,29 @@ Ways to get a real install on a phone:
 
 iOS "Add to Home Screen" has no such requirement — it works from any page — which
 is why the iPhone install worked while Android's did not.
+
+### 13.2 The PWA files must never be behind the login gate
+
+A home-screen install fetches the manifest, the icons and the worker **before
+anyone logs in**, and iOS fetches the touch icon with no cookies and no referer at
+all. That is why `serveAsset` leaves static files unauthenticated (only the API
+handlers check the token), and `TestPwaFilesArePublic` pins the behaviour: the
+test starts a server *with a password set* and asserts that
+`/manifest.webmanifest`, `/sw.js`, `/icons/icon-180.png` and
+`/apple-touch-icon.png` all answer 200 without a cookie.
+
+Putting them behind auth fails in a way that is invisible on a logged-in desktop:
+iOS falls back to a generated letter tile and Chrome silently drops the install
+prompt.
+
+iOS has two bites at the icon, and both are now present: the sized
+`<link rel="apple-touch-icon">`, and `/apple-touch-icon.png` (+ the `-precomposed`
+alias) at the site root for entry points that ignore the link. Safari caches a web
+app's icon per origin for a long time, so after changing it: delete the icon from
+the home screen, close the old tab, open the origin in a **fresh** tab and add it
+again — and make sure the origin and port are the ones running the current build
+(`curl -sk https://host:port/mobile | grep apple-touch-icon` prints nothing on an
+old binary).
 - `pkg/server` — `.webmanifest` joined `mimeTypes` as
   `application/manifest+json`; without it the file was sniffed as `text/plain`
   and Chrome refuses to install from that. Both the manifest and the worker keep

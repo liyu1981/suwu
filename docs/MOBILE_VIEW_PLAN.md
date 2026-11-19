@@ -419,9 +419,11 @@ Four things the first pass got wrong, and what they were:
    the edge. `SuwuDialog` is now `w-[min(92vw,36rem)]` / `h-[min(682px,92dvh)]`
    (identical to 576×682 on a desktop) and `SettingsView` turns its vertical tab
    rail into a horizontally scrolling row on `/mobile`.
-4. **The header was a full-bleed bar.** It is now the desktop's chrome: the same
-   `.apple-panel` material, `rounded-[6px]`, floating with an 8 px gap on both
-   sides, with the notch/status-bar inset added *outside* the panel
+4. **The header was a full-bleed bar, and too tall.** It is now the desktop's
+   chrome: the same `.apple-panel` material, `rounded-[6px]`, **38 px tall** (h-8
+   buttons in a `py-0.5` panel — the desktop is h-7 in `py-1`, 38 px as well),
+   floating with an 8 px gap on both sides, with the notch/status-bar inset added
+   *outside* the panel
    (`max(0.5rem, env(safe-area-inset-top))`) instead of eaten out of it. `main`
    keeps its own `p-2`, which supplies the 8 px between the panel and the tile —
    the desktop's `p-2` grid and `gap-2` in different clothing.

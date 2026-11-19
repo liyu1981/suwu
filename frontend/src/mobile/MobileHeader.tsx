@@ -15,8 +15,11 @@ import { cn } from '@/lib/utils';
  * never sit on top of a button.
  */
 
+// Desktop header buttons are h-7 inside a py-1 panel; the phone keeps the same
+// proportions (h-8 inside py-0.5, 38 px of bar) because a floating panel that is
+// taller than the icons inside it looks like a toolbar, not chrome.
 const btn =
-  'grid h-10 w-10 shrink-0 place-items-center rounded text-slate-300 transition active:bg-white/15';
+  'grid h-8 w-8 shrink-0 place-items-center rounded text-slate-300 transition active:bg-white/15';
 
 function MenuIcon() {
   return (
@@ -99,7 +102,7 @@ export function MobileHeader({
   const { t } = useTranslation();
 
   return (
-    <header className="apple-panel relative flex shrink-0 items-center gap-1 rounded-[6px] px-1 py-1">
+    <header className="apple-panel relative flex shrink-0 items-center gap-1 rounded-[6px] px-1 py-0.5">
       <button
         type="button"
         aria-label={t('mobile.menu')}
@@ -116,12 +119,12 @@ export function MobileHeader({
           onClick={onSpace}
           aria-label={t('mobile.spaces')}
           title={t('mobile.spaces')}
-          className="h-10 shrink-0 rounded px-2 text-xs font-medium text-slate-300 transition active:bg-white/15"
+          className="h-8 shrink-0 rounded px-2 text-xs font-medium text-slate-300 transition active:bg-white/15"
         >
           {spaceLabel}
         </button>
       ) : (
-        <span className="h-10 shrink-0 px-2 text-xs font-medium leading-10 text-white/45">
+        <span className="flex h-8 shrink-0 items-center px-2 text-xs font-medium text-white/45">
           {spaceLabel}
         </span>
       )}
@@ -159,7 +162,9 @@ export function MobileHeader({
           <GridIcon />
         </button>
       )}
-      {children}
+      {/* The bell is the desktop's shared button (h-7); match the bar's height so
+          one control does not sit lower than its neighbours. */}
+      {children && <span className="flex [&>button]:h-8 [&>button]:w-8">{children}</span>}
     </header>
   );
 }

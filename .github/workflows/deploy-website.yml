@@ -3,7 +3,18 @@ name: Deploy website to GitHub Pages
 on:
   push:
     branches: [master]
+    # The site lives in website/; an app-only commit cannot change it. Deploying
+    # on every push meant a Pages deployment (and its artifact round-trip) for
+    # commits that touch nothing the site is built from.
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
+    # If a deployment fails, dispatch a NEW run rather than re-running the failed
+    # job: upload-pages-artifact@v5 (like v4) refuses to overwrite, so a re-run
+    # leaves two artifacts named "github-pages" in the run and deploy-pages then
+    # fails with "Multiple artifacts named github-pages were unexpectedly found".
+    # A fresh run starts with an empty artifact namespace.
 
 permissions:
   contents: read
@@ -21,13 +32,25 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      # v5 uploads through upload-artifact v7. v3 used the older client, and the
+      # artifact metadata it produced could not always be read back by
+      # deploy-pages — the failure this workflow hit was
+      # "No artifacts named "github-pages" were found for this workflow run"
+      # while the run's artifact list clearly showed one.
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: website
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages
+          # Deployment polling retries with backoff; the defaults are fine, these
+          # just make a slow Pages backend wait instead of failing the run.
+          timeout: 600000
+          error_count: 10
+          reporting_interval: 5000

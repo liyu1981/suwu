@@ -5,6 +5,7 @@ import { wmAction } from '../wm/shortcuts';
 import { SESSION_STATE_KEY, type SessionStore } from '../wm/sessionState';
 import { fileBrowserBgAtom } from '../store/appearance';
 import { useHtmlZoom, tileZoomStyle } from './ZoomControls';
+import { useTwoFingerRightClick } from './hooks/useTwoFingerRightClick';
 
 /** Default zoom atom (100%) used when the tile does not support zoom. */
 const defaultZoomAtom = atom(1);
@@ -70,6 +71,11 @@ export function CommonTileContainer({ paneId, zoomAtom, noPadding, background, c
   const zoom = useAtomValue(zoomAtom ?? defaultZoomAtom);
   const bgColor = useAtomValue(fileBrowserBgAtom);
   useHtmlZoom(zoom);
+  // Phone only: two-finger tap opens the tile's context menu, i.e. what a right
+  // click does on the desktop. Installed here because every tile page renders
+  // exactly one of these, and because touch events never leave the tile's own
+  // document (see the hook).
+  useTwoFingerRightClick();
   const [session, setSession] = useState<TileSession>({ state: null, ready: false });
 
   // Ask the parent for this tile's saved state on mount, and also accept the

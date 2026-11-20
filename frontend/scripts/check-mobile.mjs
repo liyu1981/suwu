@@ -16,6 +16,11 @@ import {
   RENDERER_PREFERENCES,
 } from '../src/lib/termRenderer.ts';
 import {
+  TWO_FINGER_MAX_DRIFT_PX,
+  TWO_FINGER_MAX_MS,
+  isTwoFingerTap,
+} from '../src/components/hooks/useTwoFingerRightClick.ts';
+import {
   MOBILE_MAX_WIDTH,
   basename,
   cycleTile,
@@ -190,5 +195,14 @@ assert.equal(softInputText('ls -la'), 'ls -la', 'the typed text is data: untouch
 assert.equal(softInputText('  Mixed Case  '), '  Mixed Case  ', 'spaces and case survive')
 assert.equal(softInputText('cmd|pipe > out'), 'cmd|pipe > out', 'no shell-quoting games')
 assert.equal(softInputText(''), null, 'nothing typed means nothing to send')
+
+// ── two-finger tap = right click ─────────────────────────────────────────
+// A tap is quick and still; anything that moves is a pinch/two-finger scroll and
+// must keep working as one.
+assert.equal(isTwoFingerTap(120, 0), true, 'a quick still tap is a right click')
+assert.equal(isTwoFingerTap(TWO_FINGER_MAX_MS, TWO_FINGER_MAX_DRIFT_PX), true, 'at the limits')
+assert.equal(isTwoFingerTap(TWO_FINGER_MAX_MS + 1, 0), false, 'a held press is not a tap')
+assert.equal(isTwoFingerTap(120, TWO_FINGER_MAX_DRIFT_PX + 1), false, 'movement means pinch, not tap')
+assert.equal(isTwoFingerTap(0, 0), true)
 
 console.log('check-mobile: ok')

@@ -653,3 +653,46 @@ the chevron unfolds them, the choice persists (`suwu.sidebar-collapsed.resthelpe
 = `0`) and a stored `0` keeps them unfolded even at 390 px; at 1000 px the REST
 helper opens unfolded with no stored choice. `pnpm check` and the typography check
 are green.
+
+## 18. Two-finger tap = right click
+
+A phone has no right button, so every context menu in the app was out of reach:
+the file browser's row and background menus, SFTP file actions, git graph's repo
+tab and commit menus. Long-press was not an option — iOS owns it (callout, text
+selection), and fighting it would break links — so the gesture is a **two-finger
+tap**: stationary by definition, so it cannot be confused with pinch-zoom, and
+unused by the app.
+
+**Scope: the phone shell only.** `useTwoFingerRightClick` installs only when the
+hosting page is `/mobile` (`window.parent.location.pathname` — the tiles are
+same-origin iframes), so the desktop keeps its right button. A tile opened as a
+bare tab installs nothing.
+
+**It lives in the tile, not the shell.** Touch events inside an iframe never reach
+the parent, and an overlay would swallow the interaction it augments.
+`CommonTileContainer` is rendered exactly once by every tile page, which makes it
+the single installation point; a `data-suwu-two-finger` guard on the document root
+keeps a nested or doubly-mounted container from installing two listeners (which
+would open every menu twice).
+
+**What it synthesises is a plain `contextmenu` MouseEvent** (`button: 2`,
+`buttons: 2`, `clientX`/`clientY` at the midpoint) on the deepest element under the
+midpoint. Every menu already opens from that event and reads those coordinates, so
+no menu code changed — including the terminal, where the event is simply what a
+right click delivers (xterm's own handling; no action menu was added).
+
+Recognition: two fingers down, drift ≤ 12 px, released within 400 ms, and no third
+finger. Anything that moves is a pinch or a two-finger scroll and is left alone;
+the listeners are passive, so zoom and scrolling are untouched. The decision itself
+is the pure `isTwoFingerTap(durationMs, driftPx)`, asserted in `check-mobile.mjs`
+(quick still tap = yes; at the limits = yes; held press = no; movement = no).
+
+Verified headlessly at 420×900, dpr 2, touch emulation, against the built binary:
+
+| case | result |
+|---|---|
+| `/mobile`, file browser, two-finger tap | row menu appeared ("New Folder Rename Delete Upload to Folder") |
+| `/mobile`, one-finger tap | nothing |
+| `/mobile`, two-finger drag (pinch) | nothing, zoom untouched |
+| `/?desktop=1`, two-finger tap | nothing — desktop is unaffected |
+| `/mobile`, terminal, two-finger tap | `contextmenu` delivered to `.xterm-screen`, `button: 2`, `defaultPrevented: true` (the terminal's own suppression ran) |

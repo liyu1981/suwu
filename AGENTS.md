@@ -37,3 +37,25 @@ Do NOT add `Co-Authored-By` trailers to commit messages unless the user explicit
 Follow the type scale and tile design rules in
 `.opencode/skills/suwu-tile-plugin-design/SKILL.md` (§11 *Material, typography &
 layout rules*). Do not invent font sizes outside that scale.
+
+### Headless Browser & Process Hygiene
+
+Headless Chrome is for verification only. **An instance must never outlive the
+check that started it** — leftovers hold ports and memory, and the next test then
+silently talks to a stale profile.
+
+- **Bound it by construction.** Launch with `timeout <seconds> chromium-browser
+  --headless …`, and in Go tests use `exec.CommandContext` with a deadline. A
+  crashed script must not leave a browser behind.
+- **Check the port before starting:** `ss -tlnp | grep 9222`. If it is busy, that
+  is a leftover — kill the PID that owns it (from `ss`) instead of starting a
+  second browser.
+- **Kill by PID, never by pattern.** Use the PID you launched, or the owner from
+  `ss -tlnp | grep <port>`. Never `pkill -f chrome` / `pkill -f chromium` /
+  `pgrep -f …`: the pattern matches the user's desktop browser *and* the checking
+  shell itself.
+- **Give each run its own `--user-data-dir`** under a temp directory, and delete
+  it afterwards.
+- **Verify clean before finishing:** no listener on the debugging port, and
+  `ps -eo args | grep '[c]hrom' | grep -- '--headless'` prints nothing. Same for
+  any scratch test server and its temp dir/screenshots.

@@ -257,6 +257,129 @@ sudo systemctl start cloudflared</code></pre>
           <p>With both Cloudflare access policies <em>and</em> Suwu's <code>AUTH_PASS</code>, an attacker must bypass two independent authentication layers: Cloudflare's identity check <em>and</em> the Suwu password. This is defense in depth.</p>
         </div>
 
+        <h2 id="step-5-bypass-access-for-cookie-less-paths">Step 5 — Bypass Access for cookie-less paths</h2>
+        <p>Cloudflare Access works by cookie. Two kinds of requests can never present
+        <code>CF_Authorization</code>, and behind Access they fail in ways that look like a
+        Suwu bug:</p>
+        <ul>
+          <li><strong>PWA install assets.</strong> The browser fetches the manifest, the
+          service worker and the home-screen icon <em>before</em> anyone signs in —
+          including on a phone that has never authenticated.</li>
+          <li><strong>Extension tiles.</strong> An extension page runs in a sandboxed
+          iframe with an <em>opaque origin</em> (see <code>docs/EXTENSION_API_PLAN.md</code>).
+          Every subresource it loads — its module scripts and CSS under
+          <code>/gqjs/static/&lt;id&gt;/</code> — and every <code>fetch()</code> it makes to its
+          own API under <code>/gqjs/api/&lt;id&gt;/</code> is cross-origin with
+          <code>credentials: same-origin</code>, so <strong>no cookies are sent</strong>. That is
+          deliberate: the sandbox exists so extension code cannot touch Suwu's origin.</li>
+        </ul>
+
+        <p>Access answers those requests with <code>302</code> to
+        <code>https://&lt;team&gt;.cloudflareaccess.com/cdn-cgi/access/login/…</code>. For a
+        navigation that is survivable (the frame even shows the login page), but for a
+        module script or a <code>fetch</code> it is fatal: the extension page's CSP allows
+        only <code>https://&lt;your-host&gt;/gqjs/static/&lt;id&gt;/</code>, CSP checks the
+        <em>redirect target</em> too, and the request is blocked. DevTools then shows the tell-tale
+        pair:</p>
+
+<pre><code>GET https://terminal.mydomain.com/gqjs/static/hn-top-stories/app-…js   302   (blocked:csp)</code></pre>
+
+        <p>The tile renders (its HTML navigation did carry the cookie) but never loads data.</p>
+
+        <h3 id="create-the-bypass-application">Create the bypass application</h3>
+        <p>Zero Trust Dashboard → <strong>Access → Applications → Add an application →
+        Self-hosted</strong>. Give it a name, then add these paths as its
+        <em>application domains</em> — one entry each, no wildcard needed:</p>
+
+<pre><code>terminal.mydomain.com/manifest.webmanifest
+terminal.mydomain.com/sw.js
+terminal.mydomain.com/logo.svg
+terminal.mydomain.com/icons
+terminal.mydomain.com/apple-touch-icon.png
+terminal.mydomain.com/gqjs/static
+terminal.mydomain.com/gqjs/api</code></pre>
+
+        <p>Add one policy: action <strong>Bypass</strong>, include <strong>Everyone</strong>
+        (this bypasses Access for those paths only, nothing else). Save, then allow about
+        30&nbsp;seconds for the edge to apply it.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-title">Why this is not a hole</div>
+          <p><code>/gqjs/static/&lt;id&gt;/*</code> is public <strong>by design</strong>: it is
+          client-shipped extension source, and a relative ES-module import cannot carry a token —
+          never put secrets there. <code>/gqjs/api/&lt;id&gt;/*</code> is authorised by Suwu itself
+          with a <strong>per-extension scoped token</strong> that can only reach that one
+          extension's routes; the session token is rejected there. Everything else —
+          the app shell, <code>/api/*</code>, <code>/ws</code>, <code>/gqjs/ext/*</code> (the
+          extension render navigation, which does carry the cookie) — stays behind Access.</p>
+        </div>
+
+        <h3 id="or-create-it-from-the-cli-api">Or create it from the CLI / API</h3>
+        <p>With the <code>cf</code> CLI (or any Cloudflare API client), a self-hosted app with a
+        bypass policy is a single <code>PUT</code> to
+        <code>/accounts/&lt;account-id&gt;/access/apps/&lt;app-id&gt;</code>:</p>
+
+<pre><code>{
+  "name": "terminal - cookie-less paths",
+  "type": "self_hosted",
+  "domain": "terminal.mydomain.com/manifest.webmanifest",
+  "self_hosted_domains": [
+    "terminal.mydomain.com/manifest.webmanifest",
+    "terminal.mydomain.com/sw.js",
+    "terminal.mydomain.com/logo.svg",
+    "terminal.mydomain.com/icons",
+    "terminal.mydomain.com/apple-touch-icon.png",
+    "terminal.mydomain.com/gqjs/static",
+    "terminal.mydomain.com/gqjs/api"
+  ],
+  "destinations": [
+    { "type": "public", "uri": "terminal.mydomain.com/manifest.webmanifest" },
+    { "type": "public", "uri": "terminal.mydomain.com/sw.js" },
+    { "type": "public", "uri": "terminal.mydomain.com/logo.svg" },
+    { "type": "public", "uri": "terminal.mydomain.com/icons" },
+    { "type": "public", "uri": "terminal.mydomain.com/apple-touch-icon.png" },
+    { "type": "public", "uri": "terminal.mydomain.com/gqjs/static" },
+    { "type": "public", "uri": "terminal.mydomain.com/gqjs/api" }
+  ],
+  "session_duration": "24h",
+  "app_launcher_visible": false,
+  "auto_redirect_to_identity": false,
+  "enable_binding_cookie": false,
+  "http_only_cookie_attribute": true,
+  "allowed_idps": [],
+  "skip_interstitial": false,
+  "options_preflight_bypass": false,
+  "policies": [
+    {
+      "name": "Bypass cookie-less paths",
+      "decision": "bypass",
+      "include": [{ "everyone": {} }],
+      "exclude": [],
+      "require": [],
+      "precedence": 1
+    }
+  ]
+}</code></pre>
+
+        <h3 id="verify">Verify</h3>
+        <p>From any network, <strong>without</strong> cookies, these are the answers that mean
+        "Access is no longer in the way":</p>
+
+<pre><code># 200 — a public extension asset
+curl -s -o /dev/null -w '%{http_code}\n' \
+  https://terminal.mydomain.com/gqjs/static/hn-top-stories/app-…js
+
+# 401 — reached Suwu, which rejected the fake token (a 302 would be Access)
+curl -s -o /dev/null -w '%{http_code}\n' \
+  'https://terminal.mydomain.com/gqjs/api/hn-top-stories/stories?token=x'
+
+# 200 — the manifest the installer needs before login
+curl -s -o /dev/null -w '%{http_code}\n' \
+  https://terminal.mydomain.com/manifest.webmanifest
+
+# 302 — the app itself is still protected by Access
+curl -s -o /dev/null -w '%{http_code}\n' https://terminal.mydomain.com/</code></pre>
+
         <h2 id="full-working-example">Full Working Example</h2>
         <p>Here's a complete <code>~/.config/suwu/.env</code> for a Cloudflare Zero Trust deployment:</p>
 
@@ -316,6 +439,18 @@ sudo systemctl start cloudflared</code></pre>
               <td>Cloudflare access page not showing</td>
               <td>Access policy not applied to the application. Check <strong>Zero Trust Dashboard → Access → Applications</strong>.</td>
             </tr>
+            <tr>
+              <td>An extension tile renders but never loads data; DevTools shows a <code>302</code> to <code>cloudflareaccess.com</code> and <code>blocked:csp</code></td>
+              <td>Access is intercepting <code>/gqjs/static/*</code> or <code>/gqjs/api/*</code>. Sandboxed extension frames cannot send cookies, so those paths need a <strong>Bypass</strong> application — see Step 5.</td>
+            </tr>
+            <tr>
+              <td>Home-screen icon is a letter tile on iOS even though the site icon is right</td>
+              <td><code>/apple-touch-icon.png</code> is behind Access while <code>/icons/*</code> is bypassed. Add it to the bypass application, then delete and re-add the home-screen icon.</td>
+            </tr>
+            <tr>
+              <td>DevTools shows <code>blocked:csp</code> for an extension script</td>
+              <td>Usually the redirect above: CSP checks redirect targets, and the Access login host is not (and must not be) in the extension's <code>script-src</code>. Fix the bypass rather than the CSP.</td>
+            </tr>
           </tbody>
         </table>
 
@@ -349,6 +484,10 @@ sudo systemctl start cloudflared</code></pre>
 <li><a href="#step-4-access-protection">Step 4 — Access Protection</a></li>
           <li class="doc-toc-sub"><a href="#option-a-one-time-pin-simplest">Option A — One Time PIN (simplest)</a></li>
           <li class="doc-toc-sub"><a href="#option-b-identity-provider-stronger">Option B — Identity Provider (stronger)</a></li>
+<li><a href="#step-5-bypass-access-for-cookie-less-paths">Step 5 — Bypass Access for cookie-less paths</a></li>
+          <li class="doc-toc-sub"><a href="#create-the-bypass-application">Create the bypass application</a></li>
+          <li class="doc-toc-sub"><a href="#or-create-it-from-the-cli-api">Or create it from the CLI / API</a></li>
+          <li class="doc-toc-sub"><a href="#verify">Verify</a></li>
 <li><a href="#full-working-example">Full Working Example</a></li>
 <li><a href="#troubleshooting">Troubleshooting</a></li>
         </ul>

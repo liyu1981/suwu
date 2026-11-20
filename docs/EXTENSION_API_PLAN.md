@@ -234,11 +234,23 @@ enjoy:
    treated as "no comparable origin" in the extension authorizers — an opaque
    origin can never match the Host (it used to fail origin parsing and 400
    every call), while real foreign origins still fail the match.
-2. **CSP:** `connect-src 'self'` is unreliable for an opaque origin, so
+2. **Proxy auth must not sit on the extension paths.** The consequence above is
+   not only about Suwu's cookies: *any* cookie-based gate in front of the server
+   sees these requests as anonymous. Behind Cloudflare Access (a common
+   deployment with a tunnel), `/gqjs/static/*` and `/gqjs/api/*` then get a
+   `302` to the Access login, and because CSP checks *redirect targets* the
+   extension's `script-src` refuses it — the tile renders (its navigation did
+   carry the cookie) but its script never loads, and DevTools shows
+   `302 … blocked:csp`. Such paths need an Access **Bypass** application; that is
+   safe because static files are public by design and `/gqjs/api/*` is guarded by
+   the per-extension scoped token. See
+   `website/docs/pages/public-access.content.html` §"Step 5 — Bypass Access for
+   cookie-less paths".
+3. **CSP:** `connect-src 'self'` is unreliable for an opaque origin, so
    rendered pages get `extensionCSPFor(r)`, which names the request origin
    explicitly and appends whatever `suwu.csp` extras the extension declared
    to `script-src` (error documents keep the strict `extensionCSP`).
-3. **CORS:** API responses grant `Access-Control-Allow-Origin: null` when —
+4. **CORS:** API responses grant `Access-Control-Allow-Origin: null` when —
    and only when — the request carries `Origin: null`, **without** credentials;
    CORS preflight (`OPTIONS` + `Access-Control-Request-Method`) is answered
    before auth and never reaches the handler, reflecting the browser's own
@@ -246,7 +258,7 @@ enjoy:
    headers, so a fixed allow-list would reject them) and acknowledging
    Chrome's private-network preflight. A foreign origin, or a null-origin page
    without the token, gets nothing usable.
-4. **Links:** `allow-popups` plus `allow-popups-to-escape-sandbox` lets
+5. **Links:** `allow-popups` plus `allow-popups-to-escape-sandbox` lets
    `target="_blank"` open a normal tab with its real origin, so story links
    work in Firefox/Safari/Chrome alike. The escape is paired with the **guard**:
    the render response carries a matching `sandbox` directive

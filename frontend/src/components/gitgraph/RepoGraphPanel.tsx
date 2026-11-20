@@ -17,6 +17,7 @@ import { GraphRenderer } from './GraphRenderer';
 import { useGitGraph } from './useGitGraph';
 import { RepoPicker } from './RepoPicker';
 import { ContextMenu, type ContextMenuItem } from './ContextMenu';
+import { hostedByMobileShell } from '../../lib/mobile';
 import { ActionDialog, type DialogInput } from './ActionDialog';
 import { useGitActions } from './useGitActions';
 import { CommitDiffTab } from './CommitDiffTab';
@@ -474,10 +475,11 @@ export function RepoGraphPanel({
     [addDiffTab, activePath, commitHead],
   );
 
-  const showCommitContextMenu = useCallback(
-    (e: React.MouseEvent, commit: GitCommit) => {
-      e.preventDefault();
-      e.stopPropagation();
+  // The menu is opened from two places: a right click (desktop) and the action
+  // button in the expanded commit row (phone). Only the position differs, so the
+  // position is a parameter and the event plumbing lives in the wrapper below.
+  const openCommitMenu = useCallback(
+    (commit: GitCommit, clientX: number, clientY: number) => {
       const zoom = parseFloat(document.documentElement.style.zoom) || 1;
 
       // Special context menu for uncommitted changes: the diff viewer is limited
@@ -528,7 +530,7 @@ export function RepoGraphPanel({
             },
           ],
         ];
-        setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
+        setContextMenu({ items, pos: { x: clientX / zoom, y: clientY / zoom } });
         return;
       }
 
@@ -690,9 +692,18 @@ export function RepoGraphPanel({
           { label: 'Copy Message', onClick: () => navigator.clipboard.writeText(commit.message) },
         ],
       ];
-      setContextMenu({ items, pos: { x: e.clientX / zoom, y: e.clientY / zoom } });
+      setContextMenu({ items, pos: { x: clientX / zoom, y: clientY / zoom } });
     },
     [gitAction, refresh, activePath, t, openCommitDiff, pushCommit, pullCommit],
+  );
+
+  const showCommitContextMenu = useCallback(
+    (e: React.MouseEvent, commit: GitCommit) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openCommitMenu(commit, e.clientX, e.clientY);
+    },
+    [openCommitMenu],
   );
 
   const showBranchContextMenu = useCallback(
@@ -1277,6 +1288,12 @@ export function RepoGraphPanel({
                           height={DETAILS_HEIGHT}
                           onParentClick={handleParentClick}
                           onOpenDiff={(focusFile) => openCommitDiff(commit, focusFile)}
+                          // Phone: no right button, so the row offers the same
+                          // menu from a tapped button, anchored at its corner.
+                          onOpenActions={(element) => {
+                            const rect = element.getBoundingClientRect();
+                            openCommitMenu(commit, rect.left, rect.bottom);
+                          }}
                         />
                       )}
                     </div>
@@ -1459,12 +1476,15 @@ function ExpandedCommitRow({
   height,
   onParentClick,
   onOpenDiff,
+  onOpenActions,
 }: {
   repoPath: string;
   hash: string;
   height: number;
   onParentClick?: (parentHash: string) => void;
   onOpenDiff?: (file?: string) => void;
+  /** Opens the commit's context menu anchored at this element (phone only). */
+  onOpenActions?: (element: HTMLElement) => void;
 }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GitCommitDetails | null>(null);
@@ -1559,9 +1579,26 @@ function ExpandedCommitRow({
               <span className="text-white/80">{new Date(details.date).toLocaleString()}</span>
             </div>
 
-            {/* Message */}
+            {/* Message — with the commit's context menu on the phone, where
+                there is no right button to open it with. */}
             <div className="mt-1 border-t border-white/[0.06] pt-1">
-              <span className="text-white/30">Message:</span>
+              <div className="flex items-center gap-1.5">
+                {hostedByMobileShell() && onOpenActions && (
+                  <button
+                    type="button"
+                    aria-label={t('gitCompare.commitActions')}
+                    title={t('gitCompare.commitActions')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenActions(e.currentTarget);
+                    }}
+                    className="-ml-1 grid h-6 w-6 shrink-0 place-items-center rounded text-white/45 transition hover:bg-white/10 hover:text-white/80 active:bg-white/20"
+                  >
+                    ⋯
+                  </button>
+                )}
+                <span className="text-white/30">Message:</span>
+              </div>
               <p className="mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-white/80">
                 {details.message}
               </p>

@@ -127,6 +127,22 @@ export function isMobileShell(pathname: string = window.location.pathname): bool
 }
 
 /**
+ * Whether this document is a tile hosted by the phone shell.
+ *
+ * Tile iframes are same-origin, so the hosting page's path is readable; a bare
+ * tile tab has no parent and a desktop shell is not `/mobile`. Used for the
+ * phone-only affordances a right button would otherwise provide.
+ */
+export function hostedByMobileShell(): boolean {
+  try {
+    if (window.parent === window) return false;
+    return isMobileShell(window.parent.location.pathname);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The tile to select after `closedId` disappears: the next one in the order the
  * header arrows walk, else the previous, else nothing. Using the arrow order
  * keeps the visible behaviour consistent — the tile that slides into the closed

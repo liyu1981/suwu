@@ -48,7 +48,8 @@
     "mode": "File mode",
     "tooLarge": "This file exceeds the preview limit. Its diff is not displayed.",
     "metadataOnly": "No text changes — only file metadata or path changed.",
-    "excluded": "Environment files are excluded."
+    "excluded": "Environment files are excluded.",
+    "commitActions": "Commit actions"
   },
   "app": {
     "title": "Suwu",

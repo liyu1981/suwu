@@ -47,7 +47,8 @@
     "mode": "文件模式",
     "tooLarge": "此文件超过预览限制，未显示差异。",
     "metadataOnly": "没有文本更改，仅文件元数据或路径发生变化。",
-    "excluded": "已排除环境配置文件。"
+    "excluded": "已排除环境配置文件。",
+    "commitActions": "提交操作"
   },
   "app": {
     "title": "Suwu",

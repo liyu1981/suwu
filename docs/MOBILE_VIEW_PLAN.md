@@ -696,3 +696,28 @@ Verified headlessly at 420×900, dpr 2, touch emulation, against the built binar
 | `/mobile`, two-finger drag (pinch) | nothing, zoom untouched |
 | `/?desktop=1`, two-finger tap | nothing — desktop is unaffected |
 | `/mobile`, terminal, two-finger tap | `contextmenu` delivered to `.xterm-screen`, `button: 2`, `defaultPrevented: true` (the terminal's own suppression ran) |
+
+### 18.1 A commit's menu needs a visible button, not only the gesture
+
+The two-finger tap (§18) is a good complement to a right button but a poor
+discovery mechanism, and the commit menu is the one place where a phone user has
+no other route to it: the expanded commit row shows the message, the parents and
+the file changes, and every action (compare, cherry-pick, revert, tag, reset…)
+lives behind that menu.
+
+So the expanded row renders a `⋯` **before the "Message:" label**, phone-only
+(`hostedByMobileShell()`, the same check the gesture uses). Tapping it opens
+exactly the menu a right click opens, anchored at the button's bottom-left corner.
+
+That required one small refactor: `showCommitContextMenu(e, commit)` read
+`e.clientX`/`e.clientY`, so it became `openCommitMenu(commit, clientX, clientY)`
+with a thin `showCommitContextMenu` wrapper for the pointer case. Both openings
+now share one menu definition — no duplicated item lists, no drift between what a
+right click and a tap can do.
+
+Verified headlessly in the phone shell against the built binary: the expanded
+"Uncommitted Changes" row shows `⋯ Message:` and its button opens
+"View diff against HEAD · Stash Uncommitted… · Reset All… · Clean Untracked…";
+a real commit's row opens "View diff against parent · Push Commit… · Cherry
+Pick… · Revert… · Create Branch… · Add Tag… · Copy Hash · Copy Message"; the
+desktop shell renders no button at all.

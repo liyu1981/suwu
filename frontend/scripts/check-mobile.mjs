@@ -19,7 +19,7 @@ import {
   TWO_FINGER_MAX_DRIFT_PX,
   TWO_FINGER_MAX_MS,
   isTwoFingerTap,
-} from '../src/components/hooks/useTwoFingerRightClick.ts';
+} from '../src/lib/twoFinger.ts';
 import {
   MOBILE_MAX_WIDTH,
   basename,

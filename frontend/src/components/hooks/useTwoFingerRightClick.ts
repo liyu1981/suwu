@@ -19,31 +19,8 @@
  * where the event is simply what a right click would deliver.
  */
 import { useEffect } from 'react';
-
-/** A two-finger tap must be quick and still; a pinch moves and is not a tap. */
-export const TWO_FINGER_MAX_MS = 400;
-export const TWO_FINGER_MAX_DRIFT_PX = 12;
-
-/** Whether an observed two-finger contact counts as a tap rather than a pinch. */
-export function isTwoFingerTap(durationMs: number, maxDriftPx: number): boolean {
-  return durationMs <= TWO_FINGER_MAX_MS && maxDriftPx <= TWO_FINGER_MAX_DRIFT_PX;
-}
-
-/**
- * True when this document is a tile hosted by the phone shell.
- *
- * The gesture is a phone affordance: on the desktop a right button already exists,
- * so `/` never installs it. Same-origin, so the parent's path is readable; a tile
- * opened as a bare tab has no shell parent and gets nothing.
- */
-export function isHostedByMobileShell(): boolean {
-  try {
-    if (window.parent === window) return false;
-    return window.parent.location.pathname.startsWith('/mobile');
-  } catch {
-    return false;
-  }
-}
+import { TWO_FINGER_MAX_DRIFT_PX, isTwoFingerTap } from '../../lib/twoFinger';
+import { hostedByMobileShell } from '../../lib/mobile';
 
 /** The element a right click at this point would land on, in this document. */
 function elementAt(x: number, y: number): Element | null {
@@ -164,7 +141,7 @@ export function installTwoFingerRightClick(): () => void {
  */
 export function useTwoFingerRightClick(): void {
   useEffect(() => {
-    if (!isHostedByMobileShell()) return;
+    if (!hostedByMobileShell()) return;
     const root = document.documentElement;
     if (root.dataset.suwuTwoFinger === '1') return;
     root.dataset.suwuTwoFinger = '1';

@@ -466,13 +466,13 @@ export function BaikalPanel() {
                         onSize={(cols, rows) => {
                           lastSize.current = { cols, rows };
                         }}
-                        onDetached={(terminal) => {
+                        onDetached={(ended) => {
                           // A program that ended has no tab left to show.
                           setSpaceTabs((prev) => {
                             const current = prev[spaceId];
                             if (!current) return prev;
                             const kept = current.tabs.filter(
-                              (candidate) => candidate.terminal !== terminal,
+                              (candidate) => candidate.terminal !== ended,
                             );
                             if (kept.length === current.tabs.length) return prev;
                             const next = { ...prev };

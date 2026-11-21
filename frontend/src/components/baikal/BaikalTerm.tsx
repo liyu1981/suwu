@@ -76,6 +76,18 @@ export function BaikalTerm({
 
   const socketRef = useRef<WebSocket | null>(null);
   const pendingRef = useRef<string[]>([]);
+  // The parent re-renders on every snapshot, and both callbacks are often inline
+  // arrows there. Holding them in refs keeps the attach effect below from
+  // depending on their identity: a new function is not a reason to drop a live
+  // stream and dial again (which used to do exactly that, several times a second).
+  const onDetachedRef = useRef(onDetached);
+  onDetachedRef.current = onDetached;
+  const onSizeRef = useRef(onSize);
+  onSizeRef.current = onSize;
+  // Visibility gates *resizing*, never the attachment: hiding a tab (switching
+  // space, or to another tab) must not close the stream and dial again.
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
 
   const showNotice = useCallback((message: string) => {
     setNotice(message);
@@ -214,7 +226,7 @@ export function BaikalTerm({
             current.closedByCore = why === 'exited' || why === 'killed';
             setState('closed');
             setReason(why);
-            onDetached?.(terminal);
+            onDetachedRef.current?.(terminal);
             if (!current.closedByCore) scheduleRetry(current);
           }
           return;
@@ -273,11 +285,11 @@ export function BaikalTerm({
     });
 
     const resizeDisposable = term.onResize(({ cols, rows }) => {
-      onSize?.(cols, rows);
+      onSizeRef.current?.(cols, rows);
       const ws = current.ws;
       // A hidden pane measures 0×0; resizing the core to that makes the shell
       // redraw its prompt in a one-column terminal.
-      if (!ws || ws.readyState !== WebSocket.OPEN || observe || !visible) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN || observe || !visibleRef.current) return;
       ws.send(JSON.stringify({ type: 'resize', cols, rows }));
     });
 
@@ -296,11 +308,13 @@ export function BaikalTerm({
       ws?.close();
       socketRef.current = null;
     };
-  }, [term, terminal, session, observe, visible, attempt, reconnect, onDetached, onSize, t]);
+    // `visible` is deliberately absent: it is a resize concern, and re-attaching
+    // on every tab switch flashed "connecting" and cost a dial per switch.
+  }, [term, terminal, session, observe, attempt, reconnect, t]);
 
   useEffect(() => {
-    if (term && term.cols > 0 && term.rows > 0) onSize?.(term.cols, term.rows);
-  }, [term, onSize]);
+    if (term && term.cols > 0 && term.rows > 0) onSizeRef.current?.(term.cols, term.rows);
+  }, [term]);
 
   // Revealing a tab: fit to the box it now has, and tell the core once. This is
   // the only resize a hidden/shown cycle is allowed to cause.

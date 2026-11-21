@@ -35,6 +35,10 @@ export function useBaikalData(session: string | undefined): BaikalData {
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const inFlight = useRef(false);
+  /** Last payload seen, so an unchanged snapshot does not re-render the tile.
+   *  Events arrive per foreground/title/size change; most of them do not change
+   *  anything this panel shows. */
+  const lastPayload = useRef<string | null>(null);
 
   const query = session ? `?session=${encodeURIComponent(session)}` : '';
 
@@ -49,10 +53,12 @@ export function useBaikalData(session: string | undefined): BaikalData {
         setHint(body.hint ?? null);
         return;
       }
-      const data = (await response.json()) as BaikalSnapshot;
-      setSnapshot(data);
+      const payload = await response.text();
       setError(null);
       setHint(null);
+      if (payload === lastPayload.current) return;
+      lastPayload.current = payload;
+      setSnapshot(JSON.parse(payload) as BaikalSnapshot);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'snapshot failed');
     } finally {

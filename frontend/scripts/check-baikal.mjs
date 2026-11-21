@@ -5,6 +5,7 @@
 // colours, what a row is called, how unlabelled terminals group, and the tab
 // model (dedupe, close fallback, title drift).
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   TONE_DOT,
   closeTab,
@@ -170,5 +171,23 @@ assert.deepEqual(
   closableTabs([makeTab(t1), makeTab(t2)], [terminal({ address: 't1' })]).map((t) => t.terminal),
   ['t1'],
 );
+
+// ── the attach effect must not depend on a re-render ─────────────────────
+// A terminal reattached its WebSocket on every parent render because the
+// callbacks were inline arrows that changed identity on each snapshot — several
+// times a second, which spun the CPU and flickered "connected/disconnected".
+// The callbacks live in refs, and `visible` is a resize concern, so none of them
+// may appear in the attach effect's dependency list.
+const termSource = readFileSync(
+  new URL('../src/components/baikal/BaikalTerm.tsx', import.meta.url),
+  'utf8',
+);
+const deps = termSource.match(/\}, \[term, terminal[^\]]*\]\);/)?.[0] ?? '';
+assert.ok(deps, 'the attach effect dependency list was not found');
+for (const leak of ['onDetached', 'onSize', 'visible']) {
+  assert.ok(!deps.includes(leak), `attach effect must not depend on ${leak}: ${deps}`);
+}
+assert.match(termSource, /onDetachedRef\.current\?\.\(terminal\)/, 'detach must go through the ref');
+assert.match(termSource, /onSizeRef\.current\?\./, 'size reports must go through the ref');
 
 console.log('check-baikal: ok');

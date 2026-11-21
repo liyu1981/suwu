@@ -11,6 +11,8 @@ import {
   type BaikalSpace,
   type BaikalTerminal,
 } from '../../lib/baikal';
+import { SpaceMenu } from './SpaceMenu';
+import { TerminalMenu } from './TerminalMenu';
 
 /**
  * The left panel: spaces, and the terminals that live in them.
@@ -24,9 +26,17 @@ export interface SpaceListProps {
   spaces: BaikalSpace[];
   unassigned: BaikalTerminal[];
   active?: string;
-  onOpen: (terminal: BaikalTerminal) => void;
+  onOpen: (terminal: BaikalTerminal, observe: boolean) => void;
   onNewShell: () => void;
+  onNewSpace: () => void;
   creating?: boolean;
+  onAssign: (terminal: BaikalTerminal, spaceId: string) => void;
+  onKill: (terminal: BaikalTerminal) => void;
+  onRemove: (terminal: BaikalTerminal) => void;
+  onPeek: (terminal: BaikalTerminal) => void;
+  onRename: (space: BaikalSpace, name: string) => void;
+  onColour: (space: BaikalSpace, colour: string) => void;
+  onForget: (space: BaikalSpace) => void;
 }
 
 export function SpaceList({
@@ -35,7 +45,15 @@ export function SpaceList({
   active,
   onOpen,
   onNewShell,
+  onNewSpace,
   creating,
+  onAssign,
+  onKill,
+  onRemove,
+  onPeek,
+  onRename,
+  onColour,
+  onForget,
 }: SpaceListProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
@@ -68,26 +86,39 @@ export function SpaceList({
   const terminalRow = (terminal: BaikalTerminal) => {
     const tone = statusTone(terminal.status);
     return (
-      <button
+      <div
         key={terminal.address}
-        type="button"
-        onClick={() => onOpen(terminal)}
-        title={`${terminalTitle(terminal)} — ${terminalSubtitle(terminal)}`}
         className={cn(
-          'flex w-full items-center gap-2 rounded-[6px] px-1.5 py-1 text-left transition',
+          'flex w-full items-center gap-1 rounded-[6px] pr-0.5 transition',
           active === terminal.address ? 'bg-white/[0.10]' : 'hover:bg-white/[0.05]',
         )}
       >
-        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[11px] text-white/80">
-            {terminalTitle(terminal)}
+        <button
+          type="button"
+          onClick={() => onOpen(terminal, false)}
+          title={`${terminalTitle(terminal)} — ${terminalSubtitle(terminal)}`}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-[6px] px-1.5 py-1 text-left"
+        >
+          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[11px] text-white/80">
+              {terminalTitle(terminal)}
+            </span>
+            <span className="block truncate text-[10px] text-white/35">
+              {terminalSubtitle(terminal)}
+            </span>
           </span>
-          <span className="block truncate text-[10px] text-white/35">
-            {terminalSubtitle(terminal)}
-          </span>
-        </span>
-      </button>
+        </button>
+        <TerminalMenu
+          terminal={terminal}
+          spaces={spaces}
+          onOpen={onOpen}
+          onAssign={onAssign}
+          onKill={onKill}
+          onRemove={onRemove}
+          onPeek={onPeek}
+        />
+      </div>
     );
   };
 
@@ -108,7 +139,7 @@ export function SpaceList({
           const { dot } = spaceColour(space.colour);
           const isCollapsed = collapsed.has(space.id);
           return (
-            <div key={space.id} className="mb-1">
+            <div key={space.id} className="group relative mb-1">
               <button
                 type="button"
                 onClick={() => toggle(space.id)}
@@ -125,6 +156,14 @@ export function SpaceList({
                 </span>
                 <span className="shrink-0 text-[10px] text-white/25">{terminals.length}</span>
               </button>
+              <div className="absolute right-1 top-1 hidden group-hover:block">
+                <SpaceMenu
+                  space={space}
+                  onRename={onRename}
+                  onColour={onColour}
+                  onForget={onForget}
+                />
+              </div>
               {!isCollapsed && (
                 <div className="mt-0.5 flex flex-col gap-0.5 pl-4">
                   {terminals.map(terminalRow)}
@@ -159,14 +198,24 @@ export function SpaceList({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-white/[0.06] p-1.5">
+      <div className="flex shrink-0 gap-1 border-t border-white/[0.06] p-1.5">
         <button
           type="button"
           onClick={onNewShell}
           disabled={creating}
-          className="w-full rounded-[6px] border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+          title={t('baikal.newShellHint')}
+          className="flex-1 rounded-[6px] border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
         >
           {creating ? t('baikal.creating') : `+ ${t('baikal.newShell')}`}
+        </button>
+        <button
+          type="button"
+          onClick={onNewSpace}
+          disabled={creating}
+          title={t('baikal.newSpaceHint')}
+          className="shrink-0 rounded-[6px] border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+        >
+          + {t('baikal.newSpace')}
         </button>
       </div>
     </div>

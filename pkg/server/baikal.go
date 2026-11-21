@@ -87,6 +87,8 @@ func (s *Server) handleBaikalAPI(w http.ResponseWriter, r *http.Request) {
 		s.handleBaikalSpace(w, r)
 	case "/api/baikal/terminal":
 		s.handleBaikalTerminal(w, r)
+	case "/api/baikal/assign":
+		s.handleBaikalAssign(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -152,6 +154,7 @@ func (s *Server) handleBaikalRun(w http.ResponseWriter, r *http.Request) {
 type baikalSpaceRequest struct {
 	SpaceID    string `json:"spaceId"`
 	Name       string `json:"name"`
+	ClearName  bool   `json:"clearName"`
 	Colour     string `json:"colour"`
 	Identity   string `json:"identityTerminal"`
 	IdentityCw string `json:"identityCwd"`
@@ -189,7 +192,11 @@ func (s *Server) handleBaikalSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := core.SetSpaceMeta(ctx, req.SpaceID, func(meta *herdr.SpaceMeta) {
-		if req.Name != "" {
+		// A name pins the space; clearing it returns the name to the directory
+		// derivation. Colour-only updates leave the name alone.
+		if req.ClearName {
+			meta.CustomName = ""
+		} else if req.Name != "" {
 			meta.CustomName = req.Name
 		}
 		if req.Colour != "" {
@@ -203,6 +210,41 @@ func (s *Server) handleBaikalSpace(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+type baikalAssignRequest struct {
+	Terminal string `json:"terminal"`
+	SpaceID  string `json:"spaceId"`
+}
+
+// handleBaikalAssign adopts a terminal into a space by setting its `space`
+// label — the same convention baikal uses when it starts a shell.
+func (s *Server) handleBaikalAssign(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+	var req baikalAssignRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || !baikalTerminalRE.MatchString(req.Terminal) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid terminal"})
+		return
+	}
+	if req.SpaceID != "" && !baikalTerminalRE.MatchString(req.SpaceID) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid space"})
+		return
+	}
+	core := s.baikal.get(baikalSession(r))
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	// An empty spaceId removes the label (back to "unassigned").
+	if err := core.Label(ctx, req.Terminal, map[string]string{"space": req.SpaceID}); err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 		return
 	}

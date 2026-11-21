@@ -931,6 +931,24 @@
     "detached": "Detached",
     "reconnect": "Reconnect",
     "wsError": "Connection lost",
-    "detach": "Detach"
+    "detach": "Detach",
+    "actions": "Terminal actions",
+    "open": "Open",
+    "openReadOnly": "Open read-only",
+    "peek": "Peek screen",
+    "assignTo": "Move to space",
+    "endProgram": "End program",
+    "killConfirm": "Click again to end it",
+    "removeTerminal": "Remove from list",
+    "spaceActions": "Space actions",
+    "rename": "Name",
+    "save": "Save",
+    "renameHint": "A name pins this space. Clear it to go back to the directory name.",
+    "colour": "Colour",
+    "forgetSpace": "Forget this space",
+    "forgetHint": "Only the name and colour are forgotten. Terminals keep running, and a space with no live terminal stops being listed.",
+    "newShellHint": "Start a shell in this space",
+    "newSpace": "Space",
+    "newSpaceHint": "Start a shell in a new space"
   }
 }

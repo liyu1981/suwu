@@ -12,6 +12,7 @@ import {
   closeTab,
   openTab,
   syncTabTitles,
+  type BaikalSpace,
   type BaikalTab,
   type BaikalTerminal,
 } from '../../lib/baikal';
@@ -19,6 +20,7 @@ import { useBaikalData } from './useBaikalData';
 import { SpaceList } from './SpaceList';
 import { TabBar } from './TabBar';
 import { BaikalTerm } from './BaikalTerm';
+import { PeekDialog } from './TerminalMenu';
 
 interface BaikalSessionState {
   tabs?: BaikalTab[];
@@ -47,6 +49,7 @@ export function BaikalPanel() {
   const [activeId, setActiveId] = useState('');
   const [creating, setCreating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [peek, setPeek] = useState<BaikalTerminal | null>(null);
   const hydrated = useRef(false);
 
   const sidebar = useSidebarCollapse('baikal');
@@ -88,9 +91,9 @@ export function BaikalPanel() {
     });
   }, [terminals, activeId]);
 
-  const open = useCallback((terminal: BaikalTerminal) => {
+  const open = useCallback((terminal: BaikalTerminal, observe = false) => {
     setTabs((prev) => {
-      const next = openTab(prev, terminal);
+      const next = openTab(prev, terminal, observe);
       setActiveId(next.activeId);
       return next.tabs;
     });
@@ -107,52 +110,116 @@ export function BaikalPanel() {
     [activeId],
   );
 
-  // "+" starts a shell in the active space's directory (or home).
-  const newShell = useCallback(async () => {
-    if (creating) return;
-    setCreating(true);
-    setActionError(null);
-    try {
-      const activeSpace = spaces.find((space) =>
-        space.terminals.some((terminal: BaikalTerminal) => terminal.address === activeTerminal()),
-      );
-      const body = {
-        cwd: activeSpace?.identityCwd ?? '',
-        spaceId: activeSpace?.id ?? '',
-      };
-      const response = await authFetch('/api/baikal/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string };
-        setActionError(payload.error ?? `run failed (${response.status})`);
-        return;
-      }
-      const result = (await response.json()) as { terminal: string; spaceId: string; cwd: string };
-      await refresh();
-      setTabs((prev) => {
-        const next = openTab(prev, {
-          address: result.terminal,
-          name: result.terminal,
-          title: '',
-          agent: '',
-          cwd: result.cwd,
-          state: 'live',
-          live: true,
-          createdMs: Date.now(),
-          spaceId: result.spaceId,
+  // "+ shell" continues the active space; "+ space" starts a fresh one.
+  const newShell = useCallback(
+    async (freshSpace = false) => {
+      if (creating) return;
+      setCreating(true);
+      setActionError(null);
+      try {
+        const activeSpace = freshSpace
+          ? undefined
+          : spaces.find((space) =>
+              space.terminals.some(
+                (terminal: BaikalTerminal) => terminal.address === activeTerminal(),
+              ),
+            );
+        const result = await postJSON<{ terminal: string; spaceId: string; cwd: string }>(
+          '/api/baikal/run',
+          {
+            cwd: activeSpace?.identityCwd ?? '',
+            spaceId: activeSpace?.id ?? '',
+          },
+        );
+        await refresh();
+        setTabs((prev) => {
+          const next = openTab(prev, {
+            address: result.terminal,
+            name: result.terminal,
+            title: '',
+            agent: '',
+            cwd: result.cwd,
+            state: 'live',
+            live: true,
+            createdMs: Date.now(),
+            spaceId: result.spaceId,
+          });
+          setActiveId(next.activeId);
+          return next.tabs;
         });
-        setActiveId(next.activeId);
-        return next.tabs;
-      });
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'run failed');
-    } finally {
-      setCreating(false);
-    }
-  }, [creating, spaces, refresh, activeTerminal]);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'run failed');
+      } finally {
+        setCreating(false);
+      }
+    },
+    [creating, spaces, refresh, activeTerminal],
+  );
+
+  // Terminal actions. Kill and remove are destructive and never happen from a
+  // tab close (which detaches); the menu confirms the kill.
+  const runTerminalAction = useCallback(
+    async (terminal: BaikalTerminal, action: 'kill' | 'rm') => {
+      try {
+        await postJSON('/api/baikal/terminal', { action, terminal: terminal.address });
+        await refresh();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : `${action} failed`);
+      }
+    },
+    [refresh],
+  );
+
+  const assign = useCallback(
+    async (terminal: BaikalTerminal, spaceId: string) => {
+      try {
+        await postJSON('/api/baikal/assign', { terminal: terminal.address, spaceId });
+        await refresh();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'assign failed');
+      }
+    },
+    [refresh],
+  );
+
+  const renameSpace = useCallback(
+    async (space: BaikalSpace, name: string) => {
+      try {
+        await postJSON(
+          '/api/baikal/space',
+          name ? { spaceId: space.id, name } : { spaceId: space.id, clearName: true },
+        );
+        await refresh();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'rename failed');
+      }
+    },
+    [refresh],
+  );
+
+  const recolourSpace = useCallback(
+    async (space: BaikalSpace, colour: string) => {
+      try {
+        await postJSON('/api/baikal/space', { spaceId: space.id, colour });
+        await refresh();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'colour failed');
+      }
+    },
+    [refresh],
+  );
+
+  const forgetSpace = useCallback(
+    async (space: BaikalSpace) => {
+      try {
+        await postJSON('/api/baikal/space', { spaceId: space.id, forget: true });
+        await refresh();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'forget failed');
+      }
+    },
+    [refresh],
+  );
 
   function activeTerminal(): string {
     return tabs.find((tab) => tab.id === activeId)?.terminal ?? '';
@@ -195,7 +262,15 @@ export function BaikalPanel() {
                 active={activeTab?.terminal}
                 onOpen={open}
                 onNewShell={() => void newShell()}
+                onNewSpace={() => void newShell(true)}
                 creating={creating}
+                onAssign={(terminal, spaceId) => void assign(terminal, spaceId)}
+                onKill={(terminal) => void runTerminalAction(terminal, 'kill')}
+                onRemove={(terminal) => void runTerminalAction(terminal, 'rm')}
+                onPeek={setPeek}
+                onRename={(space, name) => void renameSpace(space, name)}
+                onColour={(space, colour) => void recolourSpace(space, colour)}
+                onForget={(space) => void forgetSpace(space)}
               />
             </aside>
           )}
@@ -227,6 +302,8 @@ export function BaikalPanel() {
                 <Empty onNewShell={() => void newShell()} creating={creating} />
               )}
             </div>
+
+            <PeekDialog terminal={peek} onClose={() => setPeek(null)} />
 
             {actionError && (
               <div className="shrink-0 border-t border-red-500/20 bg-red-500/10 px-2 py-1 text-[11px] text-red-300">
@@ -282,4 +359,15 @@ function CoreError({ error, hint }: { error: string; hint: string | null }) {
       </div>
     </div>
   );
+}
+
+async function postJSON<T = { ok: boolean }>(path: string, body: unknown): Promise<T> {
+  const response = await authFetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
+  if (!response.ok) throw new Error(payload.error ?? `${path} failed (${response.status})`);
+  return payload as T;
 }

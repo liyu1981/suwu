@@ -928,6 +928,24 @@
     "detached": "已断开",
     "reconnect": "重新连接",
     "wsError": "连接已断开",
-    "detach": "断开"
+    "detach": "断开",
+    "actions": "终端操作",
+    "open": "打开",
+    "openReadOnly": "以只读方式打开",
+    "peek": "查看屏幕",
+    "assignTo": "移动到空间",
+    "endProgram": "结束进程",
+    "killConfirm": "再次点击确认结束",
+    "removeTerminal": "从列表移除",
+    "spaceActions": "空间操作",
+    "rename": "名称",
+    "save": "保存",
+    "renameHint": "填写名称会固定该空间；清空则恢复为目录名。",
+    "colour": "颜色",
+    "forgetSpace": "忘记该空间",
+    "forgetHint": "只忘记名称与颜色。终端继续运行；没有活动终端的空间不再列出。",
+    "newShellHint": "在该空间新建 shell",
+    "newSpace": "空间",
+    "newSpaceHint": "在新空间中新建 shell"
   }
 }

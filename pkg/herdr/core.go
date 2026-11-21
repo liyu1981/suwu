@@ -570,6 +570,17 @@ func (c *Core) Remove(ctx context.Context, terminal string) error {
 	return conn.Call(ctx, "terminal.rm", map[string]any{"terminal": terminal}, nil)
 }
 
+// Label sets (or with an empty value removes) labels on a terminal. Core's
+// terminal.label sets only the keys given, so adopting a terminal cannot clobber
+// labels another client owns.
+func (c *Core) Label(ctx context.Context, terminal string, labels map[string]string) error {
+	conn, err := c.ensure(ctx)
+	if err != nil {
+		return err
+	}
+	return conn.Call(ctx, "terminal.label", map[string]any{"terminal": terminal, "labels": labels}, nil)
+}
+
 // SetSpaceMeta updates one space in the baikal document.
 func (c *Core) SetSpaceMeta(ctx context.Context, id string, fn func(*SpaceMeta)) error {
 	if _, err := c.ensure(ctx); err != nil {

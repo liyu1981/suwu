@@ -24,4 +24,5 @@ import './plugins/extension';
 import './plugins/foldersync';
 import './plugins/sftp';
 import './plugins/staticserve';
+import './plugins/baikal';
 import './plugins/staticbrowse';

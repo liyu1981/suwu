@@ -152,6 +152,9 @@ func main() {
 			return
 		case "gq":
 			os.Exit(gqMain(os.Args[2:]))
+		case "hc":
+			// The herdr-core client (`hc`): run the managed binary.
+			os.Exit(hcMain(os.Args[2:]))
 		case "install":
 			if err := installCmd(os.Args[2:]); err != nil {
 				log.Fatalf("install: %v", err)
@@ -229,6 +232,12 @@ Usage:
   suwu gq [flags] <script.js>
                            run a JavaScript file in a request-scoped QuickJS
                            sandbox (see 'suwu help gq')
+  suwu hc [args...]
+                           run the managed herdr-core ('hc'): the daemon behind
+                           the Baikal tile, e.g. 'suwu hc ls --json',
+                           'suwu hc run --bg --name claude claude'
+                           (resolved from SUWU_HC_BIN, ~/.suwu/bin, PATH, or the
+                           pinned release Suwu carries)
   suwu install [flags] [<name>...]
                            install a background or an extension into the data
                            directory, from a zip or the GitHub catalog; bare

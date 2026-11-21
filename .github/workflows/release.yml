@@ -63,13 +63,20 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # herdr-core (the daemon behind the Baikal tile, and `suwu hc`) is embedded
+      # per release artifact, so a machine that never installed it can still run
+      # `suwu hc server start`. The archive is fetched for the matrix target and
+      # verified against the pinned lock before `-tags hcbin` embeds it.
+      - name: Fetch herdr-core for this target
+        run: ./scripts/fetch-herdr-core.sh --goos ${{ matrix.goos }} --goarch ${{ matrix.goarch }}
+
       - name: Cross-compile binary
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          go build \
+          go build -tags hcbin \
             -ldflags "-s -w -X suwu/pkg/version.Version=${{ steps.version.outputs.version }}" \
             -o suwu \
             ./cmd/Suwu

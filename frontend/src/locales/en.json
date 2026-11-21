@@ -518,7 +518,9 @@
     "staticServe": "Static Serve",
     "staticServeDesc": "Preview folders served by suwu static-serve",
     "staticBrowse": "Static Browse",
-    "staticBrowseDesc": "Browse a site published by Static Serve"
+    "staticBrowseDesc": "Browse a site published by Static Serve",
+    "baikal": "Baikal",
+    "baikalDesc": "herdr-core client: spaces and agents, one attached terminal per tab"
   },
   "codeExplorer": {
     "search": {
@@ -908,5 +910,27 @@
   },
   "resthelper": {
     "toggleSidebar": "History and collections panel"
+  },
+  "baikal": {
+    "spaces": "Spaces",
+    "unassigned": "Unassigned",
+    "filter": "Filter",
+    "empty": "No terminals yet",
+    "emptyHint": "A space is a directory. Open a shell here and it becomes the first terminal of a new space; agents started inside it announce themselves.",
+    "noMatches": "Nothing matches",
+    "newShell": "New shell",
+    "creating": "Starting…",
+    "loading": "Connecting to herdr-core…",
+    "toggleSpaces": "Spaces panel",
+    "coreVersion": "core {{version}}",
+    "coreOffline": "herdr-core is not available",
+    "observe": "Read-only",
+    "observeShort": "ro",
+    "attached": "Attached",
+    "connecting": "Attaching…",
+    "detached": "Detached",
+    "reconnect": "Reconnect",
+    "wsError": "Connection lost",
+    "detach": "Detach"
   }
 }

@@ -1,0 +1,4 @@
+# Populated by scripts/fetch-herdr-core.sh for `-tags hcbin` builds; never
+# committed (the release jobs fetch the right platform for each artifact).
+*
+!.gitignore

@@ -516,7 +516,9 @@
     "staticServe": "静态服务",
     "staticServeDesc": "预览通过 suwu static-serve 提供的文件夹",
     "staticBrowse": "静态浏览",
-    "staticBrowseDesc": "浏览由静态服务发布的站点"
+    "staticBrowseDesc": "浏览由静态服务发布的站点",
+    "baikal": "Baikal",
+    "baikalDesc": "herdr-core 客户端：空间与智能体，每个标签页一个已连接的终端"
   },
   "codeExplorer": {
     "search": {
@@ -905,5 +907,27 @@
   },
   "resthelper": {
     "toggleSidebar": "历史与集合面板"
+  },
+  "baikal": {
+    "spaces": "空间",
+    "unassigned": "未分组",
+    "filter": "过滤",
+    "empty": "还没有终端",
+    "emptyHint": "一个空间就是一个目录。在这里打开 shell，它就成了新空间的第一个终端；在其中启动的智能体会自行上报状态。",
+    "noMatches": "没有匹配项",
+    "newShell": "新建 shell",
+    "creating": "正在启动…",
+    "loading": "正在连接 herdr-core…",
+    "toggleSpaces": "空间面板",
+    "coreVersion": "核心 {{version}}",
+    "coreOffline": "herdr-core 不可用",
+    "observe": "只读",
+    "observeShort": "只读",
+    "attached": "已连接",
+    "connecting": "正在连接…",
+    "detached": "已断开",
+    "reconnect": "重新连接",
+    "wsError": "连接已断开",
+    "detach": "断开"
   }
 }

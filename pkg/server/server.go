@@ -110,6 +110,8 @@ type Server struct {
 	// extLegacyWarned makes the one-time "move your extensions dir" warning
 	// fire at most once per server.
 	extLegacyWarned bool
+	// baikal is the herdr-core client registry (one connection per core session).
+	baikal *baikalCores
 	// caCertDER is the local CA certificate (DER) served at /ca.crt so a phone
 	// can install it and stop warning about the self-signed certificate. Nil
 	// when this server does not run HTTPS behind Suwu's own CA.
@@ -153,6 +155,7 @@ func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify
 	}
 	return &Server{
 		cfg:         cfg,
+		baikal:      newBaikalCores(),
 		assets:      assetsFS,
 		sessions:    sessions,
 		notify:      nl,
@@ -251,6 +254,16 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/token" {
 		s.handleToken(w, r)
+		return
+	}
+
+	// Baikal (herdr-core tile): the only client of the core's local socket.
+	if strings.HasPrefix(r.URL.Path, "/api/baikal/") {
+		s.handleBaikalAPI(w, r)
+		return
+	}
+	if r.URL.Path == "/ws/baikal/attach" {
+		s.handleBaikalAttach(w, r)
 		return
 	}
 

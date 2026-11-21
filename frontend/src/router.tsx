@@ -20,6 +20,7 @@ import FolderSyncPage from './routes/FolderSyncPage';
 import SftpPage from './routes/SftpPage';
 import StaticServePage from './routes/StaticServePage';
 import StaticBrowsePage from './routes/StaticBrowsePage';
+import BaikalPage from './routes/BaikalPage';
 
 const rootRoute = createRootRoute();
 
@@ -176,6 +177,13 @@ const staticBrowseRoute = createRoute({
   component: StaticBrowsePage,
 });
 
+// Full-space Baikal page: the herdr-core client tile (spaces + attached terminals).
+const baikalRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/baikal',
+  component: BaikalPage,
+});
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([indexRoute]),
   mobileRoute,
@@ -195,6 +203,7 @@ const routeTree = rootRoute.addChildren([
   sftpRoute,
   staticServeRoute,
   staticBrowseRoute,
+  baikalRoute,
 ]);
 
 export const router = createRouter({ routeTree });

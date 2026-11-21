@@ -23,6 +23,7 @@ const COLOR_MAP: Record<string, { bg: string; text: string; letter: string }> = 
   sftp: { bg: 'bg-blue-500/20', text: 'text-blue-400', letter: 'S' },
   staticserve: { bg: 'bg-lime-500/20', text: 'text-lime-400', letter: 'S' },
   staticbrowse: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', letter: 'B' },
+  baikal: { bg: 'bg-teal-500/20', text: 'text-teal-300', letter: 'B' },
 };
 
 const DEFAULT_COLORS = { bg: 'bg-white/10', text: 'text-white/40', letter: '' };

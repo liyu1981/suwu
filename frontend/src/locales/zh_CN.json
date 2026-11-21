@@ -953,6 +953,8 @@
     "expandSpace": "展开空间",
     "collapseSpace": "收起空间",
     "detachHint": "结束该终端的进程",
-    "agents": "智能体"
+    "agents": "智能体",
+    "noAgents": "暂无智能体上报。程序通过 OSC 7501 汇报自身状态。",
+    "resizeSplit": "调整面板上下比例"
   }
 }

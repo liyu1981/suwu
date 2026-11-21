@@ -7,7 +7,9 @@ import {
 } from '../CommonTileContainer';
 import { DENSE_TILE_BG } from '../../store/appearance';
 import { useSidebarCollapse } from '../hooks/useSidebarCollapse';
+import { useVerticalSplit } from './useVerticalSplit';
 import { authFetch } from '../../lib/api';
+import { FONT_DEFAULT, clampFont } from '../../store/fonts';
 import {
   closeTab,
   listAgents,
@@ -19,6 +21,8 @@ import {
   type BaikalTerminal,
 } from '../../lib/baikal';
 import { useBaikalData } from './useBaikalData';
+import { AgentList } from './AgentList';
+import { cn } from '@/lib/utils';
 import { SpaceList } from './SpaceList';
 import { TabBar } from './TabBar';
 import { BaikalTerm } from './BaikalTerm';
@@ -72,6 +76,13 @@ export function BaikalPanel() {
   const [seenTabs, setSeenTabs] = useState<ReadonlySet<string>>(() => new Set());
 
   const sidebar = useSidebarCollapse('baikal');
+  const split = useVerticalSplit();
+  /** The pane's tile font size, owned by the shell (same contract as /term). */
+  const [fontSize, setFontSize] = useState(FONT_DEFAULT);
+  const paneId = useMemo(
+    () => new URLSearchParams(window.location.search).get('pane') ?? undefined,
+    [],
+  );
 
   const orderedSpaces = useMemo(() => sortSpaces(spaces), [spaces]);
   const agents = useMemo(() => listAgents(terminals), [terminals]);
@@ -134,6 +145,22 @@ export function BaikalPanel() {
     const key = `${activeSpaceId}:${activeTab.id}`;
     setSeenTabs((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   }, [activeSpaceId, activeTab]);
+
+  // The tile's font size comes from the shell, exactly as it does for a /term
+  // pane: the same pane menu that sizes a terminal sizes these terminals. Until
+  // the first message arrives the stored default is used.
+  useEffect(() => {
+    const onMsg = (event: MessageEvent) => {
+      const data = event.data as { type?: string; fontSize?: number } | undefined;
+      if (data?.type === 'tile-font-size' && typeof data.fontSize === 'number') {
+        setFontSize(clampFont(data.fontSize));
+      }
+    };
+    window.addEventListener('message', onMsg);
+    // Ask on mount: the shell's broadcast can land before this listener exists.
+    window.parent?.postMessage({ type: 'request-font-size', paneId: paneId ?? '' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, [paneId]);
 
   const upsertSpaceTabs = useCallback((spaceId: string, fn: (entry: SpaceTabs) => SpaceTabs) => {
     setSpaceTabs((prev) => ({
@@ -349,26 +376,56 @@ export function BaikalPanel() {
 
         <div className="flex min-h-0 flex-1">
           {!sidebar.collapsed && (
-            <aside className="w-56 shrink-0 border-r border-white/[0.06]">
-              <SpaceList
-                spaces={spaces}
-                agents={agents}
-                onOpenAgent={(terminal) => open(terminal)}
-                unassigned={snapshot?.unassigned ?? []}
-                activeSpaceId={activeSpaceId}
-                activeTerminal={activeTab?.terminal}
-                onSelectSpace={(space) => setActiveSpaceId(space.id)}
-                onOpen={open}
-                onNewSpace={() => void newShell(true)}
-                creating={creating}
-                onAssign={(terminal, spaceId) => void assign(terminal, spaceId)}
-                onKill={(terminal) => void runTerminalAction(terminal, 'kill')}
-                onRemove={(terminal) => void runTerminalAction(terminal, 'rm')}
-                onPeek={setPeek}
-                onRename={(space, name) => void renameSpace(space, name)}
-                onColour={(space, colour) => void recolourSpace(space, colour)}
-                onForget={(space) => void forgetSpace(space)}
-              />
+            <aside
+              ref={split.containerRef}
+              className="flex w-56 shrink-0 flex-col border-r border-white/[0.06]"
+            >
+              {/* Spaces on top, agents below, split 50/50 until the divider is
+                  dragged: both are lists of the same thing at different stages
+                  of wanting your attention. */}
+              <div className="flex min-h-0 flex-col" style={{ flex: `0 0 ${split.ratio * 100}%` }}>
+                <SpaceList
+                  spaces={spaces}
+                  unassigned={snapshot?.unassigned ?? []}
+                  activeSpaceId={activeSpaceId}
+                  activeTerminal={activeTab?.terminal}
+                  onSelectSpace={(space) => setActiveSpaceId(space.id)}
+                  onOpen={open}
+                  onNewSpace={() => void newShell(true)}
+                  creating={creating}
+                  onAssign={(terminal, spaceId) => void assign(terminal, spaceId)}
+                  onKill={(terminal) => void runTerminalAction(terminal, 'kill')}
+                  onRemove={(terminal) => void runTerminalAction(terminal, 'rm')}
+                  onPeek={setPeek}
+                  onRename={(space, name) => void renameSpace(space, name)}
+                  onColour={(space, colour) => void recolourSpace(space, colour)}
+                  onForget={(space) => void forgetSpace(space)}
+                />
+              </div>
+              <div
+                {...split.handleProps}
+                aria-label={t('baikal.resizeSplit')}
+                title={t('baikal.resizeSplit')}
+                className={cn(
+                  'group flex h-1.5 shrink-0 cursor-row-resize items-center justify-center border-y border-white/[0.06] transition',
+                  split.dragging ? 'bg-sky-400/20' : 'hover:bg-white/[0.06]',
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-px w-6 rounded transition',
+                    split.dragging ? 'bg-sky-300/70' : 'bg-white/15 group-hover:bg-white/30',
+                  )}
+                />
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <AgentList
+                  agents={agents}
+                  spaces={spaces}
+                  activeTerminal={activeTab?.terminal}
+                  onOpenAgent={(terminal) => open(terminal)}
+                />
+              </div>
             </aside>
           )}
 
@@ -405,6 +462,7 @@ export function BaikalPanel() {
                         session={session}
                         observe={tab.observe}
                         visible={visible}
+                        fontSize={fontSize}
                         onSize={(cols, rows) => {
                           lastSize.current = { cols, rows };
                         }}

@@ -34,6 +34,46 @@ type Core struct {
 	// dial is ConnOptions -> *Conn; tests replace it with an in-memory pair.
 	dial     func(context.Context, ConnOptions) (*Conn, error)
 	lastSeen time.Time
+
+	// subs are the watchers that want to know a snapshot would look different
+	// now (the tile's event stream). Guarded by subsMu, never by mu: broadcast
+	// runs outside the core lock so a slow reader cannot stall event handling.
+	subsMu sync.Mutex
+	subs   map[chan struct{}]struct{}
+}
+
+// Subscribe returns a channel that receives a token whenever the core reports a
+// change the snapshot would show, plus the function that cancels it. Sends are
+// non-blocking and coalesced: a watcher that is busy misses tokens rather than
+// growing a queue, because the next read of the snapshot is always current.
+func (c *Core) Subscribe() (<-chan struct{}, func()) {
+	ch := make(chan struct{}, 1)
+	c.subsMu.Lock()
+	if c.subs == nil {
+		c.subs = make(map[chan struct{}]struct{})
+	}
+	c.subs[ch] = struct{}{}
+	c.subsMu.Unlock()
+	return ch, func() {
+		c.subsMu.Lock()
+		if _, ok := c.subs[ch]; ok {
+			delete(c.subs, ch)
+			close(ch)
+		}
+		c.subsMu.Unlock()
+	}
+}
+
+// broadcast tells every watcher that something changed.
+func (c *Core) broadcast() {
+	c.subsMu.Lock()
+	for ch := range c.subs {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+	c.subsMu.Unlock()
 }
 
 // staleAfter is how long a connection may be silent before it is treated as
@@ -229,6 +269,7 @@ func (c *Core) eventsLoop(conn *Conn, channel uint32, frames chan Frame, stop ch
 					continue
 				}
 				c.applyEvent(env.Params)
+				c.broadcast()
 			}
 		}
 	}

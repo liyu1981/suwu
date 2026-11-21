@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { authFetch } from '../../lib/api';
+import { authFetch, fetchToken } from '../../lib/api';
 import type { BaikalSpace, BaikalSnapshot, BaikalTerminal } from '../../lib/baikal';
 
-/** How often the panel re-reads the snapshot. The server keeps it live from
- * core events, so this is a cheap read, not a core round-trip. */
-const POLL_MS = 3000;
+/** How often the panel re-reads the snapshot even when the event stream is up.
+ * The stream is what makes it feel live; this is the safety net for a proxy that
+ * drops it, and it is a cheap read of an in-memory view, not a core round-trip. */
+const POLL_MS = 5000;
+
+/** Coalesce a burst of events into one read. */
+const SETTLE_MS = 80;
 
 export interface BaikalData {
   snapshot: BaikalSnapshot | null;
@@ -18,11 +22,12 @@ export interface BaikalData {
 }
 
 /**
- * The tile's snapshot, polled while the tile is open.
+ * The tile's snapshot: pushed by the server, polled as a fallback.
  *
- * Events keep the server's copy fresh (herdr-core pushes them); the poll is what
- * turns that into UI updates, and it doubles as reconnection: a core that was
- * down shows its error, and the next poll picks it up once it is back.
+ * herdr-core reports a `cd` (and anything else worth showing) within 500 ms and
+ * the server forwards it over `/api/baikal/events`; without that stream the tile
+ * only learned about a change on its next poll, which is why a space name used
+ * to lag behind the directory you had just entered.
  */
 export function useBaikalData(session: string | undefined): BaikalData {
   const [snapshot, setSnapshot] = useState<BaikalSnapshot | null>(null);
@@ -68,6 +73,40 @@ export function useBaikalData(session: string | undefined): BaikalData {
       window.clearInterval(timer);
     };
   }, [refresh]);
+
+  // The event stream. EventSource cannot send headers, and the server takes the
+  // token in the query string (the same way the attach socket does), so the
+  // token is fetched before opening and the stream is simply abandoned if that
+  // fails — the poll still covers it.
+  useEffect(() => {
+    let cancelled = false;
+    let source: EventSource | null = null;
+    let settle: number | undefined;
+    const bump = () => {
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        if (!cancelled) void refresh();
+      }, SETTLE_MS);
+    };
+    void (async () => {
+      try {
+        const { token } = await fetchToken();
+        if (cancelled) return;
+        const params = new URLSearchParams({ token });
+        if (session) params.set('session', session);
+        source = new EventSource(`/api/baikal/events?${params.toString()}`);
+        source.addEventListener('ready', bump);
+        source.onmessage = bump;
+      } catch {
+        // No token, no stream: the poll is the fallback and already running.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(settle);
+      source?.close();
+    };
+  }, [refresh, session]);
 
   const terminals = useMemo(() => {
     if (!snapshot) return [];

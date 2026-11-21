@@ -29,6 +29,8 @@ export interface BaikalTermProps {
   visible?: boolean;
   /** Reports the grid, so a shell started next can be created at this size. */
   onSize?: (cols: number, rows: number) => void;
+  /** The pane's tile font size, the same one a /term pane would use. */
+  fontSize?: number;
   /** Bumped by the parent to force a fresh attach (the Reconnect button). */
   attempt?: number;
   onDetached?: (terminal: string) => void;
@@ -56,6 +58,7 @@ export function BaikalTerm({
   attempt = 0,
   onDetached,
   onSize,
+  fontSize = FONT_DEFAULT,
 }: BaikalTermProps) {
   const { t } = useTranslation();
   const fontFamily = useAtomValue(fontFamilyAtom);
@@ -82,21 +85,30 @@ export function BaikalTerm({
   const options = useMemo(
     () => ({
       cursorBlink: true,
-      fontSize: FONT_DEFAULT,
+      fontSize,
       fontFamily,
       lineHeight,
       theme: { ...themeToXtermTheme(theme), background: '#00000000' },
       scrollback: 5000,
     }),
-    [fontFamily, lineHeight, theme],
+    [fontFamily, fontSize, lineHeight, theme],
   );
 
-  const { containerRef, term, fit, setFontFamily, setLineHeight, setTheme } = useTerminal(options);
+  const { containerRef, term, fit, setFontSize, setFontFamily, setLineHeight, setTheme } =
+    useTerminal(options);
 
   // The attached terminal is a shell too: the recorder gives "save this command"
   // something to capture and keeps snippet insertion in the recent list.
   const { getCurrentLine, recordSent } = useInputRecorder(term, { paused: selectionMode });
 
+  // A font change changes the grid. Fitting is what turns the new cell size into
+  // cols/rows, and the resize handler then tells the core — a shell that was
+  // laid out for the old font would otherwise wrap in the wrong places.
+  useEffect(() => {
+    if (!term) return;
+    setFontSize(fontSize);
+    if (visible) fit();
+  }, [fontSize, fit, setFontSize, term, visible]);
   useEffect(() => {
     setFontFamily(fontFamily);
   }, [fontFamily, setFontFamily]);

@@ -956,6 +956,8 @@
     "expandSpace": "Expand space",
     "collapseSpace": "Collapse space",
     "detachHint": "End this terminal’s program",
-    "agents": "Agents"
+    "agents": "Agents",
+    "noAgents": "No agent is reporting yet. Programs say what they are doing over OSC 7501.",
+    "resizeSplit": "Resize the panel halves"
   }
 }

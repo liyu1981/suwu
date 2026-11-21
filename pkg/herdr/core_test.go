@@ -328,3 +328,41 @@ func TestSplitLinesKeepsEmptyFramesSafe(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// The tile's event stream in the browser is fed by this channel, so a change
+// must arrive promptly, a burst must coalesce into one token, and cancelling
+// must close it — a leaked subscriber is a leaked goroutine in the server.
+func TestSubscribeDeliversCoalescedTokens(t *testing.T) {
+	c := NewCore("subtest")
+	changes, cancel := c.Subscribe()
+
+	c.broadcast()
+	select {
+	case <-changes:
+	case <-time.After(time.Second):
+		t.Fatal("a change did not reach the subscriber")
+	}
+
+	// Coalesced: a burst while the reader is busy leaves at most one token
+	// waiting, because the next snapshot read is already current.
+	c.broadcast()
+	c.broadcast()
+	c.broadcast()
+	select {
+	case <-changes:
+	case <-time.After(time.Second):
+		t.Fatal("a burst left no token")
+	}
+	select {
+	case <-changes:
+		t.Fatal("tokens queued instead of coalescing")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	cancel()
+	if _, ok := <-changes; ok {
+		t.Fatal("cancel did not close the channel")
+	}
+	// A broadcast after cancel must not panic on a closed or removed channel.
+	c.broadcast()
+}

@@ -525,3 +525,21 @@ share a 36 px height with 28 px controls, so the two "+" buttons line up.
   `display: none` measures 0×0 and paints its first screen into a one-column grid
   — the first look at a restored tab was empty until you switched away and back.
   Tabs are now mounted on first reveal and stay mounted afterwards.
+
+### 13.4 The panel becomes a real sidebar
+
+- **Spaces and agents are two panes**, not one list with a header: each has a
+  section label and a scroll area, the divider is draggable (`role="separator"`,
+  arrow keys nudge it, `Enter` resets), and the ratio persists in
+  `suwu.baikal.split`.
+- **Live updates over SSE** (`/api/baikal/events`). The panel used to re-read the
+  snapshot on a 3 s timer, so a `cd` — which core notices within 500 ms and emits
+  as a `foreground` event — took up to 3.5 s to rename a space. `Core.Subscribe`
+  hands out coalescing change tokens (non-blocking sends, one slot per watcher,
+  fanned out outside the core lock), the server streams one event per settle, and
+  the tile re-reads the snapshot ~100 ms later. The 5 s poll stays as a fallback
+  for a proxy that drops the stream.
+- **Typographic parity with the terminal tile**: `BaikalTerm` honours the pane's
+  `tile-font-size` (asked for on mount, applied with a refit so the core learns
+  the new grid) and the shared font-family/line-height atoms, which reach the
+  iframe through `atomWithStorage`'s storage sync.

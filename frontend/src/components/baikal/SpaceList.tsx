@@ -17,7 +17,7 @@ import { SpaceMenu } from './SpaceMenu';
 import { TerminalMenu } from './TerminalMenu';
 
 /**
- * The left panel: spaces, and the terminals that live in them.
+ * The spaces half of the left panel: spaces, and the terminals that live in them.
  *
  * Clicking a space selects it — the tab strip on the right shows that space's
  * terminals only, the way Herdr's TUI switches its tabs with the workspace.
@@ -27,9 +27,6 @@ import { TerminalMenu } from './TerminalMenu';
  */
 export interface SpaceListProps {
   spaces: BaikalSpace[];
-  /** Terminals that announced a status (OSC 7501), most actionable first. */
-  agents: BaikalTerminal[];
-  onOpenAgent: (terminal: BaikalTerminal) => void;
   unassigned: BaikalTerminal[];
   activeSpaceId: string;
   activeTerminal?: string;
@@ -48,8 +45,6 @@ export interface SpaceListProps {
 
 export function SpaceList({
   spaces,
-  agents,
-  onOpenAgent,
   unassigned,
   activeSpaceId,
   activeTerminal,
@@ -132,9 +127,6 @@ export function SpaceList({
     );
   };
 
-  const spaceName = (terminal: BaikalTerminal) =>
-    spaces.find((space) => space.id === terminal.spaceId)?.name ?? t('baikal.unassigned');
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Same height and paddings as the tab strip beside it, so the two "+"
@@ -159,52 +151,12 @@ export function SpaceList({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-1 pb-2">
-        {/* Agents first: this is the list you check when something needs you,
-            and a row takes you straight to that terminal's space and tab. */}
-        {agents.length > 0 && (
-          <div className="mb-2">
-            <div className="flex items-center gap-1.5 px-1 py-1 text-[10px] uppercase tracking-wider text-white/25">
-              {t('baikal.agents')}
-              <span className="text-white/20">{agents.length}</span>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {agents.map((terminal) => {
-                const tone = statusTone(terminal.status);
-                return (
-                  <button
-                    key={`agent-${terminal.address}`}
-                    type="button"
-                    onClick={() => onOpenAgent(terminal)}
-                    title={`${terminalTitle(terminal)} — ${terminalSubtitle(terminal)}`}
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded-[6px] px-1.5 py-1 text-left transition',
-                      activeTerminal === terminal.address
-                        ? 'bg-white/[0.10]'
-                        : 'hover:bg-white/[0.05]',
-                    )}
-                  >
-                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[11px] text-white/80">
-                        {terminalTitle(terminal)}
-                      </span>
-                      <span className="block truncate text-[10px] text-white/35">
-                        {terminal.status?.state}
-                        {terminal.status?.msg ? ` · ${terminal.status.msg}` : ''}
-                      </span>
-                    </span>
-                    <span className="max-w-16 shrink-0 truncate text-[9px] text-white/25">
-                      {spaceName(terminal)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mx-1 mt-2 border-t border-white/[0.06]" />
-          </div>
-        )}
+      <div className="flex h-7 shrink-0 items-center gap-1.5 px-2 text-[10px] uppercase tracking-wider text-white/25">
+        {t('baikal.spaces')}
+        <span className="text-white/20">{groups.spaceGroups.length}</span>
+      </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-1 pb-2">
         {groups.spaceGroups.map(({ space, terminals }) => {
           const colour = spaceColour(space.colour);
           const isCollapsed = collapsed.has(space.id);

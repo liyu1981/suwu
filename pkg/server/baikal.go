@@ -5,6 +5,7 @@ package server
 // authenticated view of it:
 //
 //	GET  /api/baikal/snapshot            spaces, terminals, core version
+//	GET  /api/baikal/events              server-sent events: "the snapshot moved"
 //	POST /api/baikal/run                 start a shell in a directory/space
 //	POST /api/baikal/space               rename / recolour / forget a space
 //	POST /api/baikal/terminal            kill / remove / read
@@ -15,6 +16,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -88,6 +90,8 @@ func (s *Server) handleBaikalAPI(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/api/baikal/snapshot":
 		s.handleBaikalSnapshot(w, r)
+	case "/api/baikal/events":
+		s.handleBaikalEvents(w, r)
 	case "/api/baikal/run":
 		s.handleBaikalRun(w, r)
 	case "/api/baikal/space":
@@ -118,6 +122,70 @@ func (s *Server) handleBaikalSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 	snap.Core.Session = core.Session()
 	writeJSON(w, http.StatusOK, snap)
+}
+
+// handleBaikalEvents streams one event per change of the snapshot, so the tile
+// does not have to poll to notice a `cd` (core reports the foreground change
+// within 500 ms and this forwards it immediately). The payload is deliberately
+// empty: an event means "read the snapshot again", not "here is the delta" — the
+// snapshot is already the assembled, authoritative view.
+func (s *Server) handleBaikalEvents(w http.ResponseWriter, r *http.Request) {
+	if s.validateRequest(w, r) == "" {
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writePlain(w, http.StatusInternalServerError, "streaming unsupported")
+		return
+	}
+	h := w.Header()
+	h.Set("Content-Type", "text/event-stream")
+	h.Set("Cache-Control", "no-cache")
+	h.Set("Connection", "keep-alive")
+	// Proxies (and the Cloudflare tunnel in front of a self-hosted server) buffer
+	// a response unless told not to; without this the "live" stream arrives in
+	// blocks and the panel updates exactly as late as it used to.
+	h.Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	// Confirm the stream is live and say how fast to retry after a drop.
+	if _, err := fmt.Fprint(w, "retry: 2000\nevent: ready\ndata: ok\n\n"); err != nil {
+		return
+	}
+	flusher.Flush()
+
+	changes, cancel := s.baikal.get(baikalSession(r)).Subscribe()
+	defer cancel()
+
+	ping := time.NewTicker(20 * time.Second)
+	defer ping.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case _, ok := <-changes:
+			if !ok {
+				return
+			}
+			// A burst (a shell opened: created + labels + foreground) is one
+			// snapshot read, so let it settle first.
+			settle := time.NewTimer(40 * time.Millisecond)
+			select {
+			case <-settle.C:
+			case <-r.Context().Done():
+				settle.Stop()
+				return
+			}
+			if _, err := fmt.Fprint(w, "data: changed\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-ping.C:
+			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
 }
 
 type baikalRunRequest struct {

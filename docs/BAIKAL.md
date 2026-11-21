@@ -43,10 +43,25 @@ Selecting a space (its name, not the ▾) switches the tab strip to that space's
 terminals, the way Herdr's TUI switches tabs with the workspace. Terminals of the
 other spaces stay attached — switching away only hides them.
 
-**Agents** are listed above the spaces: every terminal that announced itself over
-OSC 7501, most actionable first (blocked, error, working, then the rest). A row
-shows the program's own status word and message, and tapping it switches to that
-agent's space and tab.
+The panel is split in two, the way Herdr's TUI is: **Spaces** on top and
+**Agents** below, each labelled and each with its own scroll area. The divider
+between them is dragged (or focused and nudged with the arrow keys, `Enter` back
+to half); the position is remembered per tile.
+
+**Agents** are the terminals that announced themselves over OSC 7501, most
+actionable first (blocked, error, working, then the rest). A row shows the
+program's own status word and message, and tapping it switches to that agent's
+space and tab. A terminal that never reported, or whose program has ended, is not
+an agent.
+
+The panel is live: herdr-core reports a directory change within 500 ms and Suwu
+forwards it over `/api/baikal/events` (server-sent events), so a space renames as
+soon as its shell's `cd` completes instead of on the next poll. The poll remains as
+a fallback for a dropped stream.
+
+Font family and line height come from Appearance (the same settings the terminal
+tile uses), and the pane's font size comes from the tile menu — a baikal terminal
+is sized exactly like a `/term` pane.
 
 ## Tabs
 

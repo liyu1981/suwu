@@ -18,6 +18,7 @@ import { useGitGraph } from './useGitGraph';
 import { RepoPicker } from './RepoPicker';
 import { ContextMenu, type ContextMenuItem } from './ContextMenu';
 import { hostedByMobileShell } from '../../lib/mobile';
+import { SlidersIcon } from '../icons';
 import { ActionDialog, type DialogInput } from './ActionDialog';
 import { useGitActions } from './useGitActions';
 import { CommitDiffTab } from './CommitDiffTab';
@@ -1579,26 +1580,26 @@ function ExpandedCommitRow({
               <span className="text-white/80">{new Date(details.date).toLocaleString()}</span>
             </div>
 
-            {/* Message — with the commit's context menu on the phone, where
-                there is no right button to open it with. */}
+            {/* Commit actions — a full-width row of its own, phone only: there
+                is no right button to open the commit menu with. */}
+            {hostedByMobileShell() && onOpenActions && (
+              <button
+                type="button"
+                aria-label={t('gitCompare.commitActions')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenActions(e.currentTarget);
+                }}
+                className="mt-1 flex w-full items-center gap-1.5 rounded-[6px] border border-white/[0.08] bg-white/[0.03] px-2 py-1.5 text-left text-[11px] font-medium text-white/60 transition active:bg-white/[0.10]"
+              >
+                <SlidersIcon className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{t('gitCompare.commitActions')}</span>
+              </button>
+            )}
+
+            {/* Message */}
             <div className="mt-1 border-t border-white/[0.06] pt-1">
-              <div className="flex items-center gap-1.5">
-                {hostedByMobileShell() && onOpenActions && (
-                  <button
-                    type="button"
-                    aria-label={t('gitCompare.commitActions')}
-                    title={t('gitCompare.commitActions')}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenActions(e.currentTarget);
-                    }}
-                    className="-ml-1 grid h-6 w-6 shrink-0 place-items-center rounded text-white/45 transition hover:bg-white/10 hover:text-white/80 active:bg-white/20"
-                  >
-                    ⋯
-                  </button>
-                )}
-                <span className="text-white/30">Message:</span>
-              </div>
+              <span className="text-white/30">Message:</span>
               <p className="mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-white/80">
                 {details.message}
               </p>

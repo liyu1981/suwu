@@ -154,20 +154,29 @@ export function SoftInputBar({
   );
 }
 
-/** The status-bar button that expands the panel. */
+/**
+ * The status-bar button that expands the panel.
+ *
+ * It must not look like the "send a key" trigger next to it, which is a keyboard
+ * outline: this one opens a place to *type a line* and step through the arrows, so
+ * it is drawn as an I-beam caret with text lines beside it — unmistakably a text
+ * field rather than a keypad.
+ */
 export function SoftInputIcon({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 16 16"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.2}
+      strokeWidth={1.9}
       strokeLinecap="round"
+      strokeLinejoin="round"
       className={className}
       aria-hidden="true"
     >
-      <rect x="1.5" y="4" width="13" height="8" rx="1.5" />
-      <path d="M4 6.5h.01M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01M4 9.5h8" />
+      <path d="M8 5v14" />
+      <path d="M6 5h4M6 19h4" />
+      <path d="M13 9h7M13 15h4" />
     </svg>
   );
 }

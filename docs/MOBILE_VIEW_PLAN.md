@@ -705,9 +705,13 @@ no other route to it: the expanded commit row shows the message, the parents and
 the file changes, and every action (compare, cherry-pick, revert, tag, reset…)
 lives behind that menu.
 
-So the expanded row renders a `⋯` **before the "Message:" label**, phone-only
-(`hostedByMobileShell()`, the same check the gesture uses). Tapping it opens
-exactly the menu a right click opens, anchored at the button's bottom-left corner.
+So the expanded row renders a **full-width action row** above the message — a
+sliders icon and "Commit actions" — phone-only (`hostedByMobileShell()`, the same
+check the gesture uses). It gets its own line rather than sharing the "Message:"
+label's: a tap target that is a whole row is easier to hit than a glyph in a text
+line, and it does not compete with the label for the same baseline. Tapping it
+opens exactly the menu a right click opens, anchored at the button's bottom-left
+corner.
 
 That required one small refactor: `showCommitContextMenu(e, commit)` read
 `e.clientX`/`e.clientY`, so it became `openCommitMenu(commit, clientX, clientY)`
@@ -716,7 +720,8 @@ now share one menu definition — no duplicated item lists, no drift between wha
 right click and a tap can do.
 
 Verified headlessly in the phone shell against the built binary: the expanded
-"Uncommitted Changes" row shows `⋯ Message:` and its button opens
+"Uncommitted Changes" row shows the full-width "Commit actions" row and its button
+opens
 "View diff against HEAD · Stash Uncommitted… · Reset All… · Clean Untracked…";
 a real commit's row opens "View diff against parent · Push Commit… · Cherry
 Pick… · Revert… · Create Branch… · Add Tag… · Copy Hash · Copy Message"; the

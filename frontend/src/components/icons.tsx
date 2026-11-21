@@ -430,3 +430,27 @@ export function KeyCommandIcon({ className = 'h-3 w-3' }: { className?: string }
     </svg>
   );
 }
+
+/**
+ * Commit actions mark: three sliders, i.e. "the things you can do to this
+ * commit". Used by the expanded commit row's action row on a phone, where a
+ * right click (the desktop route to that menu) does not exist.
+ */
+export function SlidersIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h10M18 18h2" />
+      <circle cx="16" cy="6" r="2" />
+      <circle cx="8" cy="12" r="2" />
+      <circle cx="16" cy="18" r="2" />
+    </svg>
+  );
+}

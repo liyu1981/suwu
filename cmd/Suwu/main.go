@@ -684,12 +684,18 @@ func run(debugCfg debugConfig) error {
 
 	// One shutdown path for everything opened above: the debug listener (when
 	// enabled) then the sessions. Explicit, never deferred — a wedged close must
-	// not depend on unwinding order.
+	// not depend on unwinding order. `closeBaikal` is filled in once the server
+	// exists (Baikal's herdr-core clients are child processes; leaving them
+	// behind would orphan a `herdr-core connect` per open session).
+	var closeBaikal func()
 	shutdown := func() {
 		if diag != nil {
 			_ = diag.Close()
 		}
 		sessions.Close()
+		if closeBaikal != nil {
+			closeBaikal()
+		}
 	}
 
 	// SESSION_TTL overrides the default idle session timeout (24h).
@@ -717,6 +723,7 @@ func run(debugCfg debugConfig) error {
 	registerXDisplayHandlers(notifyListener)
 
 	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager, dataDir)
+	closeBaikal = srv.CloseBaikal
 	registerStaticServeHandlers(notifyListener, srv.StaticServe())
 	srv.StartDBCleanup()
 	srv.StartSFTPCleanup()

@@ -49,6 +49,13 @@ func (b *baikalCores) get(session string) *herdr.Core {
 	return core
 }
 
+// CloseBaikal ends every herdr-core connection this server holds.
+func (s *Server) CloseBaikal() {
+	if s.baikal != nil {
+		s.baikal.closeAll()
+	}
+}
+
 func (b *baikalCores) closeAll() {
 	b.mu.Lock()
 	defer b.mu.Unlock()

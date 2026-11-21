@@ -238,12 +238,12 @@ baikal copies that split:
   removes one, so adopting a terminal that already has labels (e.g. `role=review`)
   is a single-key write that cannot clobber them.
 - **The name is derived, not stored**: from the space's **identity terminal**
-  (the shell baikal started when the space was created) and its live
-  `foreground.cwd` — `repo_root.file_name()` when that cwd is inside a git repo,
-  otherwise `~` for the home directory, otherwise `cwd.file_name()`. Change
-  directory and the name follows on the next `foreground` event (twice a second),
-  with **no label write at all**; walk into a git repo and the name becomes the
-  repo's name, like the app.
+  (the first shell baikal opened for it) and its *start* directory —
+  `repo_root.file_name()` when that directory is inside a git repo, otherwise `~`
+  for the home directory, otherwise the directory's name. It deliberately does
+  **not** follow a later `cd`: a space is a place you opened, and a name that moves
+  while you work is noise (the first draft followed `foreground.cwd`; that was
+  wrong). Renaming pins a custom name.
 - **Fallbacks**: identity terminal gone → the space's recorded `identityCwd`;
   recorded cwd also unknown → “workspace”. A terminal with **no** `space` label
   (started with `hc run` from a shell, outside baikal) appears under a synthetic
@@ -471,3 +471,22 @@ attached terminal ran commands; `cd /tmp` renamed the space to `tmp` with the sa
 id; rename/colour/clear-name, assign, peek/read, kill and remove all round-trip;
 stopping the core mid-attach showed the backoff countdown and recovered when the
 core came back. `go test ./...`, `pnpm check` and the tile review checks are green.
+
+### 13.1 Changes from the first working version
+
+- **Tabs are per space.** The strip shows the selected space's terminals, and
+  selecting another space switches it; every tab of every space stays mounted
+  (hidden with `display: none`) so hiding an attachment never detaches it.
+- **No sidebar buttons.** The tab strip's `+` starts a shell in the active space;
+  the `+` beside the filter box starts one in a new space. The footer of the
+  space list is gone.
+- **The space name comes from the first shell's start directory**, not from its
+  live cwd (see §5.1).
+- **The terminal's tools are shared**, not copied: `components/term/TermToolbar`
+  holds key chords, frequent inputs, selection mode and reset, and both the shell
+  tile and baikal's attached shells render it. The baikal terminal hides its
+  scrollbar (`baikal-term`), because the wheel and keyboard reach the scrollback
+  and a bar down a full-tile terminal is noise.
+- **The attach re-sends its grid after `ready`**: the tile iframe gets its final
+  size after mount, and attaching at the transient, narrow width left the shell
+  wrapping its prompt in a 25-column window.

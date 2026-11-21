@@ -118,17 +118,22 @@ func TestSnapshotAssemblesSpacesFromLabelsAndCwd(t *testing.T) {
 		t.Errorf("unassigned = %+v", snap.Unassigned)
 	}
 
-	// The name follows the identity terminal's cwd (twice a second in core).
+	// The name comes from where the first shell was *started*, so a later cd
+	// neither renames the space nor moves the terminal between groups.
 	sendEvent(t, fake, 5, "foreground", "t1", map[string]any{"pid": 1, "name": "bash", "argv": []string{"bash"}, "cwd": "/home/tester/other"})
 	snap, err = core.Snapshot(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snap.Spaces[0].Name != "other" {
-		t.Errorf("after cd: name = %q, want other", snap.Spaces[0].Name)
+	if snap.Spaces[0].Name != "project" {
+		t.Errorf("after cd: name = %q, want the start directory (project)", snap.Spaces[0].Name)
 	}
 	if snap.Spaces[0].ID != "b1" {
 		t.Errorf("the space id must not change when the cwd does")
+	}
+	// The terminal row still reports where it is *now*.
+	if got := snap.Spaces[0].Terminals[0].Cwd; got != "/home/tester/other" {
+		t.Errorf("terminal cwd = %q, want the live directory", got)
 	}
 
 	// A status makes a terminal an agent, with the program's own words.

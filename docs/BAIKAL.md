@@ -20,23 +20,27 @@ close the tab; you attach again where you left them.
 
 A **space** is a group of terminals. Membership is a label, `space=<id>`, that
 Baikal writes when it starts a shell; the **name** is not stored, it is derived
-from the space's *identity terminal* (the first shell it started) exactly as the
-Herdr app derives a workspace name:
+from the directory the space's *first shell was started in* — a space is a place
+you opened, so its name does not move while you work in it (`cd /` in that shell
+leaves the name alone). The derivation follows the Herdr app's rules:
 
 - inside a git repository: the repository's name;
 - in the home directory: `~`;
 - otherwise: the directory's name.
 
-So `cd /tmp` renames the space on the next `foreground` event (core reads a
-terminal's directory twice a second) — the id and the membership never change.
-Renaming a space pins a custom name; clearing it goes back to the directory.
+Renaming a space pins a custom name; clearing it goes back to that directory.
 
 A terminal started outside Baikal (`hc run --bg claude` from a shell) has no
 label: it appears under **Unassigned**, grouped by its directory, and can be moved
 into a space from its ⋯ menu.
 
 Spaces are coloured from a hash of their id (`⋯` → colour), so a space keeps its
-colour even when its directory — and therefore its name — changes.
+colour regardless of its name. The **+** beside the filter box opens a shell in a
+**new** space, in the current space's directory.
+
+Selecting a space (its name, not the ▾) switches the tab strip to that space's
+terminals, the way Herdr's TUI switches tabs with the workspace. Terminals of the
+other spaces stay attached — switching away only hides them.
 
 ## Tabs
 
@@ -44,7 +48,8 @@ A tab is one attached terminal. Opening one twice is impossible: the second open
 activates the existing tab.
 
 - **Closing a tab detaches.** The program keeps running in the daemon. This is the
-  single most important difference from a terminal tile.
+  single most important difference from a terminal tile. Switching spaces hides
+  tabs but does not close them, so nothing detaches behind your back.
 - **Open read-only** attaches as an observer (`observe`): it never types and never
   changes the terminal's size, so you can watch an agent without disturbing it.
 - **Peek** shows the last 200 lines of the screen as text, without attaching at
@@ -52,7 +57,12 @@ activates the existing tab.
 - If the connection drops (tunnel, server, core restart) the pane reattaches with
   backoff (2 s → 15 s) and says so; a program that exited stops the retrying.
 
-`Ctrl`/`Cmd` + `Alt` + `←`/`→` moves between tabs.
+`Ctrl`/`Cmd` + `Alt` + `←`/`→` moves between the active space's tabs.
+
+The terminal's status bar carries the same tools as the shell tile — key chords,
+frequent inputs, selection mode and reset — because an attached shell is a shell.
+The scrollbar is hidden: the wheel and the keyboard reach the scrollback, and a
+bar down the edge of a full-tile terminal is noise.
 
 ## Terminal and space actions
 

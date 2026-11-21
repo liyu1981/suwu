@@ -19,17 +19,19 @@ import { TerminalMenu } from './TerminalMenu';
 /**
  * The left panel: spaces, and the terminals that live in them.
  *
- * Collapsing the whole panel is the parent's business (`useSidebarCollapse`,
- * shared with the REST helper and DB browser); collapsing one space is local
- * state, because a phone-sized list is mostly about hiding groups you are not
- * using right now.
+ * Clicking a space selects it — the tab strip on the right shows that space's
+ * terminals only, the way Herdr's TUI switches its tabs with the workspace.
+ * Collapsing the whole panel is the parent's business (`useSidebarCollapse`);
+ * collapsing one space is local state, because a phone-sized list is mostly
+ * about hiding groups you are not using right now.
  */
 export interface SpaceListProps {
   spaces: BaikalSpace[];
   unassigned: BaikalTerminal[];
-  active?: string;
+  activeSpaceId: string;
+  activeTerminal?: string;
+  onSelectSpace: (space: BaikalSpace) => void;
   onOpen: (terminal: BaikalTerminal, observe: boolean) => void;
-  onNewShell: () => void;
   onNewSpace: () => void;
   creating?: boolean;
   onAssign: (terminal: BaikalTerminal, spaceId: string) => void;
@@ -44,9 +46,10 @@ export interface SpaceListProps {
 export function SpaceList({
   spaces,
   unassigned,
-  active,
+  activeSpaceId,
+  activeTerminal,
+  onSelectSpace,
   onOpen,
-  onNewShell,
   onNewSpace,
   creating,
   onAssign,
@@ -92,7 +95,7 @@ export function SpaceList({
         key={terminal.address}
         className={cn(
           'flex w-full items-center gap-1 rounded-[6px] pr-0.5 transition',
-          active === terminal.address ? 'bg-white/[0.10]' : 'hover:bg-white/[0.05]',
+          activeTerminal === terminal.address ? 'bg-white/[0.10]' : 'hover:bg-white/[0.05]',
         )}
       >
         <button
@@ -126,47 +129,72 @@ export function SpaceList({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 px-1.5 pb-1">
+      <div className="flex shrink-0 items-center gap-1 px-1.5 pb-1">
         <input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder={t('baikal.filter')}
           aria-label={t('baikal.filter')}
-          className="h-7 w-full rounded-[6px] border border-white/10 bg-black/30 px-2 text-[11px] text-slate-100 placeholder:text-white/25 focus-visible:border-sky-400/50 focus-visible:outline-none"
+          className="h-7 min-w-0 flex-1 rounded-[6px] border border-white/10 bg-black/30 px-2 text-[11px] text-slate-100 placeholder:text-white/25 focus-visible:border-sky-400/50 focus-visible:outline-none"
         />
+        <button
+          type="button"
+          onClick={onNewSpace}
+          disabled={creating}
+          aria-label={t('baikal.newSpace')}
+          title={t('baikal.newSpaceHint')}
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-[6px] border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+        >
+          +
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-1 pb-2">
         {groups.spaceGroups.map(({ space, terminals }) => {
           const colour = spaceColour(space.colour);
           const isCollapsed = collapsed.has(space.id);
+          const isActive = space.id === activeSpaceId;
           return (
-            <div key={space.id} className="group relative mb-1">
-              <button
-                type="button"
-                onClick={() => toggle(space.id)}
-                aria-expanded={!isCollapsed}
-                title={space.identityCwd}
-                className="flex w-full items-center gap-1.5 rounded-[6px] px-1 py-1 text-left transition hover:bg-white/[0.05]"
+            <div key={space.id} className="group relative mb-0.5">
+              <div
+                className={cn(
+                  'flex items-center gap-1 rounded-[6px] pr-0.5 transition',
+                  isActive ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]',
+                )}
               >
-                <span className="w-3 shrink-0 text-[10px] text-white/30">
-                  {isCollapsed ? '▸' : '▾'}
-                </span>
-                <span
-                  className={cn(
-                    'grid h-4 w-4 shrink-0 place-items-center rounded-[4px] text-[9px] font-semibold',
-                    colour.dot,
-                    'text-black/70',
-                  )}
+                <button
+                  type="button"
+                  onClick={() => toggle(space.id)}
+                  aria-expanded={!isCollapsed}
+                  aria-label={isCollapsed ? t('baikal.expandSpace') : t('baikal.collapseSpace')}
+                  className="grid h-5 w-4 shrink-0 place-items-center text-[10px] text-white/30 transition hover:text-white/70"
                 >
-                  {spaceInitial(space.name)}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-white/75">
-                  {space.name}
-                </span>
-                <span className="shrink-0 text-[10px] text-white/25">{terminals.length}</span>
-              </button>
-              <div className="absolute right-1 top-1 hidden group-hover:block">
+                  {isCollapsed ? '▸' : '▾'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectSpace(space)}
+                  title={space.identityCwd}
+                  className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left"
+                >
+                  <span
+                    className={cn(
+                      'grid h-4 w-4 shrink-0 place-items-center rounded-[4px] text-[9px] font-semibold text-black/70',
+                      colour.dot,
+                    )}
+                  >
+                    {spaceInitial(space.name)}
+                  </span>
+                  <span
+                    className={cn(
+                      'min-w-0 flex-1 truncate text-[11px] font-semibold',
+                      isActive ? 'text-white' : 'text-white/75',
+                    )}
+                  >
+                    {space.name}
+                  </span>
+                  <span className="shrink-0 text-[10px] text-white/25">{terminals.length}</span>
+                </button>
                 <SpaceMenu
                   space={space}
                   onRename={onRename}
@@ -206,27 +234,6 @@ export function SpaceList({
             {filter ? t('baikal.noMatches') : t('baikal.empty')}
           </div>
         )}
-      </div>
-
-      <div className="flex shrink-0 gap-1 border-t border-white/[0.06] p-1.5">
-        <button
-          type="button"
-          onClick={onNewShell}
-          disabled={creating}
-          title={t('baikal.newShellHint')}
-          className="flex-1 rounded-[6px] border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
-        >
-          {creating ? t('baikal.creating') : `+ ${t('baikal.newShell')}`}
-        </button>
-        <button
-          type="button"
-          onClick={onNewSpace}
-          disabled={creating}
-          title={t('baikal.newSpaceHint')}
-          className="shrink-0 rounded-[6px] border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-white/70 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
-        >
-          + {t('baikal.newSpace')}
-        </button>
       </div>
     </div>
   );

@@ -952,6 +952,8 @@
     "newSpaceHint": "Start a shell in a new space",
     "reconnectingIn": "Reconnecting in {{seconds}}s",
     "pickTerminal": "Pick a terminal",
-    "pickTerminalHint": "Choose one from the list, or start a new shell."
+    "pickTerminalHint": "Choose one from the list, or start a new shell.",
+    "expandSpace": "Expand space",
+    "collapseSpace": "Collapse space"
   }
 }

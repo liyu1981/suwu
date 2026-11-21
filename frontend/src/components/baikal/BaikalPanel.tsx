@@ -23,17 +23,28 @@ import { TabBar } from './TabBar';
 import { BaikalTerm } from './BaikalTerm';
 import { PeekDialog } from './TerminalMenu';
 
-interface BaikalSessionState {
-  tabs?: BaikalTab[];
-  activeId?: string;
+/** Tabs of one space, with its own active tab. */
+interface SpaceTabs {
+  tabs: BaikalTab[];
+  activeId: string;
 }
+
+interface BaikalSessionState {
+  activeSpaceId?: string;
+  spaces?: Record<string, SpaceTabs>;
+}
+
+const EMPTY_SPACE_TABS: SpaceTabs = { tabs: [], activeId: '' };
 
 /**
  * The Baikal tile: a herdr-core client.
  *
- * Left: spaces (directories) with their terminals, collapsible. Right: tabs, one
- * attached terminal each. The whole thing is a view over the core's own state —
- * closing a tab detaches, and the programs keep running in the daemon.
+ * Left: spaces (directories) with their terminals, collapsible; selecting one
+ * switches the tab strip on the right, as Herdr's TUI switches tabs with the
+ * workspace. Every terminal of every space stays mounted while its span is not
+ * shown — an attachment is a viewer, and hiding it must not detach it.
+ *
+ * Closing a tab detaches; the program keeps running in the daemon.
  */
 export function BaikalPanel() {
   const { t } = useTranslation();
@@ -46,8 +57,8 @@ export function BaikalPanel() {
   const saved = useTileSessionState<BaikalSessionState>();
   const report = useReportTileState();
 
-  const [tabs, setTabs] = useState<BaikalTab[]>([]);
-  const [activeId, setActiveId] = useState('');
+  const [spaceTabs, setSpaceTabs] = useState<Record<string, SpaceTabs>>({});
+  const [activeSpaceId, setActiveSpaceId] = useState('');
   const [creating, setCreating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [peek, setPeek] = useState<BaikalTerminal | null>(null);
@@ -55,88 +66,107 @@ export function BaikalPanel() {
 
   const sidebar = useSidebarCollapse('baikal');
 
-  // Restore tabs once, then keep them in session state.
+  const orderedSpaces = useMemo(() => sortSpaces(spaces), [spaces]);
+  const activeSpace = orderedSpaces.find((space) => space.id === activeSpaceId);
+  const active = spaceTabs[activeSpaceId] ?? EMPTY_SPACE_TABS;
+  const activeTab = active.tabs.find((tab) => tab.id === active.activeId);
+
+  // Restore once, then keep everything in session state.
   useEffect(() => {
     if (hydrated.current || !saved) return;
     hydrated.current = true;
-    const savedTabs = Array.isArray(saved.tabs) ? saved.tabs : [];
-    if (savedTabs.length > 0) {
-      setTabs(savedTabs);
-      setActiveId(
-        saved.activeId && savedTabs.some((tab) => tab.id === saved.activeId)
-          ? saved.activeId
-          : savedTabs[0].id,
-      );
-    }
+    const restored = saved.spaces && typeof saved.spaces === 'object' ? saved.spaces : {};
+    setSpaceTabs(restored);
+    if (saved.activeSpaceId) setActiveSpaceId(saved.activeSpaceId);
   }, [saved]);
 
   useEffect(() => {
     if (!hydrated.current) return;
-    report({ tabs, activeId });
-  }, [tabs, activeId, report]);
+    report({ activeSpaceId, spaces: spaceTabs });
+  }, [activeSpaceId, spaceTabs, report]);
 
-  // Tab titles follow their terminals, and a terminal that is gone (its program
-  // ended, or a core restart without --keep lost it) closes its tab. An empty
-  // snapshot is a real answer too — that is exactly how a restart looks, and
-  // leaving tabs open would keep them reattaching to nothing.
+  // The first space is selected when the snapshot arrives (or when the selected
+  // one is gone: forgotten, or every terminal in it finished).
+  useEffect(() => {
+    if (!snapshot) return;
+    if (orderedSpaces.some((space) => space.id === activeSpaceId)) return;
+    setActiveSpaceId(orderedSpaces[0]?.id ?? '');
+  }, [snapshot, orderedSpaces, activeSpaceId]);
+
+  // Terminals that are gone lose their tab; titles follow their terminals. An
+  // empty snapshot is a real answer — that is what a core restart looks like.
   useEffect(() => {
     if (!snapshot) return;
     const live = new Set(
       terminals.filter((terminal) => terminal.live).map((terminal) => terminal.address),
     );
-    const kept = tabs.filter((tab) => live.has(tab.terminal));
-    if (kept.length !== tabs.length) {
-      setTabs(kept);
-      if (!kept.some((tab) => tab.id === activeId)) setActiveId(kept[0]?.id ?? '');
-      return;
-    }
-    const retitled = syncTabTitles(tabs, terminals);
-    if (retitled !== tabs) setTabs(retitled);
-  }, [snapshot, terminals, tabs, activeId]);
-
-  const open = useCallback((terminal: BaikalTerminal, observe = false) => {
-    setTabs((prev) => {
-      const next = openTab(prev, terminal, observe);
-      setActiveId(next.activeId);
-      return next.tabs;
+    setSpaceTabs((prev) => {
+      let changed = false;
+      const next: Record<string, SpaceTabs> = {};
+      for (const [spaceId, entry] of Object.entries(prev)) {
+        const kept = entry.tabs.filter((tab) => live.has(tab.terminal));
+        const retitled = syncTabTitles(kept, terminals);
+        const activeId = retitled.some((tab) => tab.id === entry.activeId)
+          ? entry.activeId
+          : (retitled[0]?.id ?? '');
+        if (kept.length !== entry.tabs.length || retitled !== kept || activeId !== entry.activeId) {
+          changed = true;
+        }
+        if (retitled.length > 0) next[spaceId] = { tabs: retitled, activeId };
+      }
+      return changed ? next : prev;
     });
+  }, [snapshot, terminals]);
+
+  const upsertSpaceTabs = useCallback((spaceId: string, fn: (entry: SpaceTabs) => SpaceTabs) => {
+    setSpaceTabs((prev) => ({
+      ...prev,
+      [spaceId]: fn(prev[spaceId] ?? EMPTY_SPACE_TABS),
+    }));
   }, []);
+
+  /** Open a terminal as a tab of the space it belongs to, and select that space. */
+  const open = useCallback(
+    (terminal: BaikalTerminal, observe = false) => {
+      const spaceId = terminal.spaceId || activeSpaceId;
+      if (spaceId) setActiveSpaceId(spaceId);
+      upsertSpaceTabs(spaceId, (entry) => {
+        const next = openTab(entry.tabs, terminal, observe);
+        return { tabs: next.tabs, activeId: next.activeId };
+      });
+    },
+    [activeSpaceId, upsertSpaceTabs],
+  );
 
   const close = useCallback(
     (id: string) => {
-      setTabs((prev) => {
-        const next = closeTab(prev, activeId, id);
-        setActiveId(next.activeId);
-        return next.tabs;
+      upsertSpaceTabs(activeSpaceId, (entry) => {
+        const next = closeTab(entry.tabs, entry.activeId, id);
+        return { tabs: next.tabs, activeId: next.activeId };
       });
     },
-    [activeId],
+    [activeSpaceId, upsertSpaceTabs],
   );
 
-  // "+ shell" continues the active space; "+ space" starts a fresh one.
+  // "+ shell" starts a shell in the active space; a new space starts one in the
+  // same directory, so the spaces you open sit next to each other.
   const newShell = useCallback(
     async (freshSpace = false) => {
       if (creating) return;
       setCreating(true);
       setActionError(null);
       try {
-        const activeSpace = freshSpace
-          ? undefined
-          : spaces.find((space) =>
-              space.terminals.some(
-                (terminal: BaikalTerminal) => terminal.address === activeTerminal(),
-              ),
-            );
         const result = await postJSON<{ terminal: string; spaceId: string; cwd: string }>(
           '/api/baikal/run',
           {
             cwd: activeSpace?.identityCwd ?? '',
-            spaceId: activeSpace?.id ?? '',
+            spaceId: freshSpace ? '' : (activeSpace?.id ?? ''),
           },
         );
         await refresh();
-        setTabs((prev) => {
-          const next = openTab(prev, {
+        setActiveSpaceId(result.spaceId);
+        upsertSpaceTabs(result.spaceId, (entry) => {
+          const next = openTab(entry.tabs, {
             address: result.terminal,
             name: result.terminal,
             title: '',
@@ -147,8 +177,7 @@ export function BaikalPanel() {
             createdMs: Date.now(),
             spaceId: result.spaceId,
           });
-          setActiveId(next.activeId);
-          return next.tabs;
+          return { tabs: next.tabs, activeId: next.activeId };
         });
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'run failed');
@@ -156,11 +185,9 @@ export function BaikalPanel() {
         setCreating(false);
       }
     },
-    [creating, spaces, refresh, activeTerminal],
+    [activeSpace, creating, refresh, upsertSpaceTabs],
   );
 
-  // Terminal actions. Kill and remove are destructive and never happen from a
-  // tab close (which detaches); the menu confirms the kill.
   const runTerminalAction = useCallback(
     async (terminal: BaikalTerminal, action: 'kill' | 'rm') => {
       try {
@@ -224,30 +251,23 @@ export function BaikalPanel() {
     [refresh],
   );
 
-  function activeTerminal(): string {
-    return tabs.find((tab) => tab.id === activeId)?.terminal ?? '';
-  }
-
-  // Keyboard: Ctrl/Cmd+Alt+←/→ moves between tabs. The tile's terminals are
-  // inline (not iframes), so this listener can catch the keys before xterm sees
-  // them and stop them there — a shell should not receive a chord the panel used.
+  // Keyboard: Ctrl/Cmd+Alt+←/→ moves between the active space's tabs.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || !event.altKey) return;
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-      if (tabs.length < 2) return;
+      if (active.tabs.length < 2) return;
       event.preventDefault();
       event.stopPropagation();
-      const index = tabs.findIndex((tab) => tab.id === activeId);
+      const index = active.tabs.findIndex((tab) => tab.id === active.activeId);
       const step = event.key === 'ArrowRight' ? 1 : -1;
-      const next = tabs[(index + step + tabs.length) % tabs.length];
-      if (next) setActiveId(next.id);
+      const next = active.tabs[(index + step + active.tabs.length) % active.tabs.length];
+      if (next) upsertSpaceTabs(activeSpaceId, (entry) => ({ ...entry, activeId: next.id }));
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [tabs, activeId]);
+  }, [active, activeSpaceId, upsertSpaceTabs]);
 
-  const activeTab = tabs.find((tab) => tab.id === activeId);
   const core = snapshot?.core;
 
   return (
@@ -273,17 +293,23 @@ export function BaikalPanel() {
             </span>
           )}
           <div className="flex-1" />
+          {activeSpace && (
+            <span className="truncate text-[10px] text-white/30" title={activeSpace.identityCwd}>
+              {activeSpace.name}
+            </span>
+          )}
         </header>
 
         <div className="flex min-h-0 flex-1">
           {!sidebar.collapsed && (
             <aside className="w-56 shrink-0 border-r border-white/[0.06]">
               <SpaceList
-                spaces={sortSpaces(spaces)}
+                spaces={spaces}
                 unassigned={snapshot?.unassigned ?? []}
-                active={activeTab?.terminal}
+                activeSpaceId={activeSpaceId}
+                activeTerminal={activeTab?.terminal}
+                onSelectSpace={(space) => setActiveSpaceId(space.id)}
                 onOpen={open}
-                onNewShell={() => void newShell()}
                 onNewSpace={() => void newShell(true)}
                 creating={creating}
                 onAssign={(terminal, spaceId) => void assign(terminal, spaceId)}
@@ -299,30 +325,58 @@ export function BaikalPanel() {
 
           <main className="flex min-w-0 flex-1 flex-col">
             <TabBar
-              tabs={tabs}
-              activeId={activeId}
+              tabs={active.tabs}
+              activeId={active.activeId}
               terminals={terminals}
-              onSelect={setActiveId}
+              onSelect={(id) =>
+                upsertSpaceTabs(activeSpaceId, (entry) => ({ ...entry, activeId: id }))
+              }
               onClose={close}
               onNewShell={() => void newShell()}
               creating={creating}
             />
 
-            <div className="min-h-0 flex-1">
-              {activeTab ? (
-                <BaikalTerm
-                  key={`${activeTab.terminal}:${activeTab.observe ? 'ro' : 'rw'}`}
-                  terminal={activeTab.terminal}
-                  session={session}
-                  observe={activeTab.observe}
-                />
-              ) : loading ? (
-                <Centered>{t('baikal.loading')}</Centered>
-              ) : error ? (
-                <CoreError error={error} hint={hint} />
-              ) : (
+            <div className="relative min-h-0 flex-1">
+              {/* Every tab of every space stays mounted; only the active one is
+                  shown. Hiding an attachment with display:none keeps its stream
+                  (and the program) alive — the same invariant as the tiling WM. */}
+              {Object.entries(spaceTabs).flatMap(([spaceId, entry]) =>
+                entry.tabs.map((tab) => {
+                  const visible = spaceId === activeSpaceId && tab.id === active.activeId;
+                  return (
+                    <div
+                      key={`${spaceId}:${tab.id}`}
+                      className="absolute inset-0"
+                      style={{ display: visible ? undefined : 'none' }}
+                    >
+                      <BaikalTerm
+                        terminal={tab.terminal}
+                        session={session}
+                        observe={tab.observe}
+                        onDetached={(terminal) => {
+                          // A program that ended has no tab left to show.
+                          setSpaceTabs((prev) => {
+                            const current = prev[spaceId];
+                            if (!current) return prev;
+                            const kept = current.tabs.filter(
+                              (candidate) => candidate.terminal !== terminal,
+                            );
+                            if (kept.length === current.tabs.length) return prev;
+                            const next = { ...prev };
+                            if (kept.length === 0) delete next[spaceId];
+                            else next[spaceId] = { tabs: kept, activeId: kept[0].id };
+                            return next;
+                          });
+                        }}
+                      />
+                    </div>
+                  );
+                }),
+              )}
+
+              {!activeTab && (
                 <Empty
-                  terminals={terminals}
+                  terminals={activeSpace?.terminals ?? terminals}
                   onOpen={open}
                   onNewShell={() => void newShell()}
                   creating={creating}
@@ -337,6 +391,16 @@ export function BaikalPanel() {
                 {actionError}
               </div>
             )}
+
+            {loading && !snapshot ? (
+              <div className="pointer-events-none absolute inset-0 grid place-items-center text-[11px] text-white/40">
+                {t('baikal.loading')}
+              </div>
+            ) : error && !snapshot ? (
+              <div className="absolute inset-0 grid place-items-center px-6">
+                <CoreError error={error} hint={hint} />
+              </div>
+            ) : null}
           </main>
         </div>
       </div>
@@ -344,19 +408,11 @@ export function BaikalPanel() {
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="text-[11px] text-white/40">{children}</div>
-    </div>
-  );
-}
-
 /**
- * The panel with no tab open. "No terminals" and "no tab" are different states,
- * and the second one is common — especially on a phone, where the space list is
- * collapsed — so it offers the live terminals directly instead of only telling
- * the user to start a shell.
+ * The panel with no tab open in the selected space. "No terminals" and "no tab"
+ * are different states, and the second is common on a phone where the space list
+ * collapses — so it offers the terminals directly instead of only telling the
+ * user to start a shell.
  */
 function Empty({
   terminals,
@@ -411,13 +467,9 @@ function Empty({
 function CoreError({ error, hint }: { error: string; hint: string | null }) {
   const { t } = useTranslation();
   return (
-    <div className="flex h-full items-center justify-center px-6">
-      <div className="max-w-md rounded-[6px] border border-amber-500/20 bg-amber-500/5 p-4 text-center">
-        <div className="text-xs font-semibold text-amber-300">{t('baikal.coreOffline')}</div>
-        <p className="mt-1 break-words text-[11px] leading-relaxed text-white/50">
-          {hint ?? error}
-        </p>
-      </div>
+    <div className="max-w-md rounded-[6px] border border-amber-500/20 bg-amber-500/5 p-4 text-center">
+      <div className="text-xs font-semibold text-amber-300">{t('baikal.coreOffline')}</div>
+      <p className="mt-1 break-words text-[11px] leading-relaxed text-white/50">{hint ?? error}</p>
     </div>
   );
 }

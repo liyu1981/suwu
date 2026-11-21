@@ -411,3 +411,21 @@ body {
   border-radius: 1px;
   background: #3b82f6cc;
 }
+
+/* ── Baikal: the attached terminal owns the whole tile ───────────────────────
+   A scrollbar down the edge of a full-tile terminal is noise: the wheel and the
+   keyboard reach xterm's scrollback either way, and the shell tile's thin-bar
+   treatment exists for a status bar that a core attachment does not have. Hide
+   both layers — the native viewport bar and xterm's own slider. */
+.baikal-term .xterm-viewport {
+  scrollbar-width: none; /* Firefox */
+}
+
+.baikal-term .xterm-viewport::-webkit-scrollbar,
+.baikal-term .xterm-viewport::-webkit-scrollbar-corner {
+  display: none;
+}
+
+.baikal-term .xterm-scrollable-element > .scrollbar {
+  display: none !important;
+}

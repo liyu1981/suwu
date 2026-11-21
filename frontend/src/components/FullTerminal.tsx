@@ -6,28 +6,16 @@ import { connectionMessageAtom, connectionStatusAtom } from '../store/connection
 import { FONT_DEFAULT, lineHeightAtom } from '../store/fonts';
 import { termSnippetsAtom } from '../store/termSnippets';
 import { buildPayload } from '../lib/termInput';
-import {
-  makeSnippet,
-  markSnippetUsed,
-  removeSnippet,
-  upsertSnippet,
-  type TermSnippet,
-} from '../lib/termSnippets';
+import { markSnippetUsed } from '../lib/termSnippets';
 import { useTerminal } from './hooks/useTerminal';
 import { usePtySession } from './hooks/usePtySession';
-import { useTermCopy } from './hooks/useTermCopy';
 import { useBell } from './hooks/useBell';
 import { useInputRecorder } from './hooks/useInputRecorder';
 import { CommonTileContainer } from './CommonTileContainer';
-import { KeyChordMenu } from './term/KeyChordMenu';
+import { TermToolbar } from './term/TermToolbar';
 import { SoftInputBar, SoftInputIcon } from './term/SoftInputBar';
 import { isTouchFirst } from '../lib/mobile';
-import { SnippetMenu } from './term/SnippetMenu';
-import { SnippetManagerDialog, type SnippetEditTarget } from './term/SnippetManagerDialog';
-import { SnippetSaveDialog } from './term/SnippetSaveDialog';
-import { CloseIcon, CopyIcon, KeyCommandIcon, RefreshIcon, SnippetIcon } from './icons';
 import { Toast } from './Toast';
-import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
 const STATUS_DOT = {
   connecting: 'bg-amber-400 animate-pulse',
@@ -69,20 +57,8 @@ export default function FullTerminal() {
   );
 
   // ── Selection mode ──
+  // Owned here so the status line can say "selection mode"; the toolbar toggles it.
   const [selectionMode, setSelectionMode] = useState(false);
-  const toggleSelectionMode = useCallback(() => setSelectionMode((v) => !v), []);
-
-  // ── Selection cache (only meaningful in selection mode) ──
-  const [cachedText, setCachedText] = useState('');
-  const [cachedLength, setCachedLength] = useState(0);
-  const [showCacheDialog, setShowCacheDialog] = useState(false);
-  // Ref so the dialog copy handler always reads the latest cache.
-  const cachedTextRef = useRef('');
-  const onCacheUpdate = useCallback((text: string, length: number) => {
-    setCachedText(text);
-    setCachedLength(length);
-    cachedTextRef.current = text;
-  }, []);
 
   // ── Copy toast ──
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -90,20 +66,6 @@ export default function FullTerminal() {
     setToastMsg(null); // reset to re-key the component
     requestAnimationFrame(() => setToastMsg(msg));
   }, []);
-
-  // Copy cached text, exit selection mode, show toast.
-  const copyCacheAndExit = useCallback(() => {
-    const text = cachedTextRef.current;
-    if (!text) return;
-    void navigator.clipboard.writeText(text).then(() => {
-      showToast(t('terminal.copied'));
-      setCachedText('');
-      setCachedLength(0);
-      cachedTextRef.current = '';
-      setSelectionMode(false);
-      setShowCacheDialog(false);
-    });
-  }, [showToast, t]);
 
   // The pane ID is the server-owned terminal session ID. The browser xterm
   // is disposable and never restores cwd, foreground process, or screen state
@@ -115,18 +77,12 @@ export default function FullTerminal() {
 
   const { sendRaw, refresh } = usePtySession(term, paneId);
 
-  // ── Frequent inputs: saved snippets + this session's submitted lines ──
-  const [snippetsOpen, setSnippetsOpen] = useState(false);
-  const [managerOpen, setManagerOpen] = useState(false);
-  const [managerEdit, setManagerEdit] = useState<SnippetEditTarget>(null);
-  /** Non-null while confirming the line the user is typing as a snippet. */
-  const [saveDraft, setSaveDraft] = useState<string | null>(null);
+  // ── Frequent inputs: the line recorder feeds snippet insertion below. ──
   const setSnippets = useSetAtom(termSnippetsAtom);
   // Typing is blocked in selection mode, so there is nothing to record there.
   const { getCurrentLine, recordSent } = useInputRecorder(term, { paused: selectionMode });
 
   // ── Send a key combination: the browser eats some of what a term needs ──
-  const [keysOpen, setKeysOpen] = useState(false);
   const applicationCursorKeys = Boolean(term?.modes.applicationCursorKeysMode);
 
   // Phones get a soft-input panel: the keyboard has no arrows, no PgUp/PgDn and
@@ -154,13 +110,6 @@ export default function FullTerminal() {
     [showToast, status, t, term],
   );
 
-  // The menu closes into one of three places: back to the terminal, or into one
-  // of the two dialogs, which must own the focus — otherwise keystrokes would
-  // reach the shell behind them. The ref is read during the popover's close
-  // effect, i.e. after this render committed the new state.
-  const dialogOpenRef = useRef(false);
-  dialogOpenRef.current = managerOpen || saveDraft !== null;
-
   // Focus the text box after the row has opened (it is still clipped while the
   // transition runs, and focusing a clipped input makes the tile scroll).
   useEffect(() => {
@@ -185,46 +134,9 @@ export default function FullTerminal() {
       recordSent(payload);
       const usedId = request.snippetId;
       if (usedId) setSnippets((list) => markSnippetUsed(list, usedId));
-      setSnippetsOpen(false);
       term?.focus();
     },
     [recordSent, sendRaw, setSnippets, showToast, t, term],
-  );
-
-  const openManager = useCallback((edit: SnippetEditTarget) => {
-    setManagerEdit(edit);
-    setSnippetsOpen(false);
-    setManagerOpen(true);
-  }, []);
-
-  // "Save current input" confirms the captured line right here instead of
-  // dumping the user into the manager with an empty form to retype it in.
-  const openSaveCurrent = useCallback(() => {
-    const line = getCurrentLine();
-    if (!line.trim()) {
-      showToast(t('terminal.snippets.nothingToSave'));
-      return;
-    }
-    setSnippetsOpen(false);
-    setSaveDraft(line);
-  }, [getCurrentLine, showToast, t]);
-
-  const saveCurrent = useCallback(
-    (text: string, autoReturn: boolean) => {
-      setSnippets((list) => upsertSnippet(list, makeSnippet(text, { autoReturn })));
-      showToast(t('terminal.snippets.savedToast'));
-      setSaveDraft(null);
-      term?.focus();
-    },
-    [setSnippets, showToast, t, term],
-  );
-
-  const deleteSnippet = useCallback(
-    (snippet: TermSnippet) => {
-      setSnippets((list) => removeSnippet(list, snippet.id));
-      showToast(t('terminal.snippets.deletedToast'));
-    },
-    [setSnippets, showToast, t],
   );
 
   // Reset a terminal left in a bad state by a TUI app (hidden cursor,
@@ -239,13 +151,6 @@ export default function FullTerminal() {
     window.setTimeout(() => refresh(), 50);
   }, [term, sendRaw, refresh]);
 
-  useTermCopy(
-    term,
-    selectionMode,
-    toggleSelectionMode,
-    () => showToast(t('terminal.copied')),
-    onCacheUpdate,
-  );
   useBell(term, containerRef);
 
   // Focus the terminal when this iframe gains focus.
@@ -318,7 +223,6 @@ export default function FullTerminal() {
                 : message || t(`terminal.${status}`)}
             </span>
           )}
-          {/* Clickable char-count badge — only in selection mode */}
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {touchFirst && (
               <button
@@ -334,76 +238,17 @@ export default function FullTerminal() {
                 <SoftInputIcon className={touchFirst ? 'h-4 w-4' : 'h-3 w-3'} />
               </button>
             )}
-            <KeyChordMenu
-              open={keysOpen}
-              onOpenChange={setKeysOpen}
+            <TermToolbar
+              term={term}
               applicationCursorKeys={applicationCursorKeys}
-              onSend={sendChord}
-              trigger={
-                <button
-                  type="button"
-                  className="rounded p-0.5 hover:bg-white/10"
-                  title={t('terminal.keys.button')}
-                  aria-label={t('terminal.keys.button')}
-                >
-                  <KeyCommandIcon className="h-3 w-3" />
-                </button>
-              }
-              onClosed={() => term?.focus()}
+              sendBytes={sendChord}
+              insert={insertInput}
+              currentLine={getCurrentLine}
+              onReset={resetTerminal}
+              notice={showToast}
+              onSelectionModeChange={setSelectionMode}
+              refocus={() => term?.focus()}
             />
-            <SnippetMenu
-              open={snippetsOpen}
-              onOpenChange={setSnippetsOpen}
-              trigger={
-                <button
-                  type="button"
-                  className="rounded p-0.5 hover:bg-white/10"
-                  title={t('terminal.snippets.button')}
-                  aria-label={t('terminal.snippets.button')}
-                >
-                  <SnippetIcon className="h-3 w-3" />
-                </button>
-              }
-              onInsert={insertInput}
-              onSaveCurrent={openSaveCurrent}
-              onManage={() => openManager(null)}
-              onEdit={(snippet) => openManager(snippet.id)}
-              onDelete={deleteSnippet}
-              onClosed={() => {
-                if (!dialogOpenRef.current) term?.focus();
-              }}
-            />
-            {selectionMode && (
-              <button
-                type="button"
-                onClick={() => setShowCacheDialog(true)}
-                className="rounded bg-sky-800/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-200 transition hover:bg-sky-700/60 hover:text-white"
-                title={t('terminal.showCachePreview')}
-              >
-                {cachedLength > 0
-                  ? t('terminal.cachedChars', { count: cachedLength })
-                  : t('terminal.cacheEmpty')}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={toggleSelectionMode}
-              className="rounded p-0.5 hover:bg-white/10"
-              title={
-                selectionMode ? t('terminal.exitSelectionMode') : t('terminal.enterSelectionMode')
-              }
-            >
-              {selectionMode ? <CloseIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-            </button>
-            <button
-              type="button"
-              onClick={resetTerminal}
-              className="rounded p-0.5 hover:bg-white/10"
-              title={t('terminal.reset')}
-              aria-label={t('terminal.reset')}
-            >
-              <RefreshIcon className="h-3 w-3" />
-            </button>
           </div>
         </footer>
 
@@ -434,54 +279,6 @@ export default function FullTerminal() {
         {/* Toast overlay for copy confirmation */}
         {toastMsg && <Toast message={toastMsg} />}
       </div>
-
-      {/* Cache preview dialog — shows the cached selection and allows
-          copy-to-clipboard in one step. */}
-      <Dialog open={showCacheDialog} onOpenChange={setShowCacheDialog}>
-        <DialogContent>
-          <DialogTitle>{t('terminal.cachePreview')}</DialogTitle>
-          <div className="mt-3 max-h-[50dvh] overflow-auto scrollbar-thin rounded bg-black/40 p-3 font-mono text-sm text-white/80 whitespace-pre-wrap break-all">
-            {cachedText || t('terminal.cacheEmpty')}
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCacheDialog(false)}
-              className="rounded px-3 py-1.5 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
-            >
-              {t('dialog.close')}
-            </button>
-            <button
-              type="button"
-              onClick={copyCacheAndExit}
-              disabled={!cachedText}
-              className="rounded bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {t('terminal.copyAndExit')}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Snippet manager — the only modal in the feature. The menu's fast path
-          (open, click a row) never reaches it. */}
-      <SnippetManagerDialog
-        open={managerOpen}
-        onOpenChange={setManagerOpen}
-        initialEdit={managerEdit}
-        onNotify={showToast}
-        onClosed={() => term?.focus()}
-      />
-
-      <SnippetSaveDialog
-        open={saveDraft !== null}
-        onOpenChange={(next) => {
-          if (!next) setSaveDraft(null);
-        }}
-        text={saveDraft ?? ''}
-        onSave={saveCurrent}
-        onClosed={() => term?.focus()}
-      />
     </CommonTileContainer>
   );
 }

@@ -484,9 +484,12 @@ func (c *Core) Snapshot(ctx context.Context) (Snapshot, error) {
 			identity = &group[0]
 		}
 
+		// The name comes from where the space's first shell was *started*, not
+		// from wherever it has cd'd since: a space is a place you opened, and its
+		// name should not move while you work in it. Renaming pins a name.
 		identityCwd := meta.IdentityCwd
-		if identity != nil {
-			identityCwd = identity.WorkingDir()
+		if identity != nil && identity.Cwd != "" {
+			identityCwd = identity.Cwd
 		}
 		name := DisplayName(meta.CustomName, identityCwd, c.home, c.repos)
 		colour := meta.Colour

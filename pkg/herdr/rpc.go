@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -105,6 +106,13 @@ func Dial(ctx context.Context, opts ConnOptions) (*Conn, error) {
 		return nil, err
 	}
 	go c.readLoop()
+	// Reap the child. Without this, a `herdr-core connect` that exits on its own
+	// (a stopped daemon, a dropped line) stays a zombie until the server dies —
+	// and a long-lived server accumulates them.
+	go func() {
+		waitErr := cmd.Wait()
+		c.fail(fmt.Errorf("herdr: core connection ended: %v", errors.Join(waitErr, c.Err())))
+	}()
 	return c, nil
 }
 
@@ -373,13 +381,14 @@ func (c *Conn) fail(err error) {
 	}
 }
 
-// Close ends the connection and the child process.
+// Close ends the connection and the child process. The Wait belongs to the
+// reaping goroutine started by Dial, so this only signals: closing stdin lets a
+// well-behaved client exit, and the kill covers the rest.
 func (c *Conn) Close() error {
 	c.fail(errClosed)
-	if c.cmd != nil {
+	if c.cmd != nil && c.cmd.Process != nil {
 		_ = c.stdin.Close()
 		_ = c.cmd.Process.Kill()
-		_ = c.cmd.Wait()
 	}
 	return nil
 }

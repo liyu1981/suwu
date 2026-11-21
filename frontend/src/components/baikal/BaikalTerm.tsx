@@ -5,8 +5,11 @@ import type { Terminal } from '@xterm/xterm';
 import { fontFamilyAtom, termThemeAtom, themeToXtermTheme } from '../../store/appearance';
 import { FONT_DEFAULT, lineHeightAtom } from '../../store/fonts';
 import { useTerminal } from '../hooks/useTerminal';
+import { useInputRecorder } from '../hooks/useInputRecorder';
 import { fetchToken } from '../../lib/api';
 import { chunkInput } from '../../lib/wsChunks';
+import { buildPayload } from '../../lib/termInput';
+import { TermToolbar } from '../term/TermToolbar';
 
 /**
  * One herdr-core terminal, attached over `/ws/baikal/attach`.
@@ -54,6 +57,8 @@ export function BaikalTerm({
   const lineHeight = useAtomValue(lineHeightAtom);
 
   const [state, setState] = useState<ConnState>('connecting');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [reason, setReason] = useState<string>('');
   const [reconnect, setReconnect] = useState(0);
   /** Seconds until the next automatic attach, 0 when none is pending. */
@@ -62,6 +67,11 @@ export function BaikalTerm({
 
   const socketRef = useRef<WebSocket | null>(null);
   const pendingRef = useRef<string[]>([]);
+
+  const showNotice = useCallback((message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice((current) => (current === message ? null : current)), 2000);
+  }, []);
 
   const options = useMemo(
     () => ({
@@ -77,6 +87,10 @@ export function BaikalTerm({
 
   const { containerRef, term, setFontFamily, setLineHeight, setTheme } = useTerminal(options);
 
+  // The attached terminal is a shell too: the recorder gives "save this command"
+  // something to capture and keeps snippet insertion in the recent list.
+  const { getCurrentLine, recordSent } = useInputRecorder(term, { paused: selectionMode });
+
   useEffect(() => {
     setFontFamily(fontFamily);
   }, [fontFamily, setFontFamily]);
@@ -86,6 +100,35 @@ export function BaikalTerm({
   useEffect(() => {
     setTheme({ ...themeToXtermTheme(theme), background: '#00000000' });
   }, [theme, setTheme]);
+
+  // Snippet/text insertion: the same paste semantics as the shell tile —
+  // bracketed paste when the program asked for it, then the carriage return.
+  const insert = useCallback(
+    (request: { text: string; snippetId?: string }, run: boolean) => {
+      const ws = socketRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showNotice(t('terminal.snippets.notReady'));
+        return;
+      }
+      const payload = buildPayload(request.text, run, Boolean(term?.modes.bracketedPasteMode));
+      for (const part of chunkInput(payload)) send(ws, part);
+      recordSent(payload);
+      term?.focus();
+    },
+    [recordSent, showNotice, t, term],
+  );
+
+  // Chords go through xterm so they take the same path as typed keys.
+  const sendBytes = useCallback(
+    (bytes: string) => {
+      term?.input(bytes);
+    },
+    [term],
+  );
+
+  const retry = useCallback(() => {
+    setReconnect((n) => n + 1);
+  }, []);
 
   // The attach lifecycle. Restarts on terminal change, reconnect, or attempt.
   useEffect(() => {
@@ -130,6 +173,12 @@ export function BaikalTerm({
           if (msg.type === 'ready') {
             current.inputReady = true;
             attemptsRef.current = 0;
+            // The pane may have been fitted again while the attach handshake ran
+            // (the tile's iframe gets its final size after mount); send the
+            // current grid so the core is not left at the early, narrow one.
+            if (!observe) {
+              ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+            }
             setState('ready');
             // Anything typed while the attach was in flight goes now, in order.
             for (const chunk of pendingRef.current) {
@@ -228,10 +277,6 @@ export function BaikalTerm({
     };
   }, [term, terminal, session, observe, attempt, reconnect, onDetached, t]);
 
-  const retry = useCallback(() => {
-    setReconnect((n) => n + 1);
-  }, []);
-
   const dot =
     state === 'ready'
       ? 'bg-green-500'
@@ -242,7 +287,9 @@ export function BaikalTerm({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 p-1">
-        <div ref={containerRef} className="h-full w-full" />
+        {/* `baikal-term` hides the scrollbar: the wheel and keyboard reach the
+            scrollback, and a full-tile terminal does not need a visible bar. */}
+        <div ref={containerRef} className="baikal-term h-full w-full" />
       </div>
       <footer className="flex h-6 shrink-0 items-center gap-2 border-t border-white/10 bg-black/40 px-2 text-[11px] tracking-wide text-white/50">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
@@ -251,14 +298,28 @@ export function BaikalTerm({
           <span className="rounded bg-sky-500/20 px-1 text-sky-300">{t('baikal.observe')}</span>
         )}
         <span className="min-w-0 flex-1 truncate">
-          {state === 'ready'
-            ? t('baikal.attached')
-            : state === 'connecting'
-              ? t('baikal.connecting')
-              : retryIn > 0
-                ? t('baikal.reconnectingIn', { seconds: retryIn })
-                : reason || t('baikal.detached')}
+          {selectionMode
+            ? t('terminal.selectionMode')
+            : notice
+              ? notice
+              : state === 'ready'
+                ? t('baikal.attached')
+                : state === 'connecting'
+                  ? t('baikal.connecting')
+                  : retryIn > 0
+                    ? t('baikal.reconnectingIn', { seconds: retryIn })
+                    : reason || t('baikal.detached')}
         </span>
+        <TermToolbar
+          term={term}
+          applicationCursorKeys={Boolean(term?.modes.applicationCursorKeysMode)}
+          sendBytes={sendBytes}
+          insert={insert}
+          currentLine={getCurrentLine}
+          notice={showNotice}
+          onSelectionModeChange={setSelectionMode}
+          refocus={() => term?.focus()}
+        />
         {state === 'closed' && (
           <button
             type="button"

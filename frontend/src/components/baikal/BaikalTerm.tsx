@@ -33,6 +33,8 @@ export interface BaikalTermProps {
   onSize?: (cols: number, rows: number) => void;
   /** The pane's tile font size, the same one a /term pane would use. */
   fontSize?: number;
+  /** Bumped by the parent when the user selects this tab: take the focus. */
+  focusToken?: number;
   /** Bumped by the parent to force a fresh attach (the Reconnect button). */
   attempt?: number;
   onDetached?: (terminal: string) => void;
@@ -61,6 +63,7 @@ export function BaikalTerm({
   onDetached,
   onSize,
   fontSize = FONT_DEFAULT,
+  focusToken = 0,
 }: BaikalTermProps) {
   const { t } = useTranslation();
   const fontFamily = useAtomValue(fontFamilyAtom);
@@ -329,6 +332,14 @@ export function BaikalTerm({
   useEffect(() => {
     if (term && term.cols > 0 && term.rows > 0) onSizeRef.current?.(term.cols, term.rows);
   }, [term]);
+
+  // Selecting a tab is a request to type in it: the click focused a button, and
+  // a terminal you have to click again before typing is not "open". The token
+  // covers the tab that was already active, where `visible` does not change.
+  useEffect(() => {
+    if (!term || !visible) return;
+    term.focus();
+  }, [term, visible, focusToken]);
 
   // Revealing a tab: fit to the box it now has, and tell the core once. This is
   // the only resize a hidden/shown cycle is allowed to cause.

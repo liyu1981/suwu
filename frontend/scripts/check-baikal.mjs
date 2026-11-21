@@ -81,14 +81,19 @@ const agent = (address, state, createdMs) =>
   });
 assert.deepEqual(
   listAgents([
+    agent('t4', 'blocked', 30),
     agent('t1', 'idle', 10),
     agent('t2', 'working', 20),
     agent('t3', null, 5),
-    agent('t4', 'blocked', 30),
     { ...agent('t5', 'done', 40), live: false },
   ]).map((t) => t.address),
-  ['t4', 't2', 't1'],
-  'blocked, then working, then the rest; finished and status-less terminals are not agents',
+  ['t1', 't2', 't4'],
+  'agents keep their opening order — a state change must not move a row',
+);
+assert.deepEqual(
+  listAgents([agent('t9', 'working', 7), agent('t8', 'done', 7)]).map((t) => t.address),
+  ['t8', 't9'],
+  'same creation time falls back to the address, so the order is still stable',
 );
 assert.equal(spaceInitial('suwu-dev'), 'S');
 assert.equal(spaceInitial('~'), '~');
@@ -243,5 +248,28 @@ for (const [name, source] of [
 }
 assert.match(panelSource, /gridTemplateRows: open \? '1fr' : '0fr'/, 'the row grows from 0fr');
 assert.match(panelSource, /inert: true/, 'a closed panel stays out of the tab order');
+
+// ── the tile's own state must be readable by the tile ──────────────────────
+// `CommonTileContainer` *provides* the session context; a panel that rendered it
+// and also called `useTileSessionState` read the default context instead — always
+// `state: null, ready: false` — so the tile never restored and never reported its
+// tabs, which is how a space came back with only the tab you had just clicked.
+const baikalPanelSource = readFileSync(
+  new URL('../src/components/baikal/BaikalPanel.tsx', import.meta.url),
+  'utf8',
+);
+const workspaceAt = baikalPanelSource.indexOf('function BaikalWorkspace()');
+const sessionAt = baikalPanelSource.indexOf('useTileSessionState<');
+assert.ok(workspaceAt > 0, 'the panel body lives in its own component');
+assert.ok(
+  sessionAt > workspaceAt,
+  'session-state hooks must be read inside the container, i.e. after BaikalWorkspace',
+);
+assert.match(
+  baikalPanelSource,
+  /<CommonTileContainer[^>]*>\s*<BaikalWorkspace \/>/,
+  'the page wraps the workspace in the container that provides the session',
+);
+assert.match(baikalPanelSource, /useTileSessionReady/, 'restore waits for the WM to answer, not for a non-null state');
 
 console.log('check-baikal: ok');

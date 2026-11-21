@@ -527,10 +527,23 @@ share a 36 px height with 28 px controls, so the two "+" buttons line up.
 - **Spaces are listed in creation order** (oldest first), not alphabetically; the
   server exposes the space's `createdMs` (its first terminal's start time) and
   `sortSpaces` uses it, falling back to the id for ties.
+- **A selected tab takes the focus.** Clicking a tab (or a terminal in the side
+  list) focuses that terminal's xterm, so typing reaches the shell immediately —
+  the click itself focused a button. A `focusToken` bumped by the panel covers the
+  tab that was already active, where `visible` does not change.
+- **The tile's tabs are persisted, and only now actually are.** The panel used to
+  render `CommonTileContainer` *and* call `useTileSessionState` in the same
+  component, so it read the context's default (`state: null, ready: false`)
+  instead of the provider: it never restored its tabs and never reported them. The
+  page is a thin wrapper and the workspace is a child; restore also waits on
+  `ready` (a `null` state from a WM that has nothing saved is an answer, not
+  silence — otherwise the tile would never start reporting).
 - **An Agents section** sits above the spaces: terminals that announced a status
-  over OSC 7501, sorted blocked → error → working → done → idle. Tapping one
-  selects its space and opens (or activates) its tab, which is how Herdr's TUI
-  jumps to an agent's workspace.
+  over OSC 7501, **in the order they were opened**. Tapping one selects its space
+  and opens (or activates) its tab, which is how Herdr's TUI jumps to an agent's
+  workspace. The list is deliberately not sorted by state: a row that jumps to the
+  top when an agent starts working and drops back when it finishes cannot be
+  learned. The status dot reports the state; the position stays put.
 - **A tab's × ends the session.** It was a detach; the user wants it to stop the
   program, so it kills the terminal (or removes a finished record) and drops the
   tab. Hiding remains what switching spaces does.

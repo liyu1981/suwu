@@ -167,31 +167,18 @@ export function spaceInitial(name: string): string {
 }
 
 /**
- * The agents list: every terminal that announced itself over OSC 7501, most
- * actionable first — a blocked agent is the reason to look at this list at all —
- * then working, then the rest, then creation order.
+ * The agents list: every terminal that announced itself over OSC 7501, in the
+ * order the terminals were opened.
+ *
+ * Deliberately *not* sorted by state. A row that jumps to the top when an agent
+ * starts working and drops back when it finishes cannot be learned: you reach for
+ * a position and what you wanted has moved. The status dot says what an agent is
+ * doing; the position says which one it is.
  */
-const AGENT_STATE_PRIORITY: Record<string, number> = {
-  blocked: 0,
-  error: 1,
-  working: 2,
-  done: 3,
-  idle: 4,
-};
-
 export function listAgents(terminals: BaikalTerminal[]): BaikalTerminal[] {
   return terminals
     .filter((terminal) => terminal.live && terminal.status)
-    .sort((a, b) => {
-      const rank = agentStateRank(a) - agentStateRank(b);
-      if (rank !== 0) return rank;
-      return a.createdMs - b.createdMs;
-    });
-}
-
-function agentStateRank(terminal: BaikalTerminal): number {
-  const state = terminal.status?.state ?? '';
-  return AGENT_STATE_PRIORITY[state] ?? 5;
+    .sort((a, b) => a.createdMs - b.createdMs || a.address.localeCompare(b.address));
 }
 
 /**

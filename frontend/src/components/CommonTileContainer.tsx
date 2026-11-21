@@ -38,6 +38,19 @@ export function useTileSessionState<T = Record<string, unknown>>(): T | null {
 }
 
 /**
+ * Whether the WM has finished answering this tile's state request.
+ *
+ * `useTileSessionState` cannot express "the parent answered with *no* state" and
+ * "the parent has not answered yet" — both look like `null`. A tile that restores
+ * and then reports must tell them apart: hydrating on `null` throws away a saved
+ * layout, and never hydrating on `null` means a tile with no saved state never
+ * reports, so its first layout is lost on the next remount.
+ */
+export function useTileSessionReady(): boolean {
+  return useContext(TileSessionContext).ready;
+}
+
+/**
  * Returns a callback that posts a tile-state-update message to the parent
  * window manager, which persists it in localStorage for session restore.
  *

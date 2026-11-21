@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   CommonTileContainer,
   useReportTileState,
+  useTileSessionReady,
   useTileSessionState,
 } from '../CommonTileContainer';
 import { DENSE_TILE_BG } from '../../store/appearance';
@@ -51,8 +52,24 @@ const EMPTY_SPACE_TABS: SpaceTabs = { tabs: [], activeId: '' };
  * shown — an attachment is a viewer, and hiding it must not detach it.
  *
  * Closing a tab detaches; the program keeps running in the daemon.
+ *
+ * `CommonTileContainer` *provides* the session-state context, so the page itself
+ * is a thin wrapper: the workspace below is a child, and only there do
+ * `useTileSessionState` / `useReportTileState` read the provider. A panel that
+ * rendered the container *and* called those hooks read the default context
+ * instead — `state: null, ready: false`, forever — which silently disabled the
+ * tab persistence this tile needs.
  */
 export function BaikalPanel() {
+  return (
+    <CommonTileContainer noPadding background={DENSE_TILE_BG}>
+      <BaikalWorkspace />
+    </CommonTileContainer>
+  );
+}
+
+/** The panel itself: spaces, tabs, attached terminals, and every action on them. */
+function BaikalWorkspace() {
   const { t } = useTranslation();
   const session = useMemo(() => {
     const value = new URLSearchParams(window.location.search).get('session');
@@ -61,6 +78,7 @@ export function BaikalPanel() {
 
   const { snapshot, error, hint, loading, terminals, spaces, refresh } = useBaikalData(session);
   const saved = useTileSessionState<BaikalSessionState>();
+  const sessionReady = useTileSessionReady();
   const report = useReportTileState();
 
   const [spaceTabs, setSpaceTabs] = useState<Record<string, SpaceTabs>>({});
@@ -75,6 +93,10 @@ export function BaikalPanel() {
    *  measures 0×0, and xterm then paints the first screen into a one-column grid
    *  — which is why the first look at a restored tab used to be empty. */
   const [seenTabs, setSeenTabs] = useState<ReadonlySet<string>>(() => new Set());
+  /** Bumped whenever the user asks for a tab, so that tab's terminal takes the
+   *  focus back: the click landed on a button, and typing should reach the shell
+   *  — including when the tab was already the active one. */
+  const [focusTick, setFocusTick] = useState(0);
 
   const sidebar = useSidebarCollapse('baikal');
   const split = useVerticalSplit();
@@ -91,14 +113,16 @@ export function BaikalPanel() {
   const active = spaceTabs[activeSpaceId] ?? EMPTY_SPACE_TABS;
   const activeTab = active.tabs.find((tab) => tab.id === active.activeId);
 
-  // Restore once, then keep everything in session state.
+  // Restore once, as soon as the WM has answered — an answer of `null` means
+  // "nothing saved", which is not the same as "not answered yet" and must still
+  // end the hydration: from then on this tile reports its state.
   useEffect(() => {
-    if (hydrated.current || !saved) return;
+    if (hydrated.current || !sessionReady) return;
     hydrated.current = true;
-    const restored = saved.spaces && typeof saved.spaces === 'object' ? saved.spaces : {};
+    const restored = saved && saved.spaces && typeof saved.spaces === 'object' ? saved.spaces : {};
     setSpaceTabs(restored);
-    if (saved.activeSpaceId) setActiveSpaceId(saved.activeSpaceId);
-  }, [saved]);
+    if (saved?.activeSpaceId) setActiveSpaceId(saved.activeSpaceId);
+  }, [saved, sessionReady]);
 
   useEffect(() => {
     if (!hydrated.current) return;
@@ -175,6 +199,7 @@ export function BaikalPanel() {
     (terminal: BaikalTerminal, observe = false) => {
       const spaceId = terminal.spaceId || activeSpaceId;
       if (spaceId) setActiveSpaceId(spaceId);
+      setFocusTick((n) => n + 1);
       upsertSpaceTabs(spaceId, (entry) => {
         const next = openTab(entry.tabs, terminal, observe);
         return { tabs: next.tabs, activeId: next.activeId };
@@ -240,6 +265,7 @@ export function BaikalPanel() {
         );
         await refresh();
         setActiveSpaceId(result.spaceId);
+        setFocusTick((n) => n + 1);
         upsertSpaceTabs(result.spaceId, (entry) => {
           const next = openTab(entry.tabs, {
             address: result.terminal,
@@ -337,7 +363,10 @@ export function BaikalPanel() {
       const index = active.tabs.findIndex((tab) => tab.id === active.activeId);
       const step = event.key === 'ArrowRight' ? 1 : -1;
       const next = active.tabs[(index + step + active.tabs.length) % active.tabs.length];
-      if (next) upsertSpaceTabs(activeSpaceId, (entry) => ({ ...entry, activeId: next.id }));
+      if (next) {
+        upsertSpaceTabs(activeSpaceId, (entry) => ({ ...entry, activeId: next.id }));
+        setFocusTick((n) => n + 1);
+      }
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
@@ -346,179 +375,179 @@ export function BaikalPanel() {
   const core = snapshot?.core;
 
   return (
-    <CommonTileContainer noPadding background={DENSE_TILE_BG}>
-      <div ref={sidebar.containerRef} className="flex h-full min-h-0 flex-col">
-        <header className="flex h-8 shrink-0 items-center gap-2 border-b border-white/[0.06] px-2">
-          <button
-            type="button"
-            onClick={sidebar.toggle}
-            aria-expanded={!sidebar.collapsed}
-            aria-label={t('baikal.toggleSpaces')}
-            title={t('baikal.toggleSpaces')}
-            className="-ml-1 grid h-6 w-6 shrink-0 place-items-center rounded text-white/45 transition hover:bg-white/10 hover:text-white/80"
-          >
-            {sidebar.collapsed ? '›' : '‹'}
-          </button>
-          <span className="text-base font-semibold tracking-wide text-white/60">
-            {t('plugin.baikal')}
+    <div ref={sidebar.containerRef} className="flex h-full min-h-0 flex-col">
+      <header className="flex h-8 shrink-0 items-center gap-2 border-b border-white/[0.06] px-2">
+        <button
+          type="button"
+          onClick={sidebar.toggle}
+          aria-expanded={!sidebar.collapsed}
+          aria-label={t('baikal.toggleSpaces')}
+          title={t('baikal.toggleSpaces')}
+          className="-ml-1 grid h-6 w-6 shrink-0 place-items-center rounded text-white/45 transition hover:bg-white/10 hover:text-white/80"
+        >
+          {sidebar.collapsed ? '›' : '‹'}
+        </button>
+        <span className="text-base font-semibold tracking-wide text-white/60">
+          {t('plugin.baikal')}
+        </span>
+        {core?.version && (
+          <span className="truncate text-[11px] text-white/40">
+            {t('baikal.coreVersion', { version: core.version })}
           </span>
-          {core?.version && (
-            <span className="truncate text-[11px] text-white/40">
-              {t('baikal.coreVersion', { version: core.version })}
-            </span>
-          )}
-          <div className="flex-1" />
-          {activeSpace && (
-            <span className="truncate text-[11px] text-white/40" title={activeSpace.identityCwd}>
-              {activeSpace.name}
-            </span>
-          )}
-        </header>
+        )}
+        <div className="flex-1" />
+        {activeSpace && (
+          <span className="truncate text-[11px] text-white/40" title={activeSpace.identityCwd}>
+            {activeSpace.name}
+          </span>
+        )}
+      </header>
 
-        <div className="flex min-h-0 flex-1">
-          {!sidebar.collapsed && (
-            <aside
-              ref={split.containerRef}
-              className="flex w-56 shrink-0 flex-col border-r border-white/[0.06]"
-            >
-              {/* Spaces on top, agents below, split 50/50 until the divider is
+      <div className="flex min-h-0 flex-1">
+        {!sidebar.collapsed && (
+          <aside
+            ref={split.containerRef}
+            className="flex w-56 shrink-0 flex-col border-r border-white/[0.06]"
+          >
+            {/* Spaces on top, agents below, split 50/50 until the divider is
                   dragged: both are lists of the same thing at different stages
                   of wanting your attention. */}
-              <div className="flex min-h-0 flex-col" style={{ flex: `0 0 ${split.ratio * 100}%` }}>
-                <SpaceList
-                  spaces={spaces}
-                  unassigned={snapshot?.unassigned ?? []}
-                  activeSpaceId={activeSpaceId}
-                  activeTerminal={activeTab?.terminal}
-                  onSelectSpace={(space) => setActiveSpaceId(space.id)}
-                  onOpen={open}
-                  onNewSpace={() => void newShell(true)}
-                  creating={creating}
-                  onAssign={(terminal, spaceId) => void assign(terminal, spaceId)}
-                  onKill={(terminal) => void runTerminalAction(terminal, 'kill')}
-                  onRemove={(terminal) => void runTerminalAction(terminal, 'rm')}
-                  onPeek={setPeek}
-                  onRename={(space, name) => void renameSpace(space, name)}
-                  onColour={(space, colour) => void recolourSpace(space, colour)}
-                  onForget={(space) => void forgetSpace(space)}
-                />
-              </div>
-              <div
-                {...split.handleProps}
-                aria-label={t('baikal.resizeSplit')}
-                title={t('baikal.resizeSplit')}
+            <div className="flex min-h-0 flex-col" style={{ flex: `0 0 ${split.ratio * 100}%` }}>
+              <SpaceList
+                spaces={spaces}
+                unassigned={snapshot?.unassigned ?? []}
+                activeSpaceId={activeSpaceId}
+                activeTerminal={activeTab?.terminal}
+                onSelectSpace={(space) => setActiveSpaceId(space.id)}
+                onOpen={open}
+                onNewSpace={() => void newShell(true)}
+                creating={creating}
+                onAssign={(terminal, spaceId) => void assign(terminal, spaceId)}
+                onKill={(terminal) => void runTerminalAction(terminal, 'kill')}
+                onRemove={(terminal) => void runTerminalAction(terminal, 'rm')}
+                onPeek={setPeek}
+                onRename={(space, name) => void renameSpace(space, name)}
+                onColour={(space, colour) => void recolourSpace(space, colour)}
+                onForget={(space) => void forgetSpace(space)}
+              />
+            </div>
+            <div
+              {...split.handleProps}
+              aria-label={t('baikal.resizeSplit')}
+              title={t('baikal.resizeSplit')}
+              className={cn(
+                'group flex h-1.5 shrink-0 cursor-row-resize items-center justify-center border-y border-white/[0.06] transition',
+                split.dragging ? 'bg-sky-400/20' : 'hover:bg-white/[0.06]',
+              )}
+            >
+              <span
                 className={cn(
-                  'group flex h-1.5 shrink-0 cursor-row-resize items-center justify-center border-y border-white/[0.06] transition',
-                  split.dragging ? 'bg-sky-400/20' : 'hover:bg-white/[0.06]',
+                  'h-px w-6 rounded transition',
+                  split.dragging ? 'bg-sky-300/70' : 'bg-white/15 group-hover:bg-white/30',
                 )}
-              >
-                <span
-                  className={cn(
-                    'h-px w-6 rounded transition',
-                    split.dragging ? 'bg-sky-300/70' : 'bg-white/15 group-hover:bg-white/30',
-                  )}
-                />
-              </div>
-              <div className="flex min-h-0 flex-1 flex-col">
-                <AgentList
-                  agents={agents}
-                  spaces={spaces}
-                  activeTerminal={activeTab?.terminal}
-                  onOpenAgent={(terminal) => open(terminal)}
-                />
-              </div>
-            </aside>
-          )}
+              />
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <AgentList
+                agents={agents}
+                spaces={spaces}
+                activeTerminal={activeTab?.terminal}
+                onOpenAgent={(terminal) => open(terminal)}
+              />
+            </div>
+          </aside>
+        )}
 
-          <main className="flex min-w-0 flex-1 flex-col">
-            <TabBar
-              tabs={active.tabs}
-              activeId={active.activeId}
-              terminals={terminals}
-              onSelect={(id) =>
-                upsertSpaceTabs(activeSpaceId, (entry) => ({ ...entry, activeId: id }))
-              }
-              onClose={(id) => void close(id)}
-              onNewShell={() => void newShell()}
-              creating={creating}
-            />
+        <main className="flex min-w-0 flex-1 flex-col">
+          <TabBar
+            tabs={active.tabs}
+            activeId={active.activeId}
+            terminals={terminals}
+            onSelect={(id) => {
+              upsertSpaceTabs(activeSpaceId, (entry) => ({ ...entry, activeId: id }));
+              setFocusTick((n) => n + 1);
+            }}
+            onClose={(id) => void close(id)}
+            onNewShell={() => void newShell()}
+            creating={creating}
+          />
 
-            <div className="relative min-h-0 flex-1">
-              {/* Every tab of every space stays mounted; only the active one is
+          <div className="relative min-h-0 flex-1">
+            {/* Every tab of every space stays mounted; only the active one is
                   shown. Hiding an attachment with display:none keeps its stream
                   (and the program) alive — the same invariant as the tiling WM. */}
-              {Object.entries(spaceTabs).flatMap(([spaceId, entry]) =>
-                entry.tabs.map((tab) => {
-                  const visible = spaceId === activeSpaceId && tab.id === active.activeId;
-                  const key = `${spaceId}:${tab.id}`;
-                  if (!visible && !seenTabs.has(key)) return null;
-                  return (
-                    <div
-                      key={key}
-                      className="absolute inset-0 p-1.5"
-                      style={{ display: visible ? undefined : 'none' }}
-                    >
-                      <BaikalTerm
-                        terminal={tab.terminal}
-                        session={session}
-                        observe={tab.observe}
-                        visible={visible}
-                        fontSize={fontSize}
-                        onSize={(cols, rows) => {
-                          lastSize.current = { cols, rows };
-                        }}
-                        onDetached={(ended) => {
-                          // A program that ended has no tab left to show.
-                          setSpaceTabs((prev) => {
-                            const current = prev[spaceId];
-                            if (!current) return prev;
-                            const kept = current.tabs.filter(
-                              (candidate) => candidate.terminal !== ended,
-                            );
-                            if (kept.length === current.tabs.length) return prev;
-                            const next = { ...prev };
-                            if (kept.length === 0) delete next[spaceId];
-                            else next[spaceId] = { tabs: kept, activeId: kept[0].id };
-                            return next;
-                          });
-                        }}
-                      />
-                    </div>
-                  );
-                }),
-              )}
-
-              {!activeTab && (
-                <Empty
-                  terminals={activeSpace?.terminals ?? terminals}
-                  onOpen={open}
-                  onNewShell={() => void newShell()}
-                  creating={creating}
-                />
-              )}
-            </div>
-
-            <PeekDialog terminal={peek} onClose={() => setPeek(null)} />
-
-            {actionError && (
-              <div className="shrink-0 border-t border-red-500/20 bg-red-500/10 px-2 py-1 text-[11px] text-red-300">
-                {actionError}
-              </div>
+            {Object.entries(spaceTabs).flatMap(([spaceId, entry]) =>
+              entry.tabs.map((tab) => {
+                const visible = spaceId === activeSpaceId && tab.id === active.activeId;
+                const key = `${spaceId}:${tab.id}`;
+                if (!visible && !seenTabs.has(key)) return null;
+                return (
+                  <div
+                    key={key}
+                    className="absolute inset-0 p-1.5"
+                    style={{ display: visible ? undefined : 'none' }}
+                  >
+                    <BaikalTerm
+                      terminal={tab.terminal}
+                      session={session}
+                      observe={tab.observe}
+                      visible={visible}
+                      focusToken={focusTick}
+                      fontSize={fontSize}
+                      onSize={(cols, rows) => {
+                        lastSize.current = { cols, rows };
+                      }}
+                      onDetached={(ended) => {
+                        // A program that ended has no tab left to show.
+                        setSpaceTabs((prev) => {
+                          const current = prev[spaceId];
+                          if (!current) return prev;
+                          const kept = current.tabs.filter(
+                            (candidate) => candidate.terminal !== ended,
+                          );
+                          if (kept.length === current.tabs.length) return prev;
+                          const next = { ...prev };
+                          if (kept.length === 0) delete next[spaceId];
+                          else next[spaceId] = { tabs: kept, activeId: kept[0].id };
+                          return next;
+                        });
+                      }}
+                    />
+                  </div>
+                );
+              }),
             )}
 
-            {loading && !snapshot ? (
-              <div className="pointer-events-none absolute inset-0 grid place-items-center text-[11px] text-white/40">
-                {t('baikal.loading')}
-              </div>
-            ) : error && !snapshot ? (
-              <div className="absolute inset-0 grid place-items-center px-6">
-                <CoreError error={error} hint={hint} />
-              </div>
-            ) : null}
-          </main>
-        </div>
+            {!activeTab && (
+              <Empty
+                terminals={activeSpace?.terminals ?? terminals}
+                onOpen={open}
+                onNewShell={() => void newShell()}
+                creating={creating}
+              />
+            )}
+          </div>
+
+          <PeekDialog terminal={peek} onClose={() => setPeek(null)} />
+
+          {actionError && (
+            <div className="shrink-0 border-t border-red-500/20 bg-red-500/10 px-2 py-1 text-[11px] text-red-300">
+              {actionError}
+            </div>
+          )}
+
+          {loading && !snapshot ? (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center text-[11px] text-white/40">
+              {t('baikal.loading')}
+            </div>
+          ) : error && !snapshot ? (
+            <div className="absolute inset-0 grid place-items-center px-6">
+              <CoreError error={error} hint={hint} />
+            </div>
+          ) : null}
+        </main>
       </div>
-    </CommonTileContainer>
+    </div>
   );
 }
 

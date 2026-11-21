@@ -56,6 +56,9 @@ export function BaikalTerm({
   const [state, setState] = useState<ConnState>('connecting');
   const [reason, setReason] = useState<string>('');
   const [reconnect, setReconnect] = useState(0);
+  /** Seconds until the next automatic attach, 0 when none is pending. */
+  const [retryIn, setRetryIn] = useState(0);
+  const attemptsRef = useRef(0);
 
   const socketRef = useRef<WebSocket | null>(null);
   const pendingRef = useRef<string[]>([]);
@@ -87,9 +90,17 @@ export function BaikalTerm({
   // The attach lifecycle. Restarts on terminal change, reconnect, or attempt.
   useEffect(() => {
     if (!term) return;
-    const current = { ws: null as WebSocket | null, disposed: false, inputReady: false };
+    const current = {
+      ws: null as WebSocket | null,
+      disposed: false,
+      inputReady: false,
+      /** Set when the core itself ended the stream (program exited, detached). */
+      closedByCore: false,
+      timers: [] as number[],
+    };
     setState('connecting');
     setReason('');
+    setRetryIn(0);
 
     const connect = async () => {
       const { token } = await fetchToken();
@@ -118,6 +129,7 @@ export function BaikalTerm({
           }
           if (msg.type === 'ready') {
             current.inputReady = true;
+            attemptsRef.current = 0;
             setState('ready');
             // Anything typed while the attach was in flight goes now, in order.
             for (const chunk of pendingRef.current) {
@@ -129,9 +141,14 @@ export function BaikalTerm({
           }
           if (msg.type === 'close') {
             current.inputReady = false;
+            const why = msg.reason ?? '';
+            // A program that exited (or was killed) is gone for good; anything
+            // else — a stopped core, a lost holder — is worth reattaching to.
+            current.closedByCore = why === 'exited' || why === 'killed';
             setState('closed');
-            setReason(msg.reason ?? '');
+            setReason(why);
             onDetached?.(terminal);
+            if (!current.closedByCore) scheduleRetry(current);
           }
           return;
         }
@@ -142,6 +159,10 @@ export function BaikalTerm({
         if (current.disposed) return;
         current.inputReady = false;
         setState('closed');
+        // A lost line (the server, the tunnel, the core restarting) is not the
+        // program ending: reattach with backoff, and say so. A CLOSE from core
+        // means the program exited or another viewer took over — don't fight it.
+        if (!current.closedByCore) scheduleRetry(current);
       };
 
       ws.onerror = () => {
@@ -149,6 +170,27 @@ export function BaikalTerm({
         setState('closed');
         setReason((prev) => prev || t('baikal.wsError'));
       };
+    };
+
+    // Reattach after a dropped connection: 2 s, 4 s, 8 s, then every 15 s. The
+    // counter lives across attempts so a flapping core cannot turn into a tight
+    // reconnect loop.
+    const scheduleRetry = (current: { disposed: boolean; timers: number[] }) => {
+      if (current.disposed) return;
+      const delay = Math.min(2000 * 2 ** Math.min(attemptsRef.current, 3), 15000);
+      attemptsRef.current += 1;
+      let remaining = Math.round(delay / 1000);
+      setRetryIn(remaining);
+      const tick = window.setInterval(() => {
+        remaining -= 1;
+        setRetryIn(Math.max(0, remaining));
+      }, 1000);
+      const timer = window.setTimeout(() => {
+        window.clearInterval(tick);
+        setRetryIn(0);
+        setReconnect((n) => n + 1);
+      }, delay);
+      current.timers.push(tick, timer);
     };
 
     void connect();
@@ -171,6 +213,10 @@ export function BaikalTerm({
 
     return () => {
       current.disposed = true;
+      for (const timer of current.timers) {
+        window.clearTimeout(timer);
+        window.clearInterval(timer);
+      }
       dataDisposable.dispose();
       resizeDisposable.dispose();
       const ws = current.ws;
@@ -209,7 +255,9 @@ export function BaikalTerm({
             ? t('baikal.attached')
             : state === 'connecting'
               ? t('baikal.connecting')
-              : reason || t('baikal.detached')}
+              : retryIn > 0
+                ? t('baikal.reconnectingIn', { seconds: retryIn })
+                : reason || t('baikal.detached')}
         </span>
         {state === 'closed' && (
           <button

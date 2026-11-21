@@ -13,9 +13,12 @@ import (
 // fakeCore speaks the wire protocol over one end of a net.Pipe so the client can
 // be exercised without a daemon.
 type fakeCore struct {
-	t      *testing.T
-	conn   net.Conn
-	mu     sync.Mutex
+	t    *testing.T
+	conn net.Conn
+	mu   sync.Mutex
+	// wmu serialises frame writes: the serve loop answers calls while the test
+	// pushes events, and a frame is two Writes (header, payload).
+	wmu    sync.Mutex
 	nextCh uint32
 	// handlers answer a JSON-RPC method: a result, or an error.
 	handlers map[string]func(params json.RawMessage) (any, error)
@@ -58,7 +61,9 @@ func (f *fakeCore) serve() {
 		if json.Unmarshal(fr.Payload, &req) != nil || req.Method == "" {
 			continue
 		}
+		f.mu.Lock()
 		handler := f.handlers[req.Method]
+		f.mu.Unlock()
 		var result any
 		var callErr error
 		if handler != nil {
@@ -75,13 +80,27 @@ func (f *fakeCore) serve() {
 			env["result"] = result
 		}
 		reply, _ := json.Marshal(env)
-		_ = writeFrame(f.conn, Frame{Channel: 0, Kind: KindData, Payload: reply})
+		f.writeFrame(Frame{Channel: 0, Kind: KindData, Payload: reply})
 	}
+}
+
+// setHandler installs a handler for a method (safe against the serve loop).
+func (f *fakeCore) setHandler(method string, fn func(json.RawMessage) (any, error)) {
+	f.mu.Lock()
+	f.handlers[method] = fn
+	f.mu.Unlock()
 }
 
 // send pushes a frame from the core to the client.
 func (f *fakeCore) send(channel uint32, kind byte, payload []byte) {
-	_ = writeFrame(f.conn, Frame{Channel: channel, Kind: kind, Payload: payload})
+	f.writeFrame(Frame{Channel: channel, Kind: kind, Payload: payload})
+}
+
+// writeFrame serialises writes so a reply and an event never interleave bytes.
+func (f *fakeCore) writeFrame(fr Frame) {
+	f.wmu.Lock()
+	defer f.wmu.Unlock()
+	_ = writeFrame(f.conn, fr)
 }
 
 // waitFrame waits for a frame the client wrote with the given channel and kind.

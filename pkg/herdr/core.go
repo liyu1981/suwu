@@ -31,7 +31,15 @@ type Core struct {
 	lastErr    error
 
 	dialMu sync.Mutex
+	// dial is ConnOptions -> *Conn; tests replace it with an in-memory pair.
+	dial     func(context.Context, ConnOptions) (*Conn, error)
+	lastSeen time.Time
 }
+
+// staleAfter is how long a connection may be silent before it is treated as
+// dead. Core sends a heartbeat every 15 s, so silence past this is a lost line,
+// not a quiet core.
+const staleAfter = 45 * time.Second
 
 // NewCore prepares a client for one core session. An empty session means "the
 // core's own default": HC_SESSION from the environment, else "default". The
@@ -49,6 +57,7 @@ func NewCore(session string) *Core {
 		repos:     newGitRootCache(),
 		home:      home,
 		terminals: make(map[string]Terminal),
+		dial:      Dial,
 	}
 }
 
@@ -77,7 +86,15 @@ func (c *Core) ensure(ctx context.Context) (*Conn, error) {
 		case <-conn.Done():
 			// gone; fall through and redial
 		default:
-			return conn, nil
+			c.mu.Lock()
+			silent := time.Since(c.lastSeen)
+			c.mu.Unlock()
+			if silent < staleAfter {
+				return conn, nil
+			}
+			// A connection that has gone quiet (no heartbeat) is dead even if
+			// the pipe still looks open; drop it and redial.
+			_ = conn.Close()
 		}
 	}
 
@@ -95,7 +112,7 @@ func (c *Core) ensure(ctx context.Context) (*Conn, error) {
 		}
 	}
 
-	conn, err := Dial(ctx, ConnOptions{Session: c.session})
+	conn, err := c.dial(ctx, ConnOptions{Session: c.session})
 	if err != nil {
 		c.mu.Lock()
 		c.lastErr = err
@@ -129,6 +146,8 @@ func (c *Core) ensure(ctx context.Context) (*Conn, error) {
 	c.machines = list.Machines
 	c.seq = sub.Seq
 	c.lastErr = nil
+	// A fresh connection is alive by definition; the staleness clock starts now.
+	c.lastSeen = time.Now()
 	c.mu.Unlock()
 
 	if sub.Channel != nil {
@@ -155,6 +174,7 @@ func (c *Core) ensure(ctx context.Context) (*Conn, error) {
 // onEventNotification handles events delivered on channel 0 (plain mode or a
 // core that does not open an events channel).
 func (c *Core) onEventNotification(payload []byte) {
+	c.touch()
 	var env eventEnvelope
 	if err := json.Unmarshal(payload, &env); err != nil || env.Method != "event" {
 		return
@@ -186,9 +206,19 @@ func (c *Core) eventsLoop(conn *Conn, channel uint32, frames chan Frame, stop ch
 			if len(f.Payload) > 0 {
 				_ = conn.writeStreamFrame(Frame{Channel: channel, Kind: KindCredit, Payload: creditPayload(len(f.Payload))})
 			}
+			c.touch()
 			for _, line := range splitLines(f.Payload) {
 				var env eventEnvelope
 				if err := json.Unmarshal(line, &env); err != nil {
+					continue
+				}
+				// An events channel carries the same notifications as channel 0
+				// (a JSON-RPC envelope without an id); tolerate a bare params
+				// object too, so a future/looser core still updates the list.
+				if env.Method == "" && env.Params.Type != "" {
+					env.Method = "event"
+				}
+				if env.Method == "heartbeat" {
 					continue
 				}
 				if env.Method == "missed" {
@@ -202,6 +232,13 @@ func (c *Core) eventsLoop(conn *Conn, channel uint32, frames chan Frame, stop ch
 			}
 		}
 	}
+}
+
+// touch records that the core is alive (any frame counts).
+func (c *Core) touch() {
+	c.mu.Lock()
+	c.lastSeen = time.Now()
+	c.mu.Unlock()
 }
 
 func splitLines(payload []byte) [][]byte {

@@ -409,10 +409,21 @@ func (s *Server) handleBaikalAttach(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case <-stream.Closed():
-			_ = writeWS(ctx, conn, websocket.MessageText, mustJSON(map[string]any{
-				"type":   "close",
-				"reason": stream.Reason(),
-			}))
+			// Core sends the reason as JSON: {"reason":"exited","exit_code":0,…}.
+			closeMsg := map[string]any{"type": "close"}
+			if raw := stream.Reason(); raw != "" {
+				var cr struct {
+					Reason   string `json:"reason"`
+					ExitCode *int   `json:"exit_code"`
+				}
+				if json.Unmarshal([]byte(raw), &cr) == nil && cr.Reason != "" {
+					closeMsg["reason"] = cr.Reason
+					if cr.ExitCode != nil {
+						closeMsg["exitCode"] = *cr.ExitCode
+					}
+				}
+			}
+			_ = writeWS(ctx, conn, websocket.MessageText, mustJSON(closeMsg))
 			return
 		case chunk, ok := <-stream.Data():
 			if !ok {

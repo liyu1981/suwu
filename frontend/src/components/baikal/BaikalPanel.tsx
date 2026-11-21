@@ -74,22 +74,24 @@ export function BaikalPanel() {
     report({ tabs, activeId });
   }, [tabs, activeId, report]);
 
-  // Tab titles follow their terminals; a terminal that vanished (finished and
-  // removed elsewhere) closes its tab.
+  // Tab titles follow their terminals, and a terminal that is gone (its program
+  // ended, or a core restart without --keep lost it) closes its tab. An empty
+  // snapshot is a real answer too — that is exactly how a restart looks, and
+  // leaving tabs open would keep them reattaching to nothing.
   useEffect(() => {
-    if (terminals.length === 0) return;
+    if (!snapshot) return;
     const live = new Set(
       terminals.filter((terminal) => terminal.live).map((terminal) => terminal.address),
     );
-    setTabs((prev) => {
-      const titles = syncTabTitles(prev, terminals);
-      const kept = titles.filter((tab) => live.has(tab.terminal));
-      if (kept.length !== titles.length && !kept.some((tab) => tab.id === activeId)) {
-        setActiveId(kept[0]?.id ?? '');
-      }
-      return kept.length === titles.length ? titles : kept;
-    });
-  }, [terminals, activeId]);
+    const kept = tabs.filter((tab) => live.has(tab.terminal));
+    if (kept.length !== tabs.length) {
+      setTabs(kept);
+      if (!kept.some((tab) => tab.id === activeId)) setActiveId(kept[0]?.id ?? '');
+      return;
+    }
+    const retitled = syncTabTitles(tabs, terminals);
+    if (retitled !== tabs) setTabs(retitled);
+  }, [snapshot, terminals, tabs, activeId]);
 
   const open = useCallback((terminal: BaikalTerminal, observe = false) => {
     setTabs((prev) => {

@@ -129,7 +129,9 @@ export function SpaceList({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-1 px-1.5 pb-1">
+      {/* Same height and paddings as the tab strip beside it, so the two "+"
+          buttons read as one row of chrome rather than two stray controls. */}
+      <div className="flex h-9 shrink-0 items-center gap-1 px-1.5">
         <input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
@@ -143,7 +145,7 @@ export function SpaceList({
           disabled={creating}
           aria-label={t('baikal.newSpace')}
           title={t('baikal.newSpaceHint')}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-[6px] border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-[6px] border border-white/10 bg-white/[0.04] text-sm leading-none text-white/60 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
         >
           +
         </button>

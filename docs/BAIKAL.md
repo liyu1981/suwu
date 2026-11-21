@@ -20,9 +20,9 @@ close the tab; you attach again where you left them.
 
 A **space** is a group of terminals. Membership is a label, `space=<id>`, that
 Baikal writes when it starts a shell; the **name** is not stored, it is derived
-from the directory the space's *first shell was started in* — a space is a place
-you opened, so its name does not move while you work in it (`cd /` in that shell
-leaves the name alone). The derivation follows the Herdr app's rules:
+from the space's *first tab* — the terminal it opened first — and follows that
+shell's directory as it changes, so `cd` renames the space. A later terminal in
+the same space never renames it. The derivation follows the Herdr app's rules:
 
 - inside a git repository: the repository's name;
 - in the home directory: `~`;

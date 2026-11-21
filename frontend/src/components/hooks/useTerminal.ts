@@ -105,9 +105,20 @@ export function useTerminal(
     el.addEventListener('contextmenu', suppressMenu);
 
     // The fit addon has no built-in observer: refit on container box changes.
-    const ro = new ResizeObserver(() => fit.fit());
+    // Fit only when the container has a box. A hidden pane (`display: none`)
+    // measures 0×0, and fitting then would resize the grid to nothing — which a
+    // PTY or a herdr-core attachment turns into a 1-column terminal, and the
+    // shell redraws its prompt at that width. That is where stacked, wrapped
+    // prompts come from when a tab is hidden and shown again.
+    const fitIfSized = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      if (el.clientWidth < 1 || el.clientHeight < 1) return;
+      fit.fit();
+    };
+    const ro = new ResizeObserver(fitIfSized);
     ro.observe(containerRef.current);
-    fit.fit();
+    fitIfSized();
     setTerm(t);
     // Debug handles for console tinkering and headless verification.
     (window as unknown as Record<string, unknown>).__term = t;
@@ -159,5 +170,9 @@ export function useTerminal(
     t.options.theme = { ...t.options.theme, ...theme };
   }, []);
 
-  return { containerRef, term, setFontSize, setFontFamily, setLineHeight, setTheme };
+  // Re-fit on demand: a caller that just revealed a hidden pane can fit it once
+  // the browser has laid it out, instead of waiting for a resize event.
+  const fit = useCallback(() => fitRef.current?.fit(), []);
+
+  return { containerRef, term, fit, setFontSize, setFontFamily, setLineHeight, setTheme };
 }

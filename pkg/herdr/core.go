@@ -484,12 +484,13 @@ func (c *Core) Snapshot(ctx context.Context) (Snapshot, error) {
 			identity = &group[0]
 		}
 
-		// The name comes from where the space's first shell was *started*, not
-		// from wherever it has cd'd since: a space is a place you opened, and its
-		// name should not move while you work in it. Renaming pins a name.
+		// The name follows the space's *first* tab (its identity terminal): the
+		// directory that shell is in right now, so `cd` renames the space. The
+		// identity is the terminal baikal opened first, not whichever one was
+		// touched last. Renaming pins a name.
 		identityCwd := meta.IdentityCwd
-		if identity != nil && identity.Cwd != "" {
-			identityCwd = identity.Cwd
+		if identity != nil {
+			identityCwd = identity.WorkingDir()
 		}
 		name := DisplayName(meta.CustomName, identityCwd, c.home, c.repos)
 		colour := meta.Colour

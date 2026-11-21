@@ -237,13 +237,11 @@ baikal copies that split:
   makes `hc ls` unreadable). `terminal.label` *sets the given keys* and `key=`
   removes one, so adopting a terminal that already has labels (e.g. `role=review`)
   is a single-key write that cannot clobber them.
-- **The name is derived, not stored**: from the space's **identity terminal**
-  (the first shell baikal opened for it) and its *start* directory —
-  `repo_root.file_name()` when that directory is inside a git repo, otherwise `~`
-  for the home directory, otherwise the directory's name. It deliberately does
-  **not** follow a later `cd`: a space is a place you opened, and a name that moves
-  while you work is noise (the first draft followed `foreground.cwd`; that was
-  wrong). Renaming pins a custom name.
+- **The name is derived, not stored**: from the space's **first tab** (the
+  identity terminal) and the directory that shell is in *now* — so `cd` renames
+  the space, while a later terminal in the same space never does.
+  `repo_root.file_name()` when the directory is inside a git repo, otherwise `~`
+  for home, otherwise the directory's name. Renaming pins a custom name.
 - **Fallbacks**: identity terminal gone → the space's recorded `identityCwd`;
   recorded cwd also unknown → “workspace”. A terminal with **no** `space` label
   (started with `hc run` from a shell, outside baikal) appears under a synthetic
@@ -490,3 +488,19 @@ core came back. `go test ./...`, `pnpm check` and the tile review checks are gre
 - **The attach re-sends its grid after `ready`**: the tile iframe gets its final
   size after mount, and attaching at the transient, narrow width left the shell
   wrapping its prompt in a 25-column window.
+
+### 13.2 Hidden tabs must not resize the terminal
+
+Switching tabs back and forth left stacked, wrapped prompts on screen. A hidden
+pane is `display: none`, which measures 0×0; the terminal's ResizeObserver fitted
+it to nothing, the attachment forwarded that as a one-column resize, and the shell
+redrew its prompt at that width — once per switch.
+
+`useTerminal` now refuses to fit a container without a box, and `BaikalTerm` takes
+`visible`: it sends no resize while hidden, and on reveal it fits once and sends a
+single resize (after the browser has laid the pane out). The grid is also re-sent
+once `ready` arrives, because the tile's iframe gets its final size after mount.
+
+Smaller polish in the same commit: the tab content gets a 6 px inset (a terminal
+touching the tab border reads as clipped), and the filter row and the tab strip
+share a 36 px height with 28 px controls, so the two "+" buttons line up.

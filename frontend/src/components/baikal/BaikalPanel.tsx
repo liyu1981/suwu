@@ -346,13 +346,14 @@ export function BaikalPanel() {
                   return (
                     <div
                       key={`${spaceId}:${tab.id}`}
-                      className="absolute inset-0"
+                      className="absolute inset-0 p-1.5"
                       style={{ display: visible ? undefined : 'none' }}
                     >
                       <BaikalTerm
                         terminal={tab.terminal}
                         session={session}
                         observe={tab.observe}
+                        visible={visible}
                         onDetached={(terminal) => {
                           // A program that ended has no tab left to show.
                           setSpaceTabs((prev) => {

@@ -948,7 +948,7 @@
     "forgetSpace": "Forget this space",
     "forgetHint": "Only the name and colour are forgotten. Terminals keep running, and a space with no live terminal stops being listed.",
     "newShellHint": "Start a shell in this space",
-    "newSpace": "Space",
+    "newSpace": "New space",
     "newSpaceHint": "Start a shell in a new space",
     "reconnectingIn": "Reconnecting in {{seconds}}s",
     "pickTerminal": "Pick a terminal",

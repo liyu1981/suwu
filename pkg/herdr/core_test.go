@@ -118,20 +118,33 @@ func TestSnapshotAssemblesSpacesFromLabelsAndCwd(t *testing.T) {
 		t.Errorf("unassigned = %+v", snap.Unassigned)
 	}
 
-	// The name comes from where the first shell was *started*, so a later cd
-	// neither renames the space nor moves the terminal between groups.
-	sendEvent(t, fake, 5, "foreground", "t1", map[string]any{"pid": 1, "name": "bash", "argv": []string{"bash"}, "cwd": "/home/tester/other"})
+	// The name follows the space's FIRST tab (its identity terminal): a later
+	// terminal in the same space with a different directory must not rename it.
+	sendEvent(t, fake, 5, "created", "t3", map[string]any{
+		"address": "t3", "state": "live", "cwd": "/elsewhere", "created_ms": 5,
+		"labels": labels("b1"),
+	})
+	sendEvent(t, fake, 5, "foreground", "t3", map[string]any{"pid": 2, "name": "bash", "argv": []string{"bash"}, "cwd": "/elsewhere"})
 	snap, err = core.Snapshot(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if snap.Spaces[0].Name != "project" {
-		t.Errorf("after cd: name = %q, want the start directory (project)", snap.Spaces[0].Name)
+		t.Errorf("a later terminal renamed the space: %q", snap.Spaces[0].Name)
+	}
+
+	// The identity terminal's own cd does rename it (the first tab's cwd).
+	sendEvent(t, fake, 5, "foreground", "t1", map[string]any{"pid": 1, "name": "bash", "argv": []string{"bash"}, "cwd": "/home/tester/other"})
+	snap, err = core.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Spaces[0].Name != "other" {
+		t.Errorf("after the first tab cd: name = %q, want other", snap.Spaces[0].Name)
 	}
 	if snap.Spaces[0].ID != "b1" {
 		t.Errorf("the space id must not change when the cwd does")
 	}
-	// The terminal row still reports where it is *now*.
 	if got := snap.Spaces[0].Terminals[0].Cwd; got != "/home/tester/other" {
 		t.Errorf("terminal cwd = %q, want the live directory", got)
 	}
@@ -148,14 +161,14 @@ func TestSnapshotAssemblesSpacesFromLabelsAndCwd(t *testing.T) {
 	// Relabelling moves a terminal between groups.
 	sendEvent(t, fake, 5, "labels", "t2", map[string]any{"labels": labels("b1")})
 	snap, _ = core.Snapshot(ctx)
-	if len(snap.Unassigned) != 0 || len(snap.Spaces[0].Terminals) != 2 {
+	if len(snap.Unassigned) != 0 || len(snap.Spaces[0].Terminals) != 3 {
 		t.Errorf("after relabel: spaces=%+v unassigned=%+v", snap.Spaces, snap.Unassigned)
 	}
 
 	// Finished terminals drop out of the view.
 	sendEvent(t, fake, 5, "finished", "t2", map[string]any{"reason": "exited", "exit_code": 0, "finished_ms": 123})
 	snap, _ = core.Snapshot(ctx)
-	if len(snap.Spaces[0].Terminals) != 1 {
+	if len(snap.Spaces[0].Terminals) != 2 {
 		t.Errorf("finished terminal still listed: %+v", snap.Spaces[0].Terminals)
 	}
 }

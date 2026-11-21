@@ -32,7 +32,7 @@ export function TabBar({
   const byAddress = new Map(terminals.map((terminal) => [terminal.address, terminal]));
 
   return (
-    <div className="flex h-8 shrink-0 items-end gap-0.5 overflow-x-auto border-b border-white/[0.06] px-1 scrollbar-thin">
+    <div className="flex h-9 shrink-0 items-end gap-0.5 overflow-x-auto border-b border-white/[0.06] px-1.5 scrollbar-thin">
       {tabs.map((tab) => {
         const terminal = byAddress.get(tab.terminal);
         const tone = statusTone(terminal?.status);
@@ -80,7 +80,7 @@ export function TabBar({
         disabled={creating}
         aria-label={t('baikal.newShell')}
         title={t('baikal.newShell')}
-        className="mb-0.5 ml-0.5 shrink-0 rounded px-1.5 text-sm text-white/40 transition hover:bg-white/10 hover:text-white/80 disabled:opacity-40"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-t-[6px] text-sm leading-none text-white/40 transition hover:bg-white/10 hover:text-white/80 disabled:opacity-40"
       >
         +
       </button>

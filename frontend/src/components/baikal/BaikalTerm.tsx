@@ -25,6 +25,8 @@ export interface BaikalTermProps {
   terminal: string;
   session?: string;
   observe?: boolean;
+  /** False while the tab is hidden: the pane must not resize the core then. */
+  visible?: boolean;
   /** Bumped by the parent to force a fresh attach (the Reconnect button). */
   attempt?: number;
   onDetached?: (terminal: string) => void;
@@ -48,6 +50,7 @@ export function BaikalTerm({
   terminal,
   session,
   observe = false,
+  visible = true,
   attempt = 0,
   onDetached,
 }: BaikalTermProps) {
@@ -85,7 +88,7 @@ export function BaikalTerm({
     [fontFamily, lineHeight, theme],
   );
 
-  const { containerRef, term, setFontFamily, setLineHeight, setTheme } = useTerminal(options);
+  const { containerRef, term, fit, setFontFamily, setLineHeight, setTheme } = useTerminal(options);
 
   // The attached terminal is a shell too: the recorder gives "save this command"
   // something to capture and keeps snippet insertion in the recent list.
@@ -256,7 +259,9 @@ export function BaikalTerm({
 
     const resizeDisposable = term.onResize(({ cols, rows }) => {
       const ws = current.ws;
-      if (!ws || ws.readyState !== WebSocket.OPEN || observe) return;
+      // A hidden pane measures 0×0; resizing the core to that makes the shell
+      // redraw its prompt in a one-column terminal.
+      if (!ws || ws.readyState !== WebSocket.OPEN || observe || !visible) return;
       ws.send(JSON.stringify({ type: 'resize', cols, rows }));
     });
 
@@ -275,7 +280,21 @@ export function BaikalTerm({
       ws?.close();
       socketRef.current = null;
     };
-  }, [term, terminal, session, observe, attempt, reconnect, onDetached, t]);
+  }, [term, terminal, session, observe, visible, attempt, reconnect, onDetached, t]);
+
+  // Revealing a tab: fit to the box it now has, and tell the core once. This is
+  // the only resize a hidden/shown cycle is allowed to cause.
+  useEffect(() => {
+    if (!term || !visible) return;
+    const id = window.setTimeout(() => {
+      fit();
+      const ws = socketRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN && !observe) {
+        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      }
+    }, 30);
+    return () => window.clearTimeout(id);
+  }, [term, visible, observe, fit]);
 
   const dot =
     state === 'ready'

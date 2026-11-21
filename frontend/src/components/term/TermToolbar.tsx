@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { Terminal } from '@xterm/xterm';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import {
   makeSnippet,
   markSnippetUsed,
@@ -14,6 +15,7 @@ import { CloseIcon, CopyIcon, KeyCommandIcon, RefreshIcon, SnippetIcon } from '.
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
 import { useTermCopy } from '../hooks/useTermCopy';
 import { KeyChordMenu } from './KeyChordMenu';
+import { SoftInputToggle } from './SoftInputPanel';
 import { SnippetMenu } from './SnippetMenu';
 import { SnippetManagerDialog, type SnippetEditTarget } from './SnippetManagerDialog';
 import { SnippetSaveDialog } from './SnippetSaveDialog';
@@ -45,6 +47,13 @@ export interface TermToolbarProps {
   onSelectionModeChange?: (on: boolean) => void;
   /** Refocus the terminal after a popover closes. */
   refocus?: () => void;
+  /**
+   * The soft-input panel's toggle. Present only on a touch-first client whose
+   * tile owns a panel — a desktop footer has no use for one, and a tile that
+   * does not host the panel must not offer the button. It leads the group,
+   * where the shell tile has always shown it, so both tiles match.
+   */
+  softInput?: { open: boolean; onToggle: () => void } | null;
 }
 
 const TOOL_BTN = 'rounded p-0.5 hover:bg-white/10';
@@ -59,6 +68,7 @@ export function TermToolbar({
   notice,
   onSelectionModeChange,
   refocus,
+  softInput,
 }: TermToolbarProps) {
   const { t } = useTranslation();
   const setSnippets = useSetAtom(termSnippetsAtom);
@@ -177,6 +187,16 @@ export function TermToolbar({
 
   return (
     <>
+      {softInput && (
+        <SoftInputToggle
+          open={softInput.open}
+          onToggle={softInput.onToggle}
+          className={cn(
+            'rounded px-1.5 py-1 transition active:bg-white/15',
+            softInput.open ? 'bg-white/10 text-white' : TOOL_BTN,
+          )}
+        />
+      )}
       <KeyChordMenu
         open={keysOpen}
         onOpenChange={setKeysOpen}

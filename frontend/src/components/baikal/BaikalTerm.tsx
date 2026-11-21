@@ -9,7 +9,9 @@ import { useInputRecorder } from '../hooks/useInputRecorder';
 import { fetchToken } from '../../lib/api';
 import { chunkInput } from '../../lib/wsChunks';
 import { buildPayload } from '../../lib/termInput';
+import { isTouchFirst } from '../../lib/mobile';
 import { TermToolbar } from '../term/TermToolbar';
+import { SoftInputPanel } from '../term/SoftInputPanel';
 
 /**
  * One herdr-core terminal, attached over `/ws/baikal/attach`.
@@ -67,6 +69,13 @@ export function BaikalTerm({
 
   const [state, setState] = useState<ConnState>('connecting');
   const [selectionMode, setSelectionMode] = useState(false);
+  // Phones get the same soft-input panel the shell tile has: a keyboard without
+  // arrows, PgUp/PgDn or a reliable Escape cannot drive vim or less. The panel is
+  // this tile's, not the shell's, so its height comes out of the terminal above
+  // it — xterm refits and the core is told the new grid, exactly as a desktop
+  // window resize would.
+  const touchFirst = isTouchFirst();
+  const [softInputOpen, setSoftInputOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [reason, setReason] = useState<string>('');
   const [reconnect, setReconnect] = useState(0);
@@ -112,6 +121,11 @@ export function BaikalTerm({
   // The attached terminal is a shell too: the recorder gives "save this command"
   // something to capture and keeps snippet insertion in the recent list.
   const { getCurrentLine, recordSent } = useInputRecorder(term, { paused: selectionMode });
+
+  // DECCKM is read here for the chord palette and the soft-input arrows: the
+  // bytes differ between a shell prompt and an app like vim, and both must see
+  // the mode the terminal is in when the button is pressed.
+  const applicationCursorKeys = Boolean(term?.modes.applicationCursorKeysMode);
 
   // A font change changes the grid. Fitting is what turns the new cell size into
   // cols/rows, and the resize handler then tells the core — a shell that was
@@ -344,7 +358,9 @@ export function BaikalTerm({
             scrollback, and a full-tile terminal does not need a visible bar. */}
         <div ref={containerRef} className="baikal-term h-full w-full" />
       </div>
-      <footer className="flex h-6 shrink-0 items-center gap-2 border-t border-white/10 bg-black/40 px-2 text-[11px] tracking-wide text-white/50">
+      <footer
+        className={`flex ${touchFirst ? 'h-9' : 'h-6'} shrink-0 items-center gap-2 border-t border-white/10 bg-black/40 px-2 text-[11px] tracking-wide text-white/50`}
+      >
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
         <span className="font-mono text-white/60">{terminal}</span>
         {observe && (
@@ -365,13 +381,16 @@ export function BaikalTerm({
         </span>
         <TermToolbar
           term={term}
-          applicationCursorKeys={Boolean(term?.modes.applicationCursorKeysMode)}
+          applicationCursorKeys={applicationCursorKeys}
           sendBytes={sendBytes}
           insert={insert}
           currentLine={getCurrentLine}
           notice={showNotice}
           onSelectionModeChange={setSelectionMode}
           refocus={() => term?.focus()}
+          softInput={
+            touchFirst ? { open: softInputOpen, onToggle: () => setSoftInputOpen((v) => !v) } : null
+          }
         />
         {state === 'closed' && (
           <button
@@ -383,6 +402,19 @@ export function BaikalTerm({
           </button>
         )}
       </footer>
+      {/* Below the status bar, at the tile's bottom edge: growing the row takes
+          the height from the terminal, which is what resizes the core's grid. */}
+      <SoftInputPanel
+        open={softInputOpen}
+        enabled={state === 'ready'}
+        applicationCursorKeys={applicationCursorKeys}
+        onSendText={(text) => insert({ text }, true)}
+        onSendKeys={sendBytes}
+        onCollapse={() => {
+          setSoftInputOpen(false);
+          term?.focus();
+        }}
+      />
     </div>
   );
 }

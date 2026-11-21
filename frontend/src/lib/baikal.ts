@@ -120,6 +120,22 @@ export function terminalTitle(terminal: BaikalTerminal): string {
   return terminal.address;
 }
 
+/**
+ * A terminal offered on its own, with nothing else to place it: the title and the
+ * address — `suwu-dev (t12)`.
+ *
+ * A list of bare names is ambiguous: two shells started in the same directory
+ * share the name the core derives from it, and a name says nothing about which
+ * terminal an action will hit. The address is the identity — the thing the attach,
+ * the kill and the assign all take — so it is shown in parentheses, once, and not
+ * repeated when the name *is* the address.
+ */
+export function terminalLabel(terminal: BaikalTerminal): string {
+  const title = terminalTitle(terminal);
+  if (title === terminal.address) return terminal.address;
+  return `${title} (${terminal.address})`;
+}
+
 /** The one-word "what is it doing" line under a row. */
 export function terminalSubtitle(terminal: BaikalTerminal): string {
   if (terminal.status?.msg) return terminal.status.msg;

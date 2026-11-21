@@ -16,6 +16,7 @@ import {
   openTab,
   sortSpaces,
   syncTabTitles,
+  terminalLabel,
   type BaikalSpace,
   type BaikalTab,
   type BaikalTerminal,
@@ -560,7 +561,7 @@ function Empty({
               title={terminal.cwd}
               className="max-w-40 truncate rounded-[6px] border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white/70 transition hover:bg-white/[0.10] hover:text-white"
             >
-              {terminal.name || terminal.address}
+              {terminalLabel(terminal)}
             </button>
           ))}
         </div>

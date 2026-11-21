@@ -19,6 +19,7 @@ import {
   sortSpaces,
   statusTone,
   syncTabTitles,
+  terminalLabel,
   terminalSubtitle,
   terminalTitle,
 } from '../src/lib/baikal.ts';
@@ -107,6 +108,26 @@ assert.equal(
 assert.equal(terminalSubtitle(terminal({ agent: 'zsh' })), 'zsh')
 assert.equal(terminalSubtitle(terminal({ agent: '' })), 't1', 'falls back to the address')
 
+// ── the pick list's label: name *and* address ────────────────────────────
+// Two shells in the same directory share the name the core derives from it, so
+// a list of bare names cannot say which terminal a click will attach to. The
+// address is the identity, so it rides along in parentheses — once.
+assert.equal(
+  terminalLabel(terminal({ address: 't12', name: 'suwu-dev' })),
+  'suwu-dev (t12)',
+  'a named terminal shows its address too',
+);
+assert.equal(
+  terminalLabel(terminal({ address: 't12', name: 't12' })),
+  't12',
+  'an unnamed terminal does not repeat itself',
+);
+assert.equal(
+  terminalLabel(terminal({ address: 't7', name: '', title: 'vim README.md' })),
+  'vim README.md (t7)',
+  'a program title is a name like any other',
+);
+
 // ── unassigned grouping ──────────────────────────────────────────────────
 const loose = groupUnassigned([
   terminal({ address: 't2', cwd: '/a/b' }),
@@ -189,5 +210,38 @@ for (const leak of ['onDetached', 'onSize', 'visible']) {
 }
 assert.match(termSource, /onDetachedRef\.current\?\.\(terminal\)/, 'detach must go through the ref');
 assert.match(termSource, /onSizeRef\.current\?\./, 'size reports must go through the ref');
+
+// ── the soft-input panel is shared, not copied ──────────────────────
+// A phone cannot drive vim from a keyboard that has no arrows, PgUp/PgDn or a
+// reliable Escape. Baikal's terminal renders the same panel the shell tile does
+// (one row, one focus rule, one set of bytes) and puts its toggle in the shared
+// toolbar, so both tiles offer the button in the same place.
+assert.match(termSource, /<SoftInputPanel/, 'the baikal terminal hosts the shared panel');
+assert.match(
+  termSource, /softInput=\{[\s\S]*?touchFirst/,
+  'the toggle rides in the shared toolbar, on touch devices only',
+);
+assert.match(
+  termSource,
+  /enabled=\{state === 'ready'\}/,
+  'the panel can only send while the attachment is ready',
+);
+const panelSource = readFileSync(
+  new URL('../src/components/term/SoftInputPanel.tsx', import.meta.url),
+  'utf8',
+);
+const shellSource = readFileSync(
+  new URL('../src/components/FullTerminal.tsx', import.meta.url),
+  'utf8',
+);
+for (const [name, source] of [
+  ['the baikal terminal', termSource],
+  ['the shell tile', shellSource],
+]) {
+  assert.match(source, /<SoftInputPanel/, `${name} renders the shared panel`);
+  assert.match(source, /softInput=\{/, `${name} hands the toolbar the toggle`);
+}
+assert.match(panelSource, /gridTemplateRows: open \? '1fr' : '0fr'/, 'the row grows from 0fr');
+assert.match(panelSource, /inert: true/, 'a closed panel stays out of the tab order');
 
 console.log('check-baikal: ok');

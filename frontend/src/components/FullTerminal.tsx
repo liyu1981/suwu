@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 import { fontFamilyAtom, termThemeAtom, themeToXtermTheme } from '../store/appearance';
@@ -13,7 +13,7 @@ import { useBell } from './hooks/useBell';
 import { useInputRecorder } from './hooks/useInputRecorder';
 import { CommonTileContainer } from './CommonTileContainer';
 import { TermToolbar } from './term/TermToolbar';
-import { SoftInputBar, SoftInputIcon } from './term/SoftInputBar';
+import { SoftInputPanel } from './term/SoftInputPanel';
 import { isTouchFirst } from '../lib/mobile';
 import { Toast } from './Toast';
 
@@ -91,7 +91,6 @@ export default function FullTerminal() {
   // the new size) and because input can then go through the same door as keys.
   const touchFirst = isTouchFirst();
   const [softInputOpen, setSoftInputOpen] = useState(false);
-  const softInputRef = useRef<HTMLDivElement>(null);
 
   // term.input() is the right door: it goes through xterm's onData, so the
   // bytes take the same path as typed keys and the line recorder sees them too
@@ -109,16 +108,6 @@ export default function FullTerminal() {
     },
     [showToast, status, t, term],
   );
-
-  // Focus the text box after the row has opened (it is still clipped while the
-  // transition runs, and focusing a clipped input makes the tile scroll).
-  useEffect(() => {
-    if (!softInputOpen) return;
-    const id = window.setTimeout(() => {
-      softInputRef.current?.querySelector('input')?.focus();
-    }, 220);
-    return () => window.clearTimeout(id);
-  }, [softInputOpen]);
 
   const insertInput = useCallback(
     (request: { text: string; snippetId?: string }, run: boolean) => {
@@ -224,20 +213,6 @@ export default function FullTerminal() {
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-1">
-            {touchFirst && (
-              <button
-                type="button"
-                aria-label={t('softInput.toggle')}
-                aria-expanded={softInputOpen}
-                title={t('softInput.toggle')}
-                onClick={() => setSoftInputOpen((v) => !v)}
-                className={`rounded px-1.5 py-1 transition active:bg-white/15 ${
-                  softInputOpen ? 'bg-white/10 text-white' : 'hover:bg-white/10'
-                }`}
-              >
-                <SoftInputIcon className={touchFirst ? 'h-4 w-4' : 'h-3 w-3'} />
-              </button>
-            )}
             <TermToolbar
               term={term}
               applicationCursorKeys={applicationCursorKeys}
@@ -248,34 +223,29 @@ export default function FullTerminal() {
               notice={showToast}
               onSelectionModeChange={setSelectionMode}
               refocus={() => term?.focus()}
+              softInput={
+                touchFirst
+                  ? { open: softInputOpen, onToggle: () => setSoftInputOpen((v) => !v) }
+                  : null
+              }
             />
           </div>
         </footer>
 
         {/* Soft input, at the very bottom so it grows *downward*: the grid row
             animates 0fr → 1fr, and the terminal above gives up exactly that much
-            height (it is the flex-1 row), which is what makes the PTY resize.
-            Kept mounted so the row can animate and so a half-typed line survives
-            a collapse; `inert` keeps a closed panel out of the tab order. */}
-        <div
-          className="grid shrink-0 transition-[grid-template-rows] duration-200 ease-out"
-          style={{ gridTemplateRows: softInputOpen ? '1fr' : '0fr' }}
-          aria-hidden={!softInputOpen}
-          {...(!softInputOpen ? { inert: true } : {})}
-        >
-          <div ref={softInputRef} className="min-h-0 overflow-hidden">
-            <SoftInputBar
-              enabled={status === 'connected'}
-              applicationCursorKeys={applicationCursorKeys}
-              onSendText={(text) => insertInput({ text }, true)}
-              onSendKeys={sendChord}
-              onCollapse={() => {
-                setSoftInputOpen(false);
-                term?.focus();
-              }}
-            />
-          </div>
-        </div>
+            height (it is the flex-1 row), which is what makes the PTY resize. */}
+        <SoftInputPanel
+          open={softInputOpen}
+          enabled={status === 'connected'}
+          applicationCursorKeys={applicationCursorKeys}
+          onSendText={(text) => insertInput({ text }, true)}
+          onSendKeys={sendChord}
+          onCollapse={() => {
+            setSoftInputOpen(false);
+            term?.focus();
+          }}
+        />
         {/* Toast overlay for copy confirmation */}
         {toastMsg && <Toast message={toastMsg} />}
       </div>

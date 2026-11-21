@@ -578,6 +578,22 @@ survives a collapse; focus lands 200 ms later, once the row is no longer clipped
 - Collapsing it (the `⌄` button, or the status-bar toggle again) gives the space
   back to the terminal and refocuses it.
 
+### 15.1 The same panel in Baikal's terminals
+
+The panel is not the shell tile's private feature. `components/term/SoftInputPanel`
+owns the row, its animation and the 220 ms focus delay, and the toggle rides in
+the shared `TermToolbar` (`softInput` prop) — so `/term` and Baikal's attached
+terminals put the same button in the same place and behave the same way. A tile
+that does not host a panel passes nothing, which is why the desktop footer has no
+button in either.
+
+The panel is mounted *inside* the tile's own column, below its status bar, so
+opening it shrinks the terminal and the attachment reports the new grid to the
+core — the same resize path a desktop window takes. Text goes through the tile's
+`insert({text}, true)` (bracketed paste when asked, then Enter), which is the
+same door snippets use, so the line recorder and the shell's history stay honest;
+the arrows and PgUp/PgDn go through `term.input`, exactly as typed keys do.
+
 The pure part — `cursorSequence`, `PAGE_UP_SEQUENCE`, `PAGE_DOWN_SEQUENCE`,
 `softInputText` in `lib/termSoftKeys.ts` — is asserted in `check-mobile.mjs`:
 DECCKM on/off, the exact page sequences, and that text survives untouched

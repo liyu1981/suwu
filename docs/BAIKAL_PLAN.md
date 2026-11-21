@@ -485,6 +485,14 @@ core came back. `go test ./...`, `pnpm check` and the tile review checks are gre
   tile and baikal's attached shells render it. The baikal terminal hides its
   scrollbar (`baikal-term`), because the wheel and keyboard reach the scrollback
   and a bar down a full-tile terminal is noise.
+- **The soft-input panel is shared too.** `components/term/SoftInputPanel` holds
+  the panel row, its `0fr → 1fr` growth and the focus delay, and the toggle comes
+  in through `TermToolbar`'s `softInput` prop — so a phone gets the same keypad on
+  a baikal terminal as on `/term`, and opening it resizes the *core's* grid.
+- **The empty panel offers terminals by name *and* address** — `suwu-dev (t12)`
+  (`terminalLabel`). Two shells started in the same directory share the name the
+  core derives from it, and a bare name cannot say which terminal a click will
+  attach to; the address is the identity every action takes.
 - **The attach re-sends its grid after `ready`**: the tile iframe gets its final
   size after mount, and attaching at the transient, narrow width left the shell
   wrapping its prompt in a 25-column window.

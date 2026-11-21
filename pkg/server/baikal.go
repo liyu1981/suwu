@@ -124,6 +124,9 @@ type baikalRunRequest struct {
 	Cwd     string `json:"cwd"`
 	SpaceID string `json:"spaceId"`
 	Name    string `json:"name"`
+	// Cols/rows size the shell before it draws its prompt; see Core.RunShell.
+	Cols int `json:"cols"`
+	Rows int `json:"rows"`
 }
 
 func (s *Server) handleBaikalRun(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +149,14 @@ func (s *Server) handleBaikalRun(w http.ResponseWriter, r *http.Request) {
 	core := s.baikal.get(baikalSession(r))
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	terminal, spaceID, err := core.RunShell(ctx, req.Cwd, req.SpaceID, req.Name)
+	cols, rows := req.Cols, req.Rows
+	if cols < 1 || cols > 4096 {
+		cols = 0
+	}
+	if rows < 1 || rows > 4096 {
+		rows = 0
+	}
+	terminal, spaceID, err := core.RunShell(ctx, req.Cwd, req.SpaceID, req.Name, cols, rows)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 		return

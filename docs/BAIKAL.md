@@ -34,22 +34,30 @@ A terminal started outside Baikal (`hc run --bg claude` from a shell) has no
 label: it appears under **Unassigned**, grouped by its directory, and can be moved
 into a space from its ⋯ menu.
 
-Spaces are coloured from a hash of their id (`⋯` → colour), so a space keeps its
-colour regardless of its name. The **+** beside the filter box opens a shell in a
+Spaces are listed in **creation order** — the oldest first, new ones appended —
+and renaming never moves one. They are coloured from a hash of their id (`⋯` →
+colour), so a space keeps its colour regardless of its name. The **+** beside the filter box opens a shell in a
 **new** space, in the current space's directory.
 
 Selecting a space (its name, not the ▾) switches the tab strip to that space's
 terminals, the way Herdr's TUI switches tabs with the workspace. Terminals of the
 other spaces stay attached — switching away only hides them.
 
+**Agents** are listed above the spaces: every terminal that announced itself over
+OSC 7501, most actionable first (blocked, error, working, then the rest). A row
+shows the program's own status word and message, and tapping it switches to that
+agent's space and tab.
+
 ## Tabs
 
 A tab is one attached terminal. Opening one twice is impossible: the second open
 activates the existing tab.
 
-- **Closing a tab detaches.** The program keeps running in the daemon. This is the
-  single most important difference from a terminal tile. Switching spaces hides
-  tabs but does not close them, so nothing detaches behind your back.
+- **Closing a tab ends its program.** The × is the deliberate "stop this": it
+  kills the terminal and drops the tab. Hiding is what *switching spaces* does —
+  the attachment stays, the program keeps running, and coming back shows it again
+  without a reattach. Use the terminal's ⋯ → **Peek** if you only want to look at a
+  terminal that is running elsewhere.
 - **Open read-only** attaches as an observer (`observe`): it never types and never
   changes the terminal's size, so you can watch an agent without disturbing it.
 - **Peek** shows the last 200 lines of the screen as text, without attaching at

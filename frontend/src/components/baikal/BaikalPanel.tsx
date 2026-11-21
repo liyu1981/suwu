@@ -10,6 +10,7 @@ import { useSidebarCollapse } from '../hooks/useSidebarCollapse';
 import { authFetch } from '../../lib/api';
 import {
   closeTab,
+  listAgents,
   openTab,
   sortSpaces,
   syncTabTitles,
@@ -63,10 +64,17 @@ export function BaikalPanel() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [peek, setPeek] = useState<BaikalTerminal | null>(null);
   const hydrated = useRef(false);
+  /** Grid of the last terminal shown, so a new shell starts at that size. */
+  const lastSize = useRef<{ cols: number; rows: number } | null>(null);
+  /** Tabs that have been on screen once. A terminal born inside `display: none`
+   *  measures 0×0, and xterm then paints the first screen into a one-column grid
+   *  — which is why the first look at a restored tab used to be empty. */
+  const [seenTabs, setSeenTabs] = useState<ReadonlySet<string>>(() => new Set());
 
   const sidebar = useSidebarCollapse('baikal');
 
   const orderedSpaces = useMemo(() => sortSpaces(spaces), [spaces]);
+  const agents = useMemo(() => listAgents(terminals), [terminals]);
   const activeSpace = orderedSpaces.find((space) => space.id === activeSpaceId);
   const active = spaceTabs[activeSpaceId] ?? EMPTY_SPACE_TABS;
   const activeTab = active.tabs.find((tab) => tab.id === active.activeId);
@@ -118,6 +126,15 @@ export function BaikalPanel() {
     });
   }, [snapshot, terminals]);
 
+  // Remember the active tab once it has been shown; it stays mounted from then on
+  // (hidden tabs keep their attachment), but a restored tab is only mounted when
+  // it is first revealed.
+  useEffect(() => {
+    if (!activeTab) return;
+    const key = `${activeSpaceId}:${activeTab.id}`;
+    setSeenTabs((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+  }, [activeSpaceId, activeTab]);
+
   const upsertSpaceTabs = useCallback((spaceId: string, fn: (entry: SpaceTabs) => SpaceTabs) => {
     setSpaceTabs((prev) => ({
       ...prev,
@@ -138,14 +155,38 @@ export function BaikalPanel() {
     [activeSpaceId, upsertSpaceTabs],
   );
 
+  // Closing a tab ends that terminal's program. Hiding a tab (switching space)
+  // only detaches the view; the × is the deliberate "stop this" — so it kills the
+  // terminal first and removes the tab, rather than leaving an orphan running in
+  // the daemon with nothing pointing at it.
   const close = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      const tab = (spaceTabs[activeSpaceId]?.tabs ?? []).find((candidate) => candidate.id === id);
+      const terminal = tab
+        ? terminals.find((candidate) => candidate.address === tab.terminal)
+        : undefined;
+      // Remove the tab in the same turn: the kill makes the core close the
+      // stream, whose handler also prunes the tab, and both are idempotent.
       upsertSpaceTabs(activeSpaceId, (entry) => {
         const next = closeTab(entry.tabs, entry.activeId, id);
         return { tabs: next.tabs, activeId: next.activeId };
       });
+      if (!terminal) return;
+      try {
+        // A terminal that ended between the snapshot and this click is already
+        // what we wanted; only removing its record is left to do.
+        if (terminal.live) {
+          await postJSON('/api/baikal/terminal', { action: 'kill', terminal: terminal.address });
+        } else {
+          await postJSON('/api/baikal/terminal', { action: 'rm', terminal: terminal.address });
+        }
+      } catch {
+        // Kill racing the program's own exit surfaces as EOF or "no such
+        // terminal" — the tab is gone either way, so keep it quiet.
+      }
+      await refresh();
     },
-    [activeSpaceId, upsertSpaceTabs],
+    [activeSpaceId, refresh, spaceTabs, terminals, upsertSpaceTabs],
   );
 
   // "+ shell" starts a shell in the active space; a new space starts one in the
@@ -156,11 +197,17 @@ export function BaikalPanel() {
       setCreating(true);
       setActionError(null);
       try {
+        // Create the shell at the size the pane will have. Core's default is
+        // 200×120, and attaching a 30-row viewer then scrolls the first prompt
+        // above the visible rows — the pane looks empty until a keypress.
+        const size = lastSize.current ?? estimateGrid();
         const result = await postJSON<{ terminal: string; spaceId: string; cwd: string }>(
           '/api/baikal/run',
           {
             cwd: activeSpace?.identityCwd ?? '',
             spaceId: freshSpace ? '' : (activeSpace?.id ?? ''),
+            cols: size.cols,
+            rows: size.rows,
           },
         );
         await refresh();
@@ -305,6 +352,8 @@ export function BaikalPanel() {
             <aside className="w-56 shrink-0 border-r border-white/[0.06]">
               <SpaceList
                 spaces={spaces}
+                agents={agents}
+                onOpenAgent={(terminal) => open(terminal)}
                 unassigned={snapshot?.unassigned ?? []}
                 activeSpaceId={activeSpaceId}
                 activeTerminal={activeTab?.terminal}
@@ -331,7 +380,7 @@ export function BaikalPanel() {
               onSelect={(id) =>
                 upsertSpaceTabs(activeSpaceId, (entry) => ({ ...entry, activeId: id }))
               }
-              onClose={close}
+              onClose={(id) => void close(id)}
               onNewShell={() => void newShell()}
               creating={creating}
             />
@@ -343,9 +392,11 @@ export function BaikalPanel() {
               {Object.entries(spaceTabs).flatMap(([spaceId, entry]) =>
                 entry.tabs.map((tab) => {
                   const visible = spaceId === activeSpaceId && tab.id === active.activeId;
+                  const key = `${spaceId}:${tab.id}`;
+                  if (!visible && !seenTabs.has(key)) return null;
                   return (
                     <div
-                      key={`${spaceId}:${tab.id}`}
+                      key={key}
                       className="absolute inset-0 p-1.5"
                       style={{ display: visible ? undefined : 'none' }}
                     >
@@ -354,6 +405,9 @@ export function BaikalPanel() {
                         session={session}
                         observe={tab.observe}
                         visible={visible}
+                        onSize={(cols, rows) => {
+                          lastSize.current = { cols, rows };
+                        }}
                         onDetached={(terminal) => {
                           // A program that ended has no tab left to show.
                           setSpaceTabs((prev) => {
@@ -473,6 +527,20 @@ function CoreError({ error, hint }: { error: string; hint: string | null }) {
       <p className="mt-1 break-words text-[11px] leading-relaxed text-white/50">{hint ?? error}</p>
     </div>
   );
+}
+
+/**
+ * A grid guess for the first shell of a session, when no terminal has reported a
+ * size yet. Monospace at the default 14 px is ~8.4×17 px per cell; the shell is
+ * created at this size so its first prompt lands inside the visible rows, and the
+ * real attach resizes it by at most a few cells.
+ */
+function estimateGrid(): { cols: number; rows: number } {
+  const width = window.innerWidth || 800;
+  const height = window.innerHeight || 600;
+  const cols = Math.max(20, Math.floor((width - 240 - 12) / 8.4));
+  const rows = Math.max(6, Math.floor((height - 32 - 36 - 24 - 12) / 17));
+  return { cols, rows };
 }
 
 async function postJSON<T = { ok: boolean }>(path: string, body: unknown): Promise<T> {

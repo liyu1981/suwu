@@ -398,15 +398,18 @@ type TerminalView struct {
 
 // Space is one named group of terminals.
 type Space struct {
-	ID               string         `json:"id"`
-	Name             string         `json:"name"`
-	CustomName       string         `json:"customName,omitempty"`
-	IdentityCwd      string         `json:"identityCwd"`
-	IdentityTerminal string         `json:"identityTerminal,omitempty"`
-	Colour           string         `json:"colour"`
-	Order            int            `json:"order,omitempty"`
-	Synthetic        bool           `json:"synthetic,omitempty"`
-	Terminals        []TerminalView `json:"terminals"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	CustomName       string `json:"customName,omitempty"`
+	IdentityCwd      string `json:"identityCwd"`
+	IdentityTerminal string `json:"identityTerminal,omitempty"`
+	Colour           string `json:"colour"`
+	Order            int    `json:"order,omitempty"`
+	// CreatedMS is when the space's first terminal was opened: spaces are shown
+	// in creation order, so this is what the list sorts by.
+	CreatedMS int64          `json:"createdMs,omitempty"`
+	Synthetic bool           `json:"synthetic,omitempty"`
+	Terminals []TerminalView `json:"terminals"`
 }
 
 // Snapshot is everything the tile needs for its left panel.
@@ -502,6 +505,7 @@ func (c *Core) Snapshot(ctx context.Context) (Snapshot, error) {
 			ID:          id,
 			Name:        name,
 			Order:       meta.Order,
+			CreatedMS:   group[0].CreatedMS,
 			CustomName:  meta.CustomName,
 			IdentityCwd: identityCwd,
 			Colour:      colour,
@@ -541,7 +545,12 @@ func view(t Terminal, spaceID string) TerminalView {
 
 // RunShell starts a login shell in cwd, in space spaceID (a fresh space when
 // empty), and records it as the space's identity terminal.
-func (c *Core) RunShell(ctx context.Context, cwd, spaceID, name string) (Terminal, string, error) {
+//
+// cols/rows size the terminal *before* the shell draws its first prompt. Without
+// them core uses its own default (200×120), and attaching a smaller viewer then
+// scrolls that prompt above the visible rows — the pane looks empty until the
+// next keypress draws a new one.
+func (c *Core) RunShell(ctx context.Context, cwd, spaceID, name string, cols, rows int) (Terminal, string, error) {
 	conn, err := c.ensure(ctx)
 	if err != nil {
 		return Terminal{}, "", err
@@ -555,6 +564,9 @@ func (c *Core) RunShell(ctx context.Context, cwd, spaceID, name string) (Termina
 	params := map[string]any{
 		"cwd":    cwd,
 		"labels": map[string]string{"space": spaceID},
+	}
+	if cols > 0 && rows > 0 {
+		params["size"] = map[string]int{"cols": cols, "rows": rows}
 	}
 	if name != "" {
 		params["name"] = name

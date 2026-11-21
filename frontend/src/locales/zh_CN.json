@@ -928,7 +928,7 @@
     "detached": "已断开",
     "reconnect": "重新连接",
     "wsError": "连接已断开",
-    "detach": "断开",
+    "detach": "关闭终端",
     "actions": "终端操作",
     "open": "打开",
     "openReadOnly": "以只读方式打开",
@@ -951,6 +951,8 @@
     "pickTerminal": "选择一个终端",
     "pickTerminalHint": "从左侧列表中选择，或新建一个 shell。",
     "expandSpace": "展开空间",
-    "collapseSpace": "收起空间"
+    "collapseSpace": "收起空间",
+    "detachHint": "结束该终端的进程",
+    "agents": "智能体"
   }
 }

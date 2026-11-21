@@ -12,6 +12,7 @@ import {
   groupUnassigned,
   makeTab,
   openTab,
+  listAgents,
   spaceColour,
   spaceInitial,
   sortSpaces,
@@ -52,15 +53,40 @@ assert.equal(spaceColour('not-a-colour').dot, spaceColour('sky').dot, 'unknown c
 
 // ── space ordering and badges ────────────────────────────────────────────
 const space = (id, name, order) => ({ id, name, identityCwd: '/' + name, colour: 'sky', terminals: [], order });
+// Creation order: oldest first, newer appended — renaming never moves a space.
 assert.deepEqual(
-  sortSpaces([space('b3', 'zeta'), space('b1', 'Alpha'), space('b2', 'beta')]).map((s) => s.name),
+  sortSpaces([
+    { ...space('b3', 'zeta'), createdMs: 300 },
+    { ...space('b1', 'Alpha'), createdMs: 100 },
+    { ...space('b2', 'beta'), createdMs: 200 },
+  ]).map((s) => s.name),
   ['Alpha', 'beta', 'zeta'],
-  'spaces sort by name, case-insensitively',
+  'spaces keep creation order, not alphabetical',
 );
 assert.deepEqual(
-  sortSpaces([space('b1', 'zeta', 2), space('b2', 'alpha', 1)]).map((s) => s.name),
-  ['alpha', 'zeta'],
-  'an explicit order wins over the name',
+  sortSpaces([space('b9', 'same'), space('b1', 'same')]).map((s) => s.id),
+  ['b1', 'b9'],
+  'equal or missing creation times fall back to the id',
+);
+
+// Agents: only terminals that announced a status, most actionable first.
+const agent = (address, state, createdMs) =>
+  terminal({
+    address,
+    name: address,
+    createdMs,
+    status: state ? { state } : null,
+  });
+assert.deepEqual(
+  listAgents([
+    agent('t1', 'idle', 10),
+    agent('t2', 'working', 20),
+    agent('t3', null, 5),
+    agent('t4', 'blocked', 30),
+    { ...agent('t5', 'done', 40), live: false },
+  ]).map((t) => t.address),
+  ['t4', 't2', 't1'],
+  'blocked, then working, then the rest; finished and status-less terminals are not agents',
 );
 assert.equal(spaceInitial('suwu-dev'), 'S');
 assert.equal(spaceInitial('~'), '~');

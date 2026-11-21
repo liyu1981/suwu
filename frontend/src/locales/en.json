@@ -931,7 +931,7 @@
     "detached": "Detached",
     "reconnect": "Reconnect",
     "wsError": "Connection lost",
-    "detach": "Detach",
+    "detach": "Close terminal",
     "actions": "Terminal actions",
     "open": "Open",
     "openReadOnly": "Open read-only",
@@ -954,6 +954,8 @@
     "pickTerminal": "Pick a terminal",
     "pickTerminalHint": "Choose one from the list, or start a new shell.",
     "expandSpace": "Expand space",
-    "collapseSpace": "Collapse space"
+    "collapseSpace": "Collapse space",
+    "detachHint": "End this terminal’s program",
+    "agents": "Agents"
   }
 }

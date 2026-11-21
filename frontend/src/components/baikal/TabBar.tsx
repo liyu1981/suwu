@@ -66,7 +66,7 @@ export function TabBar({
               type="button"
               onClick={() => onClose(tab.id)}
               aria-label={t('baikal.detach')}
-              title={t('baikal.detach')}
+              title={t('baikal.detachHint')}
               className="shrink-0 rounded px-1 text-white/30 transition hover:bg-white/10 hover:text-white/80"
             >
               ×

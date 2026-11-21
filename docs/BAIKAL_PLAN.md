@@ -504,3 +504,24 @@ once `ready` arrives, because the tile's iframe gets its final size after mount.
 Smaller polish in the same commit: the tab content gets a 6 px inset (a terminal
 touching the tab border reads as clipped), and the filter row and the tab strip
 share a 36 px height with 28 px controls, so the two "+" buttons line up.
+
+### 13.3 Second round of changes
+
+- **Spaces are listed in creation order** (oldest first), not alphabetically; the
+  server exposes the space's `createdMs` (its first terminal's start time) and
+  `sortSpaces` uses it, falling back to the id for ties.
+- **An Agents section** sits above the spaces: terminals that announced a status
+  over OSC 7501, sorted blocked → error → working → done → idle. Tapping one
+  selects its space and opens (or activates) its tab, which is how Herdr's TUI
+  jumps to an agent's workspace.
+- **A tab's × ends the session.** It was a detach; the user wants it to stop the
+  program, so it kills the terminal (or removes a finished record) and drops the
+  tab. Hiding remains what switching spaces does.
+- **New shells are created at the viewer's size.** Core's default is 200×120;
+  attaching a 30-row viewer scrolled the first prompt above the visible rows, so
+  a fresh space looked empty until a keypress. `terminal.run` now receives
+  `size {cols, rows}` from the last terminal's grid (or a monospace estimate).
+- **A restored tab attaches only when first shown.** A terminal born inside
+  `display: none` measures 0×0 and paints its first screen into a one-column grid
+  — the first look at a restored tab was empty until you switched away and back.
+  Tabs are now mounted on first reveal and stay mounted afterwards.

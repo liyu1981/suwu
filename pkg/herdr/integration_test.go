@@ -54,7 +54,7 @@ func TestIntegrationRunAttachRead(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	terminal, spaceID, err := core.RunShell(ctx, dir, "", "itest")
+	terminal, spaceID, err := core.RunShell(ctx, dir, "", "itest", 100, 30)
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}

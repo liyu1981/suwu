@@ -27,6 +27,8 @@ export interface BaikalTermProps {
   observe?: boolean;
   /** False while the tab is hidden: the pane must not resize the core then. */
   visible?: boolean;
+  /** Reports the grid, so a shell started next can be created at this size. */
+  onSize?: (cols: number, rows: number) => void;
   /** Bumped by the parent to force a fresh attach (the Reconnect button). */
   attempt?: number;
   onDetached?: (terminal: string) => void;
@@ -53,6 +55,7 @@ export function BaikalTerm({
   visible = true,
   attempt = 0,
   onDetached,
+  onSize,
 }: BaikalTermProps) {
   const { t } = useTranslation();
   const fontFamily = useAtomValue(fontFamilyAtom);
@@ -258,6 +261,7 @@ export function BaikalTerm({
     });
 
     const resizeDisposable = term.onResize(({ cols, rows }) => {
+      onSize?.(cols, rows);
       const ws = current.ws;
       // A hidden pane measures 0×0; resizing the core to that makes the shell
       // redraw its prompt in a one-column terminal.
@@ -280,7 +284,11 @@ export function BaikalTerm({
       ws?.close();
       socketRef.current = null;
     };
-  }, [term, terminal, session, observe, visible, attempt, reconnect, onDetached, t]);
+  }, [term, terminal, session, observe, visible, attempt, reconnect, onDetached, onSize, t]);
+
+  useEffect(() => {
+    if (term && term.cols > 0 && term.rows > 0) onSize?.(term.cols, term.rows);
+  }, [term, onSize]);
 
   // Revealing a tab: fit to the box it now has, and tell the core once. This is
   // the only resize a hidden/shown cycle is allowed to cause.

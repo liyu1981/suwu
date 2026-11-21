@@ -39,6 +39,8 @@ export type BaikalSpace = {
   identityTerminal?: string;
   colour: string;
   order?: number;
+  /** When the space's first terminal was opened (spaces list in this order). */
+  createdMs?: number;
   synthetic?: boolean;
   terminals: BaikalTerminal[];
 };
@@ -127,15 +129,16 @@ export function terminalSubtitle(terminal: BaikalTerminal): string {
 }
 
 /**
- * Spaces in display order: an explicit order first (the document's), then the
- * name, so renaming a space moves it where a person would look for it instead of
- * where its random id happens to sort.
+ * Spaces in creation order — the oldest first, new ones appended. Renaming a
+ * space does not move it: the list is a history of what you opened, not an index.
+ * Ties (same millisecond, or an old snapshot without the field) fall back to the
+ * id so the order is still stable.
  */
 export function sortSpaces(spaces: BaikalSpace[]): BaikalSpace[] {
   return [...spaces].sort((a, b) => {
-    const order = (a.order ?? 0) - (b.order ?? 0);
-    if (order !== 0) return order;
-    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    const created = (a.createdMs ?? 0) - (b.createdMs ?? 0);
+    if (created !== 0) return created;
+    return a.id.localeCompare(b.id);
   });
 }
 
@@ -145,6 +148,34 @@ export function spaceInitial(name: string): string {
   if (!trimmed) return '·';
   const first = [...trimmed][0];
   return first.toUpperCase();
+}
+
+/**
+ * The agents list: every terminal that announced itself over OSC 7501, most
+ * actionable first — a blocked agent is the reason to look at this list at all —
+ * then working, then the rest, then creation order.
+ */
+const AGENT_STATE_PRIORITY: Record<string, number> = {
+  blocked: 0,
+  error: 1,
+  working: 2,
+  done: 3,
+  idle: 4,
+};
+
+export function listAgents(terminals: BaikalTerminal[]): BaikalTerminal[] {
+  return terminals
+    .filter((terminal) => terminal.live && terminal.status)
+    .sort((a, b) => {
+      const rank = agentStateRank(a) - agentStateRank(b);
+      if (rank !== 0) return rank;
+      return a.createdMs - b.createdMs;
+    });
+}
+
+function agentStateRank(terminal: BaikalTerminal): number {
+  const state = terminal.status?.state ?? '';
+  return AGENT_STATE_PRIORITY[state] ?? 5;
 }
 
 /**

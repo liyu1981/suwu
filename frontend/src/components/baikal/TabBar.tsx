@@ -41,7 +41,7 @@ export function TabBar({
           <div
             key={tab.id}
             className={cn(
-              'group flex h-7 shrink-0 items-center gap-1.5 rounded-t-[6px] border border-b-0 px-2 text-[11px] transition',
+              'group flex h-7 shrink-0 items-center gap-1.5 rounded-t-[6px] border border-b-0 px-2 text-xs transition',
               isActive
                 ? 'border-white/[0.10] bg-white/[0.08] text-white'
                 : 'border-transparent text-white/45 hover:bg-white/[0.04] hover:text-white/70',
@@ -59,7 +59,9 @@ export function TabBar({
               <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])} />
               <span className="truncate">{tab.title}</span>
               {tab.observe && (
-                <span className="shrink-0 text-[9px] text-sky-300">{t('baikal.observeShort')}</span>
+                <span className="shrink-0 text-[10px] text-sky-300">
+                  {t('baikal.observeShort')}
+                </span>
               )}
             </button>
             <button

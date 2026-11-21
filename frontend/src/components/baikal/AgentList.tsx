@@ -32,13 +32,13 @@ export function AgentList({ agents, spaces, activeTerminal, onOpenAgent }: Agent
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-7 shrink-0 items-center gap-1.5 px-2 text-[10px] uppercase tracking-wider text-white/25">
+      <div className="flex h-7 shrink-0 items-center gap-1.5 px-2 text-xs font-semibold uppercase tracking-wider text-white/30">
         {t('baikal.agents')}
         <span className="text-white/20">{agents.length}</span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-1 pb-2">
         {agents.length === 0 ? (
-          <div className="px-2 py-3 text-[10px] leading-relaxed text-white/25">
+          <div className="px-2 py-3 text-[11px] leading-relaxed text-white/25">
             {t('baikal.noAgents')}
           </div>
         ) : (
@@ -60,15 +60,15 @@ export function AgentList({ agents, spaces, activeTerminal, onOpenAgent }: Agent
                 >
                   <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] text-white/80">
+                    <span className="block truncate text-xs text-white/80">
                       {terminalTitle(terminal)}
                     </span>
-                    <span className="block truncate text-[10px] text-white/35">
+                    <span className="block truncate text-[11px] text-white/35">
                       {terminal.status?.state}
                       {terminal.status?.msg ? ` · ${terminal.status.msg}` : ''}
                     </span>
                   </span>
-                  <span className="max-w-16 shrink-0 truncate text-[9px] text-white/25">
+                  <span className="max-w-16 shrink-0 truncate text-[10px] text-white/25">
                     {spaceName(terminal)}
                   </span>
                 </button>

@@ -359,17 +359,17 @@ export function BaikalPanel() {
           >
             {sidebar.collapsed ? '›' : '‹'}
           </button>
-          <span className="text-sm font-semibold tracking-wide text-white/60">
+          <span className="text-base font-semibold tracking-wide text-white/60">
             {t('plugin.baikal')}
           </span>
           {core?.version && (
-            <span className="truncate text-[10px] text-white/25">
+            <span className="truncate text-[11px] text-white/40">
               {t('baikal.coreVersion', { version: core.version })}
             </span>
           )}
           <div className="flex-1" />
           {activeSpace && (
-            <span className="truncate text-[10px] text-white/30" title={activeSpace.identityCwd}>
+            <span className="truncate text-[11px] text-white/40" title={activeSpace.identityCwd}>
               {activeSpace.name}
             </span>
           )}
@@ -544,7 +544,7 @@ function Empty({
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       <div>
-        <div className="text-sm font-medium text-white/70">
+        <div className="text-base font-semibold text-white/70">
           {live.length > 0 ? t('baikal.pickTerminal') : t('baikal.empty')}
         </div>
         <div className="mt-1 max-w-sm text-[11px] leading-relaxed text-white/35">
@@ -559,7 +559,7 @@ function Empty({
               type="button"
               onClick={() => onOpen(terminal, false)}
               title={terminal.cwd}
-              className="max-w-40 truncate rounded-[6px] border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white/70 transition hover:bg-white/[0.10] hover:text-white"
+              className="max-w-40 truncate rounded-[6px] border border-white/10 bg-white/[0.05] px-2 py-1 text-xs text-white/70 transition hover:bg-white/[0.10] hover:text-white"
             >
               {terminalLabel(terminal)}
             </button>

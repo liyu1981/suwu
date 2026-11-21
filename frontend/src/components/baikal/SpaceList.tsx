@@ -106,10 +106,8 @@ export function SpaceList({
         >
           <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone])} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[11px] text-white/80">
-              {terminalTitle(terminal)}
-            </span>
-            <span className="block truncate text-[10px] text-white/35">
+            <span className="block truncate text-xs text-white/80">{terminalTitle(terminal)}</span>
+            <span className="block truncate text-[11px] text-white/35">
               {terminalSubtitle(terminal)}
             </span>
           </span>
@@ -137,7 +135,7 @@ export function SpaceList({
           onChange={(event) => setFilter(event.target.value)}
           placeholder={t('baikal.filter')}
           aria-label={t('baikal.filter')}
-          className="h-7 min-w-0 flex-1 rounded-[6px] border border-white/10 bg-black/30 px-2 text-[11px] text-slate-100 placeholder:text-white/25 focus-visible:border-sky-400/50 focus-visible:outline-none"
+          className="h-7 min-w-0 flex-1 rounded-[6px] border border-white/10 bg-black/30 px-2 text-xs text-slate-100 placeholder:text-white/25 focus-visible:border-sky-400/50 focus-visible:outline-none"
         />
         <button
           type="button"
@@ -151,7 +149,7 @@ export function SpaceList({
         </button>
       </div>
 
-      <div className="flex h-7 shrink-0 items-center gap-1.5 px-2 text-[10px] uppercase tracking-wider text-white/25">
+      <div className="flex h-7 shrink-0 items-center gap-1.5 px-2 text-xs font-semibold uppercase tracking-wider text-white/30">
         {t('baikal.spaces')}
         <span className="text-white/20">{groups.spaceGroups.length}</span>
       </div>
@@ -194,13 +192,13 @@ export function SpaceList({
                   </span>
                   <span
                     className={cn(
-                      'min-w-0 flex-1 truncate text-[11px] font-semibold',
+                      'min-w-0 flex-1 truncate text-xs font-semibold',
                       isActive ? 'text-white' : 'text-white/75',
                     )}
                   >
                     {space.name}
                   </span>
-                  <span className="shrink-0 text-[10px] text-white/25">{terminals.length}</span>
+                  <span className="shrink-0 text-[11px] text-white/30">{terminals.length}</span>
                 </button>
                 <SpaceMenu
                   space={space}
@@ -220,12 +218,12 @@ export function SpaceList({
 
         {groups.loose.length > 0 && (
           <div className="mb-1">
-            <div className="flex items-center gap-1.5 px-1 py-1 text-[10px] uppercase tracking-wider text-white/25">
+            <div className="flex items-center gap-1.5 px-1 py-1 text-xs font-semibold uppercase tracking-wider text-white/30">
               {t('baikal.unassigned')}
             </div>
             {groups.loose.map((group) => (
               <div key={group.cwd} className="mb-1">
-                <div className="truncate px-1 pl-4 text-[10px] text-white/35" title={group.cwd}>
+                <div className="truncate px-1 pl-4 text-[11px] text-white/35" title={group.cwd}>
                   {group.name}
                 </div>
                 <div className="mt-0.5 flex flex-col gap-0.5 pl-4">

@@ -43,7 +43,7 @@ export function SpaceMenu({ space, onRename, onColour, onForget }: SpaceMenuProp
       </PopoverTrigger>
       <PopoverContent align="end" side="bottom" className="w-60 p-2">
         <label
-          className="block text-[10px] uppercase tracking-wider text-white/30"
+          className="block text-xs font-semibold uppercase tracking-wider text-white/30"
           htmlFor={`space-name-${space.id}`}
         >
           {t('baikal.rename')}
@@ -61,18 +61,18 @@ export function SpaceMenu({ space, onRename, onColour, onForget }: SpaceMenuProp
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={space.identityCwd}
-            className="h-7 min-w-0 flex-1 rounded-[6px] border border-white/10 bg-black/30 px-2 text-[11px] text-white/85 placeholder:text-white/25 focus-visible:border-sky-400/50 focus-visible:outline-none"
+            className="h-7 min-w-0 flex-1 rounded-[6px] border border-white/10 bg-black/30 px-2 text-xs text-white/85 placeholder:text-white/25 focus-visible:border-sky-400/50 focus-visible:outline-none"
           />
           <button
             type="submit"
-            className="shrink-0 rounded-[6px] bg-sky-600/80 px-2 text-[11px] font-medium text-white transition hover:bg-sky-500"
+            className="shrink-0 rounded-[6px] bg-sky-600/80 px-2 text-xs font-medium text-white transition hover:bg-sky-500"
           >
             {t('baikal.save')}
           </button>
         </form>
-        <p className="mt-1 text-[10px] leading-relaxed text-white/30">{t('baikal.renameHint')}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-white/30">{t('baikal.renameHint')}</p>
 
-        <div className="mt-2 text-[10px] uppercase tracking-wider text-white/30">
+        <div className="mt-2 text-xs font-semibold uppercase tracking-wider text-white/30">
           {t('baikal.colour')}
         </div>
         <div className="mt-1 flex flex-wrap gap-1.5">
@@ -101,12 +101,12 @@ export function SpaceMenu({ space, onRename, onColour, onForget }: SpaceMenuProp
             onForget(space);
             setOpen(false);
           }}
-          className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] text-red-300 transition hover:bg-red-500/15"
+          className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-red-300 transition hover:bg-red-500/15"
         >
           <span className={cn('h-2 w-2 rounded-full', dot)} />
           {t('baikal.forgetSpace')}
         </button>
-        <p className="mt-1 px-2 text-[10px] leading-relaxed text-white/30">
+        <p className="mt-1 px-2 text-[11px] leading-relaxed text-white/30">
           {t('baikal.forgetHint')}
         </p>
       </PopoverContent>

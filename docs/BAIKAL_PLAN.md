@@ -493,6 +493,15 @@ core came back. `go test ./...`, `pnpm check` and the tile review checks are gre
   (`terminalLabel`). Two shells started in the same directory share the name the
   core derives from it, and a bare name cannot say which terminal a click will
   attach to; the address is the identity every action takes.
+- **The panel follows the tile type scale.** The header said `text-sm` and the
+  whole left panel lived at Caption/Micro (11/10 px), which made the tile read as
+  a smaller app beside DBBrowser and the REST helper. It now matches them: header
+  title Heading (`text-base font-semibold`), header meta Caption (11), section
+  labels Label (`text-xs font-semibold uppercase tracking-wider`), space/agent/tab
+  rows Label (12) with Caption (11) secondary lines, menus and inputs Label (12),
+  and the Peek dialog drops its `text-sm` override so its title is the standard
+  Heading — its mono body moves from 11 to Body (14) like the terminal's cache
+  preview.
 - **The attach re-sends its grid after `ready`**: the tile iframe gets its final
   size after mount, and attaching at the transient, narrow width left the shell
   wrapping its prompt in a 25-column window.

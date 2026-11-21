@@ -25,7 +25,7 @@ export interface TerminalMenuProps {
 }
 
 const itemClass =
-  'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40';
+  'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40';
 
 export function TerminalMenu({
   terminal,
@@ -190,14 +190,14 @@ export function PeekDialog({
       }}
     >
       <DialogContent className="flex max-h-[80dvh] w-[min(92vw,46rem)] flex-col">
-        <DialogTitle className="text-sm">
+        <DialogTitle>
           {terminal ? `${t('baikal.peek')} — ${terminal.address}` : t('baikal.peek')}
         </DialogTitle>
         <div className="mt-2 min-h-0 flex-1 overflow-auto scrollbar-thin rounded bg-black/40 p-3">
           {error ? (
             <div className="text-[11px] text-red-300">{error}</div>
           ) : text ? (
-            <pre className="whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-white/75">
+            <pre className="whitespace-pre-wrap break-all font-mono text-sm leading-relaxed text-white/75">
               {text}
             </pre>
           ) : (
@@ -208,7 +208,7 @@ export function PeekDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-[6px] border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] text-white/70 transition hover:bg-white/[0.10]"
+            className="rounded-[6px] border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-white/70 transition hover:bg-white/[0.10]"
           >
             {t('dialog.close')}
           </button>

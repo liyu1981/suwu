@@ -393,7 +393,6 @@
     "name": "名称",
     "size": "大小",
     "modified": "修改时间",
-    "itemCount": "{{count}} 个项目",
     "back": "后退",
     "forward": "前进",
     "upOneLevel": "上级目录",
@@ -426,7 +425,8 @@
     "delete": "删除",
     "renameSuccess": "重命名成功",
     "deleteSuccess": "删除成功",
-    "uploadSuccess": "上传成功"
+    "uploadSuccess": "上传成功",
+    "itemCount_other": "{{count}} 个项目"
   },
   "wm": {
     "newTile": "+ 新建窗口",
@@ -514,7 +514,9 @@
     "sftp": "SFTP",
     "sftpDesc": "通过 SFTP 与远程机器传输文件",
     "staticServe": "静态服务",
-    "staticServeDesc": "预览通过 suwu static-serve 提供的文件夹"
+    "staticServeDesc": "预览通过 suwu static-serve 提供的文件夹",
+    "staticBrowse": "静态浏览",
+    "staticBrowseDesc": "浏览由静态服务发布的站点"
   },
   "codeExplorer": {
     "search": {

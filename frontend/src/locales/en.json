@@ -394,8 +394,6 @@
     "name": "Name",
     "size": "Size",
     "modified": "Modified",
-    "itemCount": "{{count}} item",
-    "itemCount_plural": "{{count}} items",
     "back": "Back",
     "forward": "Forward",
     "upOneLevel": "Up one level",
@@ -428,7 +426,9 @@
     "delete": "Delete",
     "renameSuccess": "File renamed successfully",
     "deleteSuccess": "File deleted successfully",
-    "uploadSuccess": "Files uploaded successfully"
+    "uploadSuccess": "Files uploaded successfully",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items"
   },
   "wm": {
     "newTile": "+ New tile",
@@ -516,7 +516,9 @@
     "sftp": "SFTP",
     "sftpDesc": "Transfer files to a remote machine over SFTP",
     "staticServe": "Static Serve",
-    "staticServeDesc": "Preview folders served by suwu static-serve"
+    "staticServeDesc": "Preview folders served by suwu static-serve",
+    "staticBrowse": "Static Browse",
+    "staticBrowseDesc": "Browse a site published by Static Serve"
   },
   "codeExplorer": {
     "search": {

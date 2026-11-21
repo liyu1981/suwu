@@ -1,6 +1,7 @@
 # Baikal — a herdr-core client as a Suwu tile
 
-Status: **research complete, decisions taken, not started.** No code written yet.
+Status: **shipped — phases 1–4 done.** Usage lives in `docs/BAIKAL.md`; §13
+records what landed and where it differs from this plan.
 Owner area: new tile `baikal` (plugin, route, panel), a `suwu hc` subcommand, an
 embedded herdr-core binary in every release, and a Go client for herdr-core's
 framed API.
@@ -435,3 +436,38 @@ changes send `FOCUS`; a tab close sends `CLOSE`. Validate `terminal` against
 4. When a space's last terminal is gone: keep it while it has a custom name or a
    colour (it is a deliberate object), drop it otherwise? (Recommend keep-if-named,
    with a “remove space” action.)
+
+## 13. What shipped
+
+| phase | scope | commit |
+|---|---|---|
+| 1 | `suwu hc`, embedded/pinned herdr-core, `pkg/herdr` (JSON-RPC + framed attach + snapshot), `/api/baikal/{snapshot,run}`, `/ws/baikal/attach`, tile with collapsible space list, tabs and inline xterm | `0d7d9e1` |
+| 2 | terminal ⋯ (open/read-only/peek/assign/end/remove), space ⋯ (rename/colour/forget), `+ shell` vs `+ space`, `/api/baikal/assign`, error strip | `9b93029` |
+| 3 | heartbeat/staleness, `missed` resync, channel-0 events, backoff reattach, tab pruning when a terminal is gone, `core_test.go` (assembly, events, doc conflict, redial) | `1e4c952` |
+| 4 | space ordering (explicit order, then name), space badges, `Ctrl/Cmd+Alt+←/→` tab cycling, `docs/BAIKAL.md`, this status | — |
+
+Deviations from the plan, and why:
+
+- **The attach WebSocket has its own tiny protocol** (binary = terminal bytes,
+  text = `resize`/`close` control) rather than reusing the PTY session protocol.
+  `usePtySession` carries session-restore metadata that a core attachment does not
+  have; a 60-line pane hook is clearer than bending that one, and the browser
+  still never speaks core's framed protocol.
+- **Space metadata lives in a herdr document named `baikal`** (`doc.get`/`doc.set`,
+  version-checked, one retry on conflict), so a second browser sees the same
+  names and colours. The tile falls back to session state only when documents are
+  unavailable. Verified with the fake core; the conflict retry is unit-tested.
+- **`terminal.label` merges keys** ("labels to set; `key=` removes one"), so
+  adopting a terminal with a `space=` label cannot clobber other labels — the
+  "labels replace the whole map" worry in §5.1 was wrong.
+- **The name's git lookup is cached** (60 s per directory, `git rev-parse
+  --show-toplevel`) rather than recomputed per snapshot.
+- **A core restart without `--keep` closes the tabs of the programs it ended**;
+  the pane's reattach loop is for lost lines, not for programs that are gone.
+
+Verified against herdr-core 0.1.21 with a scratch session: a shell started in
+`/tmp/suwu-baikal-demo` produced the space `suwu-baikal-demo`; typing in the
+attached terminal ran commands; `cd /tmp` renamed the space to `tmp` with the same
+id; rename/colour/clear-name, assign, peek/read, kill and remove all round-trip;
+stopping the core mid-attach showed the backoff countdown and recovered when the
+core came back. `go test ./...`, `pnpm check` and the tile review checks are green.

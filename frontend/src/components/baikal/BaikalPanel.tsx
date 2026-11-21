@@ -11,6 +11,7 @@ import { authFetch } from '../../lib/api';
 import {
   closeTab,
   openTab,
+  sortSpaces,
   syncTabTitles,
   type BaikalSpace,
   type BaikalTab,
@@ -227,6 +228,25 @@ export function BaikalPanel() {
     return tabs.find((tab) => tab.id === activeId)?.terminal ?? '';
   }
 
+  // Keyboard: Ctrl/Cmd+Alt+←/→ moves between tabs. The tile's terminals are
+  // inline (not iframes), so this listener can catch the keys before xterm sees
+  // them and stop them there — a shell should not receive a chord the panel used.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || !event.altKey) return;
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      if (tabs.length < 2) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const index = tabs.findIndex((tab) => tab.id === activeId);
+      const step = event.key === 'ArrowRight' ? 1 : -1;
+      const next = tabs[(index + step + tabs.length) % tabs.length];
+      if (next) setActiveId(next.id);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [tabs, activeId]);
+
   const activeTab = tabs.find((tab) => tab.id === activeId);
   const core = snapshot?.core;
 
@@ -259,7 +279,7 @@ export function BaikalPanel() {
           {!sidebar.collapsed && (
             <aside className="w-56 shrink-0 border-r border-white/[0.06]">
               <SpaceList
-                spaces={spaces}
+                spaces={sortSpaces(spaces)}
                 unassigned={snapshot?.unassigned ?? []}
                 active={activeTab?.terminal}
                 onOpen={open}
@@ -301,7 +321,12 @@ export function BaikalPanel() {
               ) : error ? (
                 <CoreError error={error} hint={hint} />
               ) : (
-                <Empty onNewShell={() => void newShell()} creating={creating} />
+                <Empty
+                  terminals={terminals}
+                  onOpen={open}
+                  onNewShell={() => void newShell()}
+                  creating={creating}
+                />
               )}
             </div>
 
@@ -327,16 +352,50 @@ function Centered({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Empty({ onNewShell, creating }: { onNewShell: () => void; creating: boolean }) {
+/**
+ * The panel with no tab open. "No terminals" and "no tab" are different states,
+ * and the second one is common — especially on a phone, where the space list is
+ * collapsed — so it offers the live terminals directly instead of only telling
+ * the user to start a shell.
+ */
+function Empty({
+  terminals,
+  onOpen,
+  onNewShell,
+  creating,
+}: {
+  terminals: BaikalTerminal[];
+  onOpen: (terminal: BaikalTerminal, observe: boolean) => void;
+  onNewShell: () => void;
+  creating: boolean;
+}) {
   const { t } = useTranslation();
+  const live = terminals.filter((terminal) => terminal.live).slice(0, 8);
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       <div>
-        <div className="text-sm font-medium text-white/70">{t('baikal.empty')}</div>
+        <div className="text-sm font-medium text-white/70">
+          {live.length > 0 ? t('baikal.pickTerminal') : t('baikal.empty')}
+        </div>
         <div className="mt-1 max-w-sm text-[11px] leading-relaxed text-white/35">
-          {t('baikal.emptyHint')}
+          {live.length > 0 ? t('baikal.pickTerminalHint') : t('baikal.emptyHint')}
         </div>
       </div>
+      {live.length > 0 && (
+        <div className="flex max-w-sm flex-wrap justify-center gap-1.5">
+          {live.map((terminal) => (
+            <button
+              key={terminal.address}
+              type="button"
+              onClick={() => onOpen(terminal, false)}
+              title={terminal.cwd}
+              className="max-w-40 truncate rounded-[6px] border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white/70 transition hover:bg-white/[0.10] hover:text-white"
+            >
+              {terminal.name || terminal.address}
+            </button>
+          ))}
+        </div>
+      )}
       <button
         type="button"
         onClick={onNewShell}

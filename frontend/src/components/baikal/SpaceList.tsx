@@ -4,7 +4,9 @@ import { cn } from '@/lib/utils';
 import {
   TONE_DOT,
   groupUnassigned,
+  sortSpaces,
   spaceColour,
+  spaceInitial,
   statusTone,
   terminalSubtitle,
   terminalTitle,
@@ -68,7 +70,7 @@ export function SpaceList({
       terminal.address.toLowerCase().includes(needle) ||
       (terminal.cwd ?? '').toLowerCase().includes(needle);
 
-    const spaceGroups = spaces
+    const spaceGroups = sortSpaces(spaces)
       .map((space) => ({ space, terminals: space.terminals.filter(matches) }))
       .filter((group) => group.terminals.length > 0);
     const loose = groupUnassigned(unassigned.filter(matches));
@@ -136,7 +138,7 @@ export function SpaceList({
 
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-1 pb-2">
         {groups.spaceGroups.map(({ space, terminals }) => {
-          const { dot } = spaceColour(space.colour);
+          const colour = spaceColour(space.colour);
           const isCollapsed = collapsed.has(space.id);
           return (
             <div key={space.id} className="group relative mb-1">
@@ -150,7 +152,15 @@ export function SpaceList({
                 <span className="w-3 shrink-0 text-[10px] text-white/30">
                   {isCollapsed ? '▸' : '▾'}
                 </span>
-                <span className={cn('h-2 w-2 shrink-0 rounded-full', dot)} />
+                <span
+                  className={cn(
+                    'grid h-4 w-4 shrink-0 place-items-center rounded-[4px] text-[9px] font-semibold',
+                    colour.dot,
+                    'text-black/70',
+                  )}
+                >
+                  {spaceInitial(space.name)}
+                </span>
                 <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-white/75">
                   {space.name}
                 </span>

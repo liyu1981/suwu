@@ -38,6 +38,7 @@ export type BaikalSpace = {
   identityCwd: string;
   identityTerminal?: string;
   colour: string;
+  order?: number;
   synthetic?: boolean;
   terminals: BaikalTerminal[];
 };
@@ -123,6 +124,27 @@ export function terminalSubtitle(terminal: BaikalTerminal): string {
   if (terminal.status?.title) return terminal.status.title;
   if (terminal.agent) return terminal.agent;
   return terminal.address;
+}
+
+/**
+ * Spaces in display order: an explicit order first (the document's), then the
+ * name, so renaming a space moves it where a person would look for it instead of
+ * where its random id happens to sort.
+ */
+export function sortSpaces(spaces: BaikalSpace[]): BaikalSpace[] {
+  return [...spaces].sort((a, b) => {
+    const order = (a.order ?? 0) - (b.order ?? 0);
+    if (order !== 0) return order;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+}
+
+/** The letter shown on a space's badge (first character, upper case). */
+export function spaceInitial(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '·';
+  const first = [...trimmed][0];
+  return first.toUpperCase();
 }
 
 /**

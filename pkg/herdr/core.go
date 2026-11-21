@@ -404,6 +404,7 @@ type Space struct {
 	IdentityCwd      string         `json:"identityCwd"`
 	IdentityTerminal string         `json:"identityTerminal,omitempty"`
 	Colour           string         `json:"colour"`
+	Order            int            `json:"order,omitempty"`
 	Synthetic        bool           `json:"synthetic,omitempty"`
 	Terminals        []TerminalView `json:"terminals"`
 }
@@ -496,6 +497,7 @@ func (c *Core) Snapshot(ctx context.Context) (Snapshot, error) {
 		space := Space{
 			ID:          id,
 			Name:        name,
+			Order:       meta.Order,
 			CustomName:  meta.CustomName,
 			IdentityCwd: identityCwd,
 			Colour:      colour,

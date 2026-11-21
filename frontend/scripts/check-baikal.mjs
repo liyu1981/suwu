@@ -13,6 +13,8 @@ import {
   makeTab,
   openTab,
   spaceColour,
+  spaceInitial,
+  sortSpaces,
   statusTone,
   syncTabTitles,
   terminalSubtitle,
@@ -47,6 +49,22 @@ assert.ok(TONE_DOT.working && TONE_DOT.blocked, 'every tone has a dot')
 // ── space colours ────────────────────────────────────────────────────────
 assert.equal(spaceColour('sky').dot, 'bg-sky-400')
 assert.equal(spaceColour('not-a-colour').dot, spaceColour('sky').dot, 'unknown colour falls back')
+
+// ── space ordering and badges ────────────────────────────────────────────
+const space = (id, name, order) => ({ id, name, identityCwd: '/' + name, colour: 'sky', terminals: [], order });
+assert.deepEqual(
+  sortSpaces([space('b3', 'zeta'), space('b1', 'Alpha'), space('b2', 'beta')]).map((s) => s.name),
+  ['Alpha', 'beta', 'zeta'],
+  'spaces sort by name, case-insensitively',
+);
+assert.deepEqual(
+  sortSpaces([space('b1', 'zeta', 2), space('b2', 'alpha', 1)]).map((s) => s.name),
+  ['alpha', 'zeta'],
+  'an explicit order wins over the name',
+);
+assert.equal(spaceInitial('suwu-dev'), 'S');
+assert.equal(spaceInitial('~'), '~');
+assert.equal(spaceInitial(''), '·', 'an unnamed space still has a badge');
 
 // ── row text ─────────────────────────────────────────────────────────────
 assert.equal(terminalTitle(terminal()), 't1', 'an unnamed shell shows its address')

@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"suwu/pkg/backup"
+	"suwu/pkg/bindir"
 	"suwu/pkg/update"
 )
 
@@ -75,6 +76,17 @@ func upgradeCmd(args []string) error {
 	}
 
 	fmt.Println("Downloading and replacing binary...")
+	// The bin-dir lock covers `~/.local/bin/suwu` too: a suwu-max bootstrap (or a
+	// tools install) must not replace files under a rename that is in flight.
+	// A lock we cannot take is reported and not fatal — an upgrade is more
+	// important than the courtesy.
+	if dataDir, err := installDataDir(); err == nil {
+		if unlock, err := bindir.Lock(dataDir); err == nil {
+			defer unlock()
+		} else {
+			fmt.Fprintf(os.Stderr, "upgrade: continuing without the install lock: %v\n", err)
+		}
+	}
 	if err := update.DownloadAndReplace(context.Background(), *asset, binPath); err != nil {
 		return fmt.Errorf("upgrade: %w", err)
 	}

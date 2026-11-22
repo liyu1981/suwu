@@ -1,6 +1,7 @@
 # System tools — catalog, installer, and `suwu exec`
 
-Status: **plan** · Owner: TBD · No code yet
+Status: **phases 0–6 implemented** · §16 records what shipped and where it
+deviated from the plan.
 
 Suwu already depends on a handful of binaries that must exist on disk: `rg` (used
 by `/api/files/search`), `pig` and `herdr`/`herdr-core` (agents and the Baikal
@@ -652,3 +653,46 @@ today.
 6. **Agents as consumers.** `cmd/Suwu/agent_skill.md` should mention
    `suwu exec`; the tools page is also the natural place for "what the agents
    need", which may be a `requires`-driven "install what's missing" button.
+
+---
+
+## 16. What shipped
+
+| Phase | Status | Notes |
+|---|---|---|
+| P0 — bundle split | done | `suwu-max` is a bootstrap: app to `~/.local/bin`, tools to `~/.suwu/bin` through `pkg/tools`, manifest schema 2 (`app` + per-tool `files`), record in `<dataDir>/maxbundle.json`, PATH block repointed and the old one migrated |
+| P1 — catalog + pins | done | `tools/catalog.json` (schema 1, seven tools, four platforms where the vendor ships them), embedded by `tools/catalog.go`, validated by `pkg/tools` and `check-tools-catalog.mjs`; `scripts/max-tools.json` and `pkg/herdr/herdr-core-lock.json` are gone |
+| P2 — `pkg/tools` core | done | `pkg/bindir` (paths, one flock, marker-parameterised PATH blocks) + catalog, source/cache, extraction, install/update/uninstall, stamps, status |
+| P3 — CLI | done | `suwu tools list|install|update|remove|path`, `suwu exec` (`--list`, `--path`, `--system`, `--`), help text, exit codes 0/1/64/127 |
+| P4 — PATH layer 1 | done | `suwu serve` prepends `<dataDir>/bin` to its own PATH; `userToolDirs` gained `.suwu/bin` |
+| P5 — API + page | done | four endpoints + refresh, `SystemToolsView` tab under System Settings, en/zh strings, `check-tools.mjs` |
+| P6 — precedence + docs | done | bundle skips tools whose stamp says `origin: tools` (`--force` overrides), `suwu upgrade` takes the same lock, README/website/agent skill updated, `SUWU_MAX_PLAN.md` marked superseded |
+
+Deviations from the plan, and why:
+
+- **`InstallFromFiles` replaced `InstallFromReader`.** The bundle unpacks one
+  tarball into a staging directory and verifies the manifest's per-file sha256
+  before handing each tool over, which is the same order the download path uses;
+  an `io.ReaderAt` variant would have re-implemented that verification for no
+  gain. The security property in §5.3 (only declared entries are written) is the
+  same, because both paths funnel through `writeEntry` and `verifyStage`.
+- **`pkg/bindir`, not `pkg/maxbundle`, owns the PATH machinery.** Two block
+  markers have to coexist in one rc file, so `Block` carries its own markers and
+  backup tag; `pkg/maxbundle.EnsurePath`/`RemovePath` remain as wrappers so the
+  old tests still pin the behaviour.
+- **The catalog is keyed `<goos>-<goarch>`** (not per-arch maps) and omits
+  platforms a vendor does not build for (`witr` is Linux-only). That is what lets
+  the page show "not for this device" instead of a dead button.
+- **Ref selection defaults to this build's tag**, with `SUWU_TOOLS_REF` for
+  development. A `dev` build reads `master`, which is how the feature is
+  exercised before a release tag exists.
+- **No SSE.** Installs are synchronous POSTs; the largest tool is a few tens of
+  MiB. The installer still carries a progress callback
+  (`tools.Options.Progress`), so adding `/api/tools/events` later is additive.
+- **`suwu exec` is strict by default** and `--system` is the opt-out, as
+  recommended in D4.
+
+Left to do by hand: a visual pass over the Settings › Tools page in a browser
+(the page is type-checked, lint-checked and exercised through its API, but not
+yet looked at), and the `suwu-max` release itself — the bootstrap is built and
+verified locally, but a tagged release is what puts it in users' hands.

@@ -1,6 +1,17 @@
 # Suwu Max — single-file self-extracting bundle
 
-Status: **plan** · Owner: TBD
+Status: **shipped, then changed shape** — read the note below before §1.
+
+> **Update (0.1.20):** `suwu-max` is no longer a launcher. It is a one-shot
+> bootstrap: it writes the real app to `~/.local/bin/suwu`, installs the bundled
+> tools into `~/.suwu/bin` through `pkg/tools`, puts `~/.local/bin` on PATH, and
+> then execs the app. From the second run on, the normal binary runs and
+> `suwu upgrade` keeps it current; re-running the wrapper only seeds tools that
+> are missing (or `--force`). The manifest is schema 2 (`app` + per-tool
+> `files`), there is no `~/.suwu/bin/suwu`, no per-run `exec` of a payload, and
+> no `.suwu-max.json` stamp — each tool carries its own stamp instead.
+> See `docs/TOOLS_PLAN.md` §7 for the model and §1–§12 below for the original
+> reasoning, which is now history.
 
 `suwu-max` is one executable that carries the real `suwu` binary plus a small
 set of core utilities, extracts them into `~/.suwu/bin/` on first run, makes

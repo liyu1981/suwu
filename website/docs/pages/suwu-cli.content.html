@@ -162,6 +162,28 @@ suwu install --extension eye.zip --force</code></pre>
         <p>Nothing needs a server restart: both registries are read from disk per request, so an install is live at once and <strong>opening System Settings</strong> re-reads the lists. Only a tile that was already open needs a tab reload. A missing or duplicate name is reported with a pointer to <code>--list</code>, and a rate-limited GitHub API falls back to the cached catalog.</p>
         <p>See <a href="extensions.html">Extensions</a> and <a href="backgrounds.html">Backgrounds</a> for what gets installed.</p>
 
+        <h2><code>suwu tools</code></h2>
+        <p>Install the tools Suwu knows about — ripgrep, fzf, asdf, witr, pig, herdr and herdr-core — into <code>&lt;data dir&gt;/bin</code> (<code>~/.suwu/bin</code>). Every entry is pinned to a version and a sha256 in the catalog the build carries, and every install is recorded in a stamp, so it can be updated or removed cleanly.</p>
+
+<pre><code>suwu tools list                 # catalog vs. what is installed here
+suwu tools list --json          # the same for scripts
+suwu tools install rg fzf       # download, verify, extract, stamp
+suwu tools update               # everything whose version differs
+suwu tools remove fzf           # exactly the files fzf's stamp owns
+suwu tools path --enable        # also put ~/.suwu/bin on your login shell's PATH</code></pre>
+
+        <p>The same list, with Install and Remove buttons, is <strong>System Settings → Tools</strong>. Installing needs no server restart: Suwu's own terminals already see the directory, and <code>/api/files/search</code> picks up <code>rg</code> immediately. A tool the catalog has no build for on your platform is shown and inert rather than hidden, and a file nobody's stamp owns is left alone.</p>
+
+        <h2><code>suwu exec</code></h2>
+        <p>Run the copy of a tool that Suwu manages, never the one on <code>PATH</code>. Agents and extensions use this so "which <code>rg</code> did I get" never depends on PATH order.</p>
+
+<pre><code>suwu exec rg -n TODO .
+suwu exec --path rg             # print the managed path
+suwu exec --list                # every managed tool and its version
+suwu exec --system less         # fall back to PATH for a tool Suwu does not manage</code></pre>
+
+        <p>A missing tool exits <code>127</code> with the install command in the message, so a script can do <code>suwu exec rg --version &gt;/dev/null || suwu tools install rg</code>. Signals and the exit status pass straight through, and <code>PATH</code> is prefixed with the managed directory so a tool that shells out to a sibling finds the managed copy too.</p>
+
         <h2><code>suwu background build</code></h2>
         <p>Compile a WGSL entry shader — resolving its whole import graph — into the JavaScript module a custom WebGPU background needs. The compiler is embedded in the binary, so there is no Node toolchain to install.</p>
 

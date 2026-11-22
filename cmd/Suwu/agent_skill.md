@@ -145,6 +145,27 @@ suwu install --extension ./eye.zip --dry-run # report only
 An install is live after the browser tab reloads; no server restart is needed.
 Extensions still need a tile whose `id` matches, created in the App Menu.
 
+### `suwu exec` and `suwu tools` — the managed copies
+
+Suwu keeps the tools it knows about in `<data dir>/bin` (`~/.suwu/bin`), pinned to
+a version and a sha256. `suwu exec` runs exactly those copies — never PATH — so a
+script cannot silently pick up a different `rg`:
+
+```bash
+suwu tools list                       # what the catalog offers, what is installed
+suwu tools install rg fzf             # download, verify, stamp
+suwu exec rg -n TODO .                # the managed rg
+suwu exec --path rg                   # where it is
+suwu exec --list                      # every managed tool and its version
+```
+
+A missing tool exits `127` with the install command in the message, which is
+cheap to check in a script:
+
+```bash
+suwu exec rg --version >/dev/null 2>&1 || suwu tools install rg
+```
+
 ## Common flags
 
 | Flag | Applies to | Meaning |
@@ -153,8 +174,9 @@ Extensions still need a tile whose `id` matches, created in the App Menu.
 | `--proto <tcp\|udp>` | forward | Protocol (default `tcp`) |
 | `--stop <port>` | forward | Stop the forward bound to that local port |
 | `--list` | forward, install | List active forwards; list the install catalog |
-| `--force` | install | Replace an existing install of the same id |
-| `--dry-run` | install | Report what would be written, change nothing |
+| `--force` | install, tools | Replace an existing install of the same id/version |
+| `--dry-run` | install, tools | Report what would be written, change nothing |
+| `--system` | exec | Fall back to PATH when the managed copy is absent |
 
 ## Notes
 
@@ -166,4 +188,7 @@ Extensions still need a tile whose `id` matches, created in the App Menu.
   human to review a specific hunk.
 - `suwu install` writes only under the data directory. Use `--dry-run` first if
   you are not sure what an archive contains.
+- `suwu exec` is the way to run a tool Suwu installed. It prefixes `PATH` with
+  the managed directory, so a tool that shells out to a sibling finds the managed
+  copy too.
 - Run `suwu help <command>` for the full flag list of any tool.

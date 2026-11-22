@@ -89,7 +89,13 @@ Short captures of Suwu in daily use. Click a preview to watch the full clip on
     zip. Archives are validated with the same resolvers the server uses, so a
     broken install never lands.
 
-11. **Your settings survive the browser** — System Settings → Backup keeps a
+11. **The tools it needs, installed and pinned** — System Settings → Tools
+    installs ripgrep, fzf, asdf, witr, pig, herdr and herdr-core into
+    `~/.suwu/bin` from a catalog pinned by version and sha256. `suwu exec <tool>`
+    always runs those copies, never whatever happens to be first on `PATH`, and
+    `suwu tools list|install|update|remove` does the same from a terminal.
+
+12. **Your settings survive the browser** — System Settings → Backup keeps a
     copy of your settings and extension data on the server, encrypted in the
     browser with a passphrase the server never sees. It refreshes on a timer,
     keeps the last ten versions, and a new browser comes back exactly as you
@@ -105,6 +111,11 @@ This downloads the latest release binary to `~/.local/bin/suwu` and runs
 an interactive `suwu onboard` wizard. Onboarding requires an attached
 terminal; it collects the complete setup plan, shows a review, and only then
 writes configuration or installs selected tools.
+
+On Linux there is also `suwu-max`, a single self-extracting file: run it once and
+it installs the app to `~/.local/bin/suwu` and the tools above to `~/.suwu/bin`,
+then becomes the normal app. From then on `suwu upgrade` keeps it current, and
+re-running `suwu-max` only seeds whatever is missing.
 
 To change one part of an existing setup without re-running the whole wizard,
 pass a section flag:

@@ -292,4 +292,25 @@ assert.ok(
   'a terminal whose program ended still leaves its space behind',
 );
 
+// ── tab pills, and a tab that only dies with its program ──────────────────
+const tabBarSource = readFileSync(
+  new URL('../src/components/baikal/TabBar.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(tabBarSource, /rounded-full/, 'tabs are pills');
+assert.ok(
+  !tabBarSource.includes('rounded-t-[6px]'),
+  'the folder-tab shape must not come back',
+);
+assert.match(
+  termSource,
+  /if \(current\.closedByCore\) onDetachedRef\.current\?\.\(terminal\);/,
+  'only a program that ended (exited/killed) drops its tab; a detach keeps it',
+);
+assert.match(
+  baikalPanelSource,
+  /activeTab \|\| active\.tabs\.length === 0/,
+  'a space with tabs always selects one, so the strip is never shown over the empty picker',
+);
+
 console.log('check-baikal: ok');

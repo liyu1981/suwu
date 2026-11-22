@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -462,6 +463,12 @@ func (s *Server) handleBaikalAttach(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A viewer that asks to detach gets no `close` frame back: the tab that
+	// closed it is still there (the panel unmounts a tab when it is hidden, and
+	// mounts it again on the way back), and a `close` would read as "the program
+	// ended". Only the core's own close means that.
+	var detachedByClient atomic.Bool
+
 	// browser -> core
 	go func() {
 		for {
@@ -494,6 +501,7 @@ func (s *Server) handleBaikalAttach(w http.ResponseWriter, r *http.Request) {
 					}
 					_ = stream.Resize(msg.Cols, msg.Rows)
 				case "close":
+					detachedByClient.Store(true)
 					_ = stream.Close()
 					return
 				}
@@ -507,6 +515,11 @@ func (s *Server) handleBaikalAttach(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case <-stream.Closed():
+			if detachedByClient.Load() {
+				// Our own detach: the socket just ends, nothing to announce.
+				_ = conn.Close(websocket.StatusNormalClosure, "detached")
+				return
+			}
 			// Core sends the reason as JSON: {"reason":"exited","exit_code":0,…}.
 			closeMsg := map[string]any{"type": "close"}
 			if raw := stream.Reason(); raw != "" {

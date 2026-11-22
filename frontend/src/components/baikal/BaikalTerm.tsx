@@ -21,7 +21,8 @@ import { SoftInputPanel } from '../term/SoftInputPanel';
  * server owns the core protocol (framed channels, credit, resize) — see
  * pkg/server/baikal.go — so the browser never speaks to core's socket.
  *
- * Closing this pane detaches; the program in the terminal keeps running.
+ * Unmounting this pane detaches the viewer; the program keeps running. `onDetached`
+ * is only for the case where the program itself is gone.
  */
 export interface BaikalTermProps {
   terminal: string;
@@ -42,6 +43,11 @@ export interface BaikalTermProps {
   focusToken?: number;
   /** Bumped by the parent to force a fresh attach (the Reconnect button). */
   attempt?: number;
+  /**
+   * The program ended (the core said `exited`/`killed`), so the tab has nothing
+   * left to show. A detach, a takeover by another viewer or a lost line must NOT
+   * call this: the tab stays, and the pane reattaches when it can.
+   */
   onDetached?: (terminal: string) => void;
 }
 
@@ -256,12 +262,16 @@ export function BaikalTerm({
             current.inputReady = false;
             const why = msg.reason ?? '';
             // A program that exited (or was killed) is gone for good; anything
-            // else — a stopped core, a lost holder — is worth reattaching to.
+            // else — a stopped core, a lost holder, another viewer taking the
+            // terminal over — is worth reattaching to.
             current.closedByCore = why === 'exited' || why === 'killed';
             setState('closed');
             setReason(why);
-            onDetachedRef.current?.(terminal);
-            if (!current.closedByCore) scheduleRetry(current);
+            // Only a gone program drops the tab. Removing it for a detach or a
+            // takeover is how a tap on a tab used to delete the others: the tab is
+            // the user's list of terminals, not the viewer's lifetime.
+            if (current.closedByCore) onDetachedRef.current?.(terminal);
+            else scheduleRetry(current);
           }
           return;
         }
@@ -274,7 +284,7 @@ export function BaikalTerm({
         setState('closed');
         // A lost line (the server, the tunnel, the core restarting) is not the
         // program ending: reattach with backoff, and say so. A CLOSE from core
-        // means the program exited or another viewer took over — don't fight it.
+        // means the program exited or was killed — that tab is gone already.
         if (!current.closedByCore) scheduleRetry(current);
       };
 

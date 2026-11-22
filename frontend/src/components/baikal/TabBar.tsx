@@ -3,11 +3,16 @@ import { cn } from '@/lib/utils';
 import { statusTone, TONE_DOT, type BaikalTab, type BaikalTerminal } from '../../lib/baikal';
 
 /**
- * The right panel's tab strip: one tab per attached terminal.
+ * The right panel's tab strip: one pill per open terminal.
  *
- * Closing a tab detaches the viewer — the program keeps running, which is the
- * point of herdr and a thing users must be able to trust, so the close button is
- * a plain × with no confirmation.
+ * A pill is the whole tab: name, status dot and close button in one rounded
+ * shape, because the strip is a list of *terminals the user opened*, not a stack
+ * of document folders — the content under it is one terminal at a time, mounted
+ * only while its pill is selected. Pills also read correctly when the strip
+ * scrolls, which a folder tab (joined to the panel edge) does not.
+ *
+ * Closing a tab ends the program — the tile's `×` is the deliberate "stop this",
+ * so it keeps the same plain × with no confirmation.
  */
 export interface TabBarProps {
   tabs: BaikalTab[];
@@ -32,7 +37,7 @@ export function TabBar({
   const byAddress = new Map(terminals.map((terminal) => [terminal.address, terminal]));
 
   return (
-    <div className="flex h-9 shrink-0 items-end gap-0.5 overflow-x-auto border-b border-white/[0.06] px-1.5 scrollbar-thin">
+    <div className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto px-1.5 scrollbar-thin">
       {tabs.map((tab) => {
         const terminal = byAddress.get(tab.terminal);
         const tone = statusTone(terminal?.status);
@@ -41,10 +46,10 @@ export function TabBar({
           <div
             key={tab.id}
             className={cn(
-              'group flex h-7 shrink-0 items-center gap-1.5 rounded-t-[6px] border border-b-0 px-2 text-xs transition',
+              'group flex h-7 shrink-0 items-center gap-1.5 rounded-full border pr-1 pl-2.5 text-xs transition',
               isActive
-                ? 'border-white/[0.10] bg-white/[0.08] text-white'
-                : 'border-transparent text-white/45 hover:bg-white/[0.04] hover:text-white/70',
+                ? 'border-white/[0.20] bg-white/[0.13] text-white'
+                : 'border-white/[0.07] bg-white/[0.04] text-white/50 hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-white/80',
             )}
           >
             <button
@@ -69,7 +74,7 @@ export function TabBar({
               onClick={() => onClose(tab.id)}
               aria-label={t('baikal.detach')}
               title={t('baikal.detachHint')}
-              className="shrink-0 rounded px-1 text-white/30 transition hover:bg-white/10 hover:text-white/80"
+              className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-white/30 transition group-hover:text-white/50 hover:bg-white/15 hover:text-white/85"
             >
               ×
             </button>
@@ -82,7 +87,7 @@ export function TabBar({
         disabled={creating}
         aria-label={t('baikal.newShell')}
         title={t('baikal.newShell')}
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-t-[6px] text-sm leading-none text-white/40 transition hover:bg-white/10 hover:text-white/80 disabled:opacity-40"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-dashed border-white/[0.14] text-sm leading-none text-white/45 transition hover:border-white/30 hover:bg-white/[0.08] hover:text-white/85 disabled:opacity-40"
       >
         +
       </button>

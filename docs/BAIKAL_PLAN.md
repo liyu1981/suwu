@@ -584,6 +584,28 @@ The tile's own snapshot traffic is what remains (2% in the table above): the SSE
 stream and the 5 s poll still follow every terminal, because the sidebar and the
 tab titles have to stay current even for tabs nobody is watching.
 
+**The strip is not the thing that is lazy.** Every tab keeps its pill — that is
+the user's list of terminals, and it has to show all of them or the tile stops
+making sense. Only the *content* is on demand, so a click always finds a pill to
+click. Two things had to be tightened for that to hold:
+
+- **A detached viewer is not a dead program.** A client-requested detach used to
+  make the server send a `close` frame back (its write loop saw the core's stream
+  end and announced it), and the tile read any `close` as "this terminal ended"
+  and removed the tab. Unmounting on every tab switch turned that into "clicking
+  one tab deletes another". Now the server stays quiet when the *client* asked to
+  detach (`detachedByClient`), and the tile removes a tab only for `exited` or
+  `killed`; a detach, a takeover or a lost line keeps the tab and reattaches.
+- **A space with tabs always has one selected.** If `activeId` outlives its tab
+  (pruned, or state written by an older build), the panel selects the first tab
+  instead of drawing the empty picker under a full strip.
+
+**Pills, not folder tabs.** The strip used to be folder tabs (`rounded-t`, joined
+to the panel edge). It is now a row of pills — `rounded-full`, `h-7` in a 36 px
+strip, status dot on the left, × inside the pill, `+` as a dashed circle — because
+the strip is a list of terminals rather than a stack of documents: pills stay
+readable when the strip scrolls, and there is no fake join to the terminal below.
+
 ### 13.4 The panel becomes a real sidebar
 
 - **Spaces and agents are two panes**, not one list with a header: each has a

@@ -184,6 +184,14 @@ function BaikalWorkspace() {
     }));
   }, []);
 
+  // A space with tabs always has one selected: if the id points at a tab that
+  // is gone (pruned above, or restored state written by an older build), fall
+  // back to the first instead of showing the empty picker under a full strip.
+  useEffect(() => {
+    if (activeTab || active.tabs.length === 0) return;
+    upsertSpaceTabs(activeSpaceId, (entry) => ({ ...entry, activeId: entry.tabs[0].id }));
+  }, [activeSpaceId, active, activeTab, upsertSpaceTabs]);
+
   /** Open a terminal as a tab of the space it belongs to, and select that space. */
   const open = useCallback(
     (terminal: BaikalTerminal, observe = false) => {

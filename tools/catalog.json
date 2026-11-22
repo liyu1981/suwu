@@ -64,7 +64,7 @@
     {
       "name": "fzf",
       "label": "fzf",
-      "version": "0.74.5",
+      "version": "0.75.0",
       "summary": "Fuzzy finder for the shell and for history search.",
       "homepage": "https://github.com/junegunn/fzf",
       "license": "MIT",
@@ -72,8 +72,8 @@
       "platforms": {
         "linux-amd64": {
           "archive": "tar.gz",
-          "url": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-linux_amd64.tar.gz",
-          "sha256": "d47d7f882972c7d674dbbba998ffa4116e68379616ffac7695d0671e9a722c5f",
+          "url": "https://github.com/junegunn/fzf/releases/download/v0.75.0/fzf-0.75.0-linux_amd64.tar.gz",
+          "sha256": "0d6640f83582d991cf429754baad64b07e3a4e439a6019670f4b91da1314141c",
           "strip": 0,
           "entries": [
             {
@@ -84,8 +84,8 @@
         },
         "linux-arm64": {
           "archive": "tar.gz",
-          "url": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-linux_arm64.tar.gz",
-          "sha256": "cf058001da21724a469b714a29cf4aab9cbe860d218a0d6c1b5b661efad7784c",
+          "url": "https://github.com/junegunn/fzf/releases/download/v0.75.0/fzf-0.75.0-linux_arm64.tar.gz",
+          "sha256": "bd0717badb6a5620387e014bb94209aac4d9eab6ab77b5348eabb0833aeb4d59",
           "strip": 0,
           "entries": [
             {
@@ -96,8 +96,8 @@
         },
         "darwin-amd64": {
           "archive": "tar.gz",
-          "url": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-darwin_amd64.tar.gz",
-          "sha256": "aca6cab692e6c069e724a43070a448e18586c7c0fdd1139f6d487ec1680599ed",
+          "url": "https://github.com/junegunn/fzf/releases/download/v0.75.0/fzf-0.75.0-darwin_amd64.tar.gz",
+          "sha256": "8fa67fa874468b8e73ecad2df82cc110026f45d10605128aaac6b191262d2844",
           "strip": 0,
           "entries": [
             {
@@ -108,8 +108,8 @@
         },
         "darwin-arm64": {
           "archive": "tar.gz",
-          "url": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-darwin_arm64.tar.gz",
-          "sha256": "ada808c7401b9949ce8842274ac16a6b6193fd32dcada396884a6a9a89e5985a",
+          "url": "https://github.com/junegunn/fzf/releases/download/v0.75.0/fzf-0.75.0-darwin_arm64.tar.gz",
+          "sha256": "1e76698eb481436e42119bea6aa6e2bd9552ff090789d769c286e3c3a4e0ded6",
           "strip": 0,
           "entries": [
             {
@@ -223,7 +223,7 @@
     {
       "name": "pig",
       "label": "PiG",
-      "version": "0.5.3",
+      "version": "0.7.0",
       "summary": "The coding agent herdr sessions run.",
       "homepage": "https://github.com/MichaelKinsy/PiG",
       "license": "MIT",
@@ -233,14 +233,15 @@
       "bundled": "max",
       "keep": [
         "LICENSES",
+        "LICENSE",
         "NOTICE",
         "THIRD_PARTY_NOTICES.md"
       ],
       "platforms": {
         "linux-amd64": {
           "archive": "tar.gz",
-          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-linux-amd64.tar.gz",
-          "sha256": "1e45e5e591a06d087587d5f09d2b6d61673a1e262cb2609e6189defffd5ae7ec",
+          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.7.0/pig-0.7.0-linux-amd64.tar.gz",
+          "sha256": "0b5ab7cb5f680e7d3353bdaa3a1018863c3c3552f88bec730370668e5819995a",
           "strip": 1,
           "entries": [
             {
@@ -251,8 +252,8 @@
         },
         "linux-arm64": {
           "archive": "tar.gz",
-          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-linux-arm64.tar.gz",
-          "sha256": "c94acaa8b2a5d3d2b1f59e679f70bba6762dc7a01655369b2ffc40fb9be4552b",
+          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.7.0/pig-0.7.0-linux-arm64.tar.gz",
+          "sha256": "88d2dcb4a4852a980dc1ca9202eed9455ff8fb011553c8db62c1b85c676a366b",
           "strip": 1,
           "entries": [
             {
@@ -263,8 +264,8 @@
         },
         "darwin-amd64": {
           "archive": "tar.gz",
-          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-darwin-amd64.tar.gz",
-          "sha256": "1a836381d46ca14e72c9b28e4d33c247de115cf4f980e4879587c3fa4ff4387a",
+          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.7.0/pig-0.7.0-darwin-amd64.tar.gz",
+          "sha256": "6c744b3b1368fb8272dfa64033f06c0207822dede05f1ac0df838e960d7e3ac1",
           "strip": 1,
           "entries": [
             {
@@ -275,8 +276,8 @@
         },
         "darwin-arm64": {
           "archive": "tar.gz",
-          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-darwin-arm64.tar.gz",
-          "sha256": "b243e00305e2c7d3d5de12743bb4654cf6324a6282b0c2e0671cc29bfbde3a99",
+          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.7.0/pig-0.7.0-darwin-arm64.tar.gz",
+          "sha256": "d87c65e03acec77c8fa3ced323c27f27386b69bdeca80fde56008c85d47ad1a4",
           "strip": 1,
           "entries": [
             {
@@ -285,7 +286,8 @@
             }
           ]
         }
-      }
+      },
+      "notes": "PiG 0.7.0 migrates its stored session formats forward; an older pig cannot read a store it wrote."
     },
     {
       "name": "herdr",
@@ -349,7 +351,7 @@
     {
       "name": "herdr-core",
       "label": "herdr-core",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "summary": "The herdr engine behind `suwu hc` and the Baikal tile.",
       "homepage": "https://herdr.dev/core/",
       "license": "Apache-2.0",
@@ -357,8 +359,8 @@
       "platforms": {
         "linux-amd64": {
           "archive": "tar.gz",
-          "url": "https://releases.herdr.dev/core/0.1.21/herdr-core-linux-x86_64.tar.gz",
-          "sha256": "78424755c10a40dde38a0bdb55c20ac19706e9ae05ed68fc2acf1fcff0d941c1",
+          "url": "https://releases.herdr.dev/core/0.1.22/herdr-core-linux-x86_64.tar.gz",
+          "sha256": "3054ec3992ce80c5715d721caa9dcefa6056721d15dc113f4750afce763ba5df",
           "strip": 0,
           "entries": [
             {
@@ -369,8 +371,8 @@
         },
         "linux-arm64": {
           "archive": "tar.gz",
-          "url": "https://releases.herdr.dev/core/0.1.21/herdr-core-linux-aarch64.tar.gz",
-          "sha256": "e844a2bfab48a226097679d076bc83042fe57fccef5387ef802e5b24e78b529a",
+          "url": "https://releases.herdr.dev/core/0.1.22/herdr-core-linux-aarch64.tar.gz",
+          "sha256": "98757985245d45f8d73dd85e68b139b7f167c28488bb89edd9834c3f5a5cf4cf",
           "strip": 0,
           "entries": [
             {
@@ -381,8 +383,8 @@
         },
         "darwin-amd64": {
           "archive": "tar.gz",
-          "url": "https://releases.herdr.dev/core/0.1.21/herdr-core-macos-x86_64.tar.gz",
-          "sha256": "e377e1d342cddce0346da5b2f3c281b9701e4731c00024c7c5028265e77a217f",
+          "url": "https://releases.herdr.dev/core/0.1.22/herdr-core-macos-x86_64.tar.gz",
+          "sha256": "35144041969e870ddb4edcd2fd08fd26dfe5cee7d18e6b48adb276f90a48aa19",
           "strip": 0,
           "entries": [
             {
@@ -393,8 +395,8 @@
         },
         "darwin-arm64": {
           "archive": "tar.gz",
-          "url": "https://releases.herdr.dev/core/0.1.21/herdr-core-macos-aarch64.tar.gz",
-          "sha256": "1ab38dd9270f63a8f794d6d60e8702eb0d1c85a72bda85d735e5eea43f05ffed",
+          "url": "https://releases.herdr.dev/core/0.1.22/herdr-core-macos-aarch64.tar.gz",
+          "sha256": "90798daadefa8d126b90ef0bcdbe9c7dda9c6cfbf011a247065ab5da348f350e",
           "strip": 0,
           "entries": [
             {

@@ -31,8 +31,11 @@ func TestStatusesCoverEveryState(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataDir := testDataDir(t)
-	installForTest(t, dataDir, "fzf", "0.74.5") // matches the catalog
-	installForTest(t, dataDir, "rg", "0.0.1")   // older than the catalog
+	// The catalog's current version, whatever it is: a hard-coded one made this
+	// test fail on every version bump instead of on a real regression.
+	fzfTool, _ := cat.Find("fzf")
+	installForTest(t, dataDir, "fzf", fzfTool.Version)
+	installForTest(t, dataDir, "rg", "0.0.1") // older than the catalog
 	// A hand-installed file with a catalog name.
 	bin, _ := bindir.Ensure(dataDir)
 	if err := os.WriteFile(filepath.Join(bin, "asdf"), []byte("mine"), 0o755); err != nil {

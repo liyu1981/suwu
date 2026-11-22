@@ -231,7 +231,8 @@
     "save": "Save",
     "toolbarSuspension": "Tile toolbar",
     "toolbarSuspensionHint": "Extension tiles show a hide button next to close: it hides the tile toolbar for this many seconds so controls underneath it can be used. 0 removes the button.",
-    "toolbarSuspensionSeconds": "seconds"
+    "toolbarSuspensionSeconds": "seconds",
+    "toolsTab": "Tools"
   },
   "shortcuts": {
     "description": "Work on any tile from the keyboard; actions apply to the focused tile.",
@@ -960,5 +961,40 @@
     "agents": "Agents",
     "noAgents": "No agent is reporting yet. Programs say what they are doing over OSC 7501.",
     "resizeSplit": "Resize the panel halves"
+  },
+  "tools": {
+    "title": "System tools",
+    "loading": "Loading the catalog…",
+    "loadFailed": "The catalog could not be read.",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "stale": "GitHub could not be reached, so this is the catalog this build carries ({{ref}}). Installs still verify their pinned checksums.",
+    "install": "Install",
+    "reinstall": "Reinstall",
+    "update": "Update",
+    "remove": "Remove",
+    "removeHint": "Remove exactly the files this tool owns",
+    "working": "Working…",
+    "requires": "Needs {{list}}",
+    "installed": "{{name}} {{version}} installed",
+    "alreadyInstalled": "{{name}} {{version}} is already installed",
+    "removed": "{{name}} removed ({{files}})",
+    "unmanagedHint": "{{path}} was not installed by Suwu, so it is left alone. Remove it yourself to let Suwu manage this tool.",
+    "bundledHint": "Bundled by suwu-max as {{version}}. Installing here replaces it.",
+    "pathTitle": "Add the tool directory to your shell PATH",
+    "pathHint": "Suwu's own terminals already see these tools, and suwu exec always runs the managed copy. This only helps the shells you open outside Suwu.",
+    "pathEnable": "Enable",
+    "pathDisable": "Disable",
+    "pathPreview": "Preview the change",
+    "pathHidePreview": "Hide the preview",
+    "pathEnabled": "Added to {{files}}",
+    "pathDisabled": "Removed from {{files}}",
+    "state": {
+      "installed": "Installed",
+      "update": "Update available",
+      "missing": "Not installed",
+      "unsupported": "Not for this device",
+      "unmanaged": "Unmanaged file"
+    }
   }
 }

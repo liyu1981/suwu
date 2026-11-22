@@ -27,6 +27,7 @@ import {
 } from '../../lib/avatar';
 import { randomUserName } from '../../lib/username';
 import { reloadExtensions } from '../../lib/extensions';
+import { SystemToolsView } from './SystemToolsView';
 import { Avatar } from '../Avatar';
 import { DiceIcon, RefreshIcon } from '../icons';
 import { BackupTab } from './BackupTab';
@@ -977,6 +978,9 @@ export default function SettingsView() {
           <TabsPrimitive.Trigger value="account" className={tabBtn}>
             {t('settings.accountTab')}
           </TabsPrimitive.Trigger>
+          <TabsPrimitive.Trigger value="tools" className={tabBtn}>
+            {t('settings.toolsTab')}
+          </TabsPrimitive.Trigger>
           <TabsPrimitive.Trigger value="backup" className={tabBtn}>
             {t('settings.backupTab')}
           </TabsPrimitive.Trigger>
@@ -1401,6 +1405,10 @@ export default function SettingsView() {
 
             {avatarError && <p className="mt-2 text-[11px] text-red-400">{avatarError}</p>}
           </div>
+        </TabsPrimitive.Content>
+
+        <TabsPrimitive.Content value="tools" className="min-w-0 flex-1">
+          <SystemToolsView />
         </TabsPrimitive.Content>
 
         <TabsPrimitive.Content value="backup" className="min-w-0 flex-1">

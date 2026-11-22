@@ -230,7 +230,8 @@
     "save": "保存",
     "toolbarSuspension": "磁贴工具栏",
     "toolbarSuspensionHint": "扩展磁贴会在关闭按钮左侧显示一个隐藏按钮：点击后磁贴工具栏会隐藏指定秒数，便于操作其下方的控件。0 表示不显示该按钮。",
-    "toolbarSuspensionSeconds": "秒"
+    "toolbarSuspensionSeconds": "秒",
+    "toolsTab": "工具"
   },
   "shortcuts": {
     "description": "使用键盘操作任意窗口；操作将应用于当前聚焦的窗口。",
@@ -957,5 +958,40 @@
     "agents": "智能体",
     "noAgents": "暂无智能体上报。程序通过 OSC 7501 汇报自身状态。",
     "resizeSplit": "调整面板上下比例"
+  },
+  "tools": {
+    "title": "系统工具",
+    "loading": "正在读取工具目录…",
+    "loadFailed": "无法读取工具目录。",
+    "retry": "重试",
+    "refresh": "刷新",
+    "stale": "无法访问 GitHub，这里显示的是随本版本打包的工具目录（{{ref}}）。安装时仍会校验固定的校验和。",
+    "install": "安装",
+    "reinstall": "重新安装",
+    "update": "更新",
+    "remove": "移除",
+    "removeHint": "只删除该工具自己的文件",
+    "working": "处理中…",
+    "requires": "需要 {{list}}",
+    "installed": "已安装 {{name}} {{version}}",
+    "alreadyInstalled": "{{name}} {{version}} 已安装",
+    "removed": "已移除 {{name}}（{{files}}）",
+    "unmanagedHint": "{{path}} 不是 Suwu 安装的，因此不作处理。想交给 Suwu 管理，请自行删除它。",
+    "bundledHint": "由 suwu-max 附带（{{version}}）。在此安装会替换它。",
+    "pathTitle": "把工具目录加入 shell 的 PATH",
+    "pathHint": "Suwu 自己的终端已经能用到这些工具，suwu exec 也总是运行 Suwu 管理的副本。这一项只影响你在 Suwu 之外打开的 shell。",
+    "pathEnable": "启用",
+    "pathDisable": "停用",
+    "pathPreview": "预览将要写入的内容",
+    "pathHidePreview": "收起预览",
+    "pathEnabled": "已加入 {{files}}",
+    "pathDisabled": "已从 {{files}} 移除",
+    "state": {
+      "installed": "已安装",
+      "update": "可更新",
+      "missing": "未安装",
+      "unsupported": "此设备不支持",
+      "unmanaged": "非 Suwu 管理"
+    }
   }
 }

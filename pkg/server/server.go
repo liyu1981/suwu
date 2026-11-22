@@ -112,6 +112,8 @@ type Server struct {
 	extLegacyWarned bool
 	// baikal is the herdr-core client registry (one connection per core session).
 	baikal *baikalCores
+	// toolsBusy makes the tools page install one tool at a time.
+	toolsBusy toolsBusy
 	// caCertDER is the local CA certificate (DER) served at /ca.crt so a phone
 	// can install it and stop warning about the self-signed certificate. Nil
 	// when this server does not run HTTPS behind Suwu's own CA.
@@ -480,6 +482,11 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/backgrounds" {
 		s.handleBackgroundsList(w, r)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/api/tools") {
+		s.handleTools(w, r)
 		return
 	}
 

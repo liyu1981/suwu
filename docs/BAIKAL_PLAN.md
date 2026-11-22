@@ -474,6 +474,9 @@ core came back. `go test ./...`, `pnpm check` and the tile review checks are gre
 
 - **Tabs are per space.** The strip shows the selected space's terminals, and
   selecting another space switches it. Only the tab on screen is mounted: §13.5.
+- **The header carries only the tile and the core version.** It used to repeat the
+  selected space's name on the right; the space list right below already marks the
+  selected space, so the repeat was noise that made the header feel crowded.
 - **No sidebar buttons.** The tab strip's `+` starts a shell in the active space;
   the `+` beside the filter box starts one in a new space. The footer of the
   space list is gone.

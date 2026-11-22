@@ -393,12 +393,6 @@ function BaikalWorkspace() {
             {t('baikal.coreVersion', { version: core.version })}
           </span>
         )}
-        <div className="flex-1" />
-        {activeSpace && (
-          <span className="truncate text-[11px] text-white/40" title={activeSpace.identityCwd}>
-            {activeSpace.name}
-          </span>
-        )}
       </header>
 
       <div className="flex min-h-0 flex-1">

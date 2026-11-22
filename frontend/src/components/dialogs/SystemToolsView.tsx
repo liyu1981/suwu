@@ -104,7 +104,7 @@ export function SystemToolsView() {
     (tool: ToolStatus) =>
       run(tool.name, async () => {
         const res = await uninstallTool(tool.name);
-        return t('tools.removed', { name: tool.label, files: res.removed.join(', ') });
+        return t('tools.removed', { name: tool.label, files: (res.removed ?? []).join(', ') });
       }),
     [run, t],
   );
@@ -119,9 +119,9 @@ export function SystemToolsView() {
         await load();
         setNotice(
           enabled
-            ? t('tools.pathEnabled', { files: res.files.join(', ') })
+            ? t('tools.pathEnabled', { files: (res.files ?? []).join(', ') })
             : t('tools.pathDisabled', {
-                files: (res.changed ?? []).join(', ') || res.files.join(', '),
+                files: (res.changed ?? []).join(', ') || (res.files ?? []).join(', '),
               }),
         );
       } catch (err) {
@@ -176,7 +176,7 @@ export function SystemToolsView() {
         )}
 
         <div className="mt-3">
-          {data.tools.map((tool) => (
+          {(data.tools ?? []).map((tool) => (
             <ToolRow
               key={tool.name}
               tool={tool}
@@ -195,8 +195,8 @@ export function SystemToolsView() {
           <div className="min-w-0">
             <span className={sectionLabel}>{t('tools.pathTitle')}</span>
             <p className={sectionHint}>{t('tools.pathHint')}</p>
-            {data.path.files.length > 0 && (
-              <p className={`${sectionHint} font-mono`}>{data.path.files.join(', ')}</p>
+            {(data.path.files ?? []).length > 0 && (
+              <p className={`${sectionHint} font-mono`}>{(data.path.files ?? []).join(', ')}</p>
             )}
           </div>
           <button

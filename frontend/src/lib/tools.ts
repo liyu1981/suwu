@@ -66,6 +66,7 @@ export interface ToolsResponse {
   source: ToolsSource;
   path: {
     enabled: boolean;
+    /** Always an array; the server normalizes a nil slice to `[]`. */
     files: string[];
   };
   tools: ToolStatus[];

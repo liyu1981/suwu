@@ -98,13 +98,22 @@ func (s *Server) loadToolsCatalog(ctx context.Context, refresh bool) (*tools.Cat
 	return offline, origin, nil
 }
 
-// toolsPathState reports whether the opt-in rc block is installed.
+// toolsPathState reports whether the opt-in rc block is installed. The slice is
+// always non-nil: a Go nil marshals to JSON `null`, and the page reads `.length`.
 func (s *Server) toolsPathState() (enabled bool, files []string) {
 	files, err := bindir.PathFiles(bindir.ToolsBlock)
-	if err != nil {
-		return false, nil
+	if err != nil || files == nil {
+		return false, []string{}
 	}
 	return len(files) > 0, files
+}
+
+// strList always marshals as a JSON array, never null.
+func strList(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
 }
 
 // GET /api/tools -> the catalog resolved against this machine.
@@ -136,7 +145,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, r *http.Request) {
 		"source": origin,
 		"path": map[string]any{
 			"enabled": enabled,
-			"files":   files,
+			"files":   strList(files),
 		},
 		"tools": list,
 	})
@@ -201,7 +210,7 @@ func (s *Server) handleToolsInstall(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name":     res.Name,
 		"version":  res.Version,
-		"files":    res.Files,
+		"files":    strList(res.Files),
 		"skipped":  res.Skipped,
 		"replaced": res.Replaced,
 	})
@@ -235,7 +244,7 @@ func (s *Server) handleToolsUninstall(w http.ResponseWriter, r *http.Request) {
 		writeToolsError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"name": res.Name, "removed": res.Files})
+	writeJSON(w, http.StatusOK, map[string]any{"name": res.Name, "removed": strList(res.Files)})
 }
 
 // POST /api/tools/path {enabled}
@@ -267,7 +276,7 @@ func (s *Server) handleToolsPath(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		enabled, files := s.toolsPathState()
-		writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "files": files, "changed": changed})
+		writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "files": strList(files), "changed": strList(changed)})
 		return
 	}
 	changed, err := bindir.RemovePath(bindir.ToolsBlock)
@@ -276,7 +285,7 @@ func (s *Server) handleToolsPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	enabled, files := s.toolsPathState()
-	writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "files": files, "changed": changed})
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "files": strList(files), "changed": strList(changed)})
 }
 
 // POST /api/tools/refresh -> the catalog origin after a forced revalidation.

@@ -29,6 +29,9 @@ const (
 	DefaultTTL = 6 * time.Hour
 	// RefEnv overrides the ref the catalog is read at (development).
 	RefEnv = "SUWU_TOOLS_REF"
+	// RawBaseEnv overrides the host the catalog is read from: a mirror, or an
+	// unreachable address in a test that must not depend on the network.
+	RawBaseEnv = "SUWU_TOOLS_RAW_BASE"
 	// maxCatalogBytes bounds the catalog response.
 	maxCatalogBytes = 1 << 20
 	// cacheName is the catalog cache under <dataDir>/cache.
@@ -68,10 +71,14 @@ type Origin struct {
 // when it was built; `SUWU_TOOLS_REF` overrides it, and an untagged build
 // (version "dev") reads master.
 func NewSource(dataDir string) *Source {
+	rawBase := strings.TrimSpace(os.Getenv(RawBaseEnv))
+	if rawBase == "" {
+		rawBase = RawBaseURL
+	}
 	return &Source{
 		Repo:      DefaultRepo,
 		Ref:       defaultRef(),
-		RawBase:   RawBaseURL,
+		RawBase:   rawBase,
 		Client:    &http.Client{Timeout: 20 * time.Second},
 		CachePath: filepath.Join(dataDir, "cache", cacheName),
 		TTL:       DefaultTTL,

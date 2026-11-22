@@ -234,9 +234,12 @@ func TestToolsMethodsArePost(t *testing.T) {
 }
 
 func TestToolsListSurvivesAnUnreachableCatalog(t *testing.T) {
+	// Point the catalog at an address nothing listens on: the test must not
+	// depend on whether tools/catalog.json is published yet.
+	t.Setenv(tools.RawBaseEnv, "http://127.0.0.1:1")
 	ts, _, _ := extTestServerDir(t, nil)
-	// No network in tests: the list must still answer, from the embedded
-	// catalog, and say that it is not fresh.
+	// The list must still answer, from the embedded catalog, and say it is not
+	// fresh.
 	status, body := getTools(t, ts.URL, "?token=testtoken")
 	if status != http.StatusOK {
 		t.Fatalf("status %d", status)
@@ -247,5 +250,42 @@ func TestToolsListSurvivesAnUnreachableCatalog(t *testing.T) {
 	}
 	if toolByName(body, "rg") == nil {
 		t.Fatal("the embedded catalog produced no rg row")
+	}
+}
+
+// A Go nil slice marshals to JSON `null`, and the page reads `.length` (and
+// joins) these arrays — which is how an empty rc state crashed the Tools tab.
+// The API must always answer with arrays.
+func TestToolsArraysAreNeverNull(t *testing.T) {
+	ts, _, dataDir := extTestServerDir(t, nil)
+	home := t.TempDir()
+	t.Setenv("HOME", home) // no rc file has the block
+
+	_, body := getTools(t, ts.URL, "?token=testtoken")
+	path, _ := body["path"].(map[string]any)
+	if files, ok := path["files"].([]any); !ok || files == nil {
+		t.Fatalf("path.files is not an array: %#v", path["files"])
+	}
+	for _, name := range []string{"tools", "path"} {
+		if raw, exists := body[name]; !exists || raw == nil {
+			t.Errorf("%s is null", name)
+		}
+	}
+
+	// The toggle answers with arrays too, on both directions.
+	for _, enabled := range []bool{false, true, false} {
+		if enabled {
+			stageFakeTool(t, dataDir, "rg", "15.2.0")
+		}
+		status, out := postJSON(t, ts.URL+"/api/tools/path?token=testtoken", map[string]any{"enabled": enabled})
+		if status != http.StatusOK {
+			t.Fatalf("enabled=%v: status %d (%v)", enabled, status, out)
+		}
+		if _, ok := out["files"].([]any); !ok {
+			t.Errorf("enabled=%v: files is not an array: %#v", enabled, out["files"])
+		}
+		if _, ok := out["changed"].([]any); !ok {
+			t.Errorf("enabled=%v: changed is not an array: %#v", enabled, out["changed"])
+		}
 	}
 }

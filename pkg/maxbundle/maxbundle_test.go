@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+
+	"suwu/pkg/bindir"
 	"testing"
 	"testing/fstest"
 )
@@ -264,7 +266,7 @@ func TestPathEnsureAndRemove(t *testing.T) {
 		t.Fatalf("expected bash/zsh/fish changes, got %v", changed)
 	}
 	bash, _ := os.ReadFile(bashrc)
-	if !strings.Contains(string(bash), blockStart) || !strings.Contains(string(bash), "$HOME/.suwu/bin") {
+	if !strings.Contains(string(bash), bindir.MaxBlock.Start) || !strings.Contains(string(bash), "$HOME/.suwu/bin") {
 		t.Fatalf("bashrc block missing:\n%s", bash)
 	}
 	if !strings.Contains(string(bash), "export EDITOR=vim") {
@@ -295,7 +297,7 @@ func TestPathEnsureAndRemove(t *testing.T) {
 		t.Fatalf("expected removals, got %v", removed)
 	}
 	bash, _ = os.ReadFile(bashrc)
-	if strings.Contains(string(bash), blockStart) {
+	if strings.Contains(string(bash), bindir.MaxBlock.Start) {
 		t.Fatalf("block not removed:\n%s", bash)
 	}
 	if !strings.Contains(string(bash), "export EDITOR=vim") {
@@ -313,7 +315,7 @@ func TestPathCreatesProfileWhenNoRcExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("profile not created: %v", err)
 	}
-	if !strings.Contains(string(profile), blockStart) {
+	if !strings.Contains(string(profile), bindir.MaxBlock.Start) {
 		t.Fatalf("profile block missing:\n%s", profile)
 	}
 }

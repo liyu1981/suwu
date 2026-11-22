@@ -1,16 +1,19 @@
-// Package maxbundle implements the payload side of suwu-max: a self-extracting
-// launcher that installs the real suwu binary plus a small set of tools into a
-// user-owned directory and then execs the real binary.
+// Package maxbundle implements the payload side of suwu-max: a one-shot
+// installer that puts the real `suwu` binary in ~/.local/bin and the bundled
+// tools in ~/.suwu/bin, then runs the app.
+//
+// It is a bootstrap, not a launcher. After the first run what executes is the
+// normal binary, `suwu upgrade` replaces it, and suwu-max is needed again only
+// to re-seed the tools on a new machine (docs/TOOLS_PLAN.md §7).
 //
 // The launcher embeds two files, produced by scripts/build-max.sh:
 //
-//	manifest.json    metadata for every extracted file (mode, sha256, version)
-//	bundle.tar.gz     the compressed payload (suwu, tools, licenses)
+//	manifest.json    schema 2: the app, and each tool with its version and files
+//	bundle.tar.gz    the compressed payload (suwu plus the tools)
 //
-// Extraction is version-stamped: a second run with the same manifest is a
-// no-op. The stamp only requires presence (and the executable bit) so a tool's
-// own self-update is not clobbered within a version; hashes are verified while
-// extracting.
+// The app is written once and never downgraded by an older bundle; tools are
+// installed through pkg/tools, so a bundled tool is an "offline install from a
+// frozen catalog" — same staging, same hostile-archive guards, same stamps.
 package maxbundle
 
 import (
@@ -29,45 +32,46 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"suwu/pkg/bindir"
+	"suwu/pkg/tools"
 )
 
-// SchemaVersion is the manifest/stamp schema this build understands.
-const SchemaVersion = 1
+// SchemaVersion is the manifest schema this build understands. Schema 1 was the
+// launcher's flat file list; the bootstrap partitions the payload by owner, so
+// the format changed with the model.
+const SchemaVersion = 2
 
-// StampFile is the marker written into the install directory after a complete
-// extraction. Its presence plus a version match is what makes a run a no-op.
-const StampFile = ".suwu-max.json"
-
-// MainBinary is the real binary the launcher execs.
+// MainBinary is the app the launcher installs and then execs.
 const MainBinary = "suwu"
 
-// Entry describes one extracted file.
-type Entry struct {
+// RecordFile records what this launcher did, beside the app's data:
+// <dataDir>/maxbundle.json. The per-tool truth lives in the tools' own stamps.
+const RecordFile = "maxbundle.json"
+
+// File describes one payload file.
+type File struct {
+	File   string `json:"file"`
+	Mode   string `json:"mode"`
+	SHA256 string `json:"sha256"`
+}
+
+// Tool is one bundled tool: everything pkg/tools needs to install and stamp it.
+type Tool struct {
 	Name    string `json:"name"`
-	File    string `json:"file"`
-	Mode    string `json:"mode"` // octal string, e.g. "0755"
-	SHA256  string `json:"sha256"`
-	Version string `json:"version,omitempty"`
+	Version string `json:"version"`
 	License string `json:"license,omitempty"`
+	Files   []File `json:"files"`
 }
 
 // Manifest describes one payload build.
 type Manifest struct {
-	Schema  int     `json:"schema"`
-	Version string  `json:"version"`
-	GOOS    string  `json:"goos"`
-	GOARCH  string  `json:"goarch"`
-	Entries []Entry `json:"entries"`
-}
-
-// Stamp records a completed extraction.
-type Stamp struct {
-	Schema      int      `json:"schema"`
-	Version     string   `json:"version"`
-	GOOS        string   `json:"goos"`
-	GOARCH      string   `json:"goarch"`
-	ExtractedAt string   `json:"extractedAt"`
-	Files       []string `json:"files"`
+	Schema  int    `json:"schema"`
+	Version string `json:"version"`
+	GOOS    string `json:"goos"`
+	GOARCH  string `json:"goarch"`
+	App     File   `json:"app"`
+	Tools   []Tool `json:"tools"`
 }
 
 // ParseManifest decodes and validates a manifest.
@@ -79,39 +83,105 @@ func ParseManifest(data []byte) (*Manifest, error) {
 	if m.Schema != SchemaVersion {
 		return nil, fmt.Errorf("manifest schema %d is not supported (want %d)", m.Schema, SchemaVersion)
 	}
-	if len(m.Entries) == 0 {
-		return nil, errors.New("manifest has no entries")
+	if err := validFile(&m.App); err != nil {
+		return nil, fmt.Errorf("app: %w", err)
 	}
-	for i := range m.Entries {
-		e := &m.Entries[i]
-		if e.File == "" {
-			return nil, fmt.Errorf("manifest entry %d has no file", i)
+	if m.App.File != MainBinary {
+		return nil, fmt.Errorf("manifest app must be %q, got %q", MainBinary, m.App.File)
+	}
+	if len(m.Tools) == 0 {
+		return nil, errors.New("manifest lists no tools")
+	}
+	seen := make(map[string]bool, len(m.Tools))
+	for i := range m.Tools {
+		t := &m.Tools[i]
+		if strings.TrimSpace(t.Name) == "" || strings.ContainsAny(t.Name, "/\\.") {
+			return nil, fmt.Errorf("manifest tool %d has an invalid name %q", i, t.Name)
 		}
-		clean := filepath.ToSlash(filepath.Clean(e.File))
-		if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || filepath.IsAbs(e.File) {
-			return nil, fmt.Errorf("manifest entry %q is not a safe relative path", e.File)
+		if seen[t.Name] {
+			return nil, fmt.Errorf("manifest lists %q twice", t.Name)
 		}
-		e.File = clean
-		if e.Mode == "" {
-			e.Mode = "0644"
+		seen[t.Name] = true
+		for j := range t.Files {
+			if err := validFile(&t.Files[j]); err != nil {
+				return nil, fmt.Errorf("tool %s: %w", t.Name, err)
+			}
 		}
 	}
 	return &m, nil
 }
 
-// Result reports what Ensure did.
-type Result struct {
-	FirstRun bool
-	Dir      string
-	Skipped  bool
+func validFile(f *File) error {
+	clean := filepath.ToSlash(filepath.Clean(f.File))
+	if f.File == "" || clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || filepath.IsAbs(f.File) {
+		return fmt.Errorf("entry %q is not a safe relative path", f.File)
+	}
+	f.File = clean
+	if f.Mode == "" {
+		f.Mode = "0644"
+	}
+	if _, err := parseMode(f.Mode); err != nil {
+		return fmt.Errorf("entry %q: bad mode %q", f.File, f.Mode)
+	}
+	if !isHex64(f.SHA256) {
+		return fmt.Errorf("entry %q: bad sha256", f.File)
+	}
+	return nil
 }
 
-// Ensure extracts the embedded bundle into dir unless the stamp says this exact
-// version is already installed.
-//
-// The bundle FS must contain "manifest.json" and "bundle.tar.gz". force
-// re-extracts even when the stamp matches.
-func Ensure(bundle fs.FS, dir string, force bool) (*Result, error) {
+func isHex64(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	_, err := hex.DecodeString(s)
+	return err == nil
+}
+
+// Options controls one bootstrap.
+type Options struct {
+	// DataDir is the Suwu data directory (default ~/.suwu). Tools land in its
+	// bin/ subdirectory and the record beside it.
+	DataDir string
+	// BinDir overrides the tool directory (default <DataDir>/bin).
+	BinDir string
+	// AppDir is where the app goes (default ~/.local/bin).
+	AppDir string
+	// Force re-installs the app and every tool even when they are already there.
+	Force bool
+	// NoPath skips the PATH block.
+	NoPath bool
+}
+
+// ToolResult is what happened to one bundled tool.
+type ToolResult struct {
+	Name      string
+	Version   string
+	Installed bool
+	// Skipped is set when a newer install of the same tool is already there
+	// (origin "tools"): an explicit install beats the bundle.
+	Skipped bool
+}
+
+// Result reports what the bootstrap did.
+type Result struct {
+	DataDir      string
+	BinDir       string
+	AppPath      string
+	AppInstalled bool
+	AppSkipped   bool
+	Tools        []ToolResult
+	PathChanged  []string
+	PathRemoved  []string
+	// Warnings are non-fatal notes worth printing (a missing external
+	// dependency of a bundled tool).
+	Warnings []string
+}
+
+// Install extracts the payload, writes the app and installs the tools.
+func Install(bundle fs.FS, opt Options) (*Result, error) {
+	if bundle == nil {
+		return nil, errors.New("this executable was built without a payload; build it with 'go build -tags max'")
+	}
 	manifestData, err := fs.ReadFile(bundle, "manifest.json")
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
@@ -126,6 +196,10 @@ func Ensure(bundle fs.FS, dir string, force bool) (*Result, error) {
 	if manifest.GOARCH != "" && manifest.GOARCH != runtime.GOARCH {
 		return nil, fmt.Errorf("bundle is for %s, but this is %s", manifest.GOARCH, runtime.GOARCH)
 	}
+	res, opt, err := prepare(opt)
+	if err != nil {
+		return nil, err
+	}
 
 	archive, err := bundle.Open("bundle.tar.gz")
 	if err != nil {
@@ -133,52 +207,87 @@ func Ensure(bundle fs.FS, dir string, force bool) (*Result, error) {
 	}
 	defer func() { _ = archive.Close() }()
 
-	first, err := ensureArchive(manifest, archive, dir, force)
+	// One lock for everything: the app's rename and every tool's commit are the
+	// same critical section as `suwu upgrade` and a page install.
+	unlock, err := bindir.Lock(opt.DataDir)
 	if err != nil {
 		return nil, err
 	}
-	return &Result{FirstRun: first, Dir: dir, Skipped: !first}, nil
-}
-
-func ensureArchive(manifest *Manifest, archive io.Reader, dir string, force bool) (bool, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return false, fmt.Errorf("create install dir: %w", err)
-	}
-
-	unlock, err := lockDir(dir)
-	if err != nil {
-		return false, err
-	}
 	defer unlock()
 
-	if !force {
-		if stamp, err := readStamp(dir); err == nil && stampMatches(stamp, manifest, dir) {
-			return false, nil
+	stage, err := os.MkdirTemp(filepath.Join(opt.DataDir, "tmp"), "max-")
+	if err != nil {
+		return nil, fmt.Errorf("create staging dir: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(stage) }()
+
+	if err := extractArchive(archive, stage); err != nil {
+		return nil, err
+	}
+	if err := verifyHashes(manifest, stage); err != nil {
+		return nil, err
+	}
+
+	appInstalled, err := installApp(manifest, stage, opt)
+	if err != nil {
+		return nil, err
+	}
+	res.AppInstalled = appInstalled
+	res.AppSkipped = !appInstalled
+
+	for _, tool := range manifest.Tools {
+		tr, err := installTool(tool, stage, manifest, opt)
+		if err != nil {
+			return res, err
+		}
+		res.Tools = append(res.Tools, tr)
+	}
+
+	res.Warnings = dependencyWarnings(manifest)
+	if err := writeRecord(res, manifest); err != nil {
+		return res, err
+	}
+	if !opt.NoPath {
+		changed, removed, err := syncPath(opt.AppDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "suwu-max: could not update PATH: %v\n", err)
+		}
+		res.PathChanged, res.PathRemoved = changed, removed
+	}
+	return res, nil
+}
+
+// prepare applies the defaults and creates the directories the install writes
+// into. Both are absolute: everything below is a path operation we promise.
+func prepare(opt Options) (*Result, Options, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, opt, fmt.Errorf("cannot find home directory: %w", err)
+	}
+	if opt.DataDir == "" {
+		opt.DataDir = filepath.Join(home, ".suwu")
+	}
+	abs, err := filepath.Abs(opt.DataDir)
+	if err != nil {
+		return nil, opt, err
+	}
+	opt.DataDir = abs
+	if opt.BinDir == "" {
+		opt.BinDir = bindir.Dir(opt.DataDir)
+	}
+	if opt.AppDir == "" {
+		opt.AppDir = filepath.Join(home, ".local", "bin")
+	}
+	for _, dir := range []string{opt.DataDir, filepath.Join(opt.DataDir, "tmp"), opt.BinDir, opt.AppDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, opt, fmt.Errorf("create %s: %w", dir, err)
 		}
 	}
-
-	staging, err := os.MkdirTemp(dir, ".staging-")
-	if err != nil {
-		return false, fmt.Errorf("create staging dir: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(staging) }()
-
-	if err := extractArchive(archive, staging); err != nil {
-		return false, err
-	}
-	if err := verifyEntries(manifest, staging); err != nil {
-		return false, err
-	}
-	if err := backupExisting(dir); err != nil {
-		return false, err
-	}
-	if err := promoteEntries(manifest, staging, dir); err != nil {
-		return false, err
-	}
-	if err := writeStamp(dir, manifest); err != nil {
-		return false, err
-	}
-	return true, nil
+	return &Result{
+		DataDir: opt.DataDir,
+		BinDir:  opt.BinDir,
+		AppPath: filepath.Join(opt.AppDir, MainBinary),
+	}, opt, nil
 }
 
 // extractArchive unpacks the tar.gz into dst, refusing paths that escape it.
@@ -202,7 +311,7 @@ func extractArchive(archive io.Reader, dst string) error {
 		if name == "." || name == "" {
 			continue
 		}
-		if strings.HasPrefix(name, "../") || filepath.IsAbs(name) {
+		if strings.HasPrefix(name, "../") || filepath.IsAbs(name) || strings.ContainsRune(name, '\\') {
 			return fmt.Errorf("bundle entry %q escapes the install dir", hdr.Name)
 		}
 		target := filepath.Join(dst, filepath.FromSlash(name))
@@ -219,7 +328,7 @@ func extractArchive(archive io.Reader, dst string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(out, tr); err != nil {
+			if _, err := io.Copy(out, io.LimitReader(tr, 512<<20)); err != nil {
 				_ = out.Close()
 				return err
 			}
@@ -227,143 +336,164 @@ func extractArchive(archive io.Reader, dst string) error {
 				return err
 			}
 		default:
-			// Symlinks/devices are not part of the documented payload.
-			continue
+			// Symlinks, hard links and devices are not part of the payload; a
+			// payload that carries one is not ours to follow.
+			return fmt.Errorf("bundle entry %q has unsupported type %q", hdr.Name, hdr.Typeflag)
 		}
 	}
 }
 
-// verifyEntries checks every manifest entry's sha256 in the staging tree.
-func verifyEntries(manifest *Manifest, staging string) error {
-	for _, e := range manifest.Entries {
-		if e.SHA256 == "" {
-			return fmt.Errorf("manifest entry %q has no sha256", e.File)
-		}
-		got, err := fileSHA256(filepath.Join(staging, filepath.FromSlash(e.File)))
+// verifyHashes checks every manifest file's sha256 before anything is installed.
+func verifyHashes(manifest *Manifest, staging string) error {
+	check := func(f File) error {
+		got, err := fileSHA256(filepath.Join(staging, filepath.FromSlash(f.File)))
 		if err != nil {
-			return fmt.Errorf("%s: %w", e.File, err)
+			return fmt.Errorf("%s: %w", f.File, err)
 		}
-		if !strings.EqualFold(got, e.SHA256) {
-			return fmt.Errorf("%s: checksum mismatch (manifest %s, payload %s)", e.File, e.SHA256, got)
+		if !strings.EqualFold(got, f.SHA256) {
+			return fmt.Errorf("%s: checksum mismatch (manifest %s, payload %s)", f.File, f.SHA256, got)
 		}
-	}
-	return nil
-}
-
-// backupExisting keeps the current suwu as suwu.prev before it is replaced
-// ("keep it first, then copy").
-func backupExisting(dir string) error {
-	src := filepath.Join(dir, MainBinary)
-	info, err := os.Stat(src)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	if !info.Mode().IsRegular() {
 		return nil
 	}
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return fmt.Errorf("read existing suwu: %w", err)
+	if err := check(manifest.App); err != nil {
+		return err
 	}
-	if err := os.WriteFile(filepath.Join(dir, MainBinary+".prev"), data, info.Mode().Perm()); err != nil {
-		return fmt.Errorf("back up existing suwu: %w", err)
-	}
-	return nil
-}
-
-// promoteEntries moves each staged file into place, replacing the target. The
-// main binary is moved first so a crash leaves a usable suwu when possible.
-func promoteEntries(manifest *Manifest, staging, dir string) error {
-	entries := append([]Entry(nil), manifest.Entries...)
-	sortMainFirst(entries)
-	for _, e := range entries {
-		src := filepath.Join(staging, filepath.FromSlash(e.File))
-		dst := filepath.Join(dir, filepath.FromSlash(e.File))
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return err
-		}
-		// Ensure the executable bit is what the manifest says even on a
-		// permissive umask or an archive that lost the mode.
-		if mode, err := parseMode(e.Mode); err == nil && mode&0o111 != 0 {
-			_ = os.Chmod(src, mode)
-		}
-		if err := os.Rename(src, dst); err != nil {
-			return fmt.Errorf("install %s: %w", e.File, err)
+	for _, t := range manifest.Tools {
+		for _, f := range t.Files {
+			if err := check(f); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func sortMainFirst(entries []Entry) {
-	for i, e := range entries {
-		if e.File == MainBinary && i != 0 {
-			copy(entries[1:i+1], entries[:i])
-			entries[0] = e
-			return
-		}
+// installApp writes ~/.local/bin/suwu unless it is already there.
+//
+// A bundle only ever seeds the app: a newer version installed by `suwu upgrade`
+// is never replaced by an older wrapper, and replacing it on purpose is what
+// --force is for (docs/TOOLS_PLAN.md §7, D11).
+func installApp(manifest *Manifest, stage string, opt Options) (bool, error) {
+	dest := filepath.Join(opt.AppDir, MainBinary)
+	if _, err := os.Lstat(dest); err == nil && !opt.Force {
+		return false, nil
 	}
-}
-
-func readStamp(dir string) (*Stamp, error) {
-	data, err := os.ReadFile(filepath.Join(dir, StampFile))
+	src := filepath.Join(stage, filepath.FromSlash(manifest.App.File))
+	mode, err := parseMode(manifest.App.Mode)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	var s Stamp
-	if err := json.Unmarshal(data, &s); err != nil {
-		return nil, err
-	}
-	return &s, nil
+	return true, writeAtomic(src, dest, mode)
 }
 
-// stampMatches is the idempotency check: same schema/version/platform and every
-// file present with its executable bit. File contents are deliberately not
-// hashed here so a bundled tool that self-updates is not overwritten until the
-// next suwu-max version.
-func stampMatches(stamp *Stamp, manifest *Manifest, dir string) bool {
-	if stamp.Schema != manifest.Schema ||
-		stamp.Version != manifest.Version ||
-		stamp.GOOS != manifest.GOOS ||
-		stamp.GOARCH != manifest.GOARCH {
-		return false
-	}
-	for _, e := range manifest.Entries {
-		info, err := os.Stat(filepath.Join(dir, filepath.FromSlash(e.File)))
-		if err != nil || !info.Mode().IsRegular() {
-			return false
-		}
-		mode, err := parseMode(e.Mode)
-		if err == nil && mode&0o111 != 0 && info.Mode()&0o111 == 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func writeStamp(dir string, manifest *Manifest) error {
-	stamp := Stamp{
-		Schema:      manifest.Schema,
-		Version:     manifest.Version,
-		GOOS:        manifest.GOOS,
-		GOARCH:      manifest.GOARCH,
-		ExtractedAt: time.Now().UTC().Format(time.RFC3339),
-		Files:       make([]string, 0, len(manifest.Entries)),
-	}
-	for _, e := range manifest.Entries {
-		stamp.Files = append(stamp.Files, e.File)
-	}
-	data, err := json.MarshalIndent(stamp, "", "  ")
+// writeAtomic copies src to dest through a temp file in the same directory, so a
+// half-written binary is never executable.
+func writeAtomic(src, dest string, mode fs.FileMode) error {
+	in, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	tmp := filepath.Join(dir, StampFile+".tmp")
-	if err := os.WriteFile(tmp, append(data, '\n'), 0o644); err != nil {
-		return fmt.Errorf("write stamp: %w", err)
+	defer func() { _ = in.Close() }()
+	tmp, err := os.CreateTemp(filepath.Dir(dest), "."+filepath.Base(dest)+"-")
+	if err != nil {
+		return err
 	}
-	return os.Rename(tmp, filepath.Join(dir, StampFile))
+	name := tmp.Name()
+	defer func() { _ = os.Remove(name) }()
+	if _, err := io.Copy(tmp, in); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(name, mode.Perm()); err != nil {
+		return err
+	}
+	return os.Rename(name, dest)
+}
+
+// installTool hands one tool to pkg/tools, unless an explicit install already
+// owns it.
+func installTool(t Tool, stage string, manifest *Manifest, opt Options) (ToolResult, error) {
+	tr := ToolResult{Name: t.Name, Version: t.Version}
+	stamp, err := tools.ReadStamp(opt.DataDir, t.Name)
+	if err == nil && stamp.Origin == tools.OriginTools && !opt.Force {
+		tr.Skipped = true
+		return tr, nil
+	}
+	spec := tools.Spec{
+		Name:    t.Name,
+		Version: t.Version,
+		GOOS:    manifest.GOOS,
+		GOARCH:  manifest.GOARCH,
+		Archive: tools.ArchiveNone, // unused: the files are already staged
+		Entries: make([]tools.Entry, 0, len(t.Files)),
+		URL:     "embedded:suwu-max/" + t.Name,
+	}
+	for _, f := range t.Files {
+		spec.Entries = append(spec.Entries, tools.Entry{File: f.File, Mode: f.Mode})
+	}
+	if _, err := tools.InstallFromFiles(spec, tools.Options{
+		DataDir:  opt.DataDir,
+		Force:    opt.Force,
+		Origin:   tools.OriginMax,
+		LockHeld: true, // Install holds it for the whole bootstrap
+	}, stage); err != nil {
+		return tr, err
+	}
+	tr.Installed = true
+	return tr, nil
+}
+
+// Record is what the bootstrap leaves behind for `--version` and for support
+// questions; the tools' own stamps remain the authority on what is installed.
+type Record struct {
+	Schema        int    `json:"schema"`
+	BundleVersion string `json:"bundleVersion"`
+	GOOS          string `json:"goos"`
+	GOARCH        string `json:"goarch"`
+	AppPath       string `json:"appPath"`
+	BinDir        string `json:"binDir"`
+	InstalledAt   string `json:"installedAt"`
+}
+
+func writeRecord(res *Result, manifest *Manifest) error {
+	rec := Record{
+		Schema:        SchemaVersion,
+		BundleVersion: manifest.Version,
+		GOOS:          manifest.GOOS,
+		GOARCH:        manifest.GOARCH,
+		AppPath:       res.AppPath,
+		BinDir:        res.BinDir,
+		InstalledAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+	data, err := json.MarshalIndent(rec, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := filepath.Join(res.DataDir, RecordFile+".tmp")
+	if err := os.WriteFile(tmp, append(data, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", RecordFile, err)
+	}
+	return os.Rename(tmp, filepath.Join(res.DataDir, RecordFile))
+}
+
+// syncPath puts the app's directory on PATH, and drops a block that a previous
+// suwu-max left pointing at the tool directory.
+//
+// The old launcher added ~/.suwu/bin. Under the bootstrap model a login shell
+// needs ~/.local/bin (where `suwu` lives), not the tool directory: Suwu's own
+// sessions get that from the server, and `suwu exec` needs no PATH at all.
+// Rewriting the same block is what makes the migration automatic, and removing
+// it entirely is right when the directory is already on PATH some other way.
+func syncPath(appDir string) (changed, removed []string, err error) {
+	if bindir.OnPath(appDir) {
+		removed, err = bindir.RemovePath(bindir.MaxBlock)
+		return nil, removed, err
+	}
+	changed, err = bindir.EnsurePath(appDir, bindir.MaxBlock)
+	return changed, nil, err
 }
 
 func fileSHA256(file string) (string, error) {
@@ -387,13 +517,9 @@ func parseMode(s string) (fs.FileMode, error) {
 	return fs.FileMode(v), nil
 }
 
-// BundlePath returns the extraction target below home, used by the CLI.
-func BundlePath(home string) string {
-	return filepath.Join(home, ".suwu", "bin")
-}
+// BundlePath returns the tool directory below home, used by the CLI.
+func BundlePath(home string) string { return bindir.Dir(filepath.Join(home, ".suwu")) }
 
 // CleanRelative normalises a bundle-relative path (exported for the builder
 // script's tests).
-func CleanRelative(p string) string {
-	return path.Clean(filepath.ToSlash(p))
-}
+func CleanRelative(p string) string { return path.Clean(filepath.ToSlash(p)) }

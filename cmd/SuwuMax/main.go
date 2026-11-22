@@ -1,7 +1,8 @@
-// Command suwu-max is the self-extracting launcher for Suwu. It carries the
-// real suwu binary plus a small tool set, installs them into ~/.suwu/bin on
-// first run, puts that directory on PATH, and then execs the real binary with
-// the original arguments.
+// Command suwu-max is the bootstrap installer for Suwu. It carries the real
+// suwu binary plus a small tool set, writes the app to ~/.local/bin and the
+// tools to ~/.suwu/bin on first run, then execs the app with the original
+// arguments. From the second run on it is only a re-seed for the tools: what
+// runs is the normal suwu binary, which `suwu upgrade` keeps current.
 //
 // The payload itself is embedded only when the binary is built with
 // `-tags max` (see scripts/build-max.sh); a plain `go build ./...` produces a

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Build the suwu-max self-extracting launcher.
+# Build the suwu-max bootstrap: one self-extracting installer that puts the real
+# suwu binary in ~/.local/bin and the pinned tools in ~/.suwu/bin.
 #
 #   1. builds the frontend + the real suwu binary,
 #   2. installs the pinned tools listed in tools/catalog.json for the target
 #      architecture (verifying their sha256),
-#   3. assembles build/bundle/ with the binaries, licenses and a manifest,
-#   4. embeds the bundle into the launcher (go build -tags max),
+#   3. assembles build/max/bundle/ with the binaries, licenses and a schema-2
+#      manifest that partitions the payload by owner (app, then each tool),
+#   4. embeds the payload into the installer (go build -tags max),
 #   5. writes dist/suwu-max-<version>-<goos>-<goarch>.tar.gz.
 #
 # Usage:
@@ -128,33 +130,64 @@ while IFS='|' read -r name version archive url pin strip entries keep docs; do
 done < <(python3 "$PAYLOAD" --catalog "$CATALOG" list --goos "$GOOS" --goarch "$GOARCH" --bundled max)
 
 # ── 3. manifest ─────────────────────────────────────────────────────────
+# Schema 2 partitions the payload by owner: the app, and each tool with its
+# version. suwu-max installs the app into ~/.local/bin and hands every tool to
+# pkg/tools, so a bundled tool is stamped exactly like an installed one.
 say "writing manifest"
-python3 - "$GOOS" "$GOARCH" "$VERSION" "$BUNDLE" <<'PY'
+python3 - "$CATALOG" "$GOOS" "$GOARCH" "$VERSION" "$BUNDLE" <<'PY'
 import hashlib, json, os, stat, sys
-goos, goarch, version, bundle = sys.argv[1:5]
-entries = []
-for root, _dirs, files in os.walk(bundle):
-    for name in files:
-        full = os.path.join(root, name)
-        rel = os.path.relpath(full, bundle).replace(os.sep, "/")
-        mode = stat.S_IMODE(os.stat(full).st_mode)
-        h = hashlib.sha256()
-        with open(full, "rb") as f:
-            for chunk in iter(lambda: f.read(1 << 20), b""):
-                h.update(chunk)
-        entries.append({
-            "name": os.path.basename(rel),
-            "file": rel,
-            "mode": f"{mode:04o}",
-            "sha256": h.hexdigest(),
-        })
-# suwu first (the launcher promotes it before the rest)
-entries.sort(key=lambda e: (e["file"] != "suwu", e["file"]))
-manifest = {"schema": 1, "version": version, "goos": goos, "goarch": goarch, "entries": entries}
+
+catalog_path, goos, goarch, version, bundle = sys.argv[1:6]
+catalog = json.load(open(catalog_path))
+
+def entry(rel):
+    full = os.path.join(bundle, rel)
+    mode = stat.S_IMODE(os.stat(full).st_mode)
+    h = hashlib.sha256()
+    with open(full, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return {"file": rel, "mode": f"{mode:04o}", "sha256": h.hexdigest()}
+
+tools = []
+for tool in catalog["tools"]:
+    if tool.get("bundled") != "max":
+        continue
+    platform = tool["platforms"].get(f"{goos}-{goarch}")
+    if platform is None:
+        continue
+    files = []
+    for e in platform["entries"]:
+        if os.path.exists(os.path.join(bundle, e["file"])):
+            files.append({"file": e["file"], "mode": e["mode"], "sha256": entry(e["file"])["sha256"]})
+    # Licenses, notices and man pages ride under tools/<name>/.
+    root = os.path.join(bundle, "tools", tool["name"])
+    if os.path.isdir(root):
+        for dirpath, _dirs, names in os.walk(root):
+            for name in sorted(names):
+                rel = os.path.relpath(os.path.join(dirpath, name), bundle).replace(os.sep, "/")
+                files.append(entry(rel))
+    if not files:
+        sys.exit(f"payload has no files for {tool['name']}")
+    tools.append({
+        "name": tool["name"],
+        "version": tool["version"],
+        "license": tool.get("license", ""),
+        "files": files,
+    })
+
+manifest = {
+    "schema": 2,
+    "version": version,
+    "goos": goos,
+    "goarch": goarch,
+    "app": entry("suwu"),
+    "tools": tools,
+}
 with open(os.path.join(bundle, "manifest.json"), "w") as f:
     json.dump(manifest, f, indent=2)
     f.write("\n")
-print(f"  {len(entries)} entries")
+print(f"  app + {len(tools)} tools, {sum(len(t['files']) for t in tools)} payload files")
 PY
 
 # ── 4. embed + build launcher ───────────────────────────────────────────

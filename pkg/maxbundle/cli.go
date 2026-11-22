@@ -11,10 +11,18 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+
+	"suwu/pkg/bindir"
 )
 
 // Main is the suwu-max entry point. bundle is the embedded payload FS; it may
 // be nil when the launcher was built without the `max` tag.
+//
+// One run installs and then becomes the app:
+//
+//	suwu-max [flags] [args…]   install (idempotent), then exec ~/.local/bin/suwu
+//	suwu-max setup-path        only put ~/.local/bin on PATH
+//	suwu-max unsetup-path      only remove that block
 func Main(bundle fs.FS, launcherVersion string, argv []string) int {
 	if len(argv) > 0 {
 		switch argv[0] {
@@ -27,12 +35,14 @@ func Main(bundle fs.FS, launcherVersion string, argv []string) int {
 
 	fl := flag.NewFlagSet("suwu-max", flag.ContinueOnError)
 	fl.SetOutput(os.Stderr)
-	dirFlag := fl.String("dir", "", "install directory (default ~/.suwu/bin)")
+	dataDir := fl.String("data-dir", "", "data directory (default ~/.suwu)")
+	dirFlag := fl.String("dir", "", "tool directory (default <data-dir>/bin)")
+	appDir := fl.String("app-dir", "", "where the app goes (default ~/.local/bin)")
 	noPath := fl.Bool("no-path", false, "do not modify shell rc files")
-	extractOnly := fl.Bool("extract-only", false, "extract the payload and exit")
-	force := fl.Bool("force", false, "re-extract even if this version is installed")
+	extractOnly := fl.Bool("extract-only", false, "install and exit, without running the app")
+	force := fl.Bool("force", false, "re-install the app and every tool")
 	showVersion := fl.Bool("version", false, "print launcher and payload versions")
-	printPath := fl.Bool("print-path", false, "print the install directory and exit")
+	printPath := fl.Bool("print-path", false, "print the tool directory and exit")
 	if err := fl.Parse(argv); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -41,91 +51,64 @@ func Main(bundle fs.FS, launcherVersion string, argv []string) int {
 	}
 	rest := fl.Args()
 
-	dir, err := resolveDir(*dirFlag)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "suwu-max: %v\n", err)
-		return 1
+	opt := Options{Force: *force, NoPath: *noPath}
+	opt.DataDir = firstNonEmpty(*dataDir, os.Getenv("SUWU_MAX_DATA_DIR"))
+	opt.AppDir = firstNonEmpty(*appDir, os.Getenv("SUWU_MAX_APP_DIR"))
+	// --dir has always meant the tool directory; it still does, and the data dir
+	// follows from it so the stamps and the lock land beside the tools.
+	opt.BinDir = firstNonEmpty(*dirFlag, os.Getenv("SUWU_MAX_DIR"))
+	if opt.DataDir == "" && opt.BinDir != "" {
+		opt.DataDir = dataDirForBinDir(opt.BinDir)
 	}
+	opt.NoPath = opt.NoPath || envNoPath()
 
 	if *showVersion {
 		printVersion(bundle, launcherVersion)
 		return 0
 	}
+	res, prepared, err := prepare(opt)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "suwu-max: %v\n", err)
+		return 1
+	}
 	if *printPath {
-		fmt.Println(dir)
+		fmt.Println(prepared.BinDir)
 		return 0
 	}
 
-	if bundle == nil {
-		fmt.Fprintln(os.Stderr, "suwu-max: this executable was built without a payload; build it with 'go build -tags max'")
+	res, err = Install(bundle, opt)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "suwu-max: %v\n", err)
 		return 1
 	}
+	report(res)
 
 	if *extractOnly {
-		res, err := Ensure(bundle, dir, *force)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "suwu-max: extract: %v\n", err)
-			return 1
-		}
-		if res.FirstRun {
-			fmt.Printf("Extracted suwu-max payload to %s\n", dir)
-		} else {
-			fmt.Printf("Already installed in %s\n", dir)
-		}
-		if !*noPath && !envNoPath() {
-			printPathChange(dir)
-		}
 		return 0
 	}
-
-	res, err := Ensure(bundle, dir, *force)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "suwu-max: extract: %v\n", err)
-		return 1
-	}
-	if res.FirstRun {
-		fmt.Fprintf(os.Stderr, "Installed suwu-max payload in %s\n", dir)
-		if !*noPath && !envNoPath() {
-			printPathChange(dir)
-		}
-		warnMissingDependencies(bundle)
-	}
-
-	target := filepath.Join(dir, MainBinary)
-	env := withPath(os.Environ(), dir)
-	env = append(env, "SUWU_MAX=1", "SUWU_BIN="+dir)
-
-	// Replace this process with the real binary: signals, exit status and the
-	// terminal belong to it, with no extra parent in between.
-	if err := syscall.Exec(target, append([]string{target}, rest...), env); err != nil {
-		cmd := exec.Command(target, rest...)
-		cmd.Env = env
-		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-		if runErr := cmd.Run(); runErr != nil {
-			var exit *exec.ExitError
-			if errors.As(runErr, &exit) {
-				return exit.ExitCode()
-			}
-			fmt.Fprintf(os.Stderr, "suwu-max: run %s: %v\n", target, runErr)
-			return 1
-		}
-	}
-	return 0
+	return execApp(res.AppPath, rest)
 }
 
-// resolveDir applies --dir, then SUWU_MAX_DIR, then ~/.suwu/bin.
-func resolveDir(flagValue string) (string, error) {
-	if flagValue != "" {
-		return filepath.Abs(flagValue)
-	}
-	if env := strings.TrimSpace(os.Getenv("SUWU_MAX_DIR")); env != "" {
-		return filepath.Abs(env)
-	}
-	home, err := os.UserHomeDir()
+// dataDirForBinDir recovers the data dir from a tool directory override, so
+// `--dir /opt/tools` keeps its stamps in /opt (and not in the default home).
+func dataDirForBinDir(binDir string) string {
+	abs, err := filepath.Abs(binDir)
 	if err != nil {
-		return "", fmt.Errorf("cannot find home directory: %w", err)
+		return binDir
 	}
-	return BundlePath(home), nil
+	if filepath.Base(abs) == "bin" {
+		return filepath.Dir(abs)
+	}
+	return abs
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func envNoPath() bool {
@@ -136,49 +119,68 @@ func envNoPath() bool {
 	return false
 }
 
-// withPath returns env with dir prepended to PATH (replacing any existing PATH).
-func withPath(env []string, dir string) []string {
-	out := make([]string, 0, len(env)+1)
-	replaced := false
-	for _, kv := range env {
-		if strings.HasPrefix(kv, "PATH=") {
-			out = append(out, "PATH="+dir+string(os.PathListSeparator)+strings.TrimPrefix(kv, "PATH="))
-			replaced = true
-			continue
+// report prints what changed, and only what changed: a second run says nothing
+// but "already installed".
+func report(res *Result) {
+	if res.AppInstalled {
+		fmt.Printf("Installed %s\n", res.AppPath)
+	} else {
+		fmt.Printf("%s is already installed (kept; use --force to replace it)\n", res.AppPath)
+	}
+	for _, t := range res.Tools {
+		switch {
+		case t.Skipped:
+			fmt.Printf("  %s %s kept: installed here, the bundle does not overwrite it\n", t.Name, t.Version)
+		case t.Installed:
+			fmt.Printf("  %s %s\n", t.Name, t.Version)
 		}
-		out = append(out, kv)
 	}
-	if !replaced {
-		out = append(out, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	fmt.Printf("Tools are in %s\n", res.BinDir)
+	for _, f := range res.PathChanged {
+		fmt.Printf("Added %s to PATH in %s\n", filepath.Dir(res.AppPath), f)
 	}
-	return out
+	for _, f := range res.PathRemoved {
+		fmt.Printf("Removed the old suwu-max PATH block from %s (the tool directory no longer needs to be on PATH)\n", f)
+	}
+	for _, w := range res.Warnings {
+		fmt.Fprintln(os.Stderr, "warning: "+w)
+	}
 }
 
-func printPathChange(dir string) {
-	changed, err := EnsurePath(dir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "suwu-max: could not update PATH: %v\n", err)
-		return
+// execApp replaces this process with the app: signals, exit status and the
+// terminal belong to it, with no extra parent in between.
+func execApp(path string, args []string) int {
+	if err := syscall.Exec(path, append([]string{path}, args...), os.Environ()); err != nil {
+		cmd := exec.Command(path, args...)
+		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+		if runErr := cmd.Run(); runErr != nil {
+			var exit *exec.ExitError
+			if errors.As(runErr, &exit) {
+				return exit.ExitCode()
+			}
+			fmt.Fprintf(os.Stderr, "suwu-max: run %s: %v\n", path, runErr)
+			return 1
+		}
 	}
-	if len(changed) == 0 {
-		return
-	}
-	fmt.Printf("Added %s to PATH in %s\n", dir, strings.Join(changed, ", "))
-	fmt.Println("Open a new shell (or source the file) to use the bundled tools there.")
+	return 0
 }
 
 func setupPathCmd(args []string) int {
 	fl := flag.NewFlagSet("suwu-max setup-path", flag.ContinueOnError)
-	dirFlag := fl.String("dir", "", "install directory (default ~/.suwu/bin)")
+	appDir := fl.String("app-dir", "", "directory holding the app (default ~/.local/bin)")
 	if err := fl.Parse(args); err != nil {
 		return 2
 	}
-	dir, err := resolveDir(*dirFlag)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "suwu-max: %v\n", err)
-		return 1
+	dir := *appDir
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "suwu-max: %v\n", err)
+			return 1
+		}
+		dir = filepath.Join(home, ".local", "bin")
 	}
-	changed, err := EnsurePath(dir)
+	changed, err := bindir.EnsurePath(dir, bindir.MaxBlock)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "suwu-max: %v\n", err)
 		return 1
@@ -196,7 +198,7 @@ func removePathCmd(args []string) int {
 	if err := fl.Parse(args); err != nil {
 		return 2
 	}
-	changed, err := RemovePath()
+	changed, err := bindir.RemovePath(bindir.MaxBlock)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "suwu-max: %v\n", err)
 		return 1
@@ -214,34 +216,24 @@ func printVersion(bundle fs.FS, launcherVersion string) {
 	if bundle != nil {
 		if data, err := fs.ReadFile(bundle, "manifest.json"); err == nil {
 			if manifest, err := ParseManifest(data); err == nil {
-				payload = manifest.Version + " (" + manifest.GOOS + "/" + manifest.GOARCH + ")"
+				payload = fmt.Sprintf("%s (%s/%s, %d tools)", manifest.Version, manifest.GOOS, manifest.GOARCH, len(manifest.Tools))
 			}
 		}
 	}
 	fmt.Printf("suwu-max %s · payload %s · %s/%s\n", launcherVersion, payload, runtime.GOOS, runtime.GOARCH)
 }
 
-// warnMissingDependencies flags the one bundled tool with an external runtime
-// dependency: asdf needs git.
-func warnMissingDependencies(bundle fs.FS) {
-	manifestData, err := fs.ReadFile(bundle, "manifest.json")
-	if err != nil {
-		return
-	}
-	manifest, err := ParseManifest(manifestData)
-	if err != nil {
-		return
-	}
-	hasAsdf := false
-	for _, e := range manifest.Entries {
-		if e.Name == "asdf" || e.File == "asdf" {
-			hasAsdf = true
-			break
+// dependencyWarnings names the one bundled tool with an external runtime
+// dependency: asdf shells out to git for every install.
+func dependencyWarnings(manifest *Manifest) []string {
+	var out []string
+	for _, t := range manifest.Tools {
+		if t.Name != "asdf" {
+			continue
 		}
-	}
-	if hasAsdf {
 		if _, err := exec.LookPath("git"); err != nil {
-			fmt.Fprintln(os.Stderr, "warning: asdf is bundled but git was not found on PATH; install git to manage runtimes with asdf.")
+			out = append(out, "asdf is installed but git was not found on PATH; install git to manage runtimes with asdf")
 		}
 	}
+	return out
 }

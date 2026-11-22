@@ -83,6 +83,10 @@ type Options struct {
 	Client *http.Client
 	// Progress, when set, receives the download counters.
 	Progress func(name string, done, total int64)
+	// LockHeld says the caller already holds bindir.Lock for this data dir, as
+	// the suwu-max bootstrap does for its whole run. Taking the lock twice from
+	// one process would deadlock, so the caller must be right about this.
+	LockHeld bool
 }
 
 func (o Options) origin() string {
@@ -260,11 +264,13 @@ func install(spec Spec, opt Options, produce func(stage string) error) (Result, 
 	}
 	res.BinDir = binDir
 
-	unlock, err := bindir.Lock(opt.DataDir)
-	if err != nil {
-		return res, err
+	if !opt.LockHeld {
+		unlock, err := bindir.Lock(opt.DataDir)
+		if err != nil {
+			return res, err
+		}
+		defer unlock()
 	}
-	defer unlock()
 
 	// A file the bundle put there is ours to upgrade: an explicit install beats
 	// the bundle (docs/TOOLS_PLAN.md §7.1), so replacing it does not need
@@ -450,11 +456,13 @@ func Uninstall(opt Options, name string) (Result, error) {
 	}
 	binDir := bindir.Dir(opt.DataDir)
 	res.BinDir = binDir
-	unlock, err := bindir.Lock(opt.DataDir)
-	if err != nil {
-		return res, err
+	if !opt.LockHeld {
+		unlock, err := bindir.Lock(opt.DataDir)
+		if err != nil {
+			return res, err
+		}
+		defer unlock()
 	}
-	defer unlock()
 
 	stamp, err := ReadStamp(opt.DataDir, name)
 	if err != nil {

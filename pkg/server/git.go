@@ -146,7 +146,10 @@ func isGitRepo(path string) bool {
 // A server started by systemd inherits a minimal PATH that omits them, which
 // makes git report "git-lfs was not found on your path" even when the user
 // has it installed.
-var userToolDirs = []string{".local/bin", "bin", ".cargo/bin", ".asdf/shims", ".bun/bin"}
+// `.suwu/bin` is first because that is where Suwu's own tools installer puts the
+// binaries it manages; it is the one directory a server started by systemd would
+// otherwise never see.
+var userToolDirs = []string{".suwu/bin", ".local/bin", "bin", ".cargo/bin", ".asdf/shims", ".bun/bin"}
 
 // systemToolDirs are fallback locations for user-installed tooling that is not
 // on the inherited PATH (Homebrew on Apple Silicon, Linuxbrew).

@@ -185,3 +185,21 @@ func TestGitSeesUserInstalledLfsHooks(t *testing.T) {
 		t.Fatalf("push via git() should find git-lfs: %s: %v", out, err)
 	}
 }
+
+// The managed tool directory is the first thing a git command should see: it is
+// where `suwu tools install` puts the binaries, and a systemd-started server
+// would otherwise never find them.
+func TestGitEnvPutsManagedToolsFirst(t *testing.T) {
+	home := t.TempDir()
+	managed := filepath.Join(home, ".suwu", "bin")
+	if err := os.MkdirAll(managed, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", "/usr/bin:/bin")
+
+	entries := strings.Split(pathValue(t, gitEnv()), string(os.PathListSeparator))
+	if entries[0] != managed {
+		t.Fatalf("expected %q first, got %v", managed, entries)
+	}
+}

@@ -45,6 +45,7 @@ import (
 
 	"suwu/pkg/assets"
 	"suwu/pkg/auth"
+	"suwu/pkg/bindir"
 	"suwu/pkg/certs"
 	"suwu/pkg/diagnostics"
 	"suwu/pkg/envfile"
@@ -653,6 +654,15 @@ func run(debugCfg debugConfig) error {
 		if home, err := os.UserHomeDir(); err == nil {
 			dataDir = filepath.Join(home, ".suwu")
 		}
+	}
+
+	// Tools installed into <dataDir>/bin are on this process's PATH from here on,
+	// so every child — a PTY session, a git hook, `suwu gq` — finds them without
+	// an rc file. `suwu exec` covers scripts, and the tools page owns the opt-in
+	// shell block (docs/TOOLS_PLAN.md §7.1).
+	if bindir.PrependProcessPATH(bindir.Dir(dataDir)) {
+		logging.Debug("prepended the managed tool directory to PATH",
+			slog.String("dir", bindir.Dir(dataDir)))
 	}
 
 	// Keyed PTY sessions with server-side terminal state (libghostty-vt), so

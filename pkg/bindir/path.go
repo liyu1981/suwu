@@ -246,3 +246,29 @@ func findBlock(content string, markers Block) (start, end int, ok bool) {
 	end = start + rel + len(markers.End)
 	return start, end, true
 }
+
+// PrependProcessPATH puts dir at the front of this process's PATH when the
+// directory exists and is not already there.
+//
+// This is how a server makes installed tools visible to everything it spawns —
+// PTY sessions, git hooks, the gq runner — without touching a single rc file: the
+// scope is this process and its children, which is the polite amount of
+// surprise. `suwu exec` and the opt-in rc block cover the other two cases.
+func PrependProcessPATH(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return false
+	}
+	sep := string(os.PathListSeparator)
+	current := os.Getenv("PATH")
+	if current == dir || strings.HasPrefix(current, dir+sep) {
+		return false
+	}
+	next := dir
+	if current != "" {
+		next = dir + sep + current
+	}
+	return os.Setenv("PATH", next) == nil
+}

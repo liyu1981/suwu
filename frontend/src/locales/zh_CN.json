@@ -901,6 +901,7 @@
     "up": "光标上移",
     "down": "光标下移",
     "right": "光标右移",
+    "tab": "Tab",
     "pageUp": "上一页",
     "pageDown": "下一页",
     "collapse": "收起输入面板"

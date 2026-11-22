@@ -557,7 +557,7 @@ survives a collapse; focus lands 200 ms later, once the row is no longer clipped
 
 ```
 [ type for the terminal            ] [ Send ]
-[ ← ] [ ↑ ] [ ↓ ] [ → ]      [ PgUp ] [ PgDn ] [ ⌄ ]
+[ ← ] [ ↑ ] [ ↓ ] [ → ] [ Tab ]   [ PgUp ] [ PgDn ] [ ⌄ ]
 ```
 
 - **Send** takes the text through `insertInput({text}, true)` — bracketed paste
@@ -568,6 +568,11 @@ survives a collapse; focus lands 200 ms later, once the row is no longer clipped
 - Arrows are the right bytes for the mode the app is in: `ESC [ A` normally,
   `ESC O A` when xterm reports DECCKM (vim and friends), read at click time —
   sending the wrong pair either prints `^[[A` or moves nothing.
+- **Tab** sends the control character `\t`, not spaces: a shell wants it for
+  completion, a TUI form for the next field, and less/vim for indenting. A phone
+  keyboard has no Tab key at all. The row carries eight keys now (arrows, Tab,
+  PgUp, PgDn, `⌄`), so they are 40 px wide with 2 px gaps: that fits a 390 px
+  phone exactly and wraps to a second line below ~370 px instead of clipping.
 - PgUp/PgDn send `ESC [ 5 ~` / `ESC [ 6 ~`, which readline, less and tmux all know.
 - The text is sent **exactly as typed** — case, spaces and punctuation; only the
   carriage return is added. The panel is not a command editor.

@@ -904,6 +904,7 @@
     "up": "Cursor up",
     "down": "Cursor down",
     "right": "Cursor right",
+    "tab": "Tab",
     "pageUp": "PgUp",
     "pageDown": "PgDn",
     "collapse": "Hide the input panel"

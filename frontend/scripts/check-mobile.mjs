@@ -8,6 +8,7 @@ import assert from 'node:assert/strict'
 import {
   PAGE_DOWN_SEQUENCE,
   PAGE_UP_SEQUENCE,
+  TAB_SEQUENCE,
   cursorSequence,
   softInputText,
 } from '../src/lib/termSoftKeys.ts';
@@ -188,6 +189,7 @@ assert.equal(cursorSequence('down', false), '\u001b[B')
 assert.equal(cursorSequence('right', false), '\u001b[C')
 assert.equal(cursorSequence('left', false), '\u001b[D')
 assert.equal(cursorSequence('up', true), '\u001bOA', 'DECCKM apps (vim, less) want SS3 arrows')
+assert.equal(TAB_SEQUENCE, '\t', 'Tab is the control character, not spaces')
 assert.equal(PAGE_UP_SEQUENCE, '\u001b[5~')
 assert.equal(PAGE_DOWN_SEQUENCE, '\u001b[6~')
 

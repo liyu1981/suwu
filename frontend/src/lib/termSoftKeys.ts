@@ -30,6 +30,13 @@ export function cursorSequence(dir: SoftCursorDir, applicationCursorKeys: boolea
   return `${applicationCursorKeys ? '\u001bO' : '\u001b['}${CURSOR_FINAL[dir]}`;
 }
 
+/**
+ * Tab is a control character, not four spaces: a shell wants it for completion,
+ * a TUI form for moving to the next field, and `less`/`vim` for indenting. A
+ * phone keyboard has no Tab at all, which is why the panel carries one.
+ */
+export const TAB_SEQUENCE = '\t';
+
 export const PAGE_UP_SEQUENCE = '\u001b[5~';
 export const PAGE_DOWN_SEQUENCE = '\u001b[6~';
 

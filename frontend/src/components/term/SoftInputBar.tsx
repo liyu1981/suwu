@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   PAGE_DOWN_SEQUENCE,
   PAGE_UP_SEQUENCE,
+  TAB_SEQUENCE,
   type SoftCursorDir,
   cursorSequence,
 } from '../../lib/termSoftKeys';
@@ -37,8 +38,11 @@ export interface SoftInputBarProps {
   onCollapse: () => void;
 }
 
+// 40 px, not 44: the row now carries eight keys (arrows, Tab, PgUp/PgDn, ⌄) and a
+// 390 px phone has 358 px of it. Text keys grow to fit their label, and the row
+// wraps rather than clipping on anything narrower.
 const keyBtn =
-  'grid h-9 min-w-11 shrink-0 place-items-center rounded-[6px] border border-white/10 bg-white/5 px-2 text-xs font-medium text-slate-200 transition active:bg-white/20 disabled:opacity-30';
+  'grid h-9 min-w-10 shrink-0 place-items-center rounded-[6px] border border-white/10 bg-white/5 px-1 text-xs font-medium text-slate-200 transition active:bg-white/20 disabled:opacity-30';
 
 const CURSOR_LABEL: Record<SoftCursorDir, string> = {
   up: '↑',
@@ -109,7 +113,7 @@ export function SoftInputBar({
         </button>
       </div>
 
-      <div className="mt-1.5 flex items-center gap-1">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-0.5 gap-y-1">
         {(['left', 'up', 'down', 'right'] as const).map((dir) => (
           <button
             key={dir}
@@ -122,6 +126,15 @@ export function SoftInputBar({
             {CURSOR_LABEL[dir]}
           </button>
         ))}
+        <button
+          type="button"
+          disabled={!enabled}
+          aria-label={t('softInput.tab')}
+          onClick={() => onSendKeys(TAB_SEQUENCE)}
+          className={keyBtn}
+        >
+          {t('softInput.tab')}
+        </button>
         <span className="flex-1" />
         <button
           type="button"

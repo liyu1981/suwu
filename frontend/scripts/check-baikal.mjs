@@ -216,6 +216,28 @@ for (const leak of ['onDetached', 'onSize', 'visible']) {
 assert.match(termSource, /onDetachedRef\.current\?\.\(terminal\)/, 'detach must go through the ref');
 assert.match(termSource, /onSizeRef\.current\?\./, 'size reports must go through the ref');
 
+// ── a transparent grid must be declared as such ─────────────────────────
+// Both tiles render xterm over the tile's own background, i.e. with
+// `background: '#00000000'`. xterm's WebGL atlas only drops the alpha of a
+// reversed cell's foreground when `allowTransparency` is on; without it the
+// glyph strokes take the theme background verbatim — alpha 0 — so reverse video
+// (readline's bracketed-paste region, vim's visual selection, htop's cursor
+// line) paints a solid block with invisible text.
+const shellTileSource = readFileSync(
+  new URL('../src/components/FullTerminal.tsx', import.meta.url),
+  'utf8',
+);
+for (const [name, source] of [
+  ['the baikal terminal', termSource],
+  ['the shell tile', shellTileSource],
+]) {
+  assert.match(
+    source,
+    /allowTransparency: true/,
+    `${name} paints a transparent grid, so it must allow transparency`,
+  );
+}
+
 // ── the soft-input panel is shared, not copied ──────────────────────
 // A phone cannot drive vim from a keyboard that has no arrows, PgUp/PgDn or a
 // reliable Escape. Baikal's terminal renders the same panel the shell tile does

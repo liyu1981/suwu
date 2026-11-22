@@ -121,6 +121,14 @@ export function BaikalTerm({
       fontSize,
       fontFamily,
       lineHeight,
+      // The grid is transparent (the tile paints the background), so the
+      // renderer must be told so: with transparency disallowed, xterm's WebGL
+      // atlas resolves a reversed cell's *foreground* to the theme background
+      // without dropping its alpha — `#00000000` — and the glyph strokes become
+      // fully transparent. Pasting into bash/readline draws the paste region in
+      // reverse video, which then reads as a blank white block. The shell tile
+      // sets this for the same reason.
+      allowTransparency: true,
       theme: { ...themeToXtermTheme(theme), background: '#00000000' },
       scrollback: 5000,
     }),

@@ -167,6 +167,10 @@ func main() {
 			return
 		case "background":
 			os.Exit(backgroundMain(os.Args[2:]))
+		case "tools":
+			os.Exit(toolsMain(os.Args[2:]))
+		case "exec":
+			os.Exit(execMain(os.Args[2:]))
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -249,6 +253,13 @@ Usage:
   suwu background build <file.wgsl>
                            compile a background's WGSL graph to stdout
                            (see 'suwu help background')
+  suwu tools <list|install|update|remove|path> [flags]
+                           install and manage the tools Suwu knows (rg, fzf,
+                           asdf, witr, pig, herdr, herdr-core) in ~/.suwu/bin
+                           (see 'suwu help tools')
+  suwu exec <tool> [args...]
+                           run the copy of a tool that Suwu manages, never the
+                           one on PATH (see 'suwu help exec')
 
 Configuration precedence:
   --env-file explicitly given → that file only
@@ -496,6 +507,10 @@ Examples:
 		printInstallUsage()
 	case "background":
 		printBackgroundUsage()
+	case "tools":
+		printToolsUsage()
+	case "exec":
+		printExecUsage()
 	default:
 		fmt.Printf("Unknown subcommand: %s\nRun 'suwu help' for usage.\n", cmd)
 	}

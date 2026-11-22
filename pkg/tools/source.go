@@ -137,6 +137,22 @@ func (s *Source) Load(ctx context.Context) (*Catalog, Origin, error) {
 	return cat, origin, nil
 }
 
+// Refresh is Load without the cache: it ignores the TTL and the stored ETag so
+// `suwu tools list --refresh` really asks GitHub.
+func (s *Source) Refresh(ctx context.Context) (*Catalog, Origin, error) {
+	origin := Origin{Repo: s.Repo, Ref: s.Ref, Path: CatalogPath}
+	cat, etag, fetchedAt, err := s.fetch(ctx, "")
+	if err != nil {
+		return nil, origin, err
+	}
+	if cat == nil { // a 304 is impossible without an ETag, but be explicit
+		return nil, origin, errors.New("fetch catalog: unexpected 304")
+	}
+	origin.FetchedAt = fetchedAt
+	_ = s.writeCache(cached{Repo: s.Repo, Ref: s.Ref, ETag: etag, FetchedAt: fetchedAt, Catalog: *cat})
+	return cat, origin, nil
+}
+
 // Offline returns the catalog embedded in this build. It is the fallback when
 // there is no cache and no network: the list is real, the downloads will fail.
 func Offline() (*Catalog, error) { return Builtin() }

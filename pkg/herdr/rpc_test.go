@@ -245,3 +245,58 @@ func indexOf(h, n string) int {
 	}
 	return -1
 }
+
+// The core paints a freshly attached channel immediately, so its frames can beat
+// the attach reply through this reader. Dropping them left the viewer blank until
+// the program wrote again — a history replay that never arrived.
+func TestAttachKeepsFramesThatBeatTheReply(t *testing.T) {
+	var core *fakeCore
+	handlers := map[string]func(json.RawMessage) (any, error){
+		"terminal.attach": func(json.RawMessage) (any, error) {
+			// Paint before the reply: exactly the ordering a real core can use.
+			core.send(11, KindData, []byte("first paint"))
+			core.send(11, KindData, []byte(" + history"))
+			return map[string]any{
+				"channel":  11,
+				"terminal": map[string]any{"address": "t1", "state": "live"},
+			}, nil
+		},
+	}
+	var client *Conn
+	client, core = startFakeCore(t, handlers)
+	defer client.Close()
+
+	stream, err := client.Attach(context.Background(), "t1", 100, 30, 600, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := ""
+	deadline := time.After(2 * time.Second)
+	for got != "first paint + history" {
+		select {
+		case chunk := <-stream.Data():
+			got += string(chunk)
+		case <-deadline:
+			t.Fatalf("data = %q, want the frames that arrived before registration", got)
+		}
+	}
+}
+
+// A frame for a channel nobody registers must not accumulate forever.
+func TestHeldFramesAreBounded(t *testing.T) {
+	client, fake := startFakeCore(t, map[string]func(json.RawMessage) (any, error){})
+	defer client.Close()
+
+	payload := make([]byte, 1024)
+	for i := 0; i < heldFramesMax*4; i++ {
+		fake.send(99, KindData, payload)
+	}
+	time.Sleep(200 * time.Millisecond)
+
+	client.hmu.Lock()
+	held, bytesHeld := len(client.held[99].frames), client.heldBytes
+	client.hmu.Unlock()
+	if held > heldFramesMax || bytesHeld > heldBytesMax {
+		t.Fatalf("held %d frames / %d bytes, want at most %d / %d", held, bytesHeld, heldFramesMax, heldBytesMax)
+	}
+}

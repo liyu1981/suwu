@@ -24,7 +24,7 @@ import { useGitActions } from './useGitActions';
 import { CommitDiffTab } from './CommitDiffTab';
 import { CompareCommitDialog } from './CompareCommitDialog';
 import { ComparisonTabs } from './ComparisonTabs';
-import { fetchJson } from '../../lib/format';
+import { fetchJson } from '../../lib/api';
 import { comparisonId, WORKTREE_REF, type DiffTab } from './comparison';
 import { COMMITS_VIEW, type RepoTab } from './repoTabs';
 import type { GitCommit } from './graph';

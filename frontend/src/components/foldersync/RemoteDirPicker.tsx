@@ -16,7 +16,7 @@ import {
   fetchRemoteHome,
   type RemoteDirEntry,
 } from '../../lib/foldersync/remoteApi';
-import { joinPath, parentPath, splitPrefix } from '../../lib/foldersync/remotePath';
+import { joinPath, parentPath, splitPrefix } from '../../lib/paths';
 import { btnPrimary, inputClass } from './styles';
 
 /** Debounce before a typed path is fetched, so a request is not sent per key. */

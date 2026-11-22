@@ -194,7 +194,7 @@ export function detectMobileEnv(): Omit<MobileEnv, 'pathname' | 'search' | 'pref
   };
 }
 
-export function readStoredPreference(): MobilePreference {
+function readStoredPreference(): MobilePreference {
   try {
     return parsePreference(localStorage.getItem(MOBILE_PREFERENCE_KEY));
   } catch {
@@ -202,7 +202,7 @@ export function readStoredPreference(): MobilePreference {
   }
 }
 
-export function writeStoredPreference(preference: MobilePreference): void {
+function writeStoredPreference(preference: MobilePreference): void {
   try {
     if (preference === 'auto') localStorage.removeItem(MOBILE_PREFERENCE_KEY);
     else localStorage.setItem(MOBILE_PREFERENCE_KEY, preference);

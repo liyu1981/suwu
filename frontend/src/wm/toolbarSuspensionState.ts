@@ -12,7 +12,7 @@ import { isSuspended, suspensionMs } from './toolbarSuspension';
  */
 
 /** paneId → timestamp (ms) until which that pane's toolbar stays hidden. */
-export const suspendedPanesAtom = atom<Record<string, number>>({});
+const suspendedPanesAtom = atom<Record<string, number>>({});
 
 /**
  * Suspension state for one pane, plus the action the hide button calls.

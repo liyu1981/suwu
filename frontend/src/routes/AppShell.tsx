@@ -35,6 +35,7 @@ import { getTilePlugin } from '../wm/tilePlugins';
 import { backgroundAtom, headerPositionAtom, isHeaderPosition } from '../store/settings';
 import { logout } from '../lib/api';
 import { initBackup } from '../lib/backup/client';
+import { MenuIcon } from '../components/icons';
 
 /** Header bar thickness (matches py-1 + h-7 button height), used as the
  *  cross-axis size when the header is docked to the left or right. */
@@ -43,21 +44,6 @@ const HEADER_THICKNESS = '2.25rem';
 const wmBase =
   'grid h-7 w-7 place-items-center rounded transition glass-btn disabled:cursor-not-allowed disabled:opacity-40';
 const wmBtn = `${wmBase} text-slate-300 hover:bg-white/10 hover:text-white`;
-
-function MenuIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    >
-      <path d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  );
-}
 
 function PanelLeftIcon() {
   return (

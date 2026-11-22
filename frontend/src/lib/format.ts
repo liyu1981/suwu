@@ -1,9 +1,14 @@
 /** Shared formatting utilities used across plugin pages. */
 
-import { authFetch } from './api';
-
-export function formatSize(bytes: number): string {
-  if (bytes === 0) return '';
+/**
+ * A human-readable byte count.
+ *
+ * `zero` is what a zero-byte entry shows: a file list leaves it empty (a 0 B row
+ * is noise next to directories), while a settings or upload row wants "0 B" said
+ * out loud.
+ */
+export function formatSize(bytes: number, zero = ''): string {
+  if (bytes === 0) return zero;
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let i = 0;
   let size = bytes;
@@ -27,10 +32,10 @@ export function formatDate(iso: string): string {
 }
 
 export function relativeTime(
-  iso: string,
+  when: string | number,
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): string {
-  const diff = Date.now() - new Date(iso).getTime();
+  const diff = Date.now() - new Date(when).getTime();
   const sec = Math.floor(diff / 1000);
   if (sec < 60) return t('notifications.justNow');
   const min = Math.floor(sec / 60);
@@ -44,17 +49,4 @@ export function relativeTime(
 export function isLocalHost(host: string): boolean {
   const h = host.toLowerCase().trim();
   return h === '' || h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0';
-}
-
-/** Generic JSON fetcher with in-memory Bearer auth. */
-export async function fetchJson<T>(url: string): Promise<T> {
-  const res = await authFetch(url, { cache: 'no-store' });
-  let data: (T & { error?: string }) | null = null;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-  return data as T;
 }

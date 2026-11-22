@@ -15,7 +15,7 @@
 export const LIGHTBOX_MIN_SCALE = 1;
 export const LIGHTBOX_MAX_SCALE = 8;
 /** One click of +/−. */
-export const LIGHTBOX_STEP = 1.25;
+const LIGHTBOX_STEP = 1.25;
 
 export interface Vec {
   x: number;

@@ -18,12 +18,12 @@ import type { BackgroundStoredFile } from './types';
 const THUMB_WIDTH = 160;
 
 /** Whether OPFS is available in this browser. */
-export function isOpfsAvailable(): boolean {
+function isOpfsAvailable(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.storage?.getDirectory === 'function';
 }
 
 /** Open (optionally create) a named directory under the OPFS root. */
-export async function openCacheDir(
+async function openCacheDir(
   directory: string,
   create: boolean,
 ): Promise<FileSystemDirectoryHandle> {

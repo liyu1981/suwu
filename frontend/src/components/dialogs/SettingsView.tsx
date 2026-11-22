@@ -57,6 +57,7 @@ import type {
   BackgroundStoredFile,
   BackgroundTextParam,
 } from '../background';
+import { formatSize } from '../../lib/format';
 
 const section = 'rounded-[6px] border border-white/10 bg-black/20 p-3';
 const sectionLabel = 'text-xs font-medium text-muted-foreground';
@@ -252,19 +253,6 @@ function TextField({
   );
 }
 
-/** Human-readable file size. */
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB'];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return `${value.toFixed(value >= 10 || Number.isInteger(value) ? 0 : 1)} ${units[unit]}`;
-}
-
 /**
  * Shared list state for a persisted-file library (`fileList` /
  * `liveWallpapers`): the stored files, their object URLs, and a refresh.
@@ -352,7 +340,9 @@ function StoredFileRows({
               <div className="truncate text-xs text-popover-foreground" title={file.name}>
                 {file.name}
               </div>
-              <div className="text-[11px] text-muted-foreground">{formatSize(file.size)}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {formatSize(file.size, '0 B')}
+              </div>
             </div>
             <button
               type="button"

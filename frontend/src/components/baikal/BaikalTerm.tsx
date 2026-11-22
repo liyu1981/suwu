@@ -28,21 +28,12 @@ export interface BaikalTermProps {
   terminal: string;
   session?: string;
   observe?: boolean;
-  /**
-   * False while the pane is hidden (`display: none` by whoever hosts it): it must
-   * not fit or resize the core then, because a zero-sized box would compute a
-   * one-column grid. The baikal panel unmounts hidden tabs outright, so this is
-   * belt-and-braces for a host that hides instead of unmounting.
-   */
-  visible?: boolean;
   /** Reports the grid, so a shell started next can be created at this size. */
   onSize?: (cols: number, rows: number) => void;
   /** The pane's tile font size, the same one a /term pane would use. */
   fontSize?: number;
   /** Bumped by the parent when the user selects this tab: take the focus. */
   focusToken?: number;
-  /** Bumped by the parent to force a fresh attach (the Reconnect button). */
-  attempt?: number;
   /**
    * The program ended (the core said `exited`/`killed`), so the tab has nothing
    * left to show. A detach, a takeover by another viewer or a lost line must NOT
@@ -80,8 +71,6 @@ export function BaikalTerm({
   terminal,
   session,
   observe = false,
-  visible = true,
-  attempt = 0,
   onDetached,
   onSize,
   fontSize = FONT_DEFAULT,
@@ -120,8 +109,6 @@ export function BaikalTerm({
   onSizeRef.current = onSize;
   // Visibility gates *resizing*, never the attachment: hiding a tab (switching
   // space, or to another tab) must not close the stream and dial again.
-  const visibleRef = useRef(visible);
-  visibleRef.current = visible;
 
   const showNotice = useCallback((message: string) => {
     setNotice(message);
@@ -158,8 +145,10 @@ export function BaikalTerm({
   useEffect(() => {
     if (!term) return;
     setFontSize(fontSize);
-    if (visible) fit();
-  }, [fontSize, fit, setFontSize, term, visible]);
+    // `useTerminal` refuses to fit a container without a box, which is what keeps
+    // a hidden tile (the WM uses display:none across spaces) at its own grid.
+    fit();
+  }, [fit, fontSize, setFontSize, term]);
   useEffect(() => {
     setFontFamily(fontFamily);
   }, [fontFamily, setFontFamily]);
@@ -199,7 +188,7 @@ export function BaikalTerm({
     setReconnect((n) => n + 1);
   }, []);
 
-  // The attach lifecycle. Restarts on terminal change, reconnect, or attempt.
+  // The attach lifecycle. Restarts on terminal change or a reconnect.
   useEffect(() => {
     if (!term) return;
     const current = {
@@ -333,7 +322,7 @@ export function BaikalTerm({
       const ws = current.ws;
       // A hidden pane measures 0×0; resizing the core to that makes the shell
       // redraw its prompt in a one-column terminal.
-      if (!ws || ws.readyState !== WebSocket.OPEN || observe || !visibleRef.current) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN || observe) return;
       ws.send(JSON.stringify({ type: 'resize', cols, rows }));
     });
 
@@ -352,35 +341,19 @@ export function BaikalTerm({
       ws?.close();
       socketRef.current = null;
     };
-    // `visible` is deliberately absent: it is a resize concern, and re-attaching
-    // on every tab switch flashed "connecting" and cost a dial per switch.
-  }, [term, terminal, session, observe, attempt, reconnect, t]);
+  }, [term, terminal, session, observe, reconnect, t]);
 
   useEffect(() => {
     if (term && term.cols > 0 && term.rows > 0) onSizeRef.current?.(term.cols, term.rows);
   }, [term]);
 
-  // Selecting a tab is a request to type in it: the click focused a button, and
-  // a terminal you have to click again before typing is not "open". The token
-  // covers the tab that was already active, where `visible` does not change.
+  // Mounting is a request to type in it: the click that selected this tab
+  // focused a button, and a terminal you have to click again before typing is not
+  // "open". The token covers re-selecting the tab that is already on screen.
   useEffect(() => {
-    if (!term || !visible) return;
+    if (!term) return;
     term.focus();
-  }, [term, visible, focusToken]);
-
-  // Revealing a tab: fit to the box it now has, and tell the core once. This is
-  // the only resize a hidden/shown cycle is allowed to cause.
-  useEffect(() => {
-    if (!term || !visible) return;
-    const id = window.setTimeout(() => {
-      fit();
-      const ws = socketRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN && !observe) {
-        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
-      }
-    }, 30);
-    return () => window.clearTimeout(id);
-  }, [term, visible, observe, fit]);
+  }, [term, focusToken]);
 
   const dot =
     state === 'ready'

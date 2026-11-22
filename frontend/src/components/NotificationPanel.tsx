@@ -14,23 +14,9 @@ import { upgradingAtom } from '../store/update';
 import { headerPositionAtom } from '../store/settings';
 import { BellIcon, CheckIcon, CloseIcon, CopyIcon } from './icons';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
+import { relativeTime } from '../lib/format';
 
 const TRUNCATE_LEN = 140;
-
-function relativeTime(
-  ts: number,
-  t: (key: string, opts?: Record<string, unknown>) => string,
-): string {
-  const diff = Date.now() - ts;
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return t('notifications.justNow');
-  const min = Math.floor(sec / 60);
-  if (min < 60) return t('notifications.minutesAgo', { count: min });
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return t('notifications.hoursAgo', { count: hr });
-  const d = Math.floor(hr / 24);
-  return t('notifications.daysAgo', { count: d });
-}
 
 function MessageRow({
   n,

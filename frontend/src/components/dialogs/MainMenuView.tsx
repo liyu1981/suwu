@@ -1,5 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronRightIcon } from '../icons';
 
 /** The sub-screens reachable from the menu list. */
 export type MenuSelection = 'shortcuts' | 'settings' | 'appMenu' | 'appSettings' | 'about';
@@ -64,11 +65,11 @@ export default function MainMenuView(props: { onSelect: (view: MenuSelection) =>
         onClick={() => onSelect('shortcuts')}
       >
         {t('menu.shortcuts')}
-        <ChevronIcon />
+        <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
       </button>
       <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('appMenu')}>
         {t('menu.appMenu')}
-        <ChevronIcon />
+        <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
       </button>
       <button
         type="button"
@@ -77,7 +78,7 @@ export default function MainMenuView(props: { onSelect: (view: MenuSelection) =>
         onClick={() => onSelect('appSettings')}
       >
         {t('menu.appSettings')}
-        <ChevronIcon />
+        <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
       </button>
       <button
         type="button"
@@ -86,28 +87,12 @@ export default function MainMenuView(props: { onSelect: (view: MenuSelection) =>
         onClick={() => onSelect('settings')}
       >
         {t('menu.settings')}
-        <ChevronIcon />
+        <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
       </button>
       <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('about')}>
         {t('menu.about')}
-        <ChevronIcon />
+        <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
       </button>
     </nav>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <svg
-      className="h-3.5 w-3.5 shrink-0 opacity-60"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 6 6 6-6 6" />
-    </svg>
   );
 }

@@ -16,6 +16,7 @@ import { TermToolbar } from './term/TermToolbar';
 import { SoftInputPanel } from './term/SoftInputPanel';
 import { isTouchFirst } from '../lib/mobile';
 import { Toast } from './Toast';
+import { paneIdFromLocation } from '../lib/pane';
 
 const STATUS_DOT = {
   connecting: 'bg-amber-400 animate-pulse',
@@ -70,10 +71,7 @@ export default function FullTerminal() {
   // The pane ID is the server-owned terminal session ID. The browser xterm
   // is disposable and never restores cwd, foreground process, or screen state
   // from localStorage.
-  const paneId = useMemo(
-    () => new URLSearchParams(window.location.search).get('pane') ?? undefined,
-    [],
-  );
+  const paneId = useMemo(() => paneIdFromLocation() || undefined, []);
 
   const { sendRaw, refresh } = usePtySession(term, paneId);
 

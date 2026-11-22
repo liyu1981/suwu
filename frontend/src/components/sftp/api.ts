@@ -1,5 +1,7 @@
 import { authFetch, fetchToken } from '../../lib/api';
 import * as bfs from './browserFs';
+import { joinPath, normalizePath, parentPath } from '../../lib/paths';
+import { postJson } from '../../lib/api';
 
 /**
  * Pane endpoints for the SFTP tile.
@@ -58,17 +60,6 @@ async function errorFrom(res: Response): Promise<string> {
     // fall through
   }
   return `HTTP ${res.status}`;
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await authFetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    cache: 'no-store',
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(await errorFrom(res));
-  return (await res.json().catch(() => ({}))) as T;
 }
 
 /** Called as bytes move, for the transfer panel. */
@@ -355,29 +346,10 @@ export async function copyEndpointToBrowser(
   await bfs.writeBrowserFile(dirHandle, item.name, await src.read(srcPath, onProgress));
 }
 
-// ── Path helpers (POSIX; used for both remotes and Suwu) ───────────────
+// ── Path helpers ──────────────────────────────────────────────────────
+//
+// Re-exported, not reimplemented: the SFTP browser calls them as
+// `api.joinPath(...)`, and the git, code and folder-sync pickers want the same
+// rules (see lib/paths.ts).
 
-/** Join a POSIX-style parent path and a name. */
-export function joinPath(parent: string, name: string): string {
-  if (parent === '' || parent === '/') return `/${name}`;
-  return `${parent.replace(/\/+$/, '')}/${name}`;
-}
-
-/** Collapse `.`/`..` and duplicate slashes into an absolute POSIX path. */
-export function normalizePath(input: string): string {
-  const parts: string[] = [];
-  for (const segment of input.split('/')) {
-    if (!segment || segment === '.') continue;
-    if (segment === '..') parts.pop();
-    else parts.push(segment);
-  }
-  return `/${parts.join('/')}`;
-}
-
-/** The parent of a POSIX-style path (root stays root). */
-export function parentPath(path: string): string {
-  const clean = path.replace(/\/+$/, '');
-  const idx = clean.lastIndexOf('/');
-  if (idx <= 0) return '/';
-  return clean.slice(0, idx);
-}
+export { joinPath, normalizePath, parentPath };

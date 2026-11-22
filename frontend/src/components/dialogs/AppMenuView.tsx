@@ -13,6 +13,7 @@ import { getAppIconClasses, getAppIconLetter } from '../../wm/appIcons';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../ui/select';
 import type { PluginParamDoc } from '../../wm/tilePlugins';
 import { useExtensions } from '../../lib/extensions';
+import { ChevronRightIcon, TrashIcon } from '../icons';
 
 // ── Style constants ──────────────────────────────────────────────────
 
@@ -63,42 +64,6 @@ function DragHandle({ onPointerDown }: { onPointerDown: (e: ReactPointerEvent) =
         <path d="M3 4h10v1.5H3zm0 3.25h10v1.5H3zm0 3.25h10v1.5H3z" />
       </svg>
     </div>
-  );
-}
-
-/** Chevron icon for expand/collapse. */
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`h-3 w-3 shrink-0 opacity-50 transition-transform ${open ? 'rotate-90' : ''}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-/** Trash / delete icon. */
-function TrashIcon() {
-  return (
-    <svg
-      className="h-3.5 w-3.5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    </svg>
   );
 }
 
@@ -162,7 +127,7 @@ function ParamRow({
           className="shrink-0 rounded p-1 text-white/30 transition-colors hover:bg-white/10 hover:text-red-400"
           aria-label="Remove parameter"
         >
-          <TrashIcon />
+          <TrashIcon className="h-3.5 w-3.5" />
         </button>
       </div>
       {doc?.description && (
@@ -378,7 +343,7 @@ function EditingForm({
           onClick={onDelete}
           className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
-          <TrashIcon />
+          <TrashIcon className="h-3.5 w-3.5" />
           {t('appMenu.remove')}
         </button>
       </div>
@@ -714,7 +679,9 @@ export default function AppMenuView() {
                       onClick={() => toggleExpand(item.id)}
                       className="mt-1 flex items-center gap-1 text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                     >
-                      <ChevronIcon open={expanded} />
+                      <ChevronRightIcon
+                        className={`h-3 w-3 shrink-0 opacity-50 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                      />
                       {expanded ? t('appMenu.collapse') : t('appMenu.configure')}
                     </button>
                   )}

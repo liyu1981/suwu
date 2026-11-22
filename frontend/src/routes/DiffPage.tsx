@@ -17,7 +17,7 @@ import { CommonTileContainer } from '../components/CommonTileContainer';
 import { useAtomValue } from 'jotai';
 import { diffFontFamilyAtom, fileBrowserBgAtom } from '../store/appearance';
 import { diffZoomAtom } from '../store/zoom';
-import { fetchJson } from '../lib/format';
+import { fetchJson } from '../lib/api';
 import { setPageTransparent } from '../lib/constants';
 
 /* ── Types ─────────────────────────────────────────────────────── */

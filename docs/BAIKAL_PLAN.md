@@ -587,6 +587,15 @@ The tile's own snapshot traffic is what remains (2% in the table above): the SSE
 stream and the 5 s poll still follow every terminal, because the sidebar and the
 tab titles have to stay current even for tabs nobody is watching.
 
+The replay also exposed a core-client bug that had been there all along: the
+core paints a freshly attached channel — screen **and** the history the viewer
+asked for — before its `terminal.attach` reply reaches us, and the reader dropped
+frames for a channel nobody had registered yet. So a new viewer could miss its
+first paint and show a blank terminal until the program next wrote something,
+which made the history replay look broken (and a tab look empty). `pkg/herdr`
+now holds those frames per channel (bounded, flushed on `RegisterStream`); see
+`TestAttachKeepsFramesThatBeatTheReply` and `CODE_AUDIT.md`.
+
 **The strip is not the thing that is lazy.** Every tab keeps its pill — that is
 the user's list of terminals, and it has to show all of them or the tile stops
 making sense. Only the *content* is on demand, so a click always finds a pill to

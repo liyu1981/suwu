@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileIcon, FolderIcon } from '../icons';
 import { authFetch } from '../../lib/api';
+import { joinPath, parentPath } from '../../lib/paths';
 
 interface OpenFileDialogProps {
   onClose: () => void;
@@ -14,19 +15,6 @@ interface OpenFileDialogProps {
 interface DirEntry {
   name: string;
   isDir: boolean;
-}
-
-function joinPath(dir: string, name: string): string {
-  if (dir === '/' || dir === '') return `/${name}`;
-  return `${dir.replace(/\/+$/, '')}/${name}`;
-}
-
-function parentPath(dir: string): string {
-  if (dir === '/' || dir === '') return '/';
-  const trimmed = dir.replace(/\/+$/, '');
-  const idx = trimmed.lastIndexOf('/');
-  if (idx <= 0) return '/';
-  return trimmed.slice(0, idx);
 }
 
 /** Directory + file browser for opening an existing file or creating a new one. */

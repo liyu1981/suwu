@@ -33,12 +33,21 @@ type Conn struct {
 	pmu     sync.Mutex
 	pending map[uint64]chan callReply
 
-	hmu      sync.Mutex
-	streams  map[uint32]chan Frame
-	onEvent  func([]byte)
-	closed   atomic.Bool
-	done     chan struct{}
-	closeErr error
+	hmu     sync.Mutex
+	streams map[uint32]chan Frame
+	// held holds the frames of a channel that is not registered yet. The core
+	// paints a freshly attached terminal — screen plus the history the viewer
+	// asked for — the instant `terminal.attach` returns, and its frames reach
+	// this reader before Attach has decoded the reply and registered the channel.
+	// Dropping them (which is what an unregistered channel used to do) left the
+	// viewer blank until the program next wrote something: a tab that only shows
+	// output when the agent speaks, or a history replay that never arrived.
+	held      map[uint32]*heldFrames
+	heldBytes int
+	onEvent   func([]byte)
+	closed    atomic.Bool
+	done      chan struct{}
+	closeErr  error
 
 	// Hello result.
 	CoreName string
@@ -50,6 +59,22 @@ type Conn struct {
 type callReply struct {
 	result json.RawMessage
 	err    error
+}
+
+// Bounds on the frames a channel may have waiting before anyone registered it.
+// A first paint is a handful of frames; the byte cap keeps a pathological burst
+// from becoming a memory sink for a channel that will never be registered.
+const (
+	heldFramesMax = 64
+	heldBytesMax  = 8 << 20
+	heldChannels  = 8
+)
+
+// heldFrames is the backlog of one not-yet-registered channel.
+type heldFrames struct {
+	frames []Frame
+	bytes  int
+	at     time.Time
 }
 
 // ConnOptions configures a core connection.
@@ -192,13 +217,16 @@ func (c *Conn) readLoop() {
 		}
 		c.hmu.Lock()
 		ch := c.streams[f.Channel]
+		if ch == nil {
+			c.holdLocked(f)
+			c.hmu.Unlock()
+			continue
+		}
 		c.hmu.Unlock()
-		if ch != nil {
-			select {
-			case ch <- f:
-			case <-c.done:
-				return
-			}
+		select {
+		case ch <- f:
+		case <-c.done:
+			return
 		}
 	}
 }
@@ -324,11 +352,59 @@ func (c *Conn) SetEventHandler(fn func([]byte)) {
 	c.pmu.Unlock()
 }
 
-// RegisterStream routes frames of one channel to ch.
+// holdLocked keeps a frame for a channel nobody is listening to yet.
+// c.hmu must be held.
+func (c *Conn) holdLocked(f Frame) {
+	if f.Kind == KindCredit {
+		return
+	}
+	if c.held == nil {
+		c.held = make(map[uint32]*heldFrames)
+	}
+	backlog := c.held[f.Channel]
+	if backlog == nil {
+		// Bound the number of channels waiting: a frame for a channel that is
+		// never registered must not accumulate forever.
+		for id, other := range c.held {
+			if len(c.held) < heldChannels {
+				break
+			}
+			c.heldBytes -= other.bytes
+			delete(c.held, id)
+		}
+		backlog = &heldFrames{at: time.Now()}
+		c.held[f.Channel] = backlog
+	}
+	if len(backlog.frames) >= heldFramesMax || c.heldBytes+len(f.Payload) > heldBytesMax {
+		return
+	}
+	backlog.frames = append(backlog.frames, f)
+	backlog.bytes += len(f.Payload)
+	c.heldBytes += len(f.Payload)
+}
+
+// RegisterStream routes frames of one channel to ch, including any that arrived
+// before the channel had a listener (see Conn.held). The channel is buffered
+// to at least heldFramesMax by every caller, so the handover cannot block.
 func (c *Conn) RegisterStream(channel uint32, ch chan Frame) {
 	c.hmu.Lock()
 	c.streams[channel] = ch
+	backlog := c.held[channel]
+	if backlog != nil {
+		c.heldBytes -= backlog.bytes
+		delete(c.held, channel)
+	}
 	c.hmu.Unlock()
+	if backlog == nil {
+		return
+	}
+	for _, f := range backlog.frames {
+		select {
+		case ch <- f:
+		case <-c.done:
+			return
+		}
+	}
 }
 
 // UnregisterStream stops routing a channel.
@@ -426,7 +502,9 @@ func (c *Conn) Attach(ctx context.Context, terminal string, cols, rows int, hist
 		return nil, err
 	}
 
-	frames := make(chan Frame, 32)
+	// Buffered for a whole held backlog, so RegisterStream can hand it over
+	// synchronously without waiting for the stream's consumer to start.
+	frames := make(chan Frame, heldFramesMax)
 	c.RegisterStream(res.Channel, frames)
 	s := &Stream{
 		conn:     c,

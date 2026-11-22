@@ -9,7 +9,7 @@ import {
 import { DENSE_TILE_BG } from '../../store/appearance';
 import { useSidebarCollapse } from '../hooks/useSidebarCollapse';
 import { useVerticalSplit } from './useVerticalSplit';
-import { authFetch } from '../../lib/api';
+import { postJson } from '../../lib/api';
 import { FONT_DEFAULT, clampFont } from '../../store/fonts';
 import {
   closeTab,
@@ -29,6 +29,7 @@ import { SpaceList } from './SpaceList';
 import { TabBar } from './TabBar';
 import { BaikalTerm } from './BaikalTerm';
 import { PeekDialog } from './TerminalMenu';
+import { paneIdFromLocation } from '../../lib/pane';
 
 /** Tabs of one space, with its own active tab. */
 interface SpaceTabs {
@@ -101,10 +102,7 @@ function BaikalWorkspace() {
   const split = useVerticalSplit();
   /** The pane's tile font size, owned by the shell (same contract as /term). */
   const [fontSize, setFontSize] = useState(FONT_DEFAULT);
-  const paneId = useMemo(
-    () => new URLSearchParams(window.location.search).get('pane') ?? undefined,
-    [],
-  );
+  const paneId = useMemo(() => paneIdFromLocation() || undefined, []);
 
   const orderedSpaces = useMemo(() => sortSpaces(spaces), [spaces]);
   const agents = useMemo(() => listAgents(terminals), [terminals]);
@@ -227,9 +225,9 @@ function BaikalWorkspace() {
         // A terminal that ended between the snapshot and this click is already
         // what we wanted; only removing its record is left to do.
         if (terminal.live) {
-          await postJSON('/api/baikal/terminal', { action: 'kill', terminal: terminal.address });
+          await postJson('/api/baikal/terminal', { action: 'kill', terminal: terminal.address });
         } else {
-          await postJSON('/api/baikal/terminal', { action: 'rm', terminal: terminal.address });
+          await postJson('/api/baikal/terminal', { action: 'rm', terminal: terminal.address });
         }
       } catch {
         // Kill racing the program's own exit surfaces as EOF or "no such
@@ -252,7 +250,7 @@ function BaikalWorkspace() {
         // 200×120, and attaching a 30-row viewer then scrolls the first prompt
         // above the visible rows — the pane looks empty until a keypress.
         const size = lastSize.current ?? estimateGrid();
-        const result = await postJSON<{ terminal: string; spaceId: string; cwd: string }>(
+        const result = await postJson<{ terminal: string; spaceId: string; cwd: string }>(
           '/api/baikal/run',
           {
             cwd: activeSpace?.identityCwd ?? '',
@@ -290,7 +288,7 @@ function BaikalWorkspace() {
   const runTerminalAction = useCallback(
     async (terminal: BaikalTerminal, action: 'kill' | 'rm') => {
       try {
-        await postJSON('/api/baikal/terminal', { action, terminal: terminal.address });
+        await postJson('/api/baikal/terminal', { action, terminal: terminal.address });
         await refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : `${action} failed`);
@@ -302,7 +300,7 @@ function BaikalWorkspace() {
   const assign = useCallback(
     async (terminal: BaikalTerminal, spaceId: string) => {
       try {
-        await postJSON('/api/baikal/assign', { terminal: terminal.address, spaceId });
+        await postJson('/api/baikal/assign', { terminal: terminal.address, spaceId });
         await refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'assign failed');
@@ -314,7 +312,7 @@ function BaikalWorkspace() {
   const renameSpace = useCallback(
     async (space: BaikalSpace, name: string) => {
       try {
-        await postJSON(
+        await postJson(
           '/api/baikal/space',
           name ? { spaceId: space.id, name } : { spaceId: space.id, clearName: true },
         );
@@ -329,7 +327,7 @@ function BaikalWorkspace() {
   const recolourSpace = useCallback(
     async (space: BaikalSpace, colour: string) => {
       try {
-        await postJSON('/api/baikal/space', { spaceId: space.id, colour });
+        await postJson('/api/baikal/space', { spaceId: space.id, colour });
         await refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'colour failed');
@@ -341,7 +339,7 @@ function BaikalWorkspace() {
   const forgetSpace = useCallback(
     async (space: BaikalSpace) => {
       try {
-        await postJSON('/api/baikal/space', { spaceId: space.id, forget: true });
+        await postJson('/api/baikal/space', { spaceId: space.id, forget: true });
         await refresh();
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'forget failed');
@@ -611,15 +609,4 @@ function estimateGrid(): { cols: number; rows: number } {
   const cols = Math.max(20, Math.floor((width - 240 - 12) / 8.4));
   const rows = Math.max(6, Math.floor((height - 32 - 36 - 24 - 12) / 17));
   return { cols, rows };
-}
-
-async function postJSON<T = { ok: boolean }>(path: string, body: unknown): Promise<T> {
-  const response = await authFetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error(payload.error ?? `${path} failed (${response.status})`);
-  return payload as T;
 }

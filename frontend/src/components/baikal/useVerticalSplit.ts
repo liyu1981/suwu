@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { clamp } from '../../lib/utils';
 
 /**
  * A vertical split with a draggable divider, remembered per tile.
@@ -31,9 +32,10 @@ const DEFAULT_RATIO = 0.5;
 const MIN_RATIO = 0.12;
 const MAX_RATIO = 0.88;
 
-function clamp(n: number): number {
-  if (!Number.isFinite(n)) return DEFAULT_RATIO;
-  return Math.min(MAX_RATIO, Math.max(MIN_RATIO, n));
+/** A stored ratio, kept inside the draggable range (garbage means "half"). */
+function clampRatio(ratio: number): number {
+  if (!Number.isFinite(ratio)) return DEFAULT_RATIO;
+  return clamp(ratio, MIN_RATIO, MAX_RATIO);
 }
 
 function read(): number {
@@ -41,7 +43,7 @@ function read(): number {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw === null) return DEFAULT_RATIO;
     const value = Number(raw);
-    return Number.isFinite(value) ? clamp(value) : DEFAULT_RATIO;
+    return Number.isFinite(value) ? clampRatio(value) : DEFAULT_RATIO;
   } catch {
     return DEFAULT_RATIO;
   }
@@ -67,7 +69,7 @@ export function useVerticalSplit(): VerticalSplit {
   const setFromPointer = useCallback((clientY: number) => {
     const box = containerRef.current?.getBoundingClientRect();
     if (!box || box.height < 1) return;
-    setRatio(clamp((clientY - box.top) / box.height));
+    setRatio(clamp((clientY - box.top) / box.height, MIN_RATIO, MAX_RATIO));
   }, []);
 
   const onPointerDown = useCallback(
@@ -101,10 +103,10 @@ export function useVerticalSplit(): VerticalSplit {
     const step = event.shiftKey ? 0.1 : 0.03;
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setRatio((current) => clamp(current - step));
+      setRatio((current) => clamp(current - step, MIN_RATIO, MAX_RATIO));
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setRatio((current) => clamp(current + step));
+      setRatio((current) => clamp(current + step, MIN_RATIO, MAX_RATIO));
     } else if (event.key === 'Enter') {
       event.preventDefault();
       setRatio(DEFAULT_RATIO);

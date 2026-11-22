@@ -133,6 +133,41 @@ export async function authFetch(input: URL | RequestInfo, init?: RequestInit): P
 }
 
 /**
+ * Reads a response that is expected to be JSON, turning a non-2xx into the
+ * server's own message. Reads the body as text first: an error from a proxy is a
+ * plain-text page, and "HTTP 502" tells the user less than what the proxy said.
+ */
+async function readJson<T>(response: Response, what: string): Promise<T> {
+  const text = await response.text().catch(() => '');
+  let payload: (T & { error?: string }) | null = null;
+  try {
+    payload = text ? (JSON.parse(text) as T & { error?: string }) : null;
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    throw new Error(payload?.error || text.trim() || `${what} failed (${response.status})`);
+  }
+  return (payload ?? ({} as T)) as T;
+}
+
+/** GET a JSON endpoint with the cookie-backed token. */
+export async function fetchJson<T>(url: string): Promise<T> {
+  return readJson<T>(await authFetch(url, { cache: 'no-store' }), url);
+}
+
+/** POST a JSON body, and read the JSON answer. */
+export async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await authFetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify(body),
+  });
+  return readJson<T>(response, path);
+}
+
+/**
  * Logs the user out: drops the Bearer token cookie and the in-memory
  * credentials, then reloads so the app returns to the login surface.
  */

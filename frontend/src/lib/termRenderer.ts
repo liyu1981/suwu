@@ -18,7 +18,7 @@
  */
 export type RendererPreference = 'auto' | 'dom' | 'webgl';
 
-export const RENDERER_PREFERENCE_KEY = 'suwu.term-renderer';
+const RENDERER_PREFERENCE_KEY = 'suwu.term-renderer';
 export const RENDERER_PREFERENCES: readonly RendererPreference[] = ['auto', 'dom', 'webgl'];
 
 export function parseRendererPreference(raw: string | null | undefined): RendererPreference {

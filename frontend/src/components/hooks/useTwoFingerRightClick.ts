@@ -33,7 +33,7 @@ function elementAt(x: number, y: number): Element | null {
  * `button`/`buttons` are set so handlers that distinguish buttons behave the same
  * as with a real right click; `cancelable` lets them suppress the native menu.
  */
-export function dispatchContextMenuAt(x: number, y: number): boolean {
+function dispatchContextMenuAt(x: number, y: number): boolean {
   const target = elementAt(x, y);
   if (!target) return false;
   const event = new MouseEvent('contextmenu', {
@@ -64,7 +64,7 @@ interface Tracked {
  * Kept as a plain function (rather than inline in the hook) so it can be reasoned
  * about and exercised without React.
  */
-export function installTwoFingerRightClick(): () => void {
+function installTwoFingerRightClick(): () => void {
   let tracked: Tracked[] | null = null;
   let startedAt = 0;
   let drift = 0;

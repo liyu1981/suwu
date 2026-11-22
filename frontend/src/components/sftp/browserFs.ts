@@ -14,11 +14,6 @@ declare global {
   }
 }
 
-/** Whether the browser can open and write a local directory. */
-export function browserFsSupported(): boolean {
-  return typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
-}
-
 /** Prompt the user to choose a local directory. */
 export async function pickDirectory(): Promise<FileSystemDirectoryHandle> {
   if (!window.showDirectoryPicker) {

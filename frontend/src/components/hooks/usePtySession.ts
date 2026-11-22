@@ -5,6 +5,25 @@ import i18n from 'i18next';
 import { connectionMessageAtom, connectionStatusAtom } from '../../store/connection';
 import { fetchToken } from '../../lib/api';
 import { chunkInput } from '../../lib/wsChunks';
+import { paneIdFromLocation } from '../../lib/pane';
+
+/**
+ * Handshake tracing, off unless asked for: `localStorage['suwu.debug.pty'] = '1'`
+ * and reload. These lines describe every attach/ready frame and the first ten
+ * input frames of each connection — what you want when a terminal is stuck at
+ * "connecting", and 12 console calls per attach the rest of the time.
+ */
+const DEBUG_PTY = (() => {
+  try {
+    return localStorage.getItem('suwu.debug.pty') === '1';
+  } catch {
+    return false;
+  }
+})();
+
+function debug(message: string, data?: Record<string, unknown>) {
+  if (DEBUG_PTY) debug(message, data);
+}
 
 const RECONNECT_DELAY_MS = 2000;
 const COUNTDOWN_TICK_MS = 1000;
@@ -23,7 +42,7 @@ interface SessionState {
 }
 
 function sessionKey(): string {
-  const pane = new URLSearchParams(window.location.search).get('pane');
+  const pane = paneIdFromLocation();
   if (pane) return pane;
   let key = sessionStorage.getItem('suwu-session-key');
   if (!key) {
@@ -256,7 +275,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       const maybeReady = () => {
         if (disposed || currentWs !== ws || generation !== currentGeneration) return;
         if (!attachReceived || !serverReady || !snapshotWritten) {
-          console.debug('[term ready] waiting', {
+          debug('[term ready] waiting', {
             attachReceived,
             serverReady,
             snapshotWritten,
@@ -269,11 +288,11 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
         if (!readyAckSent && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ready', attachment }));
           readyAckSent = true;
-          console.debug('[term ready] client acknowledgement sent', { attachment, generation });
+          debug('[term ready] client acknowledgement sent', { attachment, generation });
         }
         reconnectAttempts = 0;
         setInputEnabled(true);
-        console.debug('[term ready] input enabled', { attachment, generation });
+        debug('[term ready] input enabled', { attachment, generation });
         setStatus('connected');
         setMessage(i18n.t('pty.connected'));
         sendResize(ws);
@@ -346,7 +365,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
             if (created) initialCommandSent = false;
             attachment = control.attachment ?? 0;
             snapshotWritten = control.snapshot !== true;
-            console.debug('[term ready] attach received', {
+            debug('[term ready] attach received', {
               attachment,
               created,
               hasSnapshot: control.snapshot === true,
@@ -357,7 +376,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
           }
           if (control?.type === 'ready') {
             serverReady = true;
-            console.debug('[term ready] server ready received', { attachment, generation });
+            debug('[term ready] server ready received', { attachment, generation });
             maybeReady();
             return;
           }
@@ -383,7 +402,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
               : event.data;
 
         if (bytes === null) {
-          console.debug('[term ready] binary Blob frame received', {
+          debug('[term ready] binary Blob frame received', {
             size: event.data.size,
             attachment,
             generation,
@@ -393,7 +412,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
             const data = new Uint8Array(buffer);
             const preview = new TextDecoder().decode(data.slice(0, 512)).trimStart();
             if (preview.startsWith('{')) {
-              console.debug('[term ready] JSON-looking Blob frame treated as terminal data', {
+              debug('[term ready] JSON-looking Blob frame treated as terminal data', {
                 preview: preview.slice(0, 200),
                 attachment,
                 generation,
@@ -402,7 +421,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
             snapshotWritten = false;
             term.write(data, () => {
               snapshotWritten = true;
-              console.debug('[term ready] snapshot applied', { attachment, generation });
+              debug('[term ready] snapshot applied', { attachment, generation });
               maybeReady();
             });
           });
@@ -412,7 +431,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
         const text = decoder.decode(bytes, { stream: true });
         const preview = text.trimStart();
         if (preview.startsWith('{')) {
-          console.debug('[term ready] JSON-looking binary frame treated as terminal data', {
+          debug('[term ready] JSON-looking binary frame treated as terminal data', {
             preview: preview.slice(0, 200),
             attachment,
             generation,
@@ -423,7 +442,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
         if (!snapshotWritten) {
           term.write(bytes, () => {
             snapshotWritten = true;
-            console.debug('[term ready] snapshot applied', { attachment, generation });
+            debug('[term ready] snapshot applied', { attachment, generation });
             maybeReady();
           });
         } else {
@@ -484,7 +503,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       if (!inputReady || !ws || ws.readyState !== WebSocket.OPEN) {
         if (inputDebugCount < 10) {
           inputDebugCount++;
-          console.debug('[term input] dropped', {
+          debug('[term input] dropped', {
             inputReady,
             wsState: ws?.readyState,
             generation: currentGeneration,
@@ -495,7 +514,7 @@ export function usePtySession(term: Terminal | null, paneId?: string) {
       const parts = chunkInput(data);
       if (inputDebugCount < 10) {
         inputDebugCount++;
-        console.debug('[term input] sending', {
+        debug('[term input] sending', {
           length: data.length,
           frames: parts.length,
           wsState: ws.readyState,

@@ -6,6 +6,7 @@ import { staticServeZoomAtom } from '../store/zoom';
 import { authFetch } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { CheckIcon, CopyIcon, RefreshIcon, TrashIcon } from './icons';
+import { paneIdFromLocation } from '../lib/pane';
 
 interface StaticServeStatus {
   id: string;
@@ -22,10 +23,6 @@ async function api(path: string, init?: RequestInit): Promise<unknown> {
     throw new Error(body || `HTTP ${res.status}`);
   }
   return res.json();
-}
-
-function paneIdFromLocation(): string {
-  return new URLSearchParams(window.location.search).get('pane') ?? '';
 }
 
 const btnBase =

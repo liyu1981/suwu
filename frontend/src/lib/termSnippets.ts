@@ -40,7 +40,7 @@ export interface RecentInput {
 }
 
 /** Upper bound on saved snippets — tiny lists stay scannable in a popover. */
-export const SNIPPETS_MAX = 200;
+const SNIPPETS_MAX = 200;
 
 /**
  * How many rows of each kind the popover lists before you have to search, and
@@ -93,7 +93,7 @@ export function normalizeShelfSettings(input: unknown): TermShelfSettings {
 }
 
 /** Stable id generator with the same fallback used by the PTY session key. */
-export function newSnippetId(): string {
+function newSnippetId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }

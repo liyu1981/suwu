@@ -9,10 +9,7 @@ import { DENSE_TILE_BG } from '../store/appearance';
 import { staticBrowseZoomAtom } from '../store/zoom';
 import { RefreshIcon } from './icons';
 import type { StaticBrowseSessionState } from '../wm/sessionState';
-
-function paneIdFromLocation(): string {
-  return new URLSearchParams(window.location.search).get('pane') ?? '';
-}
+import { paneIdFromLocation } from '../lib/pane';
 
 function servePathBase(id: string): string {
   return `/staticserve/${encodeURIComponent(id)}`;

@@ -1,6 +1,6 @@
 // Remote folder picker path/prefix regressions; run with Node 22+ type stripping.
 import assert from 'node:assert/strict'
-import { joinPath, parentPath, splitPrefix } from '../src/lib/foldersync/remotePath.ts'
+import { joinPath, parentPath, splitPrefix } from '../src/lib/paths.ts'
 
 // --- joinPath -------------------------------------------------------------
 assert.equal(joinPath('/', 'home'), '/home')

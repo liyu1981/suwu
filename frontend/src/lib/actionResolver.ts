@@ -252,11 +252,7 @@ function findLeafByParam(
 /**
  * Open (or focus) the Static Browser tile for a serve id.
  */
-export function openStaticBrowse(
-  id: string,
-  path: string | undefined,
-  store: Store,
-): string | null {
+function openStaticBrowse(id: string, path: string | undefined, store: Store): string | null {
   const spaces = store.get(spacesAtom);
   const idx = store.get(activeSpaceAtom);
   const root = spaces[idx]?.layout ?? null;

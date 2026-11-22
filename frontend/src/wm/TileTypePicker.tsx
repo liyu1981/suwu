@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 import { getAppIconClasses, getAppIconLetter } from './appIcons';
 import { getAllTilePlugins } from './tilePlugins';
 import { setLeafType, type LayoutNode } from './layout';
+import { ChevronRightIcon } from '../components/icons';
 
 /** How many apps one page of the picker shows. */
 const APP_PAGE_SIZE = 8;
@@ -30,22 +31,6 @@ function AppIcon({ id, label, pluginId }: { id: string; label?: string; pluginId
     >
       {letter}
     </div>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <svg
-      className="h-3.5 w-3.5 shrink-0 opacity-40"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 6 6 6-6 6" />
-    </svg>
   );
 }
 
@@ -208,7 +193,7 @@ export function TileTypePicker({
                         <div className="text-[11px] text-muted-foreground">{p.description}</div>
                       )}
                     </div>
-                    <ChevronIcon />
+                    <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-40" />
                   </button>
                 );
               }
@@ -227,7 +212,7 @@ export function TileTypePicker({
                       <div className="text-[11px] text-muted-foreground">{c.description}</div>
                     )}
                   </div>
-                  <ChevronIcon />
+                  <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-40" />
                 </button>
               );
             })}

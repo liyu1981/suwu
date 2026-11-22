@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { authFetch } from '../../lib/api';
+import { formatSize } from '../../lib/format';
 
 interface UploadDialogProps {
   currentPath: string;
@@ -118,7 +119,7 @@ export function UploadDialog({
                   >
                     <span className="truncate tracking-[-0.01em]">{file.name}</span>
                     <span className="ml-2 shrink-0 text-[11px] tabular-nums text-white/30">
-                      {formatSize(file.size)}
+                      {formatSize(file.size, '0 B')}
                     </span>
                   </div>
                 ))}
@@ -162,16 +163,4 @@ export function UploadDialog({
       </div>
     </div>
   );
-}
-
-function formatSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let i = 0;
-  let size = bytes;
-  while (size >= 1024 && i < units.length - 1) {
-    size /= 1024;
-    i++;
-  }
-  return `${i === 0 ? size : size.toFixed(1)} ${units[i]}`;
 }

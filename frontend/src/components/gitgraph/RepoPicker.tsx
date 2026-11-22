@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authFetch } from '../../lib/api';
+import { joinPath, parentPath } from '../../lib/paths';
 
 interface DirEntry {
   name: string;
@@ -30,19 +31,6 @@ function fetchDirs(dirPath: string, signal?: AbortSignal): Promise<DirEntry[]> {
       .filter((e: DirEntry) => e.isDir && e.name !== '.')
       .sort((a: DirEntry, b: DirEntry) => a.name.localeCompare(b.name));
   });
-}
-
-function joinPath(dir: string, name: string): string {
-  if (dir === '/' || dir === '') return '/' + name;
-  return dir.replace(/\/+$/, '') + '/' + name;
-}
-
-function parentPath(dir: string): string {
-  if (dir === '/' || dir === '') return '/';
-  const trimmed = dir.replace(/\/+$/, '');
-  const idx = trimmed.lastIndexOf('/');
-  if (idx <= 0) return '/';
-  return trimmed.slice(0, idx);
 }
 
 export function RepoPicker({ onSelect, error }: RepoPickerProps) {

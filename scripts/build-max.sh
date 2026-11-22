@@ -2,8 +2,8 @@
 # Build the suwu-max self-extracting launcher.
 #
 #   1. builds the frontend + the real suwu binary,
-#   2. downloads the pinned tools listed in scripts/max-tools.json for the
-#      target architecture (verifying their sha256 when pinned),
+#   2. installs the pinned tools listed in tools/catalog.json for the target
+#      architecture (verifying their sha256),
 #   3. assembles build/bundle/ with the binaries, licenses and a manifest,
 #   4. embeds the bundle into the launcher (go build -tags max),
 #   5. writes dist/suwu-max-<version>-<goos>-<goarch>.tar.gz.
@@ -16,8 +16,9 @@
 # The target defaults to the host (go env GOOS/GOARCH). Only Linux is
 # supported; --goarch allows a cross build (used by CI for arm64).
 #
-# --update-pins writes the computed sha256 values back into max-tools.json so
-# later builds are reproducible and verified.
+# --update-pins writes the computed sha256 values back into tools/catalog.json
+# so later builds are reproducible and verified. That file is the single source
+# of truth shared with the server (see docs/TOOLS_PLAN.md §5).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -78,7 +79,16 @@ CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build \
 chmod 0755 "$BUNDLE/suwu"
 
 # ── 2. tools ────────────────────────────────────────────────────────────
-sha256_of() { sha256sum "$1" | cut -d' ' -f1; }
+CATALOG="$ROOT/tools/catalog.json"
+PAYLOAD="$ROOT/scripts/tool-payload.py"
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
 
 # Downloads may need auth for rate-limited GitHub API calls, but these are
 # direct release-download URLs and need no token.
@@ -87,69 +97,35 @@ fetch() {
   curl -fL --retry 3 --retry-delay 2 -o "$dst" "$url"
 }
 
-PINS=""
-while IFS='|' read -r name version archive extract url pin keep; do
+PIN_ARGS=()
+while IFS='|' read -r name version archive url pin strip entries keep docs; do
   [ -n "$name" ] || continue
-  [ -n "$url" ] || die "no asset for $name/$GOARCH in scripts/max-tools.json"
-  say "fetching $name $version ($GOARCH)"
+  say "fetching $name $version ($GOOS/$GOARCH)"
   dst="$DOWNLOADS/$name.asset"
   fetch "$url" "$dst"
   got="$(sha256_of "$dst")"
   if [ -n "$pin" ] && [ "$pin" != "$got" ]; then
     die "checksum mismatch for $name: pinned $pin, downloaded $got"
   fi
-  PINS="${PINS}${name} ${GOARCH} ${got}
-"
+  PIN_ARGS+=("--name" "$name=$got")
 
-  if [ "$archive" = "tar.gz" ]; then
-    work="$DOWNLOADS/$name.extract"
-    rm -rf "$work"
-    mkdir -p "$work"
-    tar -xzf "$dst" -C "$work"
-    bin="$(find "$work" -type f -name "$extract" -perm -u+x | head -1)"
-    [ -n "$bin" ] || die "$name: '$extract' not found in $url"
-    install -m 0755 "$bin" "$BUNDLE/$name"
-    if [ -n "$keep" ]; then
-      top="$(dirname "$bin")"
-      IFS=',' read -ra keeps <<< "$keep"
-      for item in "${keeps[@]}"; do
-        [ -e "$top/$item" ] || continue
-        mkdir -p "$BUNDLE/tools/$name"
-        cp -R "$top/$item" "$BUNDLE/tools/$name/"
-      done
-    fi
-  else
-    install -m 0755 "$dst" "$BUNDLE/$name"
+  # Only the declared entries are unpacked: an unexpected file in a release
+  # archive never reaches the bundle.
+  python3 "$PAYLOAD" --catalog "$CATALOG" extract \
+    --source "$dst" --archive "$archive" --out "$BUNDLE" \
+    --strip "$strip" --entries "$entries" --keep "$keep" --name "$name"
+
+  if [ -n "$docs" ]; then
+    IFS=',' read -ra doclist <<< "$docs"
+    for item in "${doclist[@]}"; do
+      file="${item%%:*}"
+      docurl="${item#*:}"
+      mkdir -p "$BUNDLE/tools/$name"
+      say "fetching $name/$file"
+      curl -fL --retry 3 -o "$BUNDLE/tools/$name/$file" "$docurl"
+    done
   fi
-done < <(python3 - "$GOARCH" <<'PY'
-import json, sys
-arch = sys.argv[1]
-data = json.load(open("scripts/max-tools.json"))
-for tool in data["tools"]:
-    url = tool["assets"].get(arch, "")
-    pin = tool.get("sha256", {}).get(arch, "")
-    print("|".join([
-        tool["name"], tool.get("version", ""), tool.get("archive", "none"),
-        tool.get("extract", tool["name"]), url, pin,
-        ",".join(tool.get("keep", [])),
-    ]))
-PY
-)
-
-# Extra docs (man pages) declared per tool.
-python3 - "$GOARCH" <<'PY' | while IFS='|' read -r tool file url; do
-import json, sys
-arch = sys.argv[1]
-data = json.load(open("scripts/max-tools.json"))
-for tool in data["tools"]:
-    for file, url in (tool.get("docs") or {}).items():
-        print("|".join([tool["name"], file, url]))
-PY
-  [ -n "$tool" ] || continue
-  mkdir -p "$BUNDLE/tools/$tool"
-  say "fetching $tool/$file"
-  curl -fL --retry 3 -o "$BUNDLE/tools/$tool/$file" "$url"
-done
+done < <(python3 "$PAYLOAD" --catalog "$CATALOG" list --goos "$GOOS" --goarch "$GOARCH" --bundled max)
 
 # ── 3. manifest ─────────────────────────────────────────────────────────
 say "writing manifest"
@@ -201,19 +177,5 @@ say "wrote $ARCHIVE.tar.gz ($(du -h "$ARCHIVE.tar.gz" | cut -f1))"
 
 if [ "$UPDATE_PINS" -eq 1 ]; then
   say "updating sha256 pins"
-  python3 - "$GOARCH" "$PINS" <<'PY'
-import json, sys
-arch = sys.argv[1]
-pins = {}
-for line in sys.argv[2].strip().splitlines():
-    name, a, digest = line.split()
-    pins.setdefault(name, {})[a] = digest
-path = "scripts/max-tools.json"
-data = json.load(open(path))
-for tool in data["tools"]:
-    tool.setdefault("sha256", {})[arch] = pins.get(tool["name"], {}).get(arch, "")
-with open(path, "w") as f:
-    json.dump(data, f, indent=2)
-    f.write("\n")
-PY
+  python3 "$PAYLOAD" --catalog "$CATALOG" pin --goos "$GOOS" --goarch "$GOARCH" "${PIN_ARGS[@]}"
 fi

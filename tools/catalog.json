@@ -1,0 +1,409 @@
+{
+  "schema": 1,
+  "updatedAt": "2026-11-22",
+  "tools": [
+    {
+      "name": "rg",
+      "label": "ripgrep",
+      "version": "15.2.0",
+      "summary": "Recursive search. File search and the agents use it.",
+      "homepage": "https://github.com/BurntSushi/ripgrep",
+      "license": "MIT OR Unlicense",
+      "bundled": "max",
+      "platforms": {
+        "linux-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz",
+          "sha256": "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "rg",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-unknown-linux-musl.tar.gz",
+          "sha256": "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "rg",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-apple-darwin.tar.gz",
+          "sha256": "af7825fcc69a2afc7a7aea55fc9af90e26421d8f20fe59df32e233c0b8a231c1",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "rg",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-apple-darwin.tar.gz",
+          "sha256": "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "rg",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "fzf",
+      "label": "fzf",
+      "version": "0.74.5",
+      "summary": "Fuzzy finder for the shell and for history search.",
+      "homepage": "https://github.com/junegunn/fzf",
+      "license": "MIT",
+      "bundled": "max",
+      "platforms": {
+        "linux-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-linux_amd64.tar.gz",
+          "sha256": "d47d7f882972c7d674dbbba998ffa4116e68379616ffac7695d0671e9a722c5f",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "fzf",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-linux_arm64.tar.gz",
+          "sha256": "cf058001da21724a469b714a29cf4aab9cbe860d218a0d6c1b5b661efad7784c",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "fzf",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-darwin_amd64.tar.gz",
+          "sha256": "aca6cab692e6c069e724a43070a448e18586c7c0fdd1139f6d487ec1680599ed",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "fzf",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-darwin_arm64.tar.gz",
+          "sha256": "ada808c7401b9949ce8842274ac16a6b6193fd32dcada396884a6a9a89e5985a",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "fzf",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "asdf",
+      "label": "asdf",
+      "version": "0.20.2",
+      "summary": "Version manager; toolchain shims are on the shell PATH.",
+      "homepage": "https://github.com/asdf-vm/asdf",
+      "license": "MIT",
+      "bundled": "max",
+      "platforms": {
+        "linux-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/asdf-vm/asdf/releases/download/v0.20.2/asdf-v0.20.2-linux-amd64.tar.gz",
+          "sha256": "6d45e6fab12f50a259b5643adf06a2e77af30a87300b4402440eda09af467a6d",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "asdf",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/asdf-vm/asdf/releases/download/v0.20.2/asdf-v0.20.2-linux-arm64.tar.gz",
+          "sha256": "356e135a608bdfba34038c1f18c4b82434d7b6d546e30dbf372c61baaa2f442c",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "asdf",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/asdf-vm/asdf/releases/download/v0.20.2/asdf-v0.20.2-darwin-amd64.tar.gz",
+          "sha256": "fc5574d5dba4a324337952e0f023fe91a2fefa8a7c86af012eb7cb62094e9900",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "asdf",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/asdf-vm/asdf/releases/download/v0.20.2/asdf-v0.20.2-darwin-arm64.tar.gz",
+          "sha256": "81638f812ec0e6bf8fe6f446f92a270f5682d001d1b15aa93e87fe6805e4ab3c",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "asdf",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "witr",
+      "label": "witr",
+      "version": "0.3.4",
+      "summary": "Why is this running? Process tree, ports and what started it.",
+      "homepage": "https://github.com/pranshuparmar/witr",
+      "license": "Apache-2.0",
+      "bundled": "max",
+      "platforms": {
+        "linux-amd64": {
+          "archive": "none",
+          "url": "https://github.com/pranshuparmar/witr/releases/download/v0.3.4/witr-linux-amd64",
+          "sha256": "d99098c61002f9b8a5337977d527dbe8ee29453f2a62c531038ea2749ea738eb",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "witr",
+              "mode": "0755"
+            }
+          ],
+          "docs": {
+            "witr.1": "https://github.com/pranshuparmar/witr/releases/download/v0.3.4/witr.1"
+          }
+        },
+        "linux-arm64": {
+          "archive": "none",
+          "url": "https://github.com/pranshuparmar/witr/releases/download/v0.3.4/witr-linux-arm64",
+          "sha256": "ecd737fcca418026514ed45a6ad06ecc2e02997e1b75ed6e7100ac8cc69eee54",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "witr",
+              "mode": "0755"
+            }
+          ],
+          "docs": {
+            "witr.1": "https://github.com/pranshuparmar/witr/releases/download/v0.3.4/witr.1"
+          }
+        }
+      }
+    },
+    {
+      "name": "pig",
+      "label": "PiG",
+      "version": "0.5.3",
+      "summary": "The coding agent herdr sessions run.",
+      "homepage": "https://github.com/MichaelKinsy/PiG",
+      "license": "MIT",
+      "requires": [
+        "node >= 20"
+      ],
+      "bundled": "max",
+      "keep": [
+        "LICENSES",
+        "NOTICE",
+        "THIRD_PARTY_NOTICES.md"
+      ],
+      "platforms": {
+        "linux-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-linux-amd64.tar.gz",
+          "sha256": "1e45e5e591a06d087587d5f09d2b6d61673a1e262cb2609e6189defffd5ae7ec",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "pig",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-linux-arm64.tar.gz",
+          "sha256": "c94acaa8b2a5d3d2b1f59e679f70bba6762dc7a01655369b2ffc40fb9be4552b",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "pig",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-darwin-amd64.tar.gz",
+          "sha256": "1a836381d46ca14e72c9b28e4d33c247de115cf4f980e4879587c3fa4ff4387a",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "pig",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/MichaelKinsy/PiG/releases/download/v0.5.3/pig-0.5.3-darwin-arm64.tar.gz",
+          "sha256": "b243e00305e2c7d3d5de12743bb4654cf6324a6282b0c2e0671cc29bfbde3a99",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "pig",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "herdr",
+      "label": "herdr",
+      "version": "0.9.5",
+      "summary": "Terminal agent multiplexer; the Baikal tile drives it.",
+      "homepage": "https://github.com/herdrdev/herdr",
+      "license": "Apache-2.0",
+      "bundled": "max",
+      "platforms": {
+        "linux-amd64": {
+          "archive": "none",
+          "url": "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64",
+          "sha256": "14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "herdr",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "none",
+          "url": "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-aarch64",
+          "sha256": "17d7536f2da50859523680ef279dffcac8e4a235f4e46fe8da6c2ec44141897c",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "herdr",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-amd64": {
+          "archive": "none",
+          "url": "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-x86_64",
+          "sha256": "5fb0a908ec7f6745e3e245738b06bfad56c46391c391ab3c0955fbead01f1369",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "herdr",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "none",
+          "url": "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-aarch64",
+          "sha256": "fb77c2232a05a8035421382c894392f4174e4e38a18e48af3dd0290157c3a7e2",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "herdr",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "herdr-core",
+      "label": "herdr-core",
+      "version": "0.1.21",
+      "summary": "The herdr engine behind `suwu hc` and the Baikal tile.",
+      "homepage": "https://herdr.dev/core/",
+      "license": "Apache-2.0",
+      "bundled": "hcbin",
+      "platforms": {
+        "linux-amd64": {
+          "archive": "tar.gz",
+          "url": "https://releases.herdr.dev/core/0.1.21/herdr-core-linux-x86_64.tar.gz",
+          "sha256": "78424755c10a40dde38a0bdb55c20ac19706e9ae05ed68fc2acf1fcff0d941c1",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "herdr-core",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "tar.gz",
+          "url": "https://releases.herdr.dev/core/0.1.21/herdr-core-linux-aarch64.tar.gz",
+          "sha256": "e844a2bfab48a226097679d076bc83042fe57fccef5387ef802e5b24e78b529a",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "herdr-core",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-amd64": {
+          "archive": "tar.gz",
+          "url": "https://releases.herdr.dev/core/0.1.21/herdr-core-macos-x86_64.tar.gz",
+          "sha256": "e377e1d342cddce0346da5b2f3c281b9701e4731c00024c7c5028265e77a217f",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "herdr-core",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "tar.gz",
+          "url": "https://releases.herdr.dev/core/0.1.21/herdr-core-macos-aarch64.tar.gz",
+          "sha256": "1ab38dd9270f63a8f794d6d60e8702eb0d1c85a72bda85d735e5eea43f05ffed",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "herdr-core",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

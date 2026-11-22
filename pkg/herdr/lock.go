@@ -1,10 +1,7 @@
 package herdr
 
-import _ "embed"
-
-// lockFile pins the herdr-core release Suwu is built against: the version, and
-// per-target archive URL + sha256. It is also what releases are fetched from
-// when a build carries no embedded archive.
-//
-//go:embed herdr-core-lock.json
-var lockFile []byte
+// The herdr-core pins (version, per-platform archive URL and sha256) live in
+// tools/catalog.json, entry "herdr-core". Keeping them there rather than in a
+// second lock file means the engine a release embeds, the archive a server
+// downloads on demand, and the tool the settings page installs can never drift
+// apart. PinnedLock reads it through the catalog embedded in this build.

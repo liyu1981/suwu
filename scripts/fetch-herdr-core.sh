@@ -5,15 +5,18 @@
 #
 #   scripts/fetch-herdr-core.sh [--goos linux] [--goarch amd64|arm64] [--force]
 #
-# The version, URLs and sha256 come from pkg/herdr/herdr-core-lock.json; nothing
-# is downloaded twice unless --force is given. The directory is gitignored: each
-# release artifact carries the archive for its own platform only.
+# The version, URL and sha256 come from tools/catalog.json (entry herdr-core) —
+# the same file the tools installer and the herdr runtime read, so the engine a
+# release embeds can never drift from the tool the settings page installs.
+# Nothing is downloaded twice unless --force is given. The output directory is
+# gitignored: each release artifact carries the archive for its own platform
+# only.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-LOCK="pkg/herdr/herdr-core-lock.json"
+CATALOG="tools/catalog.json"
 OUT="pkg/herdr/assets/herdr-core.tar.gz"
 
 GOOS="$(go env GOOS)"
@@ -25,34 +28,31 @@ while [ $# -gt 0 ]; do
     --goos) GOOS="$2"; shift 2 ;;
     --goarch) GOARCH="$2"; shift 2 ;;
     --force) FORCE=1; shift ;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
-case "$GOARCH" in
-  amd64) ARCH=x86_64 ;;
-  arm64) ARCH=aarch64 ;;
-  *) echo "unsupported arch: $GOARCH" >&2; exit 2 ;;
-esac
-case "$GOOS" in
-  linux) OS=linux ;;
-  darwin) OS=macos ;;
-  *) echo "herdr-core ships for linux and macOS (got $GOOS)" >&2; exit 2 ;;
-esac
-TARGET="$OS-$ARCH"
+TARGET="$GOOS-$GOARCH"
 
-read_lock() {
-  node -e '
-    const lock = require(process.argv[1]);
-    const target = lock.targets[process.argv[2]];
-    if (!target) { console.error("no pinned build for " + process.argv[2]); process.exit(1); }
-    console.log(target.url);
-    console.log(target.sha256);
-    console.log(lock.version);
-  ' "$ROOT/$LOCK" "$TARGET"
+read_catalog() {
+  python3 - "$ROOT/$CATALOG" "$TARGET" <<'PY'
+import json, sys
+catalog, target = sys.argv[1:3]
+data = json.load(open(catalog))
+tool = next((t for t in data["tools"] if t["name"] == "herdr-core"), None)
+if tool is None:
+    sys.exit("tools/catalog.json has no herdr-core entry")
+platform = tool["platforms"].get(target)
+if platform is None:
+    sys.exit(f"no pinned herdr-core build for {target}")
+print(platform["url"])
+print(platform["sha256"])
+print(tool["version"])
+PY
 }
-mapfile -t INFO < <(read_lock)
+
+mapfile -t INFO < <(read_catalog)
 URL="${INFO[0]}"
 SHA="${INFO[1]}"
 VERSION="${INFO[2]}"

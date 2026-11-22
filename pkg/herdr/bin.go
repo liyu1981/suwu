@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +18,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"suwu/pkg/tools"
 )
 
 // Binary is a runnable herdr-core.
@@ -233,11 +234,25 @@ type LockTarget struct {
 	SHA256 string `json:"sha256"`
 }
 
-// PinnedLock returns the lock file this build carries.
+// CatalogName is the tool name herdr-core is pinned under in tools/catalog.json.
+// One catalog means the engine a build embeds, the archive a server downloads
+// and the tool the settings page installs are always the same version.
+const CatalogName = "herdr-core"
+
+// PinnedLock returns this build's herdr-core pins, read from the embedded tool
+// catalog.
 func PinnedLock() (Lock, error) {
-	var lock Lock
-	if err := json.Unmarshal(lockFile, &lock); err != nil {
-		return Lock{}, fmt.Errorf("herdr: decode lock: %w", err)
+	c, err := tools.Builtin()
+	if err != nil {
+		return Lock{}, fmt.Errorf("herdr: catalog: %w", err)
+	}
+	t, ok := c.Find(CatalogName)
+	if !ok {
+		return Lock{}, fmt.Errorf("herdr: catalog has no %s entry", CatalogName)
+	}
+	lock := Lock{Version: t.Version, Targets: make(map[string]LockTarget, len(t.Platforms))}
+	for key, p := range t.Platforms {
+		lock.Targets[key] = LockTarget{URL: p.URL, SHA256: p.SHA256}
 	}
 	return lock, nil
 }
@@ -290,17 +305,6 @@ func downloadPinned(ctx context.Context, dest string) error {
 	return os.WriteFile(filepath.Join(filepath.Dir(dest), VersionFile), []byte(lock.Version+"\n"), 0o644)
 }
 
-func platformKey() string {
-	arch := runtime.GOARCH
-	switch arch {
-	case "amd64":
-		arch = "x86_64"
-	case "arm64":
-		arch = "aarch64"
-	}
-	osName := runtime.GOOS
-	if osName == "darwin" {
-		osName = "macos"
-	}
-	return osName + "-" + arch
-}
+// platformKey is the catalog's <goos>-<goarch> key, the same one the tools
+// installer resolves with.
+func platformKey() string { return tools.PlatformKey(runtime.GOOS, runtime.GOARCH) }

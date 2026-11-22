@@ -92,7 +92,9 @@ export function SystemToolsView() {
   const install = useCallback(
     (tool: ToolStatus) =>
       run(tool.name, async () => {
-        const res = await installTool(tool.name);
+        // "Reinstall" on an installed row has to mean it: the version already
+        // matches, so without force the server would correctly skip.
+        const res = await installTool(tool.name, tool.state === 'installed');
         return res.skipped
           ? t('tools.alreadyInstalled', { name: tool.label, version: res.version })
           : t('tools.installed', { name: tool.label, version: res.version });

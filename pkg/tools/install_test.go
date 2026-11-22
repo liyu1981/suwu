@@ -472,3 +472,85 @@ func TestProgressIsReported(t *testing.T) {
 		t.Fatalf("progress reported %d of %d", seen, len(archive))
 	}
 }
+
+// An update of a tool we installed must not ask for --force: the stamp is proof
+// we own the files, and "update" means "replace". This is the bug the Tools page
+// hit — `pig 0.5.3 · origin tools` refused to become 0.7.0.
+func TestUpdateReplacesOurOwnFilesWithoutForce(t *testing.T) {
+	dataDir := testDataDir(t)
+	old := tgz(t, "p", map[string]string{"rg": "0.5.3"})
+	if _, err := InstallFromArchive(rgSpec(old, hexSum(old)), Options{DataDir: dataDir}, bytes.NewReader(old), int64(len(old))); err != nil {
+		t.Fatal(err)
+	}
+	newer := tgz(t, "p", map[string]string{"rg": "0.7.0"})
+	spec := rgSpec(newer, hexSum(newer))
+	spec.Version = "0.7.0"
+	res, err := InstallFromArchive(spec, Options{DataDir: dataDir}, bytes.NewReader(newer), int64(len(newer)))
+	if err != nil {
+		t.Fatalf("upgrade refused: %v", err)
+	}
+	if !res.Replaced || res.Skipped {
+		t.Fatalf("result %+v", res)
+	}
+	if body, _ := os.ReadFile(filepath.Join(bindir.Dir(dataDir), "rg")); string(body) != "0.7.0" {
+		t.Fatalf("file not replaced: %q", body)
+	}
+	if s, _ := ReadStamp(dataDir, "rg"); s.Version != "0.7.0" {
+		t.Fatalf("stamp %+v", s)
+	}
+}
+
+// An upgrade whose payload changed shape drops the files the old version owned
+// and the new one does not — and never touches anything it did not own.
+func TestUpdatePrunesOrphanedFiles(t *testing.T) {
+	dataDir := testDataDir(t)
+	bin, err := bindir.Ensure(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The old install owned two files.
+	old := tgz(t, "p", map[string]string{"rg": "1", "rg.1": "man page"})
+	spec := rgSpec(old, hexSum(old))
+	spec.Entries = []Entry{{File: "rg", Mode: "0755"}, {File: "rg.1", Mode: "0644"}}
+	spec.Version = "1.0"
+	if _, err := InstallFromArchive(spec, Options{DataDir: dataDir}, bytes.NewReader(old), int64(len(old))); err != nil {
+		t.Fatal(err)
+	}
+	// A stranger's file in the same directory must survive every upgrade.
+	if err := os.WriteFile(filepath.Join(bin, "not-mine"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	newer := tgz(t, "p", map[string]string{"rg": "2"})
+	spec = rgSpec(newer, hexSum(newer))
+	spec.Version = "2.0"
+	if _, err := InstallFromArchive(spec, Options{DataDir: dataDir}, bytes.NewReader(newer), int64(len(newer))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(bin, "rg.1")); !os.IsNotExist(err) {
+		t.Fatal("the orphaned man page survived the upgrade")
+	}
+	if _, err := os.Stat(filepath.Join(bin, "not-mine")); err != nil {
+		t.Fatal("an unowned file was removed")
+	}
+	if s, _ := ReadStamp(dataDir, "rg"); len(s.Files) != 1 || s.Files[0].File != "rg" {
+		t.Fatalf("stamp %+v", s)
+	}
+}
+
+// A file nobody's stamp owns still needs --force: the stamp is the difference
+// between "our old copy" and "somebody else's binary".
+func TestUnmanagedFileStillNeedsForce(t *testing.T) {
+	dataDir := testDataDir(t)
+	bin, err := bindir.Ensure(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "rg"), []byte("hand made"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	archive := tgz(t, "p", map[string]string{"rg": "ours"})
+	if _, err := InstallFromArchive(rgSpec(archive, hexSum(archive)), Options{DataDir: dataDir}, bytes.NewReader(archive), int64(len(archive))); err == nil {
+		t.Fatal("an unmanaged file was replaced without --force")
+	}
+}

@@ -272,16 +272,18 @@ func install(spec Spec, opt Options, produce func(stage string) error) (Result, 
 		defer unlock()
 	}
 
-	// A file the bundle put there is ours to upgrade: an explicit install beats
-	// the bundle (docs/TOOLS_PLAN.md §7.1), so replacing it does not need
-	// --force. Replacing our own file still does.
+	// A stamp is proof we put these files there, so both an upgrade of our own
+	// install and taking over a bundled one replace them without --force. That
+	// "both" is the whole point of the stamp: update means replace. Only a file
+	// no stamp claims (somebody's hand-installed copy) needs --force.
 	allowReplace := opt.Force
+	var previous []string
 	if existing, err := ReadStamp(opt.DataDir, spec.Name); err == nil {
-		if existing.Origin != res.Origin {
-			allowReplace = true
-		} else if existing.Version == spec.Version && !opt.Force {
+		allowReplace = true
+		previous = stampFiles(existing)
+		if existing.Origin == res.Origin && existing.Version == spec.Version && !opt.Force {
 			res.Skipped = true
-			res.Files = stampFiles(existing)
+			res.Files = previous
 			return res, nil
 		}
 	}
@@ -334,9 +336,45 @@ func install(spec Spec, opt Options, produce func(stage string) error) (Result, 
 	if err := writeStamp(binDir, stamp); err != nil {
 		return res, err
 	}
-	// Only now, with the stamp in place, are the replaced files dropped.
+	// Only now, with the stamp in place, are the replaced files dropped, and any
+	// file the previous version owned but this one does not (a tool whose payload
+	// changed shape) is removed — an upgrade must not leave orphans behind.
 	dropBackups(binDir, staged)
+	res.Warnings = append(res.Warnings, prunePrevious(binDir, previous, staged)...)
 	return res, nil
+}
+
+// prunePrevious removes files the previous install owned that this one does not.
+// It is deliberately timid: a path is only removed when it is inside the bin dir,
+// not a symlink, and no longer claimed by the new stamp.
+func prunePrevious(binDir string, previous []string, current []StampFile) []string {
+	if len(previous) == 0 {
+		return nil
+	}
+	keeping := make(map[string]bool, len(current))
+	for _, f := range current {
+		keeping[f.File] = true
+	}
+	var warnings []string
+	for _, file := range previous {
+		if keeping[file] {
+			continue
+		}
+		target := filepath.Join(binDir, filepath.FromSlash(file))
+		if err := bindir.Within(binDir, target); err != nil {
+			continue
+		}
+		info, err := os.Lstat(target)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			continue
+		}
+		if err := os.Remove(target); err != nil {
+			warnings = append(warnings, fmt.Sprintf("could not remove the old %s: %v", file, err))
+			continue
+		}
+		pruneEmptyDirs(binDir, filepath.Dir(target))
+	}
+	return warnings
 }
 
 // verifyStage walks the staged tree, refuses symlinks, and returns the files with

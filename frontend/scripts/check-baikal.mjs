@@ -222,6 +222,10 @@ assert.match(termSource, /onSizeRef\.current\?\./, 'size reports must go through
 // (one row, one focus rule, one set of bytes) and puts its toggle in the shared
 // toolbar, so both tiles offer the button in the same place.
 assert.match(termSource, /<SoftInputPanel/, 'the baikal terminal hosts the shared panel');
+// A hidden xterm is not free: it keeps parsing and rendering every byte its
+// agent writes, so the panel mounts only the tab on screen and the attach asks
+// the core for a scrollback replay instead.
+assert.match(termSource, /history: String\(HISTORY_LINES\)/, 'the attach replays the core scrollback');
 assert.match(
   termSource, /softInput=\{[\s\S]*?touchFirst/,
   'the toggle rides in the shared toolbar, on touch devices only',
@@ -271,5 +275,21 @@ assert.match(
   'the page wraps the workspace in the container that provides the session',
 );
 assert.match(baikalPanelSource, /useTileSessionReady/, 'restore waits for the WM to answer, not for a non-null state');
+
+// ── only the tab on screen is mounted ─────────────────────────────────────
+const panelMount = baikalPanelSource.slice(baikalPanelSource.indexOf('{activeTab && ('));
+assert.ok(
+  !/display: visible \? undefined : 'none'/.test(baikalPanelSource),
+  'hidden tabs must not stay mounted behind display:none — they render anyway',
+);
+assert.match(
+  panelMount,
+  /<BaikalTerm/,
+  'the visible tab mounts its terminal',
+);
+assert.ok(
+  baikalPanelSource.includes('delete next[activeSpaceId]'),
+  'a terminal whose program ended still leaves its space behind',
+);
 
 console.log('check-baikal: ok');

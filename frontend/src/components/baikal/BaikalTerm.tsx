@@ -27,7 +27,12 @@ export interface BaikalTermProps {
   terminal: string;
   session?: string;
   observe?: boolean;
-  /** False while the tab is hidden: the pane must not resize the core then. */
+  /**
+   * False while the pane is hidden (`display: none` by whoever hosts it): it must
+   * not fit or resize the core then, because a zero-sized box would compute a
+   * one-column grid. The baikal panel unmounts hidden tabs outright, so this is
+   * belt-and-braces for a host that hides instead of unmounting.
+   */
   visible?: boolean;
   /** Reports the grid, so a shell started next can be created at this size. */
   onSize?: (cols: number, rows: number) => void;
@@ -41,6 +46,17 @@ export interface BaikalTermProps {
 }
 
 type ConnState = 'connecting' | 'ready' | 'closed';
+
+/**
+ * How many lines of the core's scrollback this viewer asks for when it attaches.
+ *
+ * The panel unmounts a tab's terminal as soon as the tab is not on screen (a
+ * hidden xterm keeps parsing and rendering every byte, which is what made a tile
+ * with a dozen tabs cost a whole core). The terminal then starts empty, so the
+ * attach replays the last lines from the core: switching back shows what the
+ * agent did while you were away, without the tile carrying its buffers.
+ */
+const HISTORY_LINES = 600;
 
 const encoder = new TextEncoder();
 
@@ -200,6 +216,7 @@ export function BaikalTerm({
         terminal,
         cols: String(Math.max(1, term.cols)),
         rows: String(Math.max(1, term.rows)),
+        history: String(HISTORY_LINES),
         observe: observe ? '1' : '0',
       });
       if (session) params.set('session', session);

@@ -689,13 +689,21 @@ func (c *Core) SetSpaceMeta(ctx context.Context, id string, fn func(*SpaceMeta))
 	})
 }
 
-// Attach opens a viewing stream for a terminal.
-func (c *Core) Attach(ctx context.Context, terminal string, cols, rows int, observe bool) (*Stream, error) {
+// Attach opens a viewing stream for a terminal. history is how many lines of the
+// core's scrollback the core replays before the live stream — 0 means the screen
+// as it stands, which is enough for a viewer that keeps the bytes it already has
+// but not for one that was unmounted while hidden.
+func (c *Core) Attach(
+	ctx context.Context,
+	terminal string,
+	cols, rows, history int,
+	observe bool,
+) (*Stream, error) {
 	conn, err := c.ensure(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return conn.Attach(ctx, terminal, cols, rows, 0, observe)
+	return conn.Attach(ctx, terminal, cols, rows, history, observe)
 }
 
 // Ping reports whether a core is reachable, and its version.

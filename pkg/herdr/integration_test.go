@@ -98,7 +98,7 @@ func TestIntegrationRunAttachRead(t *testing.T) {
 	}
 
 	// Attach and type.
-	stream, err := core.Attach(ctx, terminal.Address, 100, 30, false)
+	stream, err := core.Attach(ctx, terminal.Address, 100, 30, 0, false)
 	if err != nil {
 		t.Fatalf("attach: %v", err)
 	}

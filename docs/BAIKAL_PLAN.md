@@ -473,8 +473,7 @@ core came back. `go test ./...`, `pnpm check` and the tile review checks are gre
 ### 13.1 Changes from the first working version
 
 - **Tabs are per space.** The strip shows the selected space's terminals, and
-  selecting another space switches it; every tab of every space stays mounted
-  (hidden with `display: none`) so hiding an attachment never detaches it.
+  selecting another space switches it. Only the tab on screen is mounted: §13.5.
 - **No sidebar buttons.** The tab strip's `+` starts a shell in the active space;
   the `+` beside the filter box starts one in a new space. The footer of the
   space list is gone.
@@ -554,7 +553,36 @@ share a 36 px height with 28 px controls, so the two "+" buttons line up.
 - **A restored tab attaches only when first shown.** A terminal born inside
   `display: none` measures 0×0 and paints its first screen into a one-column grid
   — the first look at a restored tab was empty until you switched away and back.
-  Tabs are now mounted on first reveal and stay mounted afterwards.
+  Tabs are mounted on first reveal (and, since §13.5, only while revealed).
+
+### 13.5 Only the tab on screen is mounted (the CPU and memory fix)
+
+A tile with four spaces and a dozen tabs cost a whole core and close to a
+gigabyte, with only one tab actually being looked at. The cause was the mounting
+model: every tab ever shown stayed mounted, hidden with `display: none`, and a
+hidden xterm is not free — it keeps parsing and **rendering** every byte its agent
+writes. Measured on a 4-tab tile (headless Chromium, `seq 1 400` in a loop as the
+stream):
+
+| phase | main-thread task | script | DOM nodes | xterms |
+|---|---|---|---|---|
+| 4 tabs mounted, idle | 0% | 0% | 862 | 4 |
+| output in 2 **hidden** tabs | 95% | 57% | 34,064 | 4 |
+| same, after the fix | 2% | 1% | 484 | 1 |
+| output in the visible tab | 88% | 30% | 5,554 | 1 |
+
+So the panel now mounts **only the active tab of the active space**. Hiding a tab
+unmounts its terminal, which also detaches the viewer — the program keeps running
+in the core, as always. To make coming back lossless, the attach asks the core to
+replay its scrollback (`history`, bounded by `baikalMaxHistory` = 5000, the tile
+asks for 600): switching to a tab that streamed while hidden shows the last lines
+it produced, without the tile carrying a buffer for every tab. Verified: after
+switching to a tab that had been streaming for ten seconds, its screen showed the
+recent output (`… 390 391 … 400`) and exactly one xterm was mounted.
+
+The tile's own snapshot traffic is what remains (2% in the table above): the SSE
+stream and the 5 s poll still follow every terminal, because the sidebar and the
+tab titles have to stay current even for tabs nobody is watching.
 
 ### 13.4 The panel becomes a real sidebar
 

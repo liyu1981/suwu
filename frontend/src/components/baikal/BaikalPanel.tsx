@@ -48,10 +48,13 @@ const EMPTY_SPACE_TABS: SpaceTabs = { tabs: [], activeId: '' };
  *
  * Left: spaces (directories) with their terminals, collapsible; selecting one
  * switches the tab strip on the right, as Herdr's TUI switches tabs with the
- * workspace. Every terminal of every space stays mounted while its span is not
- * shown — an attachment is a viewer, and hiding it must not detach it.
+ * workspace. Only the tab on screen is mounted: a hidden xterm keeps parsing and
+ * rendering every byte its agent writes, which is what made a tile with a dozen
+ * tabs cost a core (§13.5 of the plan). Unmounting detaches the viewer, never the
+ * program — and the next attach replays the core's scrollback, so a tab shows what
+ * happened while it was away.
  *
- * Closing a tab detaches; the program keeps running in the daemon.
+ * Closing a tab ends the program; the × is the deliberate "stop this".
  *
  * `CommonTileContainer` *provides* the session-state context, so the page itself
  * is a thin wrapper: the workspace below is a child, and only there do
@@ -89,10 +92,6 @@ function BaikalWorkspace() {
   const hydrated = useRef(false);
   /** Grid of the last terminal shown, so a new shell starts at that size. */
   const lastSize = useRef<{ cols: number; rows: number } | null>(null);
-  /** Tabs that have been on screen once. A terminal born inside `display: none`
-   *  measures 0×0, and xterm then paints the first screen into a one-column grid
-   *  — which is why the first look at a restored tab used to be empty. */
-  const [seenTabs, setSeenTabs] = useState<ReadonlySet<string>>(() => new Set());
   /** Bumped whenever the user asks for a tab, so that tab's terminal takes the
    *  focus back: the click landed on a button, and typing should reach the shell
    *  — including when the tab was already the active one. */
@@ -161,15 +160,6 @@ function BaikalWorkspace() {
       return changed ? next : prev;
     });
   }, [snapshot, terminals]);
-
-  // Remember the active tab once it has been shown; it stays mounted from then on
-  // (hidden tabs keep their attachment), but a restored tab is only mounted when
-  // it is first revealed.
-  useEffect(() => {
-    if (!activeTab) return;
-    const key = `${activeSpaceId}:${activeTab.id}`;
-    setSeenTabs((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
-  }, [activeSpaceId, activeTab]);
 
   // The tile's font size comes from the shell, exactly as it does for a /term
   // pane: the same pane menu that sizes a terminal sizes these terminals. Until
@@ -473,49 +463,39 @@ function BaikalWorkspace() {
           />
 
           <div className="relative min-h-0 flex-1">
-            {/* Every tab of every space stays mounted; only the active one is
-                  shown. Hiding an attachment with display:none keeps its stream
-                  (and the program) alive — the same invariant as the tiling WM. */}
-            {Object.entries(spaceTabs).flatMap(([spaceId, entry]) =>
-              entry.tabs.map((tab) => {
-                const visible = spaceId === activeSpaceId && tab.id === active.activeId;
-                const key = `${spaceId}:${tab.id}`;
-                if (!visible && !seenTabs.has(key)) return null;
-                return (
-                  <div
-                    key={key}
-                    className="absolute inset-0 p-1.5"
-                    style={{ display: visible ? undefined : 'none' }}
-                  >
-                    <BaikalTerm
-                      terminal={tab.terminal}
-                      session={session}
-                      observe={tab.observe}
-                      visible={visible}
-                      focusToken={focusTick}
-                      fontSize={fontSize}
-                      onSize={(cols, rows) => {
-                        lastSize.current = { cols, rows };
-                      }}
-                      onDetached={(ended) => {
-                        // A program that ended has no tab left to show.
-                        setSpaceTabs((prev) => {
-                          const current = prev[spaceId];
-                          if (!current) return prev;
-                          const kept = current.tabs.filter(
-                            (candidate) => candidate.terminal !== ended,
-                          );
-                          if (kept.length === current.tabs.length) return prev;
-                          const next = { ...prev };
-                          if (kept.length === 0) delete next[spaceId];
-                          else next[spaceId] = { tabs: kept, activeId: kept[0].id };
-                          return next;
-                        });
-                      }}
-                    />
-                  </div>
-                );
-              }),
+            {/* Only the tab on screen is mounted. A hidden xterm is not free:
+                it keeps parsing and rendering every byte its agent writes, so a
+                tile with a dozen tabs spent a core and hundreds of megabytes on
+                terminals nobody was looking at. Unmounting detaches the viewer;
+                the next attach replays the core's scrollback, so a tab shows
+                what happened while it was away. The program itself is not
+                touched — it keeps running in the daemon, as before. */}
+            {activeTab && (
+              <div key={activeTab.id} className="absolute inset-0 p-1.5">
+                <BaikalTerm
+                  terminal={activeTab.terminal}
+                  session={session}
+                  observe={activeTab.observe}
+                  focusToken={focusTick}
+                  fontSize={fontSize}
+                  onSize={(cols, rows) => {
+                    lastSize.current = { cols, rows };
+                  }}
+                  onDetached={(ended) => {
+                    // A program that ended has no tab left to show.
+                    setSpaceTabs((prev) => {
+                      const current = prev[activeSpaceId];
+                      if (!current) return prev;
+                      const kept = current.tabs.filter((candidate) => candidate.terminal !== ended);
+                      if (kept.length === current.tabs.length) return prev;
+                      const next = { ...prev };
+                      if (kept.length === 0) delete next[activeSpaceId];
+                      else next[activeSpaceId] = { tabs: kept, activeId: kept[0].id };
+                      return next;
+                    });
+                  }}
+                />
+              </div>
             )}
 
             {!activeTab && (

@@ -67,6 +67,11 @@ func (b *baikalCores) closeAll() {
 	b.cores = make(map[string]*herdr.Core)
 }
 
+// baikalMaxHistory bounds the scrollback a viewer may ask the core to replay on
+// attach. The replay is terminal output, so it is also the ceiling on how much a
+// tab switch can cost.
+const baikalMaxHistory = 5000
+
 var (
 	// Terminal addresses are `t7` (or a name); a machine prefix is out of scope
 	// for v1, so only local, conservative values are accepted.
@@ -416,6 +421,14 @@ func (s *Server) handleBaikalAttach(w http.ResponseWriter, r *http.Request) {
 		rows = 24
 	}
 	observe := q.Get("observe") == "1"
+	// History is a bounded replay of the core's scrollback on attach. A hidden
+	// terminal is unmounted (a hidden xterm keeps parsing and rendering every
+	// byte its agent writes, which is what a tile with a dozen tabs paid for),
+	// so coming back to a tab re-attaches and asks for the lines it missed.
+	history, _ := strconv.Atoi(q.Get("history"))
+	if history < 0 || history > baikalMaxHistory {
+		history = baikalMaxHistory
+	}
 
 	s.clients.Touch(r.RemoteAddr)
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
@@ -427,7 +440,7 @@ func (s *Server) handleBaikalAttach(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	core := s.baikal.get(baikalSession(r))
-	stream, err := core.Attach(ctx, terminal, cols, rows, observe)
+	stream, err := core.Attach(ctx, terminal, cols, rows, history, observe)
 	if err != nil {
 		_ = writeWS(ctx, conn, websocket.MessageText, mustJSON(map[string]any{
 			"type":   "close",

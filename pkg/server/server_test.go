@@ -44,21 +44,45 @@ func testServer(t *testing.T) (*httptest.Server, *auth.Config) {
 }
 
 func TestTokenEndpoint(t *testing.T) {
-	ts, cfg := testServer(t)
+	ts, _ := testServer(t)
 
 	resp, err := http.Get(ts.URL + "/api/token")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	body := make([]byte, 256)
-	n, _ := resp.Body.Read(body)
-	got := string(body[:n])
+	var body struct {
+		Token   string       `json:"token"`
+		Session auth.Session `json:"session"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
 	if resp.StatusCode != 200 {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
-	if !strings.Contains(got, cfg.Token) {
-		t.Fatalf("response %q does not contain token", got)
+	// A password (or no password at all) mints a session token, not the legacy
+	// per-run token that every device used to share.
+	if !strings.HasPrefix(body.Token, auth.TokenPrefix) || body.Session.ID == "" {
+		t.Fatalf("response %+v is not a session", body)
+	}
+	// Presenting that token renews the same session and hands the same token back.
+	req, _ := http.NewRequest("GET", ts.URL+"/api/token", nil)
+	req.Header.Set("Authorization", "Bearer "+body.Token)
+	again, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer again.Body.Close()
+	var second struct {
+		Token   string       `json:"token"`
+		Session auth.Session `json:"session"`
+	}
+	if err := json.NewDecoder(again.Body).Decode(&second); err != nil {
+		t.Fatal(err)
+	}
+	if again.StatusCode != 200 || second.Token != body.Token || second.Session.ID != body.Session.ID {
+		t.Fatalf("renewal changed the credential: %+v -> %+v", body, second)
 	}
 }
 

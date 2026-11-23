@@ -47,15 +47,57 @@ type Host struct {
 	Port     string
 }
 
-// Config is the immutable per-run auth configuration.
+// Config is the per-run auth configuration.
 type Config struct {
-	Token        string
-	TokenExpiry  time.Time // when the current token expires (zero = never)
-	SigningKey   []byte    // HMAC-SHA256 signing key derived from the token
-	BindHost     string    // actual address passed to net.Listen
-	DisplayHost  string    // user-friendly host shown in banner (detected hostname/IP when HOST=auto)
+	// Token is the per-run token minted at startup, kept for the upgrade path:
+	// a browser holding it is not logged out by deploying sessions. New
+	// credentials are session tokens (Sessions); this one is validated as a
+	// legacy session and replaced by a real one on the first renewal.
+	Token       string
+	TokenExpiry time.Time // when Token expires (zero = never)
+	SigningKey  []byte    // HMAC key for Token, kept for legacy HMAC requests
+	// Sessions holds one credential per device. Never nil after CreateConfig.
+	Sessions     *Registry
+	BindHost     string // actual address passed to net.Listen
+	DisplayHost  string // user-friendly host shown in banner (detected hostname/IP when HOST=auto)
 	AllowedHosts []string
 	PasswordHash string // sha256 hex of the password; empty = no password required
+}
+
+// legacySession is the Token above, as a session: the same timestamp, no secret
+// (it is compared as a whole token), and marked so a renewal replaces it.
+func (cfg *Config) legacySession(now time.Time) *Session {
+	expires := cfg.TokenExpiry
+	return &Session{
+		ID:         "legacy",
+		SigningKey: cfg.SigningKey,
+		Created:    now,
+		LastSeen:   now,
+		Expires:    expires,
+		Label:      "legacy token",
+		Legacy:     true,
+	}
+}
+
+// SessionFor resolves a presented token to a live session.
+//
+// The legacy per-run token is accepted until its own expiry, so an upgrade does
+// not sign anyone out; every other token is looked up in the registry.
+func (cfg *Config) SessionFor(token string) (*Session, bool) {
+	if token == "" {
+		return nil, false
+	}
+	if cfg.Token != "" && safeTokenEquals(cfg.Token, token) {
+		s := cfg.legacySession(time.Now())
+		if s.Expired(time.Now()) {
+			return nil, false
+		}
+		return s, true
+	}
+	if cfg.Sessions == nil {
+		return nil, false
+	}
+	return cfg.Sessions.Validate(token)
 }
 
 // TokenTTL is how long a token is valid before rotation.
@@ -524,6 +566,7 @@ func CreateConfig(env func(string) string) (*Config, error) {
 		Token:        token,
 		TokenExpiry:  time.Now().Add(TokenTTL),
 		SigningKey:   GenerateSigningKey(token),
+		Sessions:     NewRegistry(),
 		BindHost:     bindHost,
 		DisplayHost:  displayHost,
 		AllowedHosts: allowed,
@@ -587,6 +630,56 @@ func ValidateTokenRequest(cfg *Config, hostHeader, originHeader, authHeader stri
 	return allowed()
 }
 
+// TokenGrant is what /api/token is allowed to do for a caller.
+type TokenGrant struct {
+	// Session is the live session the caller presented (Bearer/cookie). Renew
+	// this one; do not touch any other.
+	Session *Session
+	// Token is the token that was presented, so a renewal can hand it back
+	// unchanged.
+	Token string
+	// Password is set when the caller authenticated with the password instead:
+	// the handler mints a new session for it.
+	Password bool
+}
+
+// AuthorizeTokenRequest is the /api/token decision: renew the caller's own
+// session, or accept the password and let the caller mint a new one.
+//
+// The distinction is the whole point of sessions — a device holding a live token
+// never has to type the password again, and the password never rotates anybody
+// else's credential.
+func AuthorizeTokenRequest(cfg *Config, hostHeader, originHeader, authHeader string) (Decision, TokenGrant) {
+	d, _ := validateAllowedHost(cfg, hostHeader)
+	if !d.OK {
+		return d, TokenGrant{}
+	}
+	d = validateMatchingOrigin(originHeader, hostFromHeader(hostHeader), false)
+	if !d.OK {
+		return d, TokenGrant{}
+	}
+
+	const bearer = "Bearer "
+	if strings.HasPrefix(authHeader, bearer) {
+		token := authHeader[len(bearer):]
+		session, ok := cfg.SessionFor(token)
+		if !ok {
+			return unauthorized(), TokenGrant{}
+		}
+		return allowed(), TokenGrant{Session: session, Token: token}
+	}
+
+	if cfg.PasswordHash == "" {
+		// No password configured: the endpoint mints a session, as it used to
+		// hand out the token.
+		return allowed(), TokenGrant{Password: true}
+	}
+	if validateBasicAuth(authHeader, cfg.PasswordHash) {
+		return allowed(), TokenGrant{Password: true}
+	}
+	return unauthorized(), TokenGrant{}
+}
+
 // validateBasicAuth checks an "Authorization: Basic <base64(user:pass)>"
 // header against the stored sha256 password hash.
 func validateBasicAuth(authHeader, expectedHash string) bool {
@@ -624,11 +717,7 @@ func ValidateWebSocketRequest(cfg *Config, hostHeader, originHeader, token strin
 	if !d.OK {
 		return d
 	}
-	// Allow token within grace period after expiry (for in-flight connections).
-	if !safeTokenEquals(cfg.Token, token) && !cfg.TokenValid() {
-		return unauthorized()
-	}
-	if !safeTokenEquals(cfg.Token, token) {
+	if _, ok := cfg.SessionFor(token); !ok {
 		return unauthorized()
 	}
 	return allowed()
@@ -673,10 +762,10 @@ func ValidateAPIRequest(cfg *Config, hostHeader, originHeader, authHeader, query
 	// here; this function handles token-based auth only. For WebSocket
 	// upgrades, the token is sent in the query string instead.
 
-	// Try query token first.
+	// Try query token first (WebSocket upgrades cannot set headers).
 	if queryToken != "" {
-		if safeTokenEquals(cfg.Token, queryToken) || (cfg.TokenValid() && safeTokenEquals(cfg.Token, queryToken)) {
-			return allowed(), queryToken
+		if session, ok := cfg.SessionFor(queryToken); ok {
+			return allowed(), session.ID
 		}
 		return unauthorized(), ""
 	}
@@ -687,15 +776,17 @@ func ValidateAPIRequest(cfg *Config, hostHeader, originHeader, authHeader, query
 		const bearer = "Bearer "
 		if strings.HasPrefix(authHeader, bearer) {
 			token := authHeader[len(bearer):]
-			if safeTokenEquals(cfg.Token, token) {
-				return allowed(), token
+			if session, ok := cfg.SessionFor(token); ok {
+				return allowed(), session.ID
 			}
 			return unauthorized(), ""
 		}
-		// Basic auth (for /api/token endpoint).
+		// Basic auth (the password, for /api/token only). The key it returns is
+		// not a session: it exists so callers can rate-limit the one endpoint
+		// that accepts a password.
 		if cfg.PasswordHash != "" {
 			if validateBasicAuth(authHeader, cfg.PasswordHash) {
-				return allowed(), cfg.Token
+				return allowed(), BasicKey
 			}
 			return unauthorized(), ""
 		}

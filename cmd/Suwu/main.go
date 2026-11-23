@@ -172,6 +172,8 @@ func main() {
 			os.Exit(toolsMain(os.Args[2:]))
 		case "exec":
 			os.Exit(execMain(os.Args[2:]))
+		case "auth":
+			os.Exit(authMain(os.Args[2:]))
 		default:
 			// Unknown subcommand: if it looks like a flag, assume
 			// the user forgot "serve" and try to run the server.
@@ -261,6 +263,9 @@ Usage:
   suwu exec <tool> [args...]
                            run the copy of a tool that Suwu manages, never the
                            one on PATH (see 'suwu help exec')
+  suwu auth <ls|rm> [flags]
+                           list the devices signed in to this server, and revoke
+                           one (see 'suwu help auth')
 
 Configuration precedence:
   --env-file explicitly given → that file only
@@ -512,6 +517,8 @@ Examples:
 		printToolsUsage()
 	case "exec":
 		printExecUsage()
+	case "auth":
+		printAuthUsage()
 	default:
 		fmt.Printf("Unknown subcommand: %s\nRun 'suwu help' for usage.\n", cmd)
 	}
@@ -750,6 +757,7 @@ func run(debugCfg debugConfig) error {
 	srv := server.New(cfg, sub, sessions, notifyListener, forwardManager, dataDir)
 	closeBaikal = srv.CloseBaikal
 	registerStaticServeHandlers(notifyListener, srv.StaticServe())
+	registerAuthHandlers(notifyListener, srv)
 	srv.StartDBCleanup()
 	srv.StartSFTPCleanup()
 
@@ -1180,6 +1188,54 @@ func resolveSockPath(flagVal string) (string, error) {
 		return certs.ExpandPath(flagVal)
 	}
 	return notify.SocketPath()
+}
+
+// registerAuthHandlers exposes the login-session registry on the notify socket.
+// The socket is user-only (0700), which is the authorization: `suwu auth` exists
+// for the case where you cannot log in, so it cannot ask for a token.
+func registerAuthHandlers(l *notify.Listener, srv *server.Server) {
+	l.RegisterHandler("sessions-list", func(cmd notify.Command) notify.CommandResponse {
+		sessions := srv.Sessions()
+		list := make([]map[string]any, 0, len(sessions))
+		for _, session := range sessions {
+			list = append(list, map[string]any{
+				"id":       session.ID,
+				"label":    session.Label,
+				"created":  session.Created.UTC().Format(time.RFC3339),
+				"lastSeen": session.LastSeen.UTC().Format(time.RFC3339),
+				"expires":  session.Expires.UTC().Format(time.RFC3339),
+				"legacy":   session.Legacy,
+			})
+		}
+		data, err := json.Marshal(map[string]any{"sessions": list})
+		if err != nil {
+			return notify.CommandResponse{OK: false, Error: err.Error()}
+		}
+		return notify.CommandResponse{OK: true, Data: data}
+	})
+	l.RegisterHandler("sessions-revoke", func(cmd notify.Command) notify.CommandResponse {
+		var req struct {
+			ID   string `json:"id"`
+			All  bool   `json:"all"`
+			Hard bool   `json:"hard"`
+		}
+		if err := json.Unmarshal(cmd.Payload, &req); err != nil {
+			return notify.CommandResponse{OK: false, Error: "invalid payload"}
+		}
+		if req.All {
+			revoked := srv.RevokeAllSessions()
+			return notify.CommandResponse{
+				OK:      true,
+				Data:    mustJSON(map[string]any{"revoked": revoked}),
+				Message: "Devices signed out. Each one is asked for the password on its next request.",
+			}
+		}
+		label, ok := srv.RevokeSession(req.ID)
+		if !ok {
+			return notify.CommandResponse{OK: false, Error: "no such session"}
+		}
+		return notify.CommandResponse{OK: true, Data: mustJSON(map[string]any{"revoked": 1, "label": label})}
+	})
 }
 
 func registerForwardHandlers(l *notify.Listener, mgr *forward.Manager) {

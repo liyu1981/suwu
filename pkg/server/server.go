@@ -94,6 +94,9 @@ type Server struct {
 	rateLimit  *RateLimiter
 	restLimit  *RateLimiter
 	livesLimit *RateLimiter
+	// tokenLimit budgets /api/token, the one endpoint that accepts a password,
+	// per client address rather than per session (there is no session yet).
+	tokenLimit *RateLimiter
 	statics    *staticserve.Manager
 	clients    *clientGate
 	// backupLimit budgets encrypted backup uploads, which the periodic
@@ -139,6 +142,14 @@ func (s *Server) SetCACertificate(caPEM []byte) {
 // New creates a Server serving static assets from assetsFS (the web tree)
 // and managing keyed PTY sessions through mgr.
 func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify.Listener, fwds *forward.Manager, dataDir string) *Server {
+	// A Config built by hand (tests, embedders) may predate sessions; the
+	// registry is the server's own state either way.
+	if cfg != nil && cfg.Sessions == nil {
+		cfg.Sessions = auth.NewRegistry()
+	}
+	// Sessions outlive a restart: without this, every `suwu upgrade` signs every
+	// device out, which is half of what the session model is for.
+	restoreSessions(cfg, dataDir)
 	dbMgr := db.NewManager()
 	var backups *backup.Store
 	// An empty data dir means "not configured" (tests, embedded use); backups
@@ -169,6 +180,7 @@ func New(cfg *auth.Config, assetsFS fs.FS, sessions *session.Manager, nl *notify
 		rateLimit:   NewRateLimiter(),
 		restLimit:   newRateLimiter(restRateLimitMax),
 		livesLimit:  newRateLimiter(livesRateLimitMax),
+		tokenLimit:  newRateLimiter(tokenRateLimitMax),
 		statics:     staticserve.NewManager(),
 		clients:     newClientGate(12 * time.Hour),
 		backups:     backups,
@@ -256,6 +268,21 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/api/token" {
 		s.handleToken(w, r)
+		return
+	}
+
+	// Login sessions (docs/AUTH_SESSIONS_PLAN.md). Every one of these needs a
+	// live session, so they authenticate first and then act on the registry.
+	if r.URL.Path == "/api/token/rotate" {
+		if current := s.validateRequest(w, r); current != "" {
+			s.handleTokenRotate(w, r, current)
+		}
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/api/sessions") {
+		if current := s.validateRequest(w, r); current != "" {
+			s.handleSessions(w, r, current)
+		}
 		return
 	}
 
@@ -706,17 +733,20 @@ func validateHMAC(cfg *auth.Config, r *http.Request) bool {
 
 // validateRequest is a helper that validates an API request and writes an
 // error response if unauthorized. Accepts HMAC signatures, query tokens,
-// and Authorization headers. Returns the validated token or "" if failed.
+// and Authorization headers. Returns the caller's session id (the rate-limit
+// key) or "" if failed.
 func (s *Server) validateRequest(w http.ResponseWriter, r *http.Request) string {
 	cfg := s.cfg
-	// 1. Try HMAC signature first (most secure — raw token never sent).
+	// 1. Try HMAC signature first (most secure — raw token never sent). HMAC is
+	// tied to the per-run key, which only this process knows, so it identifies
+	// the server rather than a device.
 	if validateHMAC(cfg, r) {
 		// HMAC valid — check rate limit.
-		if !s.validateRequestRateLimit(w, r, cfg) {
+		if !s.validateRequestRateLimit(w, r, cfg.Token) {
 			return ""
 		}
 		s.clients.Touch(r.RemoteAddr)
-		return cfg.Token
+		return "hmac"
 	}
 
 	// 2. Fall back to token-based auth.
@@ -732,8 +762,9 @@ func (s *Server) validateRequest(w http.ResponseWriter, r *http.Request) string 
 		return ""
 	}
 
-	// Check rate limit.
-	if !s.validateRequestRateLimit(w, r, cfg) {
+	// Check rate limit, keyed by the session so one busy device cannot spend
+	// another's budget.
+	if !s.validateRequestRateLimit(w, r, validated) {
 		return ""
 	}
 
@@ -742,11 +773,11 @@ func (s *Server) validateRequest(w http.ResponseWriter, r *http.Request) string 
 }
 
 // validateRequestRateLimit checks rate limits for destructive operations.
-func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request, cfg *auth.Config) bool {
+func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request, key string) bool {
 	// The REST helper talks to the network on the user's behalf; give it a
 	// higher, dedicated budget.
 	if strings.HasPrefix(r.URL.Path, "/api/rest/") {
-		if !s.restLimit.Allow(cfg.Token) {
+		if !s.restLimit.Allow(key) {
 			slog.Warn("rest rate limit exceeded", "path", r.URL.Path, "remote", r.RemoteAddr)
 			writePlain(w, http.StatusTooManyRequests, "Rate limit exceeded")
 			return false
@@ -757,7 +788,7 @@ func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request
 	// The live-wallpaper endpoints also fetch third-party origins on the user's
 	// behalf, so they get their own outbound budget.
 	if strings.HasPrefix(r.URL.Path, lives2dRoutePrefix) {
-		if !s.livesLimit.Allow(cfg.Token) {
+		if !s.livesLimit.Allow(key) {
 			slog.Warn("lives2d rate limit exceeded", "path", r.URL.Path, "remote", r.RemoteAddr)
 			writePlain(w, http.StatusTooManyRequests, "Rate limit exceeded")
 			return false
@@ -773,8 +804,7 @@ func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request
 	if !destructive {
 		return true
 	}
-	token := cfg.Token // use the canonical token for rate limit key
-	if !s.rateLimit.Allow(token) {
+	if !s.rateLimit.Allow(key) {
 		slog.Warn("rate limit exceeded", "path", r.URL.Path, "remote", r.RemoteAddr)
 		writePlain(w, http.StatusTooManyRequests, "Rate limit exceeded")
 		return false
@@ -783,34 +813,120 @@ func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, POST")
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
 
-	d := auth.ValidateTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
+	d, grant := auth.AuthorizeTokenRequest(s.cfg, r.Host, r.Header.Get("Origin"), r.Header.Get("Authorization"))
 	if !d.OK {
 		writePlain(w, d.Status, d.Reason)
 		return
 	}
+	// The one endpoint that accepts a password gets its own budget: a fast
+	// guesser must not be able to try thousands of passwords a minute.
+	if grant.Password && !s.tokenLimit.Allow(r.RemoteAddr) {
+		slog.Warn("token rate limit exceeded", "remote", r.RemoteAddr)
+		writePlain(w, http.StatusTooManyRequests, "Rate limit exceeded")
+		return
+	}
 	s.clients.Touch(r.RemoteAddr)
 
-	// Rotate token if expired (with grace period for in-flight requests).
-	if !s.cfg.TokenValid() {
-		if _, err := s.cfg.RotateToken(); err != nil {
-			slog.Error("token rotation failed", "error", err)
-			writePlain(w, http.StatusInternalServerError, "Internal Server Error")
-			return
-		}
-		slog.Debug("token rotated", "expiry", s.cfg.TokenExpiry)
+	token, session, err := s.grantToken(grant, r)
+	if err != nil {
+		slog.Error("token grant failed", "error", err)
+		writePlain(w, http.StatusInternalServerError, "Internal Server Error")
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	_, _ = w.Write([]byte(`{"token":` + strconv.Quote(s.cfg.Token) + `}`))
+	body, err := json.Marshal(map[string]any{"token": token, "session": session})
+	if err != nil {
+		writePlain(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+	_, _ = w.Write(body)
 }
+
+// grantToken turns a /api/token decision into a credential.
+//
+// A caller presenting a live session gets that session renewed and the same
+// token back — this is what lets a phone reopen without the password, and why
+// the desktop is no longer logged out by it. A caller presenting the password
+// gets a brand-new session, so the two devices never share a credential again.
+func (s *Server) grantToken(grant auth.TokenGrant, r *http.Request) (string, *auth.Session, error) {
+	if grant.Password {
+		session, token, err := auth.NewSession(sessionLabel(r), time.Now())
+		if err != nil {
+			return "", nil, err
+		}
+		s.cfg.Sessions.Add(session)
+		slog.Debug("session created", "id", session.ID, "label", session.Label)
+		return token, session, nil
+	}
+	// A legacy per-run token cannot be renewed (its secret is the token itself
+	// and it is not in the registry): replace it with a session now, which is
+	// the upgrade path for every browser that was already signed in.
+	if grant.Session != nil && grant.Session.Legacy {
+		session, token, err := auth.NewSession(sessionLabel(r), time.Now())
+		if err != nil {
+			return "", nil, err
+		}
+		s.cfg.Sessions.Add(session)
+		return token, session, nil
+	}
+	session := grant.Session
+	if session == nil {
+		return "", nil, auth.ErrNoSession
+	}
+	return grant.Token, session, nil
+}
+
+// sessionLabel names a device from its request: a User-Agent summary plus
+// whether it is an installed app. The client never supplies this.
+func sessionLabel(r *http.Request) string {
+	ua := strings.ToLower(r.Header.Get("User-Agent"))
+	device := "Unknown device"
+	switch {
+	case strings.Contains(ua, "iphone"):
+		device = "iPhone"
+	case strings.Contains(ua, "ipad"):
+		device = "iPad"
+	case strings.Contains(ua, "android"):
+		device = "Android"
+	case strings.Contains(ua, "macintosh"), strings.Contains(ua, "mac os"):
+		device = "Mac"
+	case strings.Contains(ua, "windows"):
+		device = "Windows"
+	case strings.Contains(ua, "linux"):
+		device = "Linux"
+	}
+	browser := "Browser"
+	switch {
+	case strings.Contains(ua, "edg/"):
+		browser = "Edge"
+	case strings.Contains(ua, "chrome/"), strings.Contains(ua, "crios/"):
+		browser = "Chrome"
+	case strings.Contains(ua, "firefox/"):
+		browser = "Firefox"
+	case strings.Contains(ua, "safari/"):
+		browser = "Safari"
+	}
+	label := device + " · " + browser
+	// An installed PWA sends the app's own name in the User-Agent on iOS and
+	// runs without browser chrome; the standalone flag is the honest hint we
+	// have server-side.
+	if strings.Contains(ua, "suwu") {
+		label += " (installed)"
+	}
+	return label
+}
+
+// tokenRateLimitMax bounds password attempts per window per address.
+const tokenRateLimitMax = 20
 
 const maxFileEntries = 1000
 

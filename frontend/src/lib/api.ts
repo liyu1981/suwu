@@ -174,21 +174,40 @@ export async function authenticate(user: string, password: string): Promise<void
 
 /**
  * Sends an authenticated API request with the cookie-backed Bearer token.
- * A 401 clears authentication and returns the UI to the login surface.
+ *
+ * A 401 is not immediately a logout: the page first tries to *renew*, because
+ * the usual cause is a session that went idle past its window on a device that
+ * is still open — and an active device should not be sent back to the login form
+ * for that. Only when renewal fails (the session expired, was revoked, or the
+ * password changed) does the UI return to the login surface.
  */
 export async function authFetch(input: URL | RequestInfo, init?: RequestInit): Promise<Response> {
-  const token = getTokenCookie() ?? (await fetchToken()).token;
-  const req = new Request(input, init);
-  const headers = new Headers(req.headers);
-  headers.set('Authorization', `Bearer ${token}`);
-  console.debug('[suwu auth] adding Bearer authorization', {
-    url: req.url,
-    hasBearerAuthorization: headers.get('Authorization')?.startsWith('Bearer ') === true,
-  });
+  const send = async (token: string) => {
+    const req = new Request(input, init);
+    const headers = new Headers(req.headers);
+    headers.set('Authorization', `Bearer ${token}`);
+    return fetch(new Request(req, { headers }));
+  };
 
-  const response = await fetch(new Request(req, { headers }));
-  if (response.status === 401) notifyAuthExpired();
-  return response;
+  const token = getTokenCookie() ?? (await fetchToken()).token;
+  const response = await send(token);
+  if (response.status !== 401) return response;
+
+  // One renewal attempt per response, never recursive: requestToken talks to
+  // /api/token directly, so this cannot loop back into authFetch.
+  let renewed: string | null = null;
+  try {
+    renewed = await startTokenRequest(authGeneration);
+  } catch {
+    renewed = null;
+  }
+  if (!renewed) {
+    notifyAuthExpired();
+    return response;
+  }
+  const retried = await send(renewed);
+  if (retried.status === 401) notifyAuthExpired();
+  return retried;
 }
 
 /**

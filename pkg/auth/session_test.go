@@ -69,16 +69,17 @@ func TestSessionsExpireAndDoNotValidate(t *testing.T) {
 		t.Fatalf("expired session not dropped: %d", reg.Count())
 	}
 
-	// The hard stop caps a session that is used constantly.
+	// The hard stop caps a session that is used constantly. Use it every hour, so
+	// the idle window never closes and only the absolute stop can end it.
 	reg2 := newTestRegistry(start)
 	s2, token2, _ := NewSession("busy phone", start)
 	reg2.Add(s2)
-	for i := 1; i <= 40; i++ {
-		moment := start.Add(time.Duration(i) * 48 * time.Hour)
+	for i := 1; i <= int(SessionHardTTL.Hours()); i++ {
+		moment := start.Add(time.Duration(i) * time.Hour)
 		reg2.SetClock(fixedClock(moment))
 		reg2.Validate(token2)
 	}
-	reg2.SetClock(fixedClock(start.Add(SessionHardTTL + time.Hour)))
+	reg2.SetClock(fixedClock(start.Add(SessionHardTTL + 2*time.Hour)))
 	if _, ok := reg2.Validate(token2); ok {
 		t.Fatal("a session outlived the hard stop")
 	}
@@ -230,4 +231,40 @@ func TestAuthorizeTokenRequest(t *testing.T) {
 // basicHeader builds "Basic <base64(user:pass)>".
 func basicHeader(user, pass string) string {
 	return base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
+}
+
+// An active client is never kicked out: every authenticated request slides the
+// idle window, so a session can outlive SessionIdleTTL (and its own creation
+// time by far) as long as it is used. This is the behaviour the client relies on
+// instead of a renewal timer.
+func TestActiveSessionOutlivesTheIdleWindow(t *testing.T) {
+	start := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	reg := newTestRegistry(start)
+	session, token, _ := NewSession("open laptop", start)
+	reg.Add(session)
+
+	// Visit every 20 hours: each visit is inside the window, and the session is
+	// still alive well past one idle window.
+	moment := start
+	for i := 0; i < 10; i++ {
+		moment = moment.Add(20 * time.Hour)
+		reg.SetClock(fixedClock(moment))
+		if _, ok := reg.Validate(token); !ok {
+			t.Fatalf("an active session expired after %v", moment.Sub(start))
+		}
+	}
+	if moment.Sub(start) <= SessionIdleTTL {
+		t.Fatalf("the test did not outlive the idle window (%v)", moment.Sub(start))
+	}
+	// The expiry stored on the session is relative to the last visit, not to
+	// creation.
+	got, _ := reg.Get(session.ID)
+	if !got.Expires.After(moment) {
+		t.Fatalf("expiry did not slide: expires %v, visited %v", got.Expires, moment)
+	}
+	// And a day of silence ends it.
+	reg.SetClock(fixedClock(moment.Add(SessionIdleTTL + time.Minute)))
+	if _, ok := reg.Validate(token); ok {
+		t.Fatal("a session idle past the window still validated")
+	}
 }

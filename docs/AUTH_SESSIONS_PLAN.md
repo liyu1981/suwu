@@ -124,10 +124,11 @@ before the upgrade keep working.
 | Idle past `Expires`, or past `HardStop` | session is dropped on first use; that device must log in with the password again. |
 | Server start | load the registry from disk (§4.4), so a restart does not log everyone out — which is also a fix for `suwu upgrade` restarting the daemon mid-day. |
 
-**Locked:** idle **30 days**, hard stop **90 days**. Long enough that a PWA never
-nags, short enough that a forgotten tablet stops working on its own. Tokens do
-**not** rotate on a timer: the session is the credential, rotated on demand
-(`POST /api/token/rotate`) and revoked explicitly. The 5-minute cadence goes away
+**Locked:** idle **24 hours**, hard stop **30 days**. The idle window *slides on
+use*, so an active device never reaches it — every authenticated request pushes it
+out again — while a device left alone stops working within a day. Tokens do **not**
+rotate on a timer: the session is the credential, rotated on demand
+(`POST /api/token/rotate`) and revoked explicitly. The 5-minute cadence went away
 with the single token; nothing else depended on it.
 
 ### 4.4 Persistence
@@ -278,7 +279,7 @@ All eight are **confirmed**; the table records them.
 
 | # | Decision | Locked |
 | --- | --- | --- |
-| D1 | Idle / hard expiry | 30 days idle, 90 days absolute |
+| D1 | Idle / hard expiry | 24 hours idle (sliding on use), 30 days absolute |
 | D2 | Rotation on a timer? | No — the session is the credential; rotate on demand, revoke explicitly |
 | D3 | Where sessions persist | `<dataDir>/auth/sessions.json`, `0600`, hashes only |
 | D4 | Session cap | 32, evict the least recently used |
@@ -309,7 +310,7 @@ All eight are **confirmed**; the table records them.
 
 | Phase | Status | Notes |
 |---|---|---|
-| P1 — registry + renewal | done | `pkg/auth/session.go`: `suwu1.<sid>.<secret>`, hashes only, sliding 30-day idle / 90-day hard stop, 32-session cap with LRU eviction, per-session signing key; `/api/token` mints with Basic and renews with Bearer; rate limits keyed by session |
+| P1 — registry + renewal | done | `pkg/auth/session.go`: `suwu1.<sid>.<secret>`, hashes only, sliding 24-hour idle / 30-day hard stop, 32-session cap with LRU eviction, per-session signing key; `/api/token` mints with Basic and renews with Bearer; rate limits keyed by session |
 | P2 — persistence + revocation | done | `pkg/auth/store.go` (`<dataDir>/auth/sessions.json`, 0600, temp+rename), `pkg/server/sessions.go`: list, revoke, revoke-all, rotate; a password change voids the stored sessions |
 | P2b — `suwu auth` | done | `sessions-list` / `sessions-revoke` socket actions, `suwu auth ls\|rm` with `--json`, `--all`, `--hard`, `--yes` |
 | P3 — client | done | `requestToken` renews with the cookie first and only falls back to the password; the page records which session it holds; `adoptToken` keeps a re-minted credential |
@@ -323,6 +324,12 @@ Deviations from the plan, and why:
 - **A legacy session is never stored.** The pre-sessions token lives in the
   process only, so a renewal *replaces* it with a real session instead of
   extending it — that is what upgrades every already-signed-in browser.
+
+Also shipped after the first pass (same day, on feedback): the idle window is
+**24 hours**, not 30 days — an active client still never expires, because the
+window slides on use, and an abandoned one stops within a day. And a `401` no
+longer means an immediate logout: the page renews once with the token it already
+holds, and only shows the login form when that fails (§4.6).
 
 Left as follow-ups (not built): `suwu auth rm --hard` semantics beyond "sign
 everyone out", a per-device "expire at a fixed time" (`HardStop` is already in

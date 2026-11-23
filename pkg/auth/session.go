@@ -30,10 +30,13 @@ const (
 	// per-run token from before sessions existed, still honoured as one.
 	TokenPrefix = "suwu1."
 
-	// SessionIdleTTL is how long a session survives without being used.
-	SessionIdleTTL = 30 * 24 * time.Hour
-	// SessionHardTTL is the absolute lifetime of a session, used or not.
-	SessionHardTTL = 90 * 24 * time.Hour
+	// SessionIdleTTL is how long a session survives without being used. It slides
+	// on every authenticated request, so an active device never reaches it (see
+	// the comment on renew), and an abandoned one stops working within a day.
+	SessionIdleTTL = 24 * time.Hour
+	// SessionHardTTL is the absolute lifetime of a session, used or not: a device
+	// signs in again monthly even if it is in constant use.
+	SessionHardTTL = 30 * 24 * time.Hour
 	// MaxSessions caps the registry; the least recently used is evicted, so a
 	// script holding the password cannot grow it without bound.
 	MaxSessions = 32
@@ -156,6 +159,11 @@ func (s *Session) rotate(now time.Time) (string, error) {
 }
 
 // renew slides the idle expiry, never past the hard stop.
+//
+// This is what "an active client is never kicked out" means concretely: every
+// authenticated request pushes the window out again, so a browser that is being
+// used stays signed in indefinitely, while one that is not touched for a day
+// expires. The client needs no timer for this — the server moves the window.
 func (s *Session) renew(now time.Time) {
 	s.LastSeen = now
 	expires := now.Add(SessionIdleTTL)

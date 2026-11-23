@@ -17,7 +17,7 @@
         <p>The web UI prompts for the onboarding password on first access. A device then signs in once and stays signed in: the credential lives in a secure cookie and renews itself on use.</p>
 
         <h2>Devices and Sessions</h2>
-        <p>Every device gets its <strong>own</strong> login session, so a phone and a desktop no longer share — or evict — one credential. A session is valid for 30 days without use and 90 days at most, and it survives a restart or an upgrade.</p>
+        <p>Every device gets its <strong>own</strong> login session, so a phone and a desktop no longer share — or evict — one credential. A session stays valid for 24 hours of *inactivity*: the window slides on every request, so a device you are using never expires, while one you left alone stops working within a day. A month is the absolute limit, after which the device signs in again.</p>
         <p><strong>System Settings → Account → Devices</strong> lists them, with the last time each was seen and a revoke button. Revoking one leaves the others working, which is how you sign out a lost phone without changing the password. The same list is available in a terminal:</p>
 
 <pre><code>suwu auth ls            # id, device, last seen, expiry, (this session)

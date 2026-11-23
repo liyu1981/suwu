@@ -73,7 +73,6 @@ const els = {
   askOk: document.getElementById("ask-ok"),
   askCancel: document.getElementById("ask-cancel"),
   bar: document.getElementById("bar"),
-  hint: document.getElementById("hint"),
 };
 
 const input = els.input;
@@ -407,16 +406,7 @@ function paintChrome() {
     );
   }
 
-  // The empty-state chip teaches the checklist, so it stays up while the note
-  // is still blank — a box with no words is not blank, though.
-  els.hint.hidden = !isBlank(editor.note());
   syncBar();
-}
-
-/** True while a note holds nothing but empty paragraphs. */
-function isBlank(note) {
-  if (note.l.some((l) => l.k !== "para")) return false;
-  return editor.text().trim() === "";
 }
 
 function setPressed(button, on) {

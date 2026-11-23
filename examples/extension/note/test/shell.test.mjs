@@ -25,6 +25,14 @@ test("every element the module wires exists in the shell", () => {
   }
 });
 
+test("no empty-state checklist button", () => {
+  // The format bar already has the checklist button; a second one floating over
+  // an empty note was noise (and it only ever appeared when the note was empty).
+  assert.ok(!declared.has("hint"), "the shell still declares #hint");
+  assert.ok(!/\+ Checklist/.test(shell), "the shell still renders the checklist hint");
+  assert.ok(!/hint/.test(main), "main.js still references the hint");
+});
+
 test("the server switch and the merge prompt are in the shell", () => {
   for (const id of ["cloud", "ask", "ask-merge", "ask-ok", "ask-cancel", "foot"]) {
     assert.ok(declared.has(id), `the shell has no #${id}`);

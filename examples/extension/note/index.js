@@ -60,11 +60,6 @@ ${css}
     <div class="clip"><div class="layer" id="layer"><div class="paint" id="paint" aria-hidden="true"></div></div></div>
   </div>
 
-  <!-- Empty-state affordance: teaches the checklist without a toolbar tour. -->
-  <div class="hint" id="hint" hidden>
-    <button type="button" class="hint-btn" data-cmd="todo">+ Checklist</button>
-  </div>
-
   <!-- Format bar: floats over the paper's bottom edge, never the WM's corner. -->
   <nav class="bar" id="bar" aria-label="Format">
     <button type="button" class="tb" data-cmd="todo" aria-pressed="false"

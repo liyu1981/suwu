@@ -621,36 +621,6 @@ body.compact-rail .tab {
   cursor: default;
 }
 
-/* The empty state teaches the checklist without a toolbar tour. */
-.hint {
-  position: absolute;
-  z-index: 4;
-  left: 12px;
-  bottom: 42px;
-}
-.hint[hidden] {
-  display: none;
-}
-.hint-btn {
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink);
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(38, 36, 29, 0.22);
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-}
-.hint-btn:hover {
-  background: rgba(38, 36, 29, 0.08);
-}
-.hint-btn:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 1px;
-}
-
 /* Small tiles: fewer controls, then none — the note stays writable. */
 body.compact-bar .tb[data-cmd="s"],
 body.compact-bar .tb[data-cmd="c"],
@@ -688,10 +658,6 @@ body.tiny {
 
 @media (prefers-reduced-transparency: reduce) {
   .bar {
-    background: var(--paper);
-    backdrop-filter: none;
-  }
-  .hint-btn {
     background: var(--paper);
     backdrop-filter: none;
   }

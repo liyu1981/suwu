@@ -992,6 +992,7 @@
       "missing": "未安装",
       "unsupported": "此设备不支持",
       "unmanaged": "非 Suwu 管理"
-    }
+    },
+    "refFallback": "本版本在 {{from}} 上还没有工具目录，因此使用 {{ref}}。"
   }
 }

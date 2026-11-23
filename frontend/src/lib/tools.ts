@@ -57,6 +57,8 @@ export interface ToolsSource {
   stale: boolean;
   /** Why the refresh failed, verbatim from the server. */
   error?: string;
+  /** Set when this build's tag has no catalog yet and `master` answered. */
+  fallbackFrom?: string;
   /** No request was needed: the cache was fresh. */
   cached: boolean;
 }

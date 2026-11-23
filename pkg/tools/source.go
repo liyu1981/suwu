@@ -34,6 +34,9 @@ const (
 	RawBaseEnv = "SUWU_TOOLS_RAW_BASE"
 	// maxCatalogBytes bounds the catalog response.
 	maxCatalogBytes = 1 << 20
+	// masterRef is the ref a build falls back to when its own tag has no
+	// catalog (tags cut before the catalog existed), and what a dev build reads.
+	masterRef = "master"
 	// cacheName is the catalog cache under <dataDir>/cache.
 	cacheName = "tools-catalog.json"
 )
@@ -66,6 +69,9 @@ type Origin struct {
 	// network problem and a catalog this build cannot read as the different
 	// things they are.
 	Error string `json:"error,omitempty"`
+	// FallbackFrom is set when this build's own tag has no catalog yet (a tag cut
+	// before tools/catalog.json existed) and master answered instead.
+	FallbackFrom string `json:"fallbackFrom,omitempty"`
 	// Cached means no request was needed (the cache was fresh).
 	Cached bool `json:"cached"`
 }
@@ -133,12 +139,25 @@ func (s *Source) Load(ctx context.Context) (*Catalog, Origin, error) {
 	}
 
 	cat, etag, fetchedAt, err := s.fetch(ctx, cacheETag(cache))
+	if errors.Is(err, ErrNotFound) && s.Ref != masterRef {
+		// The tag predates the catalog (or predates a format this build reads).
+		// master is the maintained copy; the caller is told where it came from.
+		fallback := *s
+		fallback.Ref = masterRef
+		cat, origin, ferr := fallback.Load(ctx)
+		if ferr == nil {
+			origin.FallbackFrom = s.Ref
+			return cat, origin, nil
+		}
+	}
 	if err != nil {
 		// Offline, rate-limited or the ref is gone: an installed tool list beats
-		// an empty page, as long as the caller can say it is stale.
-		if cacheErr == nil && cache.Ref == s.Ref {
+		// an empty page, as long as the caller can say it is stale — and can say
+		// which ref the copy it is looking at came from.
+		if cacheErr == nil {
 			stale := cache.Catalog
 			origin.FetchedAt = cache.FetchedAt
+			origin.Ref = cache.Ref
 			origin.Stale = true
 			origin.Error = err.Error()
 			return &stale, origin, nil
@@ -171,6 +190,11 @@ func (s *Source) Refresh(ctx context.Context) (*Catalog, Origin, error) {
 	_ = s.writeCache(cached{Repo: s.Repo, Ref: s.Ref, ETag: etag, FetchedAt: fetchedAt, Catalog: *cat})
 	return cat, origin, nil
 }
+
+// ErrNotFound means this ref has no tools/catalog.json. It is separate from a
+// network failure because the answer differs: a tag cut before the catalog
+// existed should read master, a broken connection should not.
+var ErrNotFound = errors.New("catalog not present at this ref")
 
 // Offline returns the catalog embedded in this build. It is the fallback when
 // there is no cache and no network: the list is real, the downloads will fail.
@@ -220,6 +244,9 @@ func (s *Source) fetch(ctx context.Context, etag string) (*Catalog, string, stri
 	fetchedAt := s.now().UTC().Format(time.RFC3339)
 	if resp.StatusCode == http.StatusNotModified {
 		return nil, etag, fetchedAt, nil
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, "", "", fmt.Errorf("fetch catalog: %s at %s: %w", resp.Status, s.Ref, ErrNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", "", fmt.Errorf("fetch catalog: %s", resp.Status)

@@ -995,6 +995,7 @@
       "missing": "Not installed",
       "unsupported": "Not for this device",
       "unmanaged": "Unmanaged file"
-    }
+    },
+    "refFallback": "This build has no catalog at {{from}} yet, so {{ref}} is being used."
   }
 }

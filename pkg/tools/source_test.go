@@ -208,3 +208,45 @@ func TestSourceReportsWhyItIsStale(t *testing.T) {
 		t.Fatalf("reason is not the fetch error: %q", origin.Error)
 	}
 }
+
+// A tag cut before tools/catalog.json existed must not leave every install
+// stale forever: the tag is tried, and master answers with the reason recorded.
+func TestSourceFallsBackToMasterWhenTheTagHasNoCatalog(t *testing.T) {
+	body := testCatalogJSON(t, "2.0")
+	var asked []string
+	s, _ := newTestSource(t, func(w http.ResponseWriter, r *http.Request) {
+		asked = append(asked, r.URL.Path)
+		if strings.Contains(r.URL.Path, "/v1.2.3/") {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write(body)
+	})
+	cat, origin, err := s.Load(context.Background())
+	if err != nil {
+		t.Fatalf("expected the master fallback, got %v", err)
+	}
+	if cat.Tools[0].Version != "2.0" {
+		t.Fatalf("catalog %+v", cat.Tools[0])
+	}
+	if origin.Ref != "master" || origin.FallbackFrom != "v1.2.3" || origin.Stale {
+		t.Fatalf("origin %+v", origin)
+	}
+	if len(asked) != 2 || !strings.Contains(asked[0], "v1.2.3") || !strings.Contains(asked[1], "/master/") {
+		t.Fatalf("requests %v", asked)
+	}
+	// A network failure does not fall back: it is read as a network failure.
+	s.RawBase = "http://127.0.0.1:1"
+	s.Now = func() time.Time { return time.Now().Add(48 * time.Hour) }
+	_, origin, err = s.Load(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !origin.Stale || origin.Error == "" {
+		t.Fatalf("origin %+v", origin)
+	}
+	// The cached copy came from master, and the answer says so.
+	if origin.Ref != "master" {
+		t.Fatalf("stale copy reports ref %q", origin.Ref)
+	}
+}

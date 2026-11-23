@@ -171,6 +171,11 @@ export function SystemToolsView() {
             {t('tools.refresh')}
           </button>
         </div>
+        {data.source.fallbackFrom && (
+          <p className={sectionHint}>
+            {t('tools.refFallback', { from: data.source.fallbackFrom, ref: data.source.ref })}
+          </p>
+        )}
         {data.source.stale && (
           <div className={`${sectionHint} text-amber-300/80`}>
             <p>{t('tools.stale', { ref: data.source.ref })}</p>

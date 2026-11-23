@@ -15,6 +15,18 @@ const REPLY_TIMEOUT = 3000;
 /** Returned by `get` when the server has no record under that key yet. */
 export const MISSING = Symbol("missing");
 
+/**
+ * Request ids are unique across every bridge in the document, not per bridge.
+ *
+ * A page runs two of them — the local store and the server store — and each
+ * listens for `ext-store-result` on the same window. With a per-bridge counter
+ * both would start at 1, and a reply for one scope could resolve the other's
+ * request: the server read then "returned" the cloud preference object, the
+ * document failed to validate, and the note came up blank. One counter, and a
+ * reply is only accepted for the scope that asked.
+ */
+let nextRid = 0;
+
 function namedError(name) {
   const err = new Error(name);
   err.name = name;
@@ -29,13 +41,16 @@ function namedError(name) {
  */
 export function createBridge(parent, opts = {}) {
   const scope = opts.scope === "server" ? "server" : "local";
-  let seq = 0;
   const pending = Object.create(null);
 
   window.addEventListener("message", (e) => {
     if (e.source !== parent) return;
     const d = e.data;
     if (!d || d.type !== "ext-store-result" || typeof d.rid !== "number") return;
+    // A host that echoes the scope lets us ignore the other bridge's traffic.
+    // The shared counter already prevents the collision; this keeps a stale or
+    // hand-written reply from landing in the wrong store.
+    if (typeof d.scope === "string" && d.scope !== scope) return;
     const entry = pending[d.rid];
     if (!entry) return;
     delete pending[d.rid];
@@ -56,7 +71,7 @@ export function createBridge(parent, opts = {}) {
         reject(namedError("NoParent"));
         return;
       }
-      const rid = ++seq;
+      const rid = ++nextRid;
       const timer = setTimeout(() => {
         delete pending[rid];
         reject(namedError("Timeout"));

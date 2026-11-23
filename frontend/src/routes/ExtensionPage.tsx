@@ -113,9 +113,13 @@ export default function ExtensionPage() {
           }
         | undefined;
       if (d?.type === 'ext-store' && typeof d.rid === 'number') {
+        // The scope goes back in the reply: a page can run more than one bridge
+        // (the browser store and the server store), and a result must only land
+        // in the one that asked for it.
+        const replyScope = d.scope === 'server' ? 'server' : 'local';
         const reply = (ok: boolean, value?: unknown, error?: string, missing?: boolean) => {
           innerRef.current?.contentWindow?.postMessage(
-            { type: 'ext-store-result', rid: d.rid, ok, value, error, missing },
+            { type: 'ext-store-result', rid: d.rid, ok, value, error, missing, scope: replyScope },
             '*',
           );
         };

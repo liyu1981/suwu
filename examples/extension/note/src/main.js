@@ -723,6 +723,9 @@ function boot(doc) {
 }
 
 store = createStore(transport, { delay: SAVE_DELAY, onSaved, onError });
+// Debug handle, like the shell's `window.__term`: a console (or a headless
+// check) can ask what the page loaded without guessing from the paint.
+window.__note = { doc: () => (editor ? editor.doc : null), cloud: () => cloudOn, transport };
 readCloudPreference()
   .then(() => store.load())
   .then((doc) => {

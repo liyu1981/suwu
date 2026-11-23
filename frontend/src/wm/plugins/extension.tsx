@@ -18,6 +18,10 @@ registerTilePlugin({
   get label() {
     return i18n.t('plugin.extension');
   },
+  // An extension tile is named after the extension it shows: "note", not the
+  // generic "Extension" — a phone's header has room for one name, and the
+  // generic one says nothing about which app is on screen.
+  title: (params) => params?.id,
   get description() {
     return i18n.t('plugin.extensionDesc');
   },

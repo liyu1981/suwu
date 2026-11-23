@@ -5,6 +5,7 @@
 // than discovered on a device. Everything is pure: the DOM-touching helpers
 // (`detectMobileEnv`, `mobileRedirectTarget`) are exercised by hand on a phone.
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   PAGE_DOWN_SEQUENCE,
   PAGE_UP_SEQUENCE,
@@ -21,6 +22,7 @@ import {
   TWO_FINGER_MAX_MS,
   isTwoFingerTap,
 } from '../src/lib/twoFinger.ts';
+import { tileTitle } from '../src/wm/tilePlugins.ts';
 import {
   MOBILE_MAX_WIDTH,
   basename,
@@ -206,5 +208,32 @@ assert.equal(isTwoFingerTap(TWO_FINGER_MAX_MS, TWO_FINGER_MAX_DRIFT_PX), true, '
 assert.equal(isTwoFingerTap(TWO_FINGER_MAX_MS + 1, 0), false, 'a held press is not a tap')
 assert.equal(isTwoFingerTap(120, TWO_FINGER_MAX_DRIFT_PX + 1), false, 'movement means pinch, not tap')
 assert.equal(isTwoFingerTap(0, 0), true)
+
+// ── a tile's name ────────────────────────────────────────────────────────
+// The phone header has room for one name, so a configured tile is named after
+// what it shows ("note"), not after its plugin ("Extension"). One helper, used by
+// the header, the overview and the desktop's swap strip.
+assert.equal(tileTitle({ label: 'Extension', title: (p) => p?.id }, { id: 'note' }), 'note')
+assert.equal(tileTitle({ label: 'Extension', title: (p) => p?.id }, undefined), 'Extension',
+  'a tile with no params falls back to the plugin label')
+assert.equal(tileTitle({ label: 'Extension', title: () => '   ' }), 'Extension',
+  'a blank derived title falls back too')
+assert.equal(tileTitle({ label: 'Terminal' }), 'Terminal', 'plugins without a title use their label')
+assert.equal(tileTitle(undefined, { id: 'note' }), undefined, 'no plugin, no name')
+
+// The header and the overview must go through the helper, not the raw label:
+// reading `plugin.label` is exactly the bug this replaced.
+for (const [name, file] of [
+  ['the header', '../src/mobile/MobileShell.tsx'],
+  ['the overview', '../src/mobile/OverviewSheet.tsx'],
+  ['the desktop swap strip', '../src/wm/TilingWM.tsx'],
+]) {
+  const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+  assert.match(source, /tileTitle\(/, `${name} does not name tiles through tileTitle`);
+  assert.ok(
+    !/getTilePlugin\([^)]*\)\?\.label/.test(source),
+    `${name} still falls back to the plugin label directly`,
+  );
+}
 
 console.log('check-mobile: ok')

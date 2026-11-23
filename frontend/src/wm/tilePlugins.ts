@@ -33,6 +33,12 @@ export interface PluginParamDoc {
 export interface TilePlugin {
   id: TileType;
   label: string;
+  /**
+   * A name for one configured tile, when the plugin can derive it from the
+   * tile's params: an extension tile is "note", not "Extension". Falls back to
+   * `label` whenever it returns nothing, so a misconfigured tile is still named.
+   */
+  title?: (params?: Record<string, string>) => string | undefined;
   description?: string;
   /** Declared parameters this plugin accepts (shown as hints in the editor). */
   supportedParams?: PluginParamDoc[];
@@ -59,6 +65,20 @@ export function registerTilePlugin(plugin: TilePlugin): void {
 
 export function getTilePlugin(id: TileType): TilePlugin | undefined {
   return registry.get(id);
+}
+
+/**
+ * The name to show for one tile: what the plugin derives from its params, else
+ * the plugin's own label. One helper so the phone's header, its overview and the
+ * desktop's swap strip cannot disagree about what a tile is called.
+ */
+export function tileTitle(
+  plugin: TilePlugin | undefined,
+  params?: Record<string, string>,
+): string | undefined {
+  const derived = plugin?.title?.(params)?.trim();
+  if (derived) return derived;
+  return plugin?.label;
 }
 
 export function getAllTilePlugins(): TilePlugin[] {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { getTilePlugin } from '../wm/tilePlugins';
+import { getTilePlugin, tileTitle } from '../wm/tilePlugins';
 import { getAppIconClasses, getAppIconLetter } from '../wm/appIcons';
 import { FONT_MAX, FONT_MIN, clampFont } from '../store/fonts';
 import { sessionHint, tileInfoLine } from '../lib/mobile';
@@ -26,6 +26,8 @@ export interface OverviewTile {
   paneId: string;
   tileType?: string;
   initialPath?: string;
+  /** The tile's params, so a plugin can name the tile ("note", not "Extension"). */
+  params?: Record<string, string>;
   fontSize?: number;
 }
 
@@ -105,7 +107,7 @@ export function OverviewSheet({
           {tiles.map((tile) => {
             const plugin = tile.tileType ? getTilePlugin(tile.tileType) : undefined;
             const id = tile.tileType ?? 'empty';
-            const label = plugin?.label ?? t('plugin.empty');
+            const label = tileTitle(plugin, tile.params) ?? t('plugin.empty');
             const info = tileInfoLine({
               initialPath: tile.initialPath,
               sessionHint: sessionHint(sessionState[tile.paneId]?.state),

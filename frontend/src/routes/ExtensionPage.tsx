@@ -3,6 +3,7 @@ import { CommonTileContainer } from '../components/CommonTileContainer';
 import { extensionZoomAtom } from '../store/zoom';
 import { setPageTransparent } from '../lib/constants';
 import { EXT_KEY_RE, EXT_VALUE_MAX, extStoreGet, extStoreSet } from '../lib/extStore';
+import { extServerGet, extServerSet } from '../lib/extServerStore';
 import { notifyBackupDirty } from '../lib/backup/client';
 import { useExtensions } from '../lib/extensions';
 import i18n from '../i18n';
@@ -103,6 +104,7 @@ export default function ExtensionPage() {
             key?: string;
             op?: string;
             rid?: number;
+            scope?: string;
             value?: unknown;
             altKey?: boolean;
             ctrlKey?: boolean;
@@ -111,13 +113,41 @@ export default function ExtensionPage() {
           }
         | undefined;
       if (d?.type === 'ext-store' && typeof d.rid === 'number') {
-        const reply = (ok: boolean, value?: unknown, error?: string) => {
+        const reply = (ok: boolean, value?: unknown, error?: string, missing?: boolean) => {
           innerRef.current?.contentWindow?.postMessage(
-            { type: 'ext-store-result', rid: d.rid, ok, value, error },
+            { type: 'ext-store-result', rid: d.rid, ok, value, error, missing },
             '*',
           );
         };
         const key = typeof d.key === 'string' ? d.key : '';
+        // Scope "server" is the same record, kept on the server instead of this
+        // browser: one copy on every device (docs/EXTENSION_TILE_PLAN.md §4.8).
+        // It is a separate namespace on purpose — an extension can use both.
+        if (d.scope === 'server') {
+          if (!EXT_KEY_RE.test(key)) {
+            reply(false, undefined, 'InvalidKey');
+            return;
+          }
+          if (d.op === 'get') {
+            void extServerGet(id, key).then(
+              (record) => reply(true, record.value, undefined, !record.found),
+              (err: unknown) =>
+                reply(false, undefined, err instanceof Error ? err.name : 'ServerError'),
+            );
+          } else if (d.op === 'set') {
+            void extServerSet(id, key, d.value).then(
+              () => {
+                reply(true);
+                notifyBackupDirty('ext');
+              },
+              (err: unknown) =>
+                reply(false, undefined, err instanceof Error ? err.name : 'ServerError'),
+            );
+          } else {
+            reply(false);
+          }
+          return;
+        }
         // Namespace from THIS pane's extension id (taken from its own URL —
         // the child cannot influence it) with a strict charset: a request
         // can only ever address suwu:ext/<id>/<key>.

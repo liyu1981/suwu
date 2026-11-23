@@ -386,9 +386,36 @@ the trusted `ExtensionPage` instead:
 3. Values are capped at 512 KB JSON-serialized; storage is the page's own
    IndexedDB (`suwu-extension-ext`, store `kv`).
 4. The page always answers `{type:'ext-store-result', rid, ok, value?,
-   error?}` (`error` is the DOMException name, e.g. `QuotaExceededError`);
-   the child times out after 3s and degrades to in-memory operation with a
-   status line.
+   error?, missing?}` (`error` is the DOMException name, e.g.
+   `QuotaExceededError`); the child times out after 3s and degrades to
+   in-memory operation with a status line.
+
+### 4.8a Server scope (`scope: 'server'`)
+
+The IndexedDB above lives in *one browser*. An extension that wants the same
+value on every device asks for the server scope instead, by adding
+`scope: 'server'` to the same message. Nothing else changes: the page keeps the
+id from its own URL, validates the same key charset, and applies the same 512 KB
+cap, so a value can be moved between the two scopes without changing meaning.
+
+The page proxies the call with its own token — a frame never holds a credential,
+and the extension cannot name another extension's records:
+
+| Call | Server |
+| --- | --- |
+| `get` | `GET /api/ext/data/<id>/<key>` → `{value}`; **404** means "no record yet", reported to the child as `missing: true` |
+| `set` | `PUT /api/ext/data/<id>/<key>` with `{value}` → `{ok:true}`; `413` when over the cap |
+| — | `GET /api/ext/data/<id>` lists the keys an extension has (debugging, and "is there a copy?" before a decision) |
+
+Storage is `<dataDir>/extension-data/<id>/<key>.json` — one JSON file per record,
+written through a temp file and a rename, validated as JSON before it is stored
+(`pkg/extdata`). It sits in the data directory, so the settings backup and
+`tar` of `~/.suwu` carry it like any other user data.
+
+Errors keep the bridge's shape: `ServerUnreachable` (the request never landed),
+`ServerError` (the server refused), `QuotaExceededError` (over the cap),
+`InvalidKey`. The note tile uses the messages to say "kept in this browser"
+rather than pretending a save happened.
 
 ---
 

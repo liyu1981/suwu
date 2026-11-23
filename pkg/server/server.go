@@ -490,6 +490,12 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Server-scoped extension records (docs/EXTENSION_TILE_PLAN.md §4.8).
+	if strings.HasPrefix(r.URL.Path, extDataPrefix) {
+		s.handleExtData(w, r)
+		return
+	}
+
 	if strings.HasPrefix(r.URL.Path, extensionAPIRoutePrefix) {
 		s.handleExtensionAPI(w, r)
 		return

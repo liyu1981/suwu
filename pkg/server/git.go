@@ -59,6 +59,10 @@ type GitPushBranch struct {
 	Upstream     string `json:"upstream"`
 	Remote       string `json:"remote"`
 	RemoteBranch string `json:"remoteBranch"`
+	// RemoteExists marks a branch with no configured upstream whose
+	// remote-tracking counterpart exists under the same name on exactly one
+	// remote: `git push origin <branch>` was run once, without -u.
+	RemoteExists bool `json:"remoteExists,omitempty"`
 }
 
 // GitPushSuggestion is the default push target for a commit.
@@ -68,9 +72,13 @@ type GitPushSuggestion struct {
 	Remote      string `json:"remote"`
 	// RemoteBranch is the remote-tracking branch, or the suggested new name.
 	RemoteBranch string `json:"remoteBranch"`
-	// Tracking reports whether the suggestion comes from a configured upstream,
-	// in which case no dialog is needed.
-	Tracking bool   `json:"tracking"`
+	// Tracking reports whether the destination is known well enough to push
+	// without asking: a configured upstream, or a remote branch that already
+	// exists under the same name.
+	Tracking bool `json:"tracking"`
+	// Inferred means there is no upstream configured and the destination came
+	// from a remote-tracking ref (see GitPushBranch.RemoteExists).
+	Inferred bool   `json:"inferred,omitempty"`
 	Reason   string `json:"reason"`
 }
 
@@ -1096,6 +1104,11 @@ func getGitPushInfo(repoPath, hash string) (*GitPushInfo, error) {
 			}
 		}
 	}
+	// A branch that was pushed once without -u has a remote-tracking ref but no
+	// upstream configuration, so git reports it as untracked and the UI used to
+	// ask where to push it every time. The remote ref is the answer: pair a
+	// branch with the one remote that has its name.
+	pairRemoteBranches(branches, remotes, remoteTrackingBranches(repoPath, remotes))
 	defaultRemote := "origin"
 	if len(remotes) > 0 {
 		defaultRemote = remotes[0]
@@ -1108,6 +1121,56 @@ func getGitPushInfo(repoPath, hash string) (*GitPushInfo, error) {
 		Remotes:       remotes,
 		Suggested:     choosePushSuggestion(branches, current, defaultRemote, hash),
 	}, nil
+}
+
+// remoteTrackingBranches returns, for each remote, the branch names it has:
+// "origin/research/x" → ("origin", "research/x"). Symbolic refs such as
+// origin/HEAD are skipped.
+func remoteTrackingBranches(repoPath string, remotes []string) map[string][]string {
+	out := map[string][]string{}
+	raw, err := git(repoPath, "for-each-ref", "--format=%(refname)", "refs/remotes/")
+	if err != nil {
+		return out
+	}
+	for _, line := range strings.Split(raw, "\n") {
+		ref := strings.TrimSpace(line)
+		if ref == "" {
+			continue
+		}
+		rest := strings.TrimPrefix(ref, "refs/remotes/")
+		for _, remote := range remotes {
+			prefix := remote + "/"
+			if !strings.HasPrefix(rest, prefix) {
+				continue
+			}
+			branch := strings.TrimPrefix(rest, prefix)
+			if branch == "" || branch == "HEAD" {
+				break
+			}
+			out[branch] = append(out[branch], remote)
+			break
+		}
+	}
+	return out
+}
+
+// pairRemoteBranches fills in Remote/RemoteBranch/RemoteExists for branches
+// without a configured upstream. Two remotes holding the same branch name is
+// ambiguous, so those keep asking.
+func pairRemoteBranches(branches []GitPushBranch, remotes []string, remoteBranches map[string][]string) {
+	for i := range branches {
+		b := &branches[i]
+		if b.Upstream != "" || b.Remote != "" {
+			continue
+		}
+		candidates := remoteBranches[b.Name]
+		if len(candidates) != 1 {
+			continue
+		}
+		b.Remote = candidates[0]
+		b.RemoteBranch = b.Name
+		b.RemoteExists = true
+	}
 }
 
 // choosePushSuggestion picks the best branch to carry the commit to a remote:
@@ -1129,6 +1192,7 @@ func choosePushSuggestion(branches []GitPushBranch, current, defaultRemote, hash
 			Remote:       remote,
 			RemoteBranch: remoteBranch,
 			Tracking:     tracking,
+			Inferred:     tracking && b.Upstream == "",
 			Reason:       reason,
 		}
 	}
@@ -1141,6 +1205,11 @@ func choosePushSuggestion(branches []GitPushBranch, current, defaultRemote, hash
 		{func(b GitPushBranch) bool { return b.Current && b.Contains && b.Upstream != "" }, true, "current-tracking"},
 		{func(b GitPushBranch) bool { return b.TipMatches && b.Upstream != "" }, true, "tip-tracking"},
 		{func(b GitPushBranch) bool { return b.Contains && b.Upstream != "" }, true, "contains-tracking"},
+		// No upstream, but the remote already has this branch: that is where it
+		// went last time and where it goes again.
+		{func(b GitPushBranch) bool { return b.Current && b.Contains && b.RemoteExists }, true, "current-remote-exists"},
+		{func(b GitPushBranch) bool { return b.TipMatches && b.RemoteExists }, true, "tip-remote-exists"},
+		{func(b GitPushBranch) bool { return b.Contains && b.RemoteExists }, true, "contains-remote-exists"},
 		{func(b GitPushBranch) bool { return b.Current && b.Contains }, false, "current"},
 		{func(b GitPushBranch) bool { return b.TipMatches }, false, "tip"},
 		{func(b GitPushBranch) bool { return b.Contains }, false, "contains"},

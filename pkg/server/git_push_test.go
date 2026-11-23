@@ -184,3 +184,99 @@ func TestGitPushInfoEndpoint(t *testing.T) {
 		t.Fatalf("unexpected push info: %+v", info)
 	}
 }
+
+// `git push origin <branch>` without `-u` leaves a remote-tracking ref and no
+// upstream. Suwu used to read only the upstream, so it asked "where should this
+// go?" on every push of a branch that had been pushed many times. The remote ref
+// is the answer.
+func TestGitPushInfoInferrsARemoteBranchWithoutUpstream(t *testing.T) {
+	repo, _, run, put := pushTestRepo(t)
+	put("a.txt", "one")
+	run("add", ".")
+	run("commit", "-m", "first")
+	branch := run("branch", "--show-current")
+	head := run("rev-parse", "HEAD")
+	// Push without -u: the remote branch exists, the branch does not track it.
+	run("push", "origin", branch)
+	if out, err := exec.Command("git", "-C", repo, "config", "--get", "branch."+branch+".merge").CombinedOutput(); err == nil {
+		t.Fatalf("the test needs an untracked branch, got merge=%q", strings.TrimSpace(string(out)))
+	}
+	// A second commit on the branch, so the suggestion is not "the tip is there".
+	put("b.txt", "two")
+	run("add", ".")
+	run("commit", "-m", "second")
+	head = run("rev-parse", "HEAD")
+
+	info, err := getGitPushInfo(repo, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := info.Suggested
+	if !s.Tracking || !s.Inferred {
+		t.Fatalf("expected an inferred tracking suggestion, got %+v", s)
+	}
+	if s.Remote != "origin" || s.RemoteBranch != branch || s.LocalBranch != branch {
+		t.Fatalf("unexpected suggestion %+v", s)
+	}
+	if s.Reason != "current-remote-exists" {
+		t.Fatalf("reason %q", s.Reason)
+	}
+}
+
+func TestGitPushInfoAmbiguousRemotesStillAsk(t *testing.T) {
+	repo, _, run, put := pushTestRepo(t)
+	// A second remote with the same branch: the destination is a real choice.
+	other := filepath.Join(t.TempDir(), "other.git")
+	runGitIn(t, filepath.Dir(other), "init", "--bare", other)
+	run("remote", "add", "mirror", other)
+	put("a.txt", "one")
+	run("add", ".")
+	run("commit", "-m", "first")
+	branch := run("branch", "--show-current")
+	head := run("rev-parse", "HEAD")
+	run("push", "origin", branch)
+	run("push", "mirror", branch)
+
+	info, err := getGitPushInfo(repo, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Suggested.Tracking {
+		t.Fatalf("two remotes cannot be inferred: %+v", info.Suggested)
+	}
+}
+
+func TestGitPushInfoStillUntrackedForANewBranch(t *testing.T) {
+	repo, _, run, put := pushTestRepo(t)
+	put("a.txt", "one")
+	run("add", ".")
+	run("commit", "-m", "first")
+	head := run("rev-parse", "HEAD")
+	info, err := getGitPushInfo(repo, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Suggested.Tracking || info.Suggested.Inferred {
+		t.Fatalf("a never-pushed branch must still ask: %+v", info.Suggested)
+	}
+}
+
+func TestGitPushInfoPrefersAConfiguredUpstream(t *testing.T) {
+	repo, _, run, put := pushTestRepo(t)
+	put("a.txt", "one")
+	run("add", ".")
+	run("commit", "-m", "first")
+	branch := run("branch", "--show-current")
+	// An upstream with a *different* remote branch name wins over the
+	// same-named ref, because that is what git itself would push to.
+	run("push", "-u", "origin", branch+":published")
+	head := run("rev-parse", "HEAD")
+	info, err := getGitPushInfo(repo, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := info.Suggested
+	if !s.Tracking || s.Inferred || s.RemoteBranch != "published" {
+		t.Fatalf("unexpected suggestion %+v", s)
+	}
+}

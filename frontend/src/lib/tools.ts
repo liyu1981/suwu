@@ -55,6 +55,8 @@ export interface ToolsSource {
   fetchedAt?: string;
   /** The refresh failed and this is the cached (or embedded) copy. */
   stale: boolean;
+  /** Why the refresh failed, verbatim from the server. */
+  error?: string;
   /** No request was needed: the cache was fresh. */
   cached: boolean;
 }

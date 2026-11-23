@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"suwu/pkg/version"
 )
 
 func testCatalogJSON(t *testing.T, version string) []byte {
@@ -154,5 +156,55 @@ func TestOfflineIsTheEmbeddedCatalog(t *testing.T) {
 	}
 	if _, ok := cat.Find("rg"); !ok {
 		t.Fatal("embedded catalog has no rg")
+	}
+}
+
+// A release build reads its own tag, never master: master can carry a catalog
+// this build's validator does not understand, which would look like "GitHub is
+// unreachable" instead of "this catalog is newer than me".
+func TestDefaultRefFollowsTheBuild(t *testing.T) {
+	t.Setenv(RefEnv, "")
+	original := version.Version
+	t.Cleanup(func() { version.Version = original })
+
+	for buildVersion, want := range map[string]string{
+		"0.1.19":  "v0.1.19",
+		"v0.1.19": "v0.1.19",
+		"dev":     "master",
+		"":        "master",
+	} {
+		version.Version = buildVersion
+		if got := defaultRef(); got != want {
+			t.Errorf("version %q: ref %q, want %q", buildVersion, got, want)
+		}
+	}
+	t.Setenv(RefEnv, "v9.9.9")
+	if got := defaultRef(); got != "v9.9.9" {
+		t.Errorf("SUWU_TOOLS_REF ignored: %q", got)
+	}
+}
+
+// A refresh that fails must say why: a page that says "GitHub could not be
+// reached" for an invalid catalog sends the reader to the wrong place.
+func TestSourceReportsWhyItIsStale(t *testing.T) {
+	body := testCatalogJSON(t, "1.0")
+	s, _ := newTestSource(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	})
+	if _, _, err := s.Load(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// An invalid catalog on the wire is an error with its own reason.
+	s.Now = func() time.Time { return time.Now().Add(48 * time.Hour) }
+	s.RawBase = "http://127.0.0.1:1"
+	_, origin, err := s.Load(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !origin.Stale || origin.Error == "" {
+		t.Fatalf("stale origin has no reason: %+v", origin)
+	}
+	if !strings.Contains(origin.Error, "fetch catalog") {
+		t.Fatalf("reason is not the fetch error: %q", origin.Error)
 	}
 }

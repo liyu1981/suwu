@@ -95,6 +95,7 @@ func (s *Server) loadToolsCatalog(ctx context.Context, refresh bool) (*tools.Cat
 		return nil, origin, err
 	}
 	origin.Stale = true
+	origin.Error = err.Error()
 	return offline, origin, nil
 }
 

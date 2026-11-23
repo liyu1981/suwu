@@ -60,8 +60,12 @@ type Origin struct {
 	Ref       string `json:"ref"`
 	Path      string `json:"path"`
 	FetchedAt string `json:"fetchedAt,omitempty"`
-	// Stale means the refresh failed and this is the cached copy.
+	// Stale means the refresh failed and this is the cached (or embedded) copy.
 	Stale bool `json:"stale"`
+	// Error says why the refresh failed, verbatim, so the page can show a
+	// network problem and a catalog this build cannot read as the different
+	// things they are.
+	Error string `json:"error,omitempty"`
 	// Cached means no request was needed (the cache was fresh).
 	Cached bool `json:"cached"`
 }
@@ -91,10 +95,17 @@ func defaultRef() string {
 		return ref
 	}
 	v := strings.TrimSpace(version.Version)
-	if v == "" || v == "dev" || !strings.HasPrefix(v, "v") {
+	if v == "" || v == "dev" {
 		return "master"
 	}
-	return v
+	// Release builds carry "0.1.19" while the tag is "v0.1.19". Reading master
+	// from a released binary would offer a catalog newer than the validator this
+	// build carries — which is exactly how a valid catalog gets rejected as
+	// "unreachable" — so the tag is the default and master is only for dev.
+	if strings.HasPrefix(v, "v") {
+		return v
+	}
+	return "v" + v
 }
 
 // cached is the on-disk cache document.
@@ -129,6 +140,7 @@ func (s *Source) Load(ctx context.Context) (*Catalog, Origin, error) {
 			stale := cache.Catalog
 			origin.FetchedAt = cache.FetchedAt
 			origin.Stale = true
+			origin.Error = err.Error()
 			return &stale, origin, nil
 		}
 		return nil, origin, err

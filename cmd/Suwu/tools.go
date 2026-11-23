@@ -157,6 +157,9 @@ func (f *toolsFlags) loadCatalog(ctx context.Context, dataDir string) (*tools.Ca
 		return nil, origin, err
 	}
 	origin.Stale = true
+	// Say why, not just that: "no network" and "this build cannot read that
+	// catalog" want different fixes.
+	origin.Error = err.Error()
 	return offline, origin, nil
 }
 
@@ -196,7 +199,7 @@ func toolsList(args []string) int {
 	}
 	fmt.Printf("Tools in %s\n", bindir.Dir(dataDir))
 	if origin.Stale {
-		fmt.Printf("  (catalog unavailable — this is the copy embedded in this build)\n")
+		fmt.Printf("  (using the catalog embedded in this build: %s)\n", origin.Error)
 	}
 	for _, s := range list {
 		line := fmt.Sprintf("  %-11s %-9s %s", s.Name, s.Version, stateLabel(s))

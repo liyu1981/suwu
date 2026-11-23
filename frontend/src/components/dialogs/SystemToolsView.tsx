@@ -172,9 +172,14 @@ export function SystemToolsView() {
           </button>
         </div>
         {data.source.stale && (
-          <p className={`${sectionHint} text-amber-300/80`}>
-            {t('tools.stale', { ref: data.source.ref })}
-          </p>
+          <div className={`${sectionHint} text-amber-300/80`}>
+            <p>{t('tools.stale', { ref: data.source.ref })}</p>
+            {data.source.error && (
+              <p className="mt-1 font-mono break-words text-[11px] text-amber-200/70">
+                {data.source.error}
+              </p>
+            )}
+          </div>
         )}
 
         <div className="mt-3">

@@ -89,8 +89,13 @@ func TestToolsListRequiresAuth(t *testing.T) {
 
 func TestToolsListReportsEveryState(t *testing.T) {
 	ts, _, dataDir := extTestServerDir(t, nil)
-	stageFakeTool(t, dataDir, "fzf", "0.74.5") // matches the catalog
-	stageFakeTool(t, dataDir, "rg", "0.0.1")   // older than the catalog
+	// The catalog's own version for fzf, whatever it is: hard-coding one makes
+	// this test fail on every bump instead of on a real regression.
+	_, before := getTools(t, ts.URL, "?token=testtoken")
+	fzfRow := toolByName(before, "fzf")
+	catalogVersion, _ := fzfRow["version"].(string)
+	stageFakeTool(t, dataDir, "fzf", catalogVersion) // matches the catalog
+	stageFakeTool(t, dataDir, "rg", "0.0.0")         // older than the catalog
 	// An unmanaged file with a catalog name.
 	bin, err := bindir.Ensure(dataDir)
 	if err != nil {
@@ -287,5 +292,22 @@ func TestToolsArraysAreNeverNull(t *testing.T) {
 		if _, ok := out["changed"].([]any); !ok {
 			t.Errorf("enabled=%v: changed is not an array: %#v", enabled, out["changed"])
 		}
+	}
+}
+
+// The stale answer must carry the reason, so the page can tell "no network"
+// from "this build cannot read that catalog" — the second one bit a released
+// binary reading master's catalog.
+func TestToolsListReportsWhyTheCatalogIsStale(t *testing.T) {
+	t.Setenv(tools.RawBaseEnv, "http://127.0.0.1:1")
+	ts, _, _ := extTestServerDir(t, nil)
+	_, body := getTools(t, ts.URL, "?token=testtoken&refresh=1")
+	source, _ := body["source"].(map[string]any)
+	if source["stale"] != true {
+		t.Fatalf("expected stale, got %v", source)
+	}
+	reason, _ := source["error"].(string)
+	if reason == "" || !strings.Contains(reason, "fetch catalog") {
+		t.Fatalf("no reason in the stale source: %v", source)
 	}
 }

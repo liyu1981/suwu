@@ -131,7 +131,10 @@ function ParamRow({
         </button>
       </div>
       {doc?.description && (
-        <span className="pl-22 text-[11px] leading-tight text-muted-foreground/50">
+        <span
+          className="line-clamp-2 pl-22 text-[11px] leading-tight text-muted-foreground/50"
+          title={doc.description}
+        >
           {doc.description}
         </span>
       )}
@@ -671,7 +674,15 @@ export default function AppMenuView() {
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-popover-foreground">{item.label}</div>
                   {item.description && (
-                    <div className="text-[11px] text-muted-foreground">{item.description}</div>
+                    // The description may be prose (up to 16 Ki runes): two lines
+                    // here, the whole text on hover, so one verbose extension
+                    // cannot push the rest of the menu off screen.
+                    <div
+                      className="line-clamp-2 text-[11px] text-muted-foreground"
+                      title={item.description}
+                    >
+                      {item.description}
+                    </div>
                   )}
                   {item.isConfig && (
                     <button

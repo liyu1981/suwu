@@ -10,6 +10,7 @@ import { fetchToken } from '../../lib/api';
 import { chunkInput } from '../../lib/wsChunks';
 import { buildPayload } from '../../lib/termInput';
 import { isTouchFirst } from '../../lib/mobile';
+import { Toast } from '../Toast';
 import { TermToolbar } from '../term/TermToolbar';
 import { SoftInputPanel } from '../term/SoftInputPanel';
 
@@ -90,7 +91,13 @@ export function BaikalTerm({
   // window resize would.
   const touchFirst = isTouchFirst();
   const [softInputOpen, setSoftInputOpen] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  /**
+   * Short-lived feedback (a copy, "snippets not available"). The shell tile
+   * shows a toast for this, and a copy confirmation has to look the same in both
+   * tiles: the status line is where connection state lives, and a message that
+   * borrows it is easy to miss and easy to confuse with a detach.
+   */
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [reason, setReason] = useState<string>('');
   const [reconnect, setReconnect] = useState(0);
   /** Seconds until the next automatic attach, 0 when none is pending. */
@@ -110,9 +117,10 @@ export function BaikalTerm({
   // Visibility gates *resizing*, never the attachment: hiding a tab (switching
   // space, or to another tab) must not close the stream and dial again.
 
-  const showNotice = useCallback((message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice((current) => (current === message ? null : current)), 2000);
+  const showToast = useCallback((message: string) => {
+    // Re-key the toast so a second copy restarts the animation and the timer.
+    setToastMsg(null);
+    requestAnimationFrame(() => setToastMsg(message));
   }, []);
 
   const options = useMemo(
@@ -173,7 +181,7 @@ export function BaikalTerm({
     (request: { text: string; snippetId?: string }, run: boolean) => {
       const ws = socketRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
-        showNotice(t('terminal.snippets.notReady'));
+        showToast(t('terminal.snippets.notReady'));
         return;
       }
       const payload = buildPayload(request.text, run, Boolean(term?.modes.bracketedPasteMode));
@@ -181,7 +189,7 @@ export function BaikalTerm({
       recordSent(payload);
       term?.focus();
     },
-    [recordSent, showNotice, t, term],
+    [recordSent, showToast, t, term],
   );
 
   // Chords go through xterm so they take the same path as typed keys.
@@ -371,7 +379,7 @@ export function BaikalTerm({
         : 'bg-red-500';
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 p-1">
         {/* `baikal-term` hides the scrollbar: the wheel and keyboard reach the
             scrollback, and a full-tile terminal does not need a visible bar. */}
@@ -388,15 +396,13 @@ export function BaikalTerm({
         <span className="min-w-0 flex-1 truncate">
           {selectionMode
             ? t('terminal.selectionMode')
-            : notice
-              ? notice
-              : state === 'ready'
-                ? t('baikal.attached')
-                : state === 'connecting'
-                  ? t('baikal.connecting')
-                  : retryIn > 0
-                    ? t('baikal.reconnectingIn', { seconds: retryIn })
-                    : reason || t('baikal.detached')}
+            : state === 'ready'
+              ? t('baikal.attached')
+              : state === 'connecting'
+                ? t('baikal.connecting')
+                : retryIn > 0
+                  ? t('baikal.reconnectingIn', { seconds: retryIn })
+                  : reason || t('baikal.detached')}
         </span>
         <TermToolbar
           term={term}
@@ -404,7 +410,7 @@ export function BaikalTerm({
           sendBytes={sendBytes}
           insert={insert}
           currentLine={getCurrentLine}
-          notice={showNotice}
+          notice={showToast}
           onSelectionModeChange={setSelectionMode}
           refocus={() => term?.focus()}
           softInput={
@@ -421,6 +427,7 @@ export function BaikalTerm({
           </button>
         )}
       </footer>
+      {toastMsg && <Toast message={toastMsg} />}
       {/* Below the status bar, at the tile's bottom edge: growing the row takes
           the height from the terminal, which is what resizes the core's grid. */}
       <SoftInputPanel

@@ -244,6 +244,13 @@ for (const [name, source] of [
 // (one row, one focus rule, one set of bytes) and puts its toggle in the shared
 // toolbar, so both tiles offer the button in the same place.
 assert.match(termSource, /<SoftInputPanel/, 'the baikal terminal hosts the shared panel');
+// Copy confirmation is a toast, like the shell tile's: the status line is for
+// connection state, and a message that borrows it reads as a detach.
+assert.match(termSource, /<Toast message=\{toastMsg\}/, 'the baikal terminal shows notices as a toast');
+assert.ok(
+  !/notice\s*\?/.test(termSource),
+  'the status line must not borrow the notice text any more',
+);
 // A hidden xterm is not free: it keeps parsing and rendering every byte its
 // agent writes, so the panel mounts only the tab on screen and the attach asks
 // the core for a scrollback replay instead.

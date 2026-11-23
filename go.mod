@@ -21,6 +21,7 @@ require (
 	github.com/muesli/termenv v0.16.0
 	github.com/pkg/sftp v1.13.12
 	github.com/tetratelabs/wazero v1.11.0
+	github.com/ulikunitz/xz v0.5.17
 	golang.org/x/crypto v0.58.0
 	golang.org/x/mod v0.42.0
 	golang.org/x/term v0.47.0

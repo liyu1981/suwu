@@ -406,6 +406,171 @@
           ]
         }
       }
+    },
+    {
+      "name": "fresh",
+      "label": "fresh",
+      "version": "0.5.9",
+      "summary": "Modern terminal text editor: mouse, multiple cursors, LSP-ready.",
+      "homepage": "https://github.com/sinelaw/fresh",
+      "license": "MIT",
+      "platforms": {
+        "linux-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/sinelaw/fresh/releases/download/v0.5.9/fresh-editor-x86_64-unknown-linux-musl.tar.gz",
+          "sha256": "97717593ded1f66946d9c598bbf9f2cdf9c53ed2b5d528c92d4e51b8137b3203",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "fresh",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/sinelaw/fresh/releases/download/v0.5.9/fresh-editor-aarch64-unknown-linux-musl.tar.gz",
+          "sha256": "d5537968a1605b3e24257ff58aeed912c314e5d8f76cf0105449f811a058218c",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "fresh",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-amd64": {
+          "archive": "tar.xz",
+          "url": "https://github.com/sinelaw/fresh/releases/download/v0.5.9/fresh-editor-x86_64-apple-darwin.tar.xz",
+          "sha256": "9f1ff6bc9e62c5857c92c72f05d551a7604d8131951244e32b1fb28fd90372de",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "fresh",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "tar.xz",
+          "url": "https://github.com/sinelaw/fresh/releases/download/v0.5.9/fresh-editor-aarch64-apple-darwin.tar.xz",
+          "sha256": "aea215709bce0e1db25afe1040ff597e203e38a99a4d4302b9972e6a606a6f71",
+          "strip": 1,
+          "entries": [
+            {
+              "file": "fresh",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "lazygit",
+      "label": "lazygit",
+      "version": "0.66.3",
+      "summary": "Terminal UI for git: stage hunks, rebase, resolve conflicts.",
+      "homepage": "https://github.com/jesseduffield/lazygit",
+      "license": "MIT",
+      "platforms": {
+        "linux-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/jesseduffield/lazygit/releases/download/v0.66.3/lazygit_0.66.3_linux_x86_64.tar.gz",
+          "sha256": "0a23f429a95f0d09db298b3c291536d818de066aa5a85c255806f0490ff6656b",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "lazygit",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/jesseduffield/lazygit/releases/download/v0.66.3/lazygit_0.66.3_linux_arm64.tar.gz",
+          "sha256": "ac0b48237f3d0283813e7154ec063237e519532feb0470c0881a1793ee78fd42",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "lazygit",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/jesseduffield/lazygit/releases/download/v0.66.3/lazygit_0.66.3_darwin_x86_64.tar.gz",
+          "sha256": "f6c116c09b960842351e3e142cc8be1784de611f19d09920421bd7639cccd30b",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "lazygit",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/jesseduffield/lazygit/releases/download/v0.66.3/lazygit_0.66.3_darwin_arm64.tar.gz",
+          "sha256": "6873e6b7a538b521c4d7ff3f76ec49e6dcafa41e6053a6aae33c12f62663e163",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "lazygit",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "oxker",
+      "label": "oxker",
+      "version": "0.13.4",
+      "summary": "Terminal UI for Docker: containers, logs, stats without the noise.",
+      "homepage": "https://github.com/mrjackwills/oxker",
+      "license": "MIT",
+      "requires": [
+        "docker"
+      ],
+      "platforms": {
+        "linux-amd64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/mrjackwills/oxker/releases/download/v0.13.4/oxker_linux_x86_64.tar.gz",
+          "sha256": "e077cbf2e978a7a6c9802d453491944ba3635482097e2549e58c7e81df389643",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "oxker",
+              "mode": "0755"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/mrjackwills/oxker/releases/download/v0.13.4/oxker_linux_aarch64.tar.gz",
+          "sha256": "850bd6c772df85abb67ab08c2add1e46f663268b8788a4a7184d2ed28fce083b",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "oxker",
+              "mode": "0755"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "archive": "tar.gz",
+          "url": "https://github.com/mrjackwills/oxker/releases/download/v0.13.4/oxker_apple_darwin_aarch64.tar.gz",
+          "sha256": "cc36d209a2130d24c9f1ac9760505448068dc06e39e4a808d88147a09b7f3a05",
+          "strip": 0,
+          "entries": [
+            {
+              "file": "oxker",
+              "mode": "0755"
+            }
+          ]
+        }
+      }
     }
   ]
 }

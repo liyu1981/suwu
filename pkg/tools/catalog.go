@@ -37,6 +37,7 @@ const SchemaVersion = 1
 // (GitHub's direct-binary releases), which is why it needs no strip.
 const (
 	ArchiveTarGz = "tar.gz"
+	ArchiveTarXz = "tar.xz"
 	ArchiveZip   = "zip"
 	ArchiveNone  = "none"
 )
@@ -211,7 +212,7 @@ func (p *Platform) validate(tool, key string) error {
 		return fmt.Errorf("tool %q (%s): strip cannot be negative", tool, key)
 	}
 	switch p.Archive {
-	case ArchiveTarGz, ArchiveZip, ArchiveNone:
+	case ArchiveTarGz, ArchiveTarXz, ArchiveZip, ArchiveNone:
 	case "":
 		return fmt.Errorf("tool %q (%s): missing archive kind", tool, key)
 	default:

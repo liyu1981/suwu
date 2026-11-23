@@ -46,7 +46,10 @@ for (const tool of catalog.tools) {
     const p = tool.platforms[key];
     assert.match(p.url, /^https:\/\//, `${tool.name} (${key}): url must be https`);
     assert.match(p.sha256, SHA256, `${tool.name} (${key}): sha256 must be 64 hex chars`);
-    assert.ok(['tar.gz', 'zip', 'none'].includes(p.archive), `${tool.name} (${key}): archive`);
+    assert.ok(
+      ['tar.gz', 'tar.xz', 'zip', 'none'].includes(p.archive),
+      `${tool.name} (${key}): archive`,
+    );
     assert.ok(Number.isInteger(p.strip) && p.strip >= 0, `${tool.name} (${key}): strip`);
     assert.ok(Array.isArray(p.entries) && p.entries.length > 0, `${tool.name} (${key}): entries`);
     if (p.archive === 'none') {

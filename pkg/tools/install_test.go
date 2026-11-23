@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/ulikunitz/xz"
+
 	"suwu/pkg/bindir"
 )
 
@@ -552,5 +554,71 @@ func TestUnmanagedFileStillNeedsForce(t *testing.T) {
 	archive := tgz(t, "p", map[string]string{"rg": "ours"})
 	if _, err := InstallFromArchive(rgSpec(archive, hexSum(archive)), Options{DataDir: dataDir}, bytes.NewReader(archive), int64(len(archive))); err == nil {
 		t.Fatal("an unmanaged file was replaced without --force")
+	}
+}
+
+// tar.xz is what several Rust projects ship for macOS; the extractor must treat
+// it exactly like tar.gz (same member rules, same declared-entries-only rule).
+func TestTarXzExtraction(t *testing.T) {
+	dir := t.TempDir()
+	var raw bytes.Buffer
+	tw := tar.NewWriter(&raw)
+	for name, body := range map[string]string{"wrapper/tool": "xz body", "wrapper/extra": "nope"} {
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var packed bytes.Buffer
+	xw, err := xz.NewWriter(&packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := xw.Write(raw.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if err := xw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(dir, "tool.tar.xz")
+	if err := os.WriteFile(src, packed.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	spec := Spec{Name: "tool", Archive: ArchiveTarXz, Strip: 1, Entries: []Entry{{File: "tool", Mode: "0755"}}}
+	declared, err := wants(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, "out")
+	if err := Extract(spec, src, dst, declared); err != nil {
+		t.Fatal(err)
+	}
+	if body, err := os.ReadFile(filepath.Join(dst, "tool")); err != nil || string(body) != "xz body" {
+		t.Fatalf("got %q, %v", body, err)
+	}
+	if _, err := os.Stat(filepath.Join(dst, "extra")); !os.IsNotExist(err) {
+		t.Fatal("an undeclared member was written")
+	}
+	// A truncated/corrupt stream is an error, not a partial install.
+	if err := os.WriteFile(src, packed.Bytes()[:packed.Len()/2], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Extract(spec, src, filepath.Join(dir, "bad"), declared); err == nil {
+		t.Fatal("a truncated tar.xz was accepted")
+	}
+	// And an end-to-end install from one works.
+	dataDir := testDataDir(t)
+	fullSpec := Spec{Name: "tool", Version: "1.0", Archive: ArchiveTarXz, Strip: 1,
+		Entries: []Entry{{File: "tool", Mode: "0755"}}, SHA256: hexSum(packed.Bytes()), URL: "https://example.test/tool.tar.xz"}
+	if err := os.WriteFile(src, packed.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallFromArchive(fullSpec, Options{DataDir: dataDir}, bytes.NewReader(packed.Bytes()), int64(packed.Len())); err != nil {
+		t.Fatalf("install from tar.xz: %v", err)
 	}
 }

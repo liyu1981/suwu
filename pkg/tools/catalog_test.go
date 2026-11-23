@@ -58,7 +58,7 @@ func TestParseRejectsHostileCatalogs(t *testing.T) {
 		"world-writable": strings.Replace(valid, `"mode":"0755"`, `"mode":"0777"`, 1),
 		"bad name":       strings.Replace(valid, `"name":"rg"`, `"name":"../rg"`, 1),
 		"bad platform":   strings.Replace(valid, `"linux-amd64"`, `"linux-386"`, 1),
-		"bad archive":    strings.Replace(valid, `"archive":"none"`, `"archive":"tar.xz"`, 1),
+		"bad archive":    strings.Replace(valid, `"archive":"none"`, `"archive":"rar"`, 1),
 		"no entries":     strings.Replace(valid, `[{"file":"rg","mode":"0755"}]`, `[]`, 1),
 		"bare strip":     strings.Replace(valid, `"strip":0`, `"strip":1`, 1),
 	}

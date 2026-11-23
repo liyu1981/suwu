@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/ulikunitz/xz"
 )
 
 // Limits for one tool. Tools are single binaries, but `pig` is already ~30 MiB
@@ -78,7 +80,9 @@ func Extract(spec Spec, src, dst string, declared []want) error {
 	case ArchiveNone:
 		return extractBare(spec, src, dst, declared)
 	case ArchiveTarGz:
-		return extractTar(spec, src, dst, declared)
+		return extractTar(spec, src, dst, declared, openGzip)
+	case ArchiveTarXz:
+		return extractTar(spec, src, dst, declared, openXz)
 	case ArchiveZip:
 		return extractZip(spec, src, dst, declared)
 	default:
@@ -99,23 +103,34 @@ func extractBare(spec Spec, src, dst string, declared []want) error {
 	return writeEntry(dst, w, in)
 }
 
-func extractTar(spec Spec, src, dst string, declared []want) error {
+// decompressor opens a compressed tar stream. Both formats we support wrap the
+// same members, so one reader serves them (tools/catalog.json says which). The
+// two wrappers exist because gzip and xz return concrete reader types.
+type decompressor func(io.Reader) (io.Reader, error)
+
+func openGzip(r io.Reader) (io.Reader, error) { return gzip.NewReader(r) }
+
+func openXz(r io.Reader) (io.Reader, error) { return xz.NewReader(r) }
+
+func extractTar(spec Spec, src, dst string, declared []want, decompress decompressor) error {
 	f, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("install: open %s: %w", filepath.Base(src), err)
 	}
 	defer func() { _ = f.Close() }()
-	gz, err := gzip.NewReader(f)
+	stream, err := decompress(f)
 	if err != nil {
 		return fmt.Errorf("install: unpack %s: %w", filepath.Base(src), err)
 	}
-	defer func() { _ = gz.Close() }()
+	if closer, ok := stream.(io.Closer); ok {
+		defer func() { _ = closer.Close() }()
+	}
 
 	byName := index(declared)
 	written := 0
 	var total int64
 	members := 0
-	tr := tar.NewReader(gz)
+	tr := tar.NewReader(stream)
 	for {
 		hdr, err := tr.Next()
 		if errors.Is(err, io.EOF) {

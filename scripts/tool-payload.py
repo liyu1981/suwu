@@ -91,8 +91,8 @@ def cmd_extract(args):
         (only,) = entries
         write_member(lambda: open(args.source, "rb"), os.path.join(out, only), entries[only])
         written.add(only)
-    elif args.archive == "tar.gz":
-        with tarfile.open(args.source) as tf:
+    elif args.archive in ("tar.gz", "tar.xz"):
+        with tarfile.open(args.source, mode="r:*") as tf:
             for m in tf:
                 if not m.isfile():
                     continue
@@ -123,8 +123,8 @@ def cmd_extract(args):
 
 def collect_keep(args, keep):
     dest_root = os.path.join(args.out, "tools", args.name)
-    if args.archive == "tar.gz":
-        with tarfile.open(args.source) as tf:
+    if args.archive in ("tar.gz", "tar.xz"):
+        with tarfile.open(args.source, mode="r:*") as tf:
             for m in tf:
                 rel = stripped(m.name.lstrip("./"), args.strip)
                 if rel != keep and not (rel or "").startswith(keep + "/"):

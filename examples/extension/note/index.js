@@ -106,7 +106,12 @@ ${css}
   <p id="status" class="status" role="status"></p>
   <label class="cloud" title="Keep every note on the server, not only in this browser">
     <input type="checkbox" id="cloud" aria-describedby="status">
-    <span class="cloud-ico" aria-hidden="true">&#9729;</span>
+    <!-- Drawn, not typed: U+2601 has no glyph in the mono stack, so the browser
+         borrows one from a symbol font that sits off the text baseline. An SVG
+         is centred by the flex row and cannot drift. -->
+    <svg class="cloud-ico" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M4.9 12.1h6.3a2.5 2.5 0 0 0 .5-4.9 3.8 3.8 0 0 0-7.1-1.2A2.8 2.8 0 0 0 4.9 12.1Z"/>
+    </svg>
     <span class="cloud-label">Server</span>
   </label>
 </div>

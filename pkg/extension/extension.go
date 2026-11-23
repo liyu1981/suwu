@@ -391,9 +391,16 @@ func Resolve(dir, id string) (Extension, error) {
 // Display-field caps. They bound what the picker and the App Menu have to
 // render, and keep a hostile package.json from turning the extension list into
 // a wall of text.
+//
+// The name and version are labels, so they stay short. The description is
+// prose: 200 characters was enough for one line and nothing else, which forced
+// authors to clip a real explanation into a fragment. It is 16 Ki runes now — a
+// page, not a picker row — and the UI clamps what it shows (two lines in the App
+// Menu, with the whole text on hover), so the layout bound moved to where the
+// layout is, and the field is free to say something useful.
 const (
 	maxDisplayNameRunes = 64
-	maxDescriptionRunes = 200
+	maxDescriptionRunes = 16 * 1024
 	maxVersionRunes     = 32
 )
 

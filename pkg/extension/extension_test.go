@@ -628,3 +628,30 @@ func TestHandlerPathValidation(t *testing.T) {
 		}
 	}
 }
+
+// The description is prose now: a real explanation (well past the old 200
+// characters) resolves, while the name/version stay labels and control
+// characters stay rejected.
+func TestDescriptionMayBeProseButNotUnbounded(t *testing.T) {
+	dir := t.TempDir()
+	long := strings.Repeat("a sentence about the tile. ", 500) // ~14 Ki
+	if len([]rune(long)) > maxDescriptionRunes {
+		long = string([]rune(long)[:maxDescriptionRunes])
+	}
+	pkg := `{"suwu":{"name":"Prose","description":"` + long + `"}}`
+	writeExt(t, dir, "prose", pkg, `function handler(){}`)
+	ext, err := Resolve(dir, "prose")
+	if err != nil {
+		t.Fatalf("a prose description was rejected: %v", err)
+	}
+	// Trimmed, not truncated: only the trailing whitespace is gone.
+	if ext.Description != strings.TrimSpace(long) {
+		t.Fatalf("description was altered: %d runes, want %d", len([]rune(ext.Description)), len([]rune(strings.TrimSpace(long))))
+	}
+	// The cap is still a cap.
+	tooLong := `{"suwu":{"description":"` + strings.Repeat("x", maxDescriptionRunes+1) + `"}}`
+	writeExt(t, dir, "long", tooLong, `function handler(){}`)
+	if _, err := Resolve(dir, "long"); err == nil {
+		t.Fatal("a description over the cap was accepted")
+	}
+}

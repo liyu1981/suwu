@@ -55,6 +55,11 @@ Companion doc: `docs/EXTENSION_TILE_PLAN.md` (the render/page pipeline).
   legacy top-level `description` → empty; `suwu.version` (never the npm
   `version`, which describes the package, not the tile). `suwu.params` and
   `suwu.api` remain optional.
+- **Display-field limits:** `suwu.name` ≤ 64 runes, `suwu.version` ≤ 32, and
+  `suwu.description` ≤ 16 Ki runes (it is prose — a page, not a one-liner; the
+  App Menu renders the first two lines and puts the rest in the hover title).
+  Control characters are rejected in all three. Runes, not bytes, so any
+  language fits.
 - **Hard cutover:** `MetaFile`/`readMeta` are gone; a missing or malformed
   `package.json` fails `Resolve` exactly like a missing `index.js`. Unknown
   top-level fields (`version`, `dependencies`, …) are ignored.

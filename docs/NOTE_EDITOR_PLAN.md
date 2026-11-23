@@ -1,6 +1,20 @@
 # Note Extension — Apple Notes Feature Plan
 
 > **Status:** Implemented. Phases 1–3 shipped in
+> **Server option (1.1.0):** the note can keep its document on the server, so
+> the same nine notes appear on every device. A `Server` tick box sits on the
+> status line next to "Saved 2 min ago"; turning it on asks one question —
+> "Merge the notes in this browser into the server?", **off by default** — because
+> the two halves of the answer are "adopt the server copy" and "combine the two".
+> With it on, the server is the truth: the document loads from it, every save
+> writes it, and the browser's copy becomes a cache that keeps a save alive when
+> the server is unreachable. Merging needs to know which side is newer, so the
+> document carries `at: number[9]` — one last-edit time per slot — and
+> `mergeDocs` picks the newer side per slot, preferring content over a blank and
+> the local note on a tie. Storage scope, key grammar and the 512 KB cap come from
+> the extension bridge (`EXTENSION_TILE_PLAN.md` §4.8a), so both sides store the
+> identical value.
+>
 > `examples/extension/note/`; the sections below are the design of record, with
 > the places where the build deliberately departed from the first draft called
 > out as **Changed**. `pnpm test:ext` (50 unit tests) plus a headless-Chromium

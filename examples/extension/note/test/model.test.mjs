@@ -35,7 +35,17 @@ import {
   removeRange,
   textOf,
   validate,
+  mergeDocs,
 } from "../src/model.js";
+/** Nine notes from nine first-line strings. */
+function mkNotes(lines) {
+  const notes = [];
+  for (let i = 0; i < SLOTS; i++) {
+    notes.push(makeNote({ c: colorForSlot(i), u: 0, l: [makeLine(lines[i] || "")] }));
+  }
+  return notes;
+}
+
 
 test("indent is leading whitespace, capped at MAX_DEPTH", () => {
   assert.equal(depthOf("plain"), 0);
@@ -200,4 +210,74 @@ test("migrateV1 carries seven slots across and leaves 7 and 8 empty", () => {
   assert.equal(doc.notes.length, SLOTS);
   assert.equal(migrateV1(null).notes.length, SLOTS);
   assert.equal(migrateV1({ texts: [] }).active, 0);
+});
+
+// ── per-slot timestamps and the server merge ───────────────────────────────
+// Turning on "server" asks whether to merge; a merge must never replace a note
+// somebody wrote with a blank one, and must not need a clock both sides agree
+// on — per-slot edit times are enough.
+
+test("validate keeps per-slot timestamps and defaults them to zero", () => {
+  const doc = validate({ v: 2, active: 1, notes: [], at: [5, "7", -1, null] });
+  assert.equal(doc.at.length, SLOTS);
+  assert.deepEqual(doc.at.slice(0, 4), [5, 7, 0, 0]);
+  assert.equal(validate({ v: 2, active: 0, notes: [] }).at[0], 0);
+  assert.equal(emptyDoc().at.length, SLOTS);
+});
+
+test("merge keeps the newer side per slot", () => {
+  const local = validate({
+    v: 2,
+    active: 2,
+    notes: mkNotes(["local one", "local two", ""]),
+    at: [100, 100, 0],
+  });
+  const server = validate({
+    v: 2,
+    active: 0,
+    notes: mkNotes(["server one", "server two", "server three"]),
+    at: [50, 150, 0],
+  });
+  const merged = mergeDocs(local, server);
+  const texts = merged.notes.map((n) => n.l[0].t);
+  assert.equal(texts[0], "local one", "the newer local slot wins");
+  assert.equal(texts[1], "server two", "the newer server slot wins");
+  assert.equal(texts[2], "server three", "an empty local slot never wins");
+  assert.equal(merged.active, 2, "the active slot is the local one");
+  assert.deepEqual(merged.at.slice(0, 3), [100, 150, 0]);
+  assert.equal(merged.at.length, SLOTS);
+});
+
+test("merge prefers content over a blank when neither side has a timestamp", () => {
+  const local = validate({ v: 2, active: 0, notes: mkNotes(["", "", ""]) });
+  const server = validate({ v: 2, active: 0, notes: mkNotes(["from the server", "", ""]) });
+  const merged = mergeDocs(local, server);
+  assert.equal(merged.notes[0].l[0].t, "from the server");
+  // A tie with content on both sides keeps the local note: the prompt exists to
+  // protect what the user is looking at.
+  const both = mergeDocs(
+    validate({ v: 2, active: 0, notes: mkNotes(["mine", "", ""]) }),
+    validate({ v: 2, active: 0, notes: mkNotes(["theirs", "", ""]) }),
+  );
+  assert.equal(both.notes[0].l[0].t, "mine");
+});
+
+test("merge never loses a checklist or a non-paragraph line", () => {
+  const local = validate({ v: 2, active: 0, notes: mkNotes([""]) });
+  const server = validate({ v: 2, active: 0, notes: [] });
+  server.notes[0] = makeNote({
+    c: colorForSlot(0),
+    u: 0,
+    l: [makeLine("buy milk", "todo", 1)],
+  });
+  const merged = mergeDocs(local, server);
+  assert.equal(merged.notes[0].l[0].k, "todo");
+  assert.equal(merged.notes[0].l[0].c, 1);
+});
+
+test("an unseen record merges to itself", () => {
+  const doc = validate({ v: 2, active: 3, notes: mkNotes(["a", "b", "c"]), at: [1, 2, 3] });
+  const merged = mergeDocs(doc, emptyDoc());
+  assert.equal(merged.notes[0].l[0].t, "a");
+  assert.equal(merged.active, 3);
 });

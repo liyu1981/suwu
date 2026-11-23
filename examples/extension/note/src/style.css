@@ -45,6 +45,8 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
+  /* The merge prompt is absolutely positioned against the document. */
+  position: relative;
 }
 
 body {
@@ -403,8 +405,8 @@ body.compact-rail .tab {
    sits on the transparent document, outside the paper — so it carries its own
    dark material (like the chips) instead of ink that vanishes on a dark tile. */
 .status {
-  flex-shrink: 0;
-  align-self: flex-end;
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
   min-height: 17px;
   max-width: 100%;
@@ -424,6 +426,110 @@ body.compact-rail .tab {
 .status.error {
   background: #b02a1e;
   color: #fff;
+}
+
+/* Status line + the server switch. One row: the pill keeps its own material,
+   the switch reads as a quiet control until it is on. */
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 17px;
+  max-width: 100%;
+}
+
+.cloud {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(48, 45, 39, 0.86);
+  color: #cfc8b8;
+  font-size: 11px;
+  line-height: 1.36;
+  cursor: pointer;
+  user-select: none;
+}
+.cloud input {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  accent-color: #7fb2d9;
+  cursor: pointer;
+}
+.cloud-ico {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.foot.cloud-on .cloud {
+  background: rgba(38, 74, 102, 0.9);
+  color: #e8f3ff;
+}
+.foot.cloud-on .cloud-ico {
+  opacity: 1;
+}
+
+/* Merge prompt. Inline, above the bar, on the tile's own dark material — a
+   sandboxed frame has no modals, and the note must stay visible behind it. */
+.ask {
+  position: absolute;
+  right: 8px;
+  bottom: 34px;
+  z-index: 5;
+  width: min(280px, calc(100% - 16px));
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(30, 28, 24, 0.97);
+  color: #f2ede1;
+  font-size: 11px;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.ask-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.ask-merge {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  cursor: pointer;
+}
+.ask-merge input {
+  margin: 1px 0 0;
+  accent-color: #7fb2d9;
+}
+.ask-hint {
+  margin: 6px 0 8px;
+  color: #b9b2a4;
+}
+.ask-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.ask-primary,
+.ask-ghost {
+  border-radius: 6px;
+  padding: 3px 9px;
+  font: inherit;
+  cursor: pointer;
+}
+.ask-primary {
+  border: 1px solid rgba(127, 178, 217, 0.55);
+  background: rgba(84, 140, 184, 0.35);
+  color: #eaf4ff;
+}
+.ask-ghost {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #cfc8b8;
 }
 
 /* ------------------------------------------------------------ format bar */

@@ -12,6 +12,9 @@
 /** The parent always answers within this; a slow parent degrades to memory. */
 const REPLY_TIMEOUT = 3000;
 
+/** Returned by `get` when the server has no record under that key yet. */
+export const MISSING = Symbol("missing");
+
 function namedError(name) {
   const err = new Error(name);
   err.name = name;
@@ -20,9 +23,12 @@ function namedError(name) {
 
 /**
  * @param {Window} parent the trusted parent frame
+ * @param {{ scope?: "local" | "server" }} [opts] which record set to read and
+ *   write: this browser's IndexedDB (default) or the server's copy
  * @returns {{ get(key): Promise<any>, set(key, value): Promise<void> }}
  */
-export function createBridge(parent) {
+export function createBridge(parent, opts = {}) {
+  const scope = opts.scope === "server" ? "server" : "local";
   let seq = 0;
   const pending = Object.create(null);
 
@@ -34,8 +40,13 @@ export function createBridge(parent) {
     if (!entry) return;
     delete pending[d.rid];
     clearTimeout(entry.timer);
-    if (d.ok) entry.resolve(d.value);
-    else entry.reject(namedError(typeof d.error === "string" && d.error ? d.error : "StoreFailed"));
+    if (!d.ok) {
+      entry.reject(namedError(typeof d.error === "string" && d.error ? d.error : "StoreFailed"));
+      return;
+    }
+    // `missing` is the server saying "no record under this key yet" — different
+    // from an empty value, and what makes a first upload possible.
+    entry.resolve(d.missing ? MISSING : d.value);
   });
 
   function call(op, key, value) {
@@ -51,7 +62,7 @@ export function createBridge(parent) {
         reject(namedError("Timeout"));
       }, REPLY_TIMEOUT);
       pending[rid] = { resolve, reject, timer };
-      const msg = { type: "ext-store", op, key, rid };
+      const msg = { type: "ext-store", op, key, rid, scope };
       if (op === "set") msg.value = value;
       try {
         parent.postMessage(msg, "*");

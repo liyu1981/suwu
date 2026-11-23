@@ -99,7 +99,34 @@ ${css}
   </nav>
 </main>
 
-<p id="status" class="status" role="status"></p>
+<!-- The status pill and the server switch share one line: both answer
+     "where are my notes", so they sit together instead of competing for the
+     tile's corners. -->
+<div class="foot" id="foot">
+  <p id="status" class="status" role="status"></p>
+  <label class="cloud" title="Keep every note on the server, not only in this browser">
+    <input type="checkbox" id="cloud" aria-describedby="status">
+    <span class="cloud-ico" aria-hidden="true">&#9729;</span>
+    <span class="cloud-label">Server</span>
+  </label>
+</div>
+
+<!-- Merge prompt: off by default, so "Enable" alone adopts the server copy. -->
+<div class="ask" id="ask" role="dialog" aria-modal="true" aria-labelledby="ask-title" hidden>
+  <p id="ask-title" class="ask-title">Keep every note on the server?</p>
+  <label class="ask-merge">
+    <input type="checkbox" id="ask-merge">
+    <span>Merge the notes in this browser into the server</span>
+  </label>
+  <p class="ask-hint" id="ask-hint">
+    Off: the notes stored on the server replace what you see here. On: the newer
+    note wins, slot by slot, and both sides end up with the same copy.
+  </p>
+  <div class="ask-actions">
+    <button type="button" id="ask-ok" class="ask-primary">Enable</button>
+    <button type="button" id="ask-cancel" class="ask-ghost">Cancel</button>
+  </div>
+</div>
 ${js}
 </body>
 </html>

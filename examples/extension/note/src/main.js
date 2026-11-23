@@ -18,14 +18,26 @@
  */
 
 import "./style.css";
-import { createBridge } from "./bridge.js";
+import { MISSING, createBridge } from "./bridge.js";
 import { Editor } from "./commands.js";
 import { savedLabel } from "./format.js";
-import { MARKS, SLOTS, colorName, countTodos, emptyDoc, lineSpanOf } from "./model.js";
+import {
+  MARKS,
+  RECORD,
+  SLOTS,
+  colorName,
+  countTodos,
+  emptyDoc,
+  lineSpanOf,
+  mergeDocs,
+  validate,
+} from "./model.js";
 import { createRenderer } from "./render.js";
 import { createStore } from "./store.js";
 
 const TICK_MS = 15000; // how often "Saved 2 min ago" re-reads the clock
+/** Local-only key holding the "server is the truth" preference. */
+const CLOUD_KEY = "cloud";
 const SAVE_DELAY = 250; // debounce before a write goes to the bridge
 const MARK_CMDS = { b: "b", i: "i", u: "u", s: "s", c: "c" };
 
@@ -54,6 +66,12 @@ const els = {
   a11y: document.getElementById("a11y"),
   input: document.getElementById("input"),
   status: document.getElementById("status"),
+  cloud: document.getElementById("cloud"),
+  foot: document.getElementById("foot"),
+  ask: document.getElementById("ask"),
+  askMerge: document.getElementById("ask-merge"),
+  askOk: document.getElementById("ask-ok"),
+  askCancel: document.getElementById("ask-cancel"),
   bar: document.getElementById("bar"),
   hint: document.getElementById("hint"),
 };
@@ -65,6 +83,12 @@ const chips = [];
 let store = null;
 let editor = null;
 let renderer = null;
+/** True once the server is the truth: reads come from it, writes go to it. */
+let cloudOn = false;
+/** The server answered "no record yet": push what we loaded once booted. */
+let seedServer = false;
+/** Last committed JSON per slot, so `at[i]` only moves when a slot changed. */
+let lastSlots = [];
 let savedAt = 0;
 let errorText = "";
 let ticker = 0;
@@ -97,10 +121,64 @@ function onSaved(ts) {
 }
 
 function onError(name) {
-  errorText =
-    name === "QuotaExceededError"
-      ? "Storage full — changes may not be saved."
-      : "Couldn't save changes.";
+  if (name === "QuotaExceededError") errorText = "Storage full — changes may not be saved.";
+  else if (name === "ServerUnreachable")
+    errorText = "Couldn't reach the server — the note is safe in this browser.";
+  else if (name === "ServerError") errorText = "The server refused the note — kept in this browser.";
+  else errorText = "Couldn't save changes.";
+  showStatus();
+}
+
+// ------------------------------------------------------- local vs. server
+
+/**
+ * Two bridges, two record sets, one document. The local copy is always written
+ * (it is the cache that makes a server outage survivable); the server copy is
+ * the truth when the tick box is on — it is what loads on the next visit and on
+ * another device.
+ */
+const localBridge = createBridge(window.parent);
+const serverBridge = createBridge(window.parent, { scope: "server" });
+
+/** The transport createStore writes through: local always, server when on. */
+const transport = {
+  get(key) {
+    if (key !== RECORD || !cloudOn) return localBridge.get(key);
+    return serverBridge.get(RECORD).then((value) => {
+      if (value === MISSING) {
+        // First time on this server: adopt what is in this browser, then push
+        // it up, so turning the box on never loses a note.
+        seedServer = true;
+        return localBridge.get(RECORD);
+      }
+      return value;
+    });
+  },
+  set(key, value) {
+    const writes = [localBridge.set(key, value)];
+    if (cloudOn && key === RECORD) writes.push(serverBridge.set(key, value));
+    return Promise.all(writes).then(() => undefined);
+  },
+};
+
+function readCloudPreference() {
+  return localBridge.get(CLOUD_KEY).then(
+    (v) => {
+      cloudOn = Boolean(v && v.enabled);
+    },
+    () => {
+      cloudOn = false;
+    },
+  );
+}
+
+function writeCloudPreference(enabled) {
+  return localBridge.set(CLOUD_KEY, { enabled: enabled }).catch(() => {});
+}
+
+function showCloudState() {
+  if (els.cloud) els.cloud.checked = cloudOn;
+  if (els.foot) els.foot.classList.toggle("cloud-on", cloudOn);
   showStatus();
 }
 
@@ -158,7 +236,18 @@ const sink = {
     paintChrome();
   },
   commit() {
-    if (store) store.scheduleSave(editor.doc);
+    if (!store) return;
+    // The document carries per-slot edit times so a merge can tell which side
+    // is newer (model.mergeDocs). Comparing the committed JSON keeps this to
+    // "the slot actually changed", without the editor having to report it.
+    const doc = editor.doc;
+    const i = doc.active;
+    const key = JSON.stringify(doc.notes[i]);
+    if (lastSlots[i] !== key) {
+      lastSlots[i] = key;
+      doc.at[i] = Date.now();
+    }
+    store.scheduleSave(doc);
   },
   status(message) {
     flash(message);
@@ -167,6 +256,109 @@ const sink = {
     syncBar();
   },
 };
+
+// ------------------------------------------------- server-as-truth toggle
+
+/** Swap the live document (enabling the server copy can replace what is shown). */
+function replaceDoc(doc) {
+  editor = new Editor(doc, sink);
+  lastSlots = doc.notes.map((note) => JSON.stringify(note));
+  input.value = editor.text();
+  input.setSelectionRange(0, 0);
+  renderer.render(editor.doc);
+  paintChrome();
+  showStatus();
+}
+
+/** Open the merge prompt: off by default, so "Enable" alone adopts the server. */
+function askToMerge() {
+  if (!els.ask) {
+    enableCloud(false);
+    return;
+  }
+  els.askMerge.checked = false;
+  els.ask.hidden = false;
+  els.askOk.focus();
+}
+
+function closeAsk() {
+  if (els.ask) els.ask.hidden = true;
+}
+
+/**
+ * Turn the server copy on.
+ *
+ * `merge` off means "the server's notes are the notes": what is stored there is
+ * loaded over what is on screen. `merge` on keeps the newer side per slot
+ * (model.mergeDocs), which is the option for a first switch-on with notes on
+ * both sides. Either way the result is written back, so the server and this
+ * browser agree immediately.
+ */
+async function enableCloud(merge) {
+  const localDoc = editor.doc;
+  cloudOn = true;
+  showCloudState();
+  let serverDoc = null;
+  try {
+    const raw = await serverBridge.get(RECORD);
+    if (raw !== MISSING) serverDoc = validate(raw);
+  } catch (err) {
+    cloudOn = false;
+    showCloudState();
+    onError(err && err.name ? err.name : "ServerUnreachable");
+    return;
+  }
+  let next = localDoc;
+  if (serverDoc) next = merge ? mergeDocs(localDoc, serverDoc) : serverDoc;
+  writeCloudPreference(true);
+  if (next !== localDoc) replaceDoc(next);
+  // One write settles both sides: the transport sends it to the server too.
+  store.flush(next);
+  ready = true;
+}
+
+/** Turn it off: the browser copy is already current, so nothing is lost. */
+function disableCloud() {
+  cloudOn = false;
+  writeCloudPreference(false);
+  showCloudState();
+  store.flush(editor.doc);
+}
+
+function wireCloud() {
+  if (!els.cloud) return;
+  els.cloud.checked = cloudOn;
+  els.cloud.addEventListener("change", () => {
+    if (els.cloud.checked) {
+      els.cloud.checked = false; // the prompt decides; the box follows
+      askToMerge();
+    } else {
+      disableCloud();
+    }
+  });
+  if (els.askOk) {
+    els.askOk.addEventListener("click", () => {
+      const merge = Boolean(els.askMerge && els.askMerge.checked);
+      closeAsk();
+      enableCloud(merge);
+    });
+  }
+  if (els.askCancel) {
+    els.askCancel.addEventListener("click", () => {
+      closeAsk();
+      if (els.cloud) els.cloud.checked = cloudOn;
+    });
+  }
+  if (els.ask) {
+    els.ask.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeAsk();
+        if (els.cloud) els.cloud.checked = cloudOn;
+      }
+    });
+  }
+}
 
 // ---------------------------------------------------------------- chrome
 
@@ -511,6 +703,7 @@ function wireLayout() {
 
 function boot(doc) {
   editor = new Editor(doc, sink);
+  lastSlots = doc.notes.map((note) => JSON.stringify(note));
   renderer = createRenderer(els);
   buildRail();
 
@@ -520,6 +713,7 @@ function boot(doc) {
 
   wireInput();
   wireChrome();
+  wireCloud();
   wireLayout();
   ready = true;
 
@@ -528,8 +722,16 @@ function boot(doc) {
   showStatus();
 }
 
-store = createStore(createBridge(window.parent), { delay: SAVE_DELAY, onSaved, onError });
-store
-  .load()
-  .then((doc) => boot(doc || emptyDoc()))
+store = createStore(transport, { delay: SAVE_DELAY, onSaved, onError });
+readCloudPreference()
+  .then(() => store.load())
+  .then((doc) => {
+    boot(doc || emptyDoc());
+    showCloudState();
+    // The server had no record: this browser's notes are the first copy.
+    if (seedServer) {
+      seedServer = false;
+      store.flush(editor.doc);
+    }
+  })
   .catch(() => boot(emptyDoc()));

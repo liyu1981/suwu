@@ -339,7 +339,58 @@ export function emptyDoc() {
   for (let i = 0; i < SLOTS; i++) {
     notes.push(makeNote({ c: colorForSlot(i), u: 0, l: [makeLine("")] }));
   }
-  return { v: 2, active: 0, notes };
+  return { v: 2, active: 0, notes, at: new Array(SLOTS).fill(0) };
+}
+
+/** Per-slot modification times, coerced into `number[SLOTS]`. */
+export function normalizeAt(raw) {
+  const out = new Array(SLOTS).fill(0);
+  if (!Array.isArray(raw)) return out;
+  for (let i = 0; i < SLOTS; i++) {
+    const n = Number(raw[i]);
+    out[i] = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  }
+  return out;
+}
+
+/** True when a note holds nothing but blank paragraphs. */
+export function isEmptyNote(note) {
+  if (!note || !Array.isArray(note.l)) return true;
+  for (const line of note.l) {
+    if (String(line && line.t ? line.t : "").trim() !== "") return false;
+    if (line && line.k && line.k !== "para") return false;
+  }
+  return true;
+}
+
+/**
+ * Merge this browser's document with the server's, one slot at a time.
+ *
+ * The rule is "the newer edit wins", and a slot that has no timestamp on either
+ * side falls back to "whichever note has content" — so merging never replaces a
+ * note somebody wrote with a blank one. Ties keep the local note: the prompt
+ * that offers a merge exists to protect what is in front of the user.
+ */
+export function mergeDocs(local, server) {
+  const out = emptyDoc();
+  out.active = clampInt(local.active, 0, SLOTS - 1, 0);
+  for (let i = 0; i < SLOTS; i++) {
+    const l = local.notes[i];
+    const r = server.notes[i];
+    const lat = local.at ? local.at[i] : 0;
+    const rat = server.at ? server.at[i] : 0;
+    let pick = l;
+    let at = lat || 0;
+    if (rat > at) {
+      pick = r;
+      at = rat;
+    } else if (at === 0 && isEmptyNote(l) && !isEmptyNote(r)) {
+      pick = r;
+    }
+    out.notes[i] = pick;
+    out.at[i] = at;
+  }
+  return out;
 }
 
 const HEX = /^#[0-9a-f]{6}$/;
@@ -363,7 +414,12 @@ export function validate(raw) {
       makeNote({ c: color, u: n.u, l: Array.isArray(n.l) && n.l.length ? n.l : [makeLine("")] }),
     );
   }
-  return { v: 2, active: clampInt(raw.active, 0, SLOTS - 1, 0), notes };
+  return {
+    v: 2,
+    active: clampInt(raw.active, 0, SLOTS - 1, 0),
+    notes,
+    at: normalizeAt(raw.at),
+  };
 }
 
 /**

@@ -14,10 +14,20 @@
 # The password is highlighted in the final summary.
 # AUTH_PASS stores only its SHA-256 hash.</code></pre>
 
-        <p>The web UI prompts for the onboarding password on first access. Sessions are authenticated via a secure cookie.</p>
+        <p>The web UI prompts for the onboarding password on first access. A device then signs in once and stays signed in: the credential lives in a secure cookie and renews itself on use.</p>
+
+        <h2>Devices and Sessions</h2>
+        <p>Every device gets its <strong>own</strong> login session, so a phone and a desktop no longer share — or evict — one credential. A session is valid for 30 days without use and 90 days at most, and it survives a restart or an upgrade.</p>
+        <p><strong>System Settings → Account → Devices</strong> lists them, with the last time each was seen and a revoke button. Revoking one leaves the others working, which is how you sign out a lost phone without changing the password. The same list is available in a terminal:</p>
+
+<pre><code>suwu auth ls            # id, device, last seen, expiry, (this session)
+suwu auth rm aaaa1111bbbb
+suwu auth rm --all      # sign out every other device</code></pre>
+
+        <p><code>suwu auth</code> talks to the server over its Unix socket, so it needs no password — it is the way back in when a device is locked out. Changing the password signs <em>every</em> device out.</p>
 
         <h2>Per-Run Tokens</h2>
-        <p>For temporary access, Suwu generates a per-run token displayed in the terminal when the server starts. Share this token with someone who needs one-time access — it's valid only for the current server run.</p>
+        <p>For temporary access, Suwu also generates a per-run token, displayed in the terminal when the server starts. It works until its own five-minute window closes, and the first device that renews with it is upgraded to a normal session. Share the password, not the token, when someone needs lasting access.</p>
 
 <pre><code>$ suwu serve
   ┌──────────────────────────────────────┐

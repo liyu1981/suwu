@@ -994,5 +994,21 @@
       "unmanaged": "非 Suwu 管理"
     },
     "refFallback": "本版本在 {{from}} 上还没有工具目录，因此使用 {{ref}}。"
+  },
+  "sessions": {
+    "title": "设备",
+    "hint": "每台设备都有自己的登录会话，登出一台不会影响其它设备。",
+    "loading": "正在读取设备…",
+    "refresh": "刷新",
+    "thisDevice": "本设备",
+    "legacy": "旧登录",
+    "lastSeen": "{{when}}活跃",
+    "expires": "{{when}}过期",
+    "signOut": "登出",
+    "revoke": "移除",
+    "revoked": "已登出 {{label}}",
+    "revokedOthers": "已登出 {{count}} 台其它设备",
+    "noOthers": "没有其它设备登录",
+    "revokeOthers": "登出其它 {{count}} 台设备"
   }
 }

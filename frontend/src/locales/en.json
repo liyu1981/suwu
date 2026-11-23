@@ -997,5 +997,21 @@
       "unmanaged": "Unmanaged file"
     },
     "refFallback": "This build has no catalog at {{from}} yet, so {{ref}} is being used."
+  },
+  "sessions": {
+    "title": "Devices",
+    "hint": "Every device signs in with its own session, so signing one out leaves the others working.",
+    "loading": "Loading devices…",
+    "refresh": "Refresh",
+    "thisDevice": "this device",
+    "legacy": "older login",
+    "lastSeen": "seen {{when}}",
+    "expires": "expires {{when}}",
+    "signOut": "Sign out",
+    "revoke": "Revoke",
+    "revoked": "Signed out {{label}}",
+    "revokedOthers": "Signed out {{count}} other device(s)",
+    "noOthers": "No other devices are signed in",
+    "revokeOthers": "Sign out {{count}} other device(s)"
   }
 }

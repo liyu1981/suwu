@@ -27,6 +27,7 @@ import {
 } from '../../lib/avatar';
 import { randomUserName } from '../../lib/username';
 import { reloadExtensions } from '../../lib/extensions';
+import { SessionsPanel } from './SessionsPanel';
 import { SystemToolsView } from './SystemToolsView';
 import { Avatar } from '../Avatar';
 import { DiceIcon, RefreshIcon } from '../icons';
@@ -1242,7 +1243,9 @@ export default function SettingsView() {
         </TabsPrimitive.Content>
 
         <TabsPrimitive.Content value="account" className="min-w-0 flex-1">
-          <div className={section}>
+          <SessionsPanel />
+
+          <div className={`${section} mt-4`}>
             <span className={sectionLabel}>{t('settings.userNameTitle')}</span>
             <div className="mt-2 flex items-center gap-2">
               <input

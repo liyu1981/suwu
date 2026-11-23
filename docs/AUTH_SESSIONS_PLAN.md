@@ -1,7 +1,7 @@
 # Desktop and mobile logins — one token per device, not one token per server
 
-Status: **approved** — decisions locked (§10), `suwu auth ls/rm` added (§8a), build
-starts at P1.
+Status: **phases P1, P2, P2b, P3 and P4 implemented** — see §12 for what shipped
+and the two deviations.
 
 Today the server has exactly **one** token. Every device shares it, and whoever
 renews it invalidates everyone else. A phone that reopens the PWA therefore logs
@@ -302,3 +302,28 @@ All eight are **confirmed**; the table records them.
    the `HardStop` field.
 4. **CLI** — confirmed and specified in §8a; it ships in P2b, immediately after the
    registry is on disk, because a locked-out device is the case it exists for.
+
+---
+
+## 12. What shipped
+
+| Phase | Status | Notes |
+|---|---|---|
+| P1 — registry + renewal | done | `pkg/auth/session.go`: `suwu1.<sid>.<secret>`, hashes only, sliding 30-day idle / 90-day hard stop, 32-session cap with LRU eviction, per-session signing key; `/api/token` mints with Basic and renews with Bearer; rate limits keyed by session |
+| P2 — persistence + revocation | done | `pkg/auth/store.go` (`<dataDir>/auth/sessions.json`, 0600, temp+rename), `pkg/server/sessions.go`: list, revoke, revoke-all, rotate; a password change voids the stored sessions |
+| P2b — `suwu auth` | done | `sessions-list` / `sessions-revoke` socket actions, `suwu auth ls\|rm` with `--json`, `--all`, `--hard`, `--yes` |
+| P3 — client | done | `requestToken` renews with the cookie first and only falls back to the password; the page records which session it holds; `adoptToken` keeps a re-minted credential |
+| P4 — UI + docs | done | Devices list in System Settings → Account, `check-sessions.mjs`, security page, this section |
+
+Deviations from the plan, and why:
+
+- **`/api/token` keeps `GET`** (and also accepts `POST`). The plan wrote `POST` for
+  the Basic case; every existing client calls `GET`, and the distinction the
+  endpoint needs is Basic-vs-Bearer, which the method does not carry.
+- **A legacy session is never stored.** The pre-sessions token lives in the
+  process only, so a renewal *replaces* it with a real session instead of
+  extending it — that is what upgrades every already-signed-in browser.
+
+Left as follow-ups (not built): `suwu auth rm --hard` semantics beyond "sign
+everyone out", a per-device "expire at a fixed time" (`HardStop` is already in
+the model), and moving API auth to `HttpOnly` cookies with a CSRF story.

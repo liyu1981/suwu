@@ -9,6 +9,7 @@ export class AuthRequiredError extends Error {
 }
 
 const TOKEN_COOKIE = 'suwu_token';
+const SESSION_COOKIE = 'suwu_session';
 
 let authGeneration = 0;
 let tokenRequest: {
@@ -33,6 +34,35 @@ function clearTokenCookie(): void {
   document.cookie = `${TOKEN_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax`;
 }
 
+/** Records which login session this browser is using, for the Devices list. */
+function setCurrentSession(id: string | null): void {
+  if (typeof document === 'undefined') return;
+  if (!id) {
+    document.cookie = `${SESSION_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax`;
+    return;
+  }
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(id)}; Path=/; SameSite=Lax${secure}`;
+}
+
+/**
+ * Adopts a token the server just handed back — revoking your own session
+ * re-mints for you, and the page has to keep the new credential or it would fall
+ * back to the password on the next request.
+ */
+export function adoptToken(token: string, sessionId?: string | null): void {
+  setTokenCookie(token);
+  setCurrentSession(sessionId ?? null);
+  tokenRequest = null;
+}
+
+/** The session id this browser is signed in with, when known. */
+export function getCurrentSession(): string | null {
+  if (typeof document === 'undefined') return null;
+  const entry = document.cookie.split('; ').find((c) => c.startsWith(`${SESSION_COOKIE}=`));
+  return entry ? decodeURIComponent(entry.slice(SESSION_COOKIE.length + 1)) : null;
+}
+
 function notifyAuthExpired(): void {
   clearTokenCookie();
   clearCredentials();
@@ -47,20 +77,49 @@ function notifyAuthExpired(): void {
 }
 
 async function requestToken(): Promise<string> {
+  // A device holding a live session renews it: same token, no password. This is
+  // what makes a reopened PWA work without asking again — and, with one session
+  // per device, why renewing here no longer signs the desktop out
+  // (docs/AUTH_SESSIONS_PLAN.md).
+  const cookieToken = getTokenCookie();
+  if (cookieToken) {
+    const renewed = await fetch('/api/token', {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${cookieToken}` },
+    });
+    if (renewed.ok) {
+      const body = (await renewed.json().catch(() => null)) as {
+        token?: string;
+        session?: { id: string };
+      } | null;
+      if (body?.token) {
+        setTokenCookie(body.token);
+        setCurrentSession(body.session?.id ?? null);
+        return body.token;
+      }
+    } else if (renewed.status !== 401) {
+      throw new Error(`token request failed with HTTP ${renewed.status}`);
+    }
+    // 401: this session was revoked or expired. The password is tried next when
+    // the page still holds it (a tab that is open), otherwise the login form.
+  }
+
   const headers: Record<string, string> = {};
   const credentials = getCredentials();
   if (credentials) headers.Authorization = credentials;
 
   console.debug('[suwu auth] requesting token', {
+    hasCookieToken: Boolean(cookieToken),
     hasBasicAuthorization: Boolean(credentials),
   });
   const res = await fetch('/api/token', { cache: 'no-store', headers });
   if (res.status === 401) throw new AuthRequiredError();
   if (!res.ok) throw new Error(`token request failed with HTTP ${res.status}`);
 
-  const body = (await res.json()) as { token?: string };
+  const body = (await res.json()) as { token?: string; session?: { id: string } };
   if (!body.token) throw new Error('token response did not include a token');
   setTokenCookie(body.token);
+  setCurrentSession(body.session?.id ?? null);
   return body.token;
 }
 

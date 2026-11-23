@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { getTilePlugin, tileTitle } from '../wm/tilePlugins';
+import { getTilePlugin } from '../wm/tilePlugins';
+import { useTileTitle } from '../wm/useTileTitle';
 import { getAppIconClasses, getAppIconLetter } from '../wm/appIcons';
 import { FONT_MAX, FONT_MIN, clampFont } from '../store/fonts';
 import { sessionHint, tileInfoLine } from '../lib/mobile';
@@ -80,6 +81,7 @@ export function OverviewSheet({
   diagnostics,
 }: OverviewSheetProps) {
   const { t } = useTranslation();
+  const titleOf = useTileTitle();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
@@ -107,7 +109,7 @@ export function OverviewSheet({
           {tiles.map((tile) => {
             const plugin = tile.tileType ? getTilePlugin(tile.tileType) : undefined;
             const id = tile.tileType ?? 'empty';
-            const label = tileTitle(plugin, tile.params) ?? t('plugin.empty');
+            const label = titleOf(plugin, tile.params) ?? t('plugin.empty');
             const info = tileInfoLine({
               initialPath: tile.initialPath,
               sessionHint: sessionHint(sessionState[tile.paneId]?.state),

@@ -60,7 +60,8 @@ import { logout } from '../lib/api';
 import { TileTools } from './TileTools';
 import { usePaneGhosts } from './hooks/usePaneGhosts';
 import { usePaneBus } from './usePaneBus';
-import { getTilePlugin, tileTitle } from './tilePlugins';
+import { getTilePlugin } from './tilePlugins';
+import { useTileTitle } from './useTileTitle';
 import { TileTypePicker } from './TileTypePicker';
 import { PTY_STATE_KEY } from '../components/hooks/usePtySession';
 
@@ -962,13 +963,14 @@ export default function TilingWM() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [swapSource, selectablePanes, swapHighlightIdx, cancelSwap, completeSwap]);
 
+  const titleOf = useTileTitle();
   const dragLabel = useMemo(() => {
     if (!dragSource || !layout) return '';
     const leaf = findLeaf(layout, dragSource);
     if (leaf?.type !== 'leaf') return '';
     const plugin = leaf.tileType ? getTilePlugin(leaf.tileType) : undefined;
-    return tileTitle(plugin, leaf.params) ?? leaf.tileType ?? '';
-  }, [dragSource, layout]);
+    return titleOf(plugin, leaf.params) ?? leaf.tileType ?? '';
+  }, [dragSource, layout, titleOf]);
 
   const dragChipPos = useMemo(() => {
     const OFFSET = 12;
@@ -1105,7 +1107,7 @@ export default function TilingWM() {
                       const leaf = findLeaf(s.layout, id);
                       if (leaf?.type !== 'leaf') return 'Empty';
                       const plugin = leaf.tileType ? getTilePlugin(leaf.tileType) : undefined;
-                      return tileTitle(plugin, leaf.params) ?? leaf.tileType ?? 'Empty';
+                      return titleOf(plugin, leaf.params) ?? leaf.tileType ?? 'Empty';
                     });
                     return {
                       index: i,

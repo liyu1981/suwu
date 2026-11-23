@@ -32,7 +32,8 @@ import {
   spaceIndexForPane,
   splitAndFocus,
 } from '../wm/layout';
-import { getTilePlugin, tileTitle } from '../wm/tilePlugins';
+import { getTilePlugin } from '../wm/tilePlugins';
+import { useTileTitle } from '../wm/useTileTitle';
 import '../wm/registerPlugins';
 import { TileTypePicker } from '../wm/TileTypePicker';
 import { usePaneBus } from '../wm/usePaneBus';
@@ -307,13 +308,14 @@ export function MobileShell() {
     setSeen((prev) => (prev.has(selected) ? prev : new Set(prev).add(selected)));
   }, [selected]);
 
+  const titleOf = useTileTitle();
   const tileLabel = useMemo(() => {
     if (!selected) return t('mobile.emptyTitle');
     const leaf = findLeaf(layout, selected);
     if (leaf?.type !== 'leaf') return t('plugin.empty');
     const plugin = leaf.tileType ? getTilePlugin(leaf.tileType) : undefined;
-    return tileTitle(plugin, leaf.params) ?? t('plugin.empty');
-  }, [layout, selected, t]);
+    return titleOf(plugin, leaf.params) ?? t('plugin.empty');
+  }, [layout, selected, t, titleOf]);
 
   return (
     <div

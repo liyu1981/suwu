@@ -220,6 +220,9 @@ assert.equal(tileTitle({ label: 'Extension', title: () => '   ' }), 'Extension',
   'a blank derived title falls back too')
 assert.equal(tileTitle({ label: 'Terminal' }), 'Terminal', 'plugins without a title use their label')
 assert.equal(tileTitle(undefined, { id: 'note' }), undefined, 'no plugin, no name')
+// The full order for an extension tile: display name, then id, then the label.
+assert.equal(tileTitle({ label: 'Extension', title: () => 'Note' }, { id: 'note' }), 'Note')
+assert.equal(tileTitle({ label: 'Extension', title: (p) => p?.id }, { id: 'note' }), 'note')
 
 // The header and the overview must go through the helper, not the raw label:
 // reading `plugin.label` is exactly the bug this replaced.
@@ -229,11 +232,18 @@ for (const [name, file] of [
   ['the desktop swap strip', '../src/wm/TilingWM.tsx'],
 ]) {
   const source = readFileSync(new URL(file, import.meta.url), 'utf8');
-  assert.match(source, /tileTitle\(/, `${name} does not name tiles through tileTitle`);
+  // The hook, not the bare helper: it is what re-renders the name once the
+  // extensions list arrives, turning "note" into "Note".
+  assert.match(source, /useTileTitle\(\)/, `${name} does not subscribe to the tile-title hook`);
+  assert.match(source, /titleOf\(/, `${name} does not use the resolved title`);
   assert.ok(
     !/getTilePlugin\([^)]*\)\?\.label/.test(source),
     `${name} still falls back to the plugin label directly`,
   );
 }
+
+// The extension plugin resolves display name → id → label, in that order.
+const plugin = readFileSync(new URL('../src/wm/plugins/extension.tsx', import.meta.url), 'utf8');
+assert.match(plugin, /cachedExtensionName\(id\) \?\? id/, 'the extension tile does not prefer the display name');
 
 console.log('check-mobile: ok')

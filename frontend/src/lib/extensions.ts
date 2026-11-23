@@ -47,6 +47,17 @@ async function fetchExtensions(): Promise<Extension[]> {
 }
 
 let cached: Extension[] | null = null;
+
+/**
+ * The display name of an installed extension from the session cache, or
+ * undefined when the list has not been fetched yet. Used to name a tile ("Note")
+ * rather than showing its id; callers fall back to the id, then to the plugin
+ * label.
+ */
+export function cachedExtensionName(id: string): string | undefined {
+  const name = cached?.find((ext) => ext.id === id)?.name?.trim();
+  return name || undefined;
+}
 let inflight: Promise<Extension[]> | null = null;
 
 function loadExtensions(): Promise<Extension[]> {

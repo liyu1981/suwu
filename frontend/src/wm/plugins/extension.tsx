@@ -8,6 +8,7 @@
  */
 
 import i18n from '../../i18n';
+import { cachedExtensionName } from '../../lib/extensions';
 import { registerTilePlugin, type TileRenderContext } from '../tilePlugins';
 
 registerTilePlugin({
@@ -18,10 +19,15 @@ registerTilePlugin({
   get label() {
     return i18n.t('plugin.extension');
   },
-  // An extension tile is named after the extension it shows: "note", not the
-  // generic "Extension" — a phone's header has room for one name, and the
-  // generic one says nothing about which app is on screen.
-  title: (params) => params?.id,
+  // An extension tile is named after the app it shows, in the order that reads
+  // best: the extension's display name ("Note"), then its id ("note"), then the
+  // plugin's own label ("Extension"). A phone's header has room for one name,
+  // and the generic one says nothing about which app is on screen.
+  title: (params) => {
+    const id = params?.id?.trim();
+    if (!id) return undefined;
+    return cachedExtensionName(id) ?? id;
+  },
   get description() {
     return i18n.t('plugin.extensionDesc');
   },

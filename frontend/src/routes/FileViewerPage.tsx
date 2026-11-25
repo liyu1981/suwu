@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom } from 'jotai';
+import { useTranslation } from 'react-i18next';
 import { FileViewer, type ViewerEventHandler } from '@file-viewer/react';
 import { registerFileViewerMermaidLoader } from '@file-viewer/renderer-text';
 import standardPreset from '@file-viewer/preset-standard';
 import { authFetch } from '../lib/api';
 import { fileViewerThemeAtom } from '../store/settings';
 import { CommonTileContainer } from '../components/CommonTileContainer';
-import { RefreshIcon } from '../components/icons';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+  CloseIcon,
+  PlusIcon,
+  RefreshIcon,
+} from '../components/icons';
+import { ExitFocusIcon, FocusIcon } from '../wm/icons';
+import { hostedByMobileShell } from '../lib/mobile';
 import { setPageTransparent } from '../lib/constants';
 import {
   useAutoRefreshDropdown,
@@ -30,7 +40,11 @@ import {
  */
 registerFileViewerMermaidLoader(() => import('../lib/fileViewerPeleMermaid'));
 
+/** One tap of the phone pan arrows moves the diagram this far, in screen px. */
+const PAN_STEP = 48;
+
 export default function FileViewerPage() {
+  const { t } = useTranslation();
   const paneRef = useRef<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [filePath, setFilePath] = useState<string | null>(null);
@@ -41,6 +55,7 @@ export default function FileViewerPage() {
   const [lightboxScale, setLightboxScale] = useState(1);
   const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 });
   const [lightboxIsDark, setLightboxIsDark] = useState(false);
+  const [lightboxFocused, setLightboxFocused] = useState(false);
   const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const viewerHostRef = useRef<HTMLDivElement | null>(null);
   const dragContainerRef = useRef<HTMLDivElement | null>(null);
@@ -54,6 +69,38 @@ export default function FileViewerPage() {
   useEffect(() => {
     viewerThemeRef.current = viewerTheme;
   }, [viewerTheme]);
+
+  // One place that puts a clicked diagram into the lightbox; zoom and pan reset
+  // on every open, however the diagram was reached.
+  const showSvg = useCallback((svg: SVGElement) => {
+    const theme = viewerThemeRef.current;
+    const isDark =
+      theme === 'dark' ||
+      (theme !== 'light' &&
+        typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const darkVars =
+      '--pele-bg:#1e1e1e;--pele-fg:#e6e6e6;--pele-muted:#a0a0a0;' +
+      '--pele-line:#e6e6e6;--pele-surface:#2a2a2a;--pele-surface-alt:#333333;' +
+      '--pele-border:#555555;--pele-accent:#7aa2f7;';
+    let html = svg.outerHTML;
+    if (isDark && !html.includes('--pele-fg:#e6e6e6')) {
+      if (/<svg\b[^>]*\bstyle="/.test(html)) {
+        html = html.replace(/(<svg\b[^>]*\bstyle=")([^"]*)(")/, `$1$2;${darkVars}$3`);
+      } else {
+        html = html.replace(/<svg\b/, `<svg style="${darkVars}"`);
+      }
+    }
+    setLightboxIsDark(isDark);
+    setLightboxSvg(html);
+    setLightboxScale(1);
+    setLightboxOffset({ x: 0, y: 0 });
+  }, []);
+
+  const closeLightbox = useCallback(() => {
+    setLightboxSvg(null);
+    setLightboxFocused(false);
+  }, []);
 
   const viewerOptions = useMemo(
     () => ({
@@ -130,29 +177,7 @@ export default function FileViewerPage() {
   useEffect(() => {
     const tryOpen = (shell: Element) => {
       const svg = (shell.matches('svg') ? shell : shell.querySelector('svg')) as SVGElement | null;
-      if (!svg) return;
-      const theme = viewerThemeRef.current;
-      const isDark =
-        theme === 'dark' ||
-        (theme !== 'light' &&
-          typeof window !== 'undefined' &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches);
-      const darkVars =
-        '--pele-bg:#1e1e1e;--pele-fg:#e6e6e6;--pele-muted:#a0a0a0;' +
-        '--pele-line:#e6e6e6;--pele-surface:#2a2a2a;--pele-surface-alt:#333333;' +
-        '--pele-border:#555555;--pele-accent:#7aa2f7;';
-      let html = svg.outerHTML;
-      if (isDark && !html.includes('--pele-fg:#e6e6e6')) {
-        if (/<svg\b[^>]*\bstyle="/.test(html)) {
-          html = html.replace(/(<svg\b[^>]*\bstyle=")([^"]*)(")/, `$1$2;${darkVars}$3`);
-        } else {
-          html = html.replace(/<svg\b/, `<svg style="${darkVars}"`);
-        }
-      }
-      setLightboxIsDark(isDark);
-      setLightboxSvg(html);
-      setLightboxScale(1);
-      setLightboxOffset({ x: 0, y: 0 });
+      if (svg) showSvg(svg);
     };
 
     let shadowRoot: ShadowRoot | null = null;
@@ -213,7 +238,17 @@ export default function FileViewerPage() {
       if (observer) observer.disconnect();
       clearInterval(timer);
     };
-  }, []);
+  }, [showSvg]);
+
+  // Escape closes the lightbox.
+  useEffect(() => {
+    if (!lightboxSvg) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeLightbox();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxSvg, closeLightbox]);
 
   // Non-passive wheel zoom for the lightbox (React's onWheel is passive).
   useEffect(() => {
@@ -392,35 +427,59 @@ export default function FileViewerPage() {
       {lightboxSvg && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-          onClick={() => setLightboxSvg(null)}
+          onClick={closeLightbox}
         >
           <div
-            className={`relative h-[80vh] w-[80vw] overflow-hidden rounded-lg ${lightboxIsDark ? 'bg-neutral-900 text-white' : 'bg-white text-black'}`}
+            className={`relative flex flex-col overflow-hidden ${
+              lightboxFocused ? 'h-full w-full rounded-none' : 'h-[80vh] w-[80vw] rounded-lg'
+            } ${lightboxIsDark ? 'bg-neutral-900 text-white' : 'bg-white text-black'}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="absolute right-2 top-2 z-10 flex gap-2">
+            {/* Controls go on the left: the WM hover toolbar owns the top-right corner. */}
+            <div className="absolute left-2 top-2 z-10 flex gap-1 rounded-md bg-black/50 p-0.5">
               <button
-                className="rounded bg-black/60 px-2 py-1 text-white"
+                type="button"
+                aria-label={t('lightbox.zoomIn')}
+                title={t('lightbox.zoomIn')}
                 onClick={() => setLightboxScale((s) => Math.min(4, s + 0.25))}
+                className="grid h-6 w-6 place-items-center rounded text-white/70 glass-btn hover:bg-white/10 hover:text-white"
               >
-                +
+                <PlusIcon />
               </button>
               <button
-                className="rounded bg-black/60 px-2 py-1 text-white"
+                type="button"
+                aria-label={t('lightbox.zoomOut')}
+                title={t('lightbox.zoomOut')}
                 onClick={() => setLightboxScale((s) => Math.max(0.25, s - 0.25))}
+                className="grid h-6 w-6 place-items-center rounded text-white/70 glass-btn hover:bg-white/10 hover:text-white"
               >
-                -
+                <MinusIcon />
               </button>
               <button
-                className="rounded bg-black/60 px-2 py-1 text-white"
-                onClick={() => setLightboxSvg(null)}
+                type="button"
+                aria-label={lightboxFocused ? t('lightbox.exitFocus') : t('lightbox.focus')}
+                title={lightboxFocused ? t('lightbox.exitFocus') : t('lightbox.focus')}
+                aria-pressed={lightboxFocused}
+                onClick={() => setLightboxFocused((f) => !f)}
+                className={`grid h-6 w-6 place-items-center rounded glass-btn hover:bg-white/10 hover:text-white ${
+                  lightboxFocused ? 'text-white' : 'text-white/70'
+                }`}
               >
-                x
+                {lightboxFocused ? <ExitFocusIcon /> : <FocusIcon />}
+              </button>
+              <button
+                type="button"
+                aria-label={t('lightbox.close')}
+                title={t('lightbox.close')}
+                onClick={closeLightbox}
+                className="grid h-6 w-6 place-items-center rounded text-white/70 glass-btn hover:bg-rose-500/20 hover:text-rose-200"
+              >
+                <CloseIcon />
               </button>
             </div>
             <div
               ref={dragContainerRef}
-              className="flex h-full w-full items-center justify-center cursor-grab active:cursor-grabbing"
+              className="flex min-h-0 flex-1 items-center justify-center cursor-grab active:cursor-grabbing"
               onMouseDown={(e) => {
                 dragRef.current = {
                   x: e.clientX,
@@ -452,9 +511,70 @@ export default function FileViewerPage() {
                 dangerouslySetInnerHTML={{ __html: lightboxSvg }}
               />
             </div>
+            {/* Phone shell: no mouse drag, so a second row of arrows pans the diagram. */}
+            {hostedByMobileShell() && (
+              <div
+                className={`z-10 flex shrink-0 items-center justify-center gap-1 bg-black/60 px-3 py-2 ${
+                  lightboxFocused ? '' : 'rounded-b-lg'
+                }`}
+              >
+                <button
+                  type="button"
+                  aria-label={t('lightbox.panLeft')}
+                  title={t('lightbox.panLeft')}
+                  onClick={() => setLightboxOffset((o) => ({ ...o, x: o.x + PAN_STEP }))}
+                  className="grid h-7 w-7 place-items-center rounded text-white/80 glass-btn hover:bg-white/10 hover:text-white"
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={t('lightbox.panUp')}
+                  title={t('lightbox.panUp')}
+                  onClick={() => setLightboxOffset((o) => ({ ...o, y: o.y + PAN_STEP }))}
+                  className="grid h-7 w-7 place-items-center rounded text-white/80 glass-btn hover:bg-white/10 hover:text-white"
+                >
+                  <ChevronUpIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={t('lightbox.panDown')}
+                  title={t('lightbox.panDown')}
+                  onClick={() => setLightboxOffset((o) => ({ ...o, y: o.y - PAN_STEP }))}
+                  className="grid h-7 w-7 place-items-center rounded text-white/80 glass-btn hover:bg-white/10 hover:text-white"
+                >
+                  <ChevronUpIcon className="h-4 w-4 rotate-180" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={t('lightbox.panRight')}
+                  title={t('lightbox.panRight')}
+                  onClick={() => setLightboxOffset((o) => ({ ...o, x: o.x - PAN_STEP }))}
+                  className="grid h-7 w-7 place-items-center rounded text-white/80 glass-btn hover:bg-white/10 hover:text-white"
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
     </CommonTileContainer>
+  );
+}
+
+function MinusIcon() {
+  return (
+    <svg
+      className="h-3 w-3"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12h14" />
+    </svg>
   );
 }

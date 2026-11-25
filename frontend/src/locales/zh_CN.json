@@ -866,6 +866,12 @@
     "fit": "适应",
     "reset": "适应窗口",
     "close": "关闭预览",
+    "focus": "全屏阅读",
+    "exitFocus": "退出全屏",
+    "panLeft": "向左移动",
+    "panUp": "向上移动",
+    "panDown": "向下移动",
+    "panRight": "向右移动",
     "hint": "滚轮或双击缩放 · 拖动平移",
     "failed": "无法加载这张图片"
   },

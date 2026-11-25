@@ -869,6 +869,12 @@
     "fit": "Fit",
     "reset": "Fit to window",
     "close": "Close preview",
+    "focus": "Focus (full screen)",
+    "exitFocus": "Exit focus",
+    "panLeft": "Move left",
+    "panUp": "Move up",
+    "panDown": "Move down",
+    "panRight": "Move right",
     "hint": "Scroll or double-click to zoom · drag to pan",
     "failed": "This image could not be loaded"
   },

@@ -751,6 +751,11 @@ func run(debugCfg debugConfig) error {
 	}
 
 	forwardManager := forward.NewManager()
+	forwardManager.SetOnAutoRemove(func(id string, reason string) {
+		notifyListener.Broadcast(notify.Notification{
+			Message: fmt.Sprintf("Forward removed: %s (%s)", id, reason),
+		})
+	})
 	registerForwardHandlers(notifyListener, forwardManager)
 	registerXDisplayHandlers(notifyListener)
 
@@ -852,8 +857,8 @@ func run(debugCfg debugConfig) error {
 	srv.CloseSFTP()
 	srv.CloseStatic()
 	shutdown()
+	forwardManager.Close()
 	notifyListener.Close()
-	forwardManager.StopAll()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3_000_000_000)
 	defer cancel()
 	for _, l := range listeners {

@@ -796,11 +796,12 @@ func (s *Server) validateRequestRateLimit(w http.ResponseWriter, r *http.Request
 		return true
 	}
 
-	// Only rate-limit destructive endpoints.
+	// Only rate-limit destructive endpoints. Forward status/ports reads are
+	// polled by the UI, so GETs don't spend that budget.
 	destructive := strings.HasPrefix(r.URL.Path, "/api/file/") ||
 		strings.HasPrefix(r.URL.Path, "/api/dropbox/") ||
-		strings.HasPrefix(r.URL.Path, "/api/forward/") ||
-		strings.HasPrefix(r.URL.Path, "/api/update/")
+		strings.HasPrefix(r.URL.Path, "/api/update/") ||
+		(strings.HasPrefix(r.URL.Path, "/api/forward/") && r.Method != http.MethodGet)
 	if !destructive {
 		return true
 	}

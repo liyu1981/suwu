@@ -89,7 +89,8 @@ export default function ForwardPanel() {
   const [intPortOpen, setIntPortOpen] = useState<boolean | null>(null);
   const checkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-refresh (file-viewer style: interval dropdown)
+  // Auto-refresh controls how often port availability is re-checked. The
+  // mapping list itself is always reconciled (see the poll below).
   const [autoRefresh, setAutoRefresh] = useState(0);
   const dropdown = useAutoRefreshDropdown();
 
@@ -118,16 +119,22 @@ export default function ForwardPanel() {
     fetchServerPorts();
   }, [fetchStatus, fetchServerPorts]);
 
-  // Status polling — controlled by the auto-refresh interval dropdown
-  // (Off = manual refresh only, otherwise poll at the chosen interval).
+  // Forwards live in the server and can vanish without this tile doing
+  // anything: another tile or the CLI can remove one, and the server drops a
+  // forward automatically once its target stops accepting connections. Keep
+  // the list in sync on a short interval regardless of the dropdown below.
+  useEffect(() => {
+    const timer = setInterval(fetchStatus, 2000);
+    return () => clearInterval(timer);
+  }, [fetchStatus]);
+
+  // Auto-refresh is for the port-availability warnings ("occupied" /
+  // "not open"), which don't need to be as immediate as the mapping list.
   useEffect(() => {
     if (autoRefresh <= 0) return;
-    const timer = setInterval(() => {
-      fetchStatus();
-      fetchServerPorts();
-    }, autoRefresh);
+    const timer = setInterval(fetchServerPorts, autoRefresh);
     return () => clearInterval(timer);
-  }, [autoRefresh, fetchStatus, fetchServerPorts]);
+  }, [autoRefresh, fetchServerPorts]);
 
   // Debounced check for internal port openness
   useEffect(() => {
@@ -190,17 +197,21 @@ export default function ForwardPanel() {
 
   const handleRemove = useCallback(
     async (id: string) => {
+      // Drop the row immediately. If the server already removed the forward
+      // (target died, or it was stopped elsewhere), /remove answers 404 and
+      // the row would otherwise linger forever.
+      setForwards((prev) => prev.filter((f) => f.id !== id));
       try {
         await apiFetch('/api/forward/remove', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
         });
-        await fetchStatus();
-        await fetchServerPorts();
       } catch {
-        // silent
+        // already gone — nothing more to do
       }
+      fetchStatus();
+      fetchServerPorts();
     },
     [fetchStatus, fetchServerPorts],
   );

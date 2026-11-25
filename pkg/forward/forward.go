@@ -6,8 +6,19 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
+)
+
+// A forward is considered dead after this many consecutive failed probes of
+// its target. Probing happens every healthInterval, so a dev server that exits
+// takes a few seconds to disappear instead of lingering as a ghost mapping.
+const (
+	healthInterval = 3 * time.Second
+	healthTimeout  = 2 * time.Second
+	healthFailures = 3
 )
 
 type Forward struct {
@@ -24,6 +35,60 @@ type Forward struct {
 	listener     net.Listener
 	packetConn   net.PacketConn
 	cancel       context.CancelFunc
+
+	healthMu      sync.Mutex
+	probeFailures int
+	everHealthy   bool
+	dead          bool
+	onDead        func(*Forward)
+}
+
+// noteHealth records a reachability result for the target. It returns true
+// once the target has been unreachable long enough to remove the forward. A
+// forward that has never reached its target is left alone: the UI already
+// warns about a closed internal port, and the app may simply not be up yet.
+func (f *Forward) noteHealth(ok bool) bool {
+	f.healthMu.Lock()
+	defer f.healthMu.Unlock()
+	if f.dead {
+		return true
+	}
+	if ok {
+		f.everHealthy = true
+		f.probeFailures = 0
+		return false
+	}
+	if !f.everHealthy {
+		return false
+	}
+	f.probeFailures++
+	if f.probeFailures >= healthFailures {
+		f.dead = true
+		return true
+	}
+	return false
+}
+
+// probeTarget checks whether the target still accepts TCP connections. UDP is
+// connectionless, so there is no reliable probe and those forwards are left
+// alone (they still report failures through noteHealth on a dial error).
+func (f *Forward) probeTarget() bool {
+	if f.Protocol != "tcp" {
+		return false
+	}
+	addr := net.JoinHostPort(f.InternalHost, strconv.Itoa(f.InternalPort))
+	conn, err := net.DialTimeout("tcp", addr, healthTimeout)
+	if err != nil {
+		return f.noteHealth(false)
+	}
+	_ = conn.Close()
+	return f.noteHealth(true)
+}
+
+func (f *Forward) reportDead() {
+	if f.onDead != nil {
+		f.onDead(f)
+	}
 }
 
 func (f *Forward) Start(ctx context.Context) error {
@@ -80,8 +145,14 @@ func (f *Forward) handleTCPConn(ctx context.Context, clientConn net.Conn) {
 	targetConn, err := net.Dial("tcp", targetAddr)
 	if err != nil {
 		slog.Error("forward tcp dial", "id", f.ID, "target", targetAddr, "err", err)
+		if f.noteHealth(false) {
+			go f.reportDead()
+		}
 		return
 	}
+	// Real traffic is a stronger signal than the periodic probe: a successful
+	// dial proves the target was alive at that moment.
+	f.noteHealth(true)
 	defer targetConn.Close()
 
 	done := make(chan struct{}, 2)

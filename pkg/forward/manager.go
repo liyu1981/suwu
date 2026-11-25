@@ -28,15 +28,83 @@ type ForwardStatus struct {
 }
 
 type Manager struct {
-	mu       sync.Mutex
-	forwards map[string]*Forward
-	nextID   int
+	mu           sync.Mutex
+	forwards     map[string]*Forward
+	nextID       int
+	onAutoRemove func(id string, reason string)
+	stopCh       chan struct{}
+	closeOnce    sync.Once
 }
 
 func NewManager() *Manager {
-	return &Manager{
+	m := &Manager{
 		forwards: make(map[string]*Forward),
+		stopCh:   make(chan struct{}),
 	}
+	go m.healthLoop()
+	return m
+}
+
+// SetOnAutoRemove registers a callback fired when a forward is removed because
+// its target stopped accepting connections.
+func (m *Manager) SetOnAutoRemove(fn func(id string, reason string)) {
+	m.mu.Lock()
+	m.onAutoRemove = fn
+	m.mu.Unlock()
+}
+
+func (m *Manager) healthLoop() {
+	ticker := time.NewTicker(healthInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-m.stopCh:
+			return
+		case <-ticker.C:
+			m.probeAll()
+		}
+	}
+}
+
+func (m *Manager) probeAll() {
+	m.mu.Lock()
+	targets := make([]*Forward, 0, len(m.forwards))
+	for _, f := range m.forwards {
+		if f.Protocol == "tcp" && f.Status == "running" {
+			targets = append(targets, f)
+		}
+	}
+	m.mu.Unlock()
+
+	for _, f := range targets {
+		// Live traffic is proof the target is up, and probing a service that
+		// only accepts one client could disrupt it.
+		if f.ActiveConns.Load() > 0 {
+			f.noteHealth(true)
+			continue
+		}
+		if f.probeTarget() {
+			m.removeDead(f)
+		}
+	}
+}
+
+func (m *Manager) removeDead(f *Forward) {
+	if err := m.Remove(f.ID); err != nil {
+		return // already removed through another path
+	}
+	m.mu.Lock()
+	fn := m.onAutoRemove
+	m.mu.Unlock()
+	if fn != nil {
+		fn(f.ID, fmt.Sprintf("target %s:%d unreachable", f.InternalHost, f.InternalPort))
+	}
+}
+
+// Close stops the health monitor and all forwards. It is safe to call twice.
+func (m *Manager) Close() {
+	m.closeOnce.Do(func() { close(m.stopCh) })
+	m.StopAll()
 }
 
 func (m *Manager) Start(cfg ForwardConfig) (*Forward, error) {
@@ -68,6 +136,7 @@ func (m *Manager) Start(cfg ForwardConfig) (*Forward, error) {
 		InternalHost: cfg.InternalHost,
 		InternalPort: cfg.InternalPort,
 		Protocol:     cfg.Protocol,
+		onDead:       func(dead *Forward) { m.removeDead(dead) },
 	}
 
 	if err := f.Start(context.Background()); err != nil {

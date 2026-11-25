@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"suwu/pkg/version"
 )
 
 // Where the catalog is read from at runtime.
@@ -34,8 +32,8 @@ const (
 	RawBaseEnv = "SUWU_TOOLS_RAW_BASE"
 	// maxCatalogBytes bounds the catalog response.
 	maxCatalogBytes = 1 << 20
-	// masterRef is the ref a build falls back to when its own tag has no
-	// catalog (tags cut before the catalog existed), and what a dev build reads.
+	// masterRef is the ref the catalog is read at by default: the maintained
+	// raw GitHub copy, independent of the running build's version.
 	masterRef = "master"
 	// cacheName is the catalog cache under <dataDir>/cache.
 	cacheName = "tools-catalog.json"
@@ -69,17 +67,17 @@ type Origin struct {
 	// network problem and a catalog this build cannot read as the different
 	// things they are.
 	Error string `json:"error,omitempty"`
-	// FallbackFrom is set when this build's own tag has no catalog yet (a tag cut
-	// before tools/catalog.json existed) and master answered instead.
+	// FallbackFrom is set when an overridden ref has no catalog and master
+	// answered instead. The default ref is master, so this is uncommon.
 	FallbackFrom string `json:"fallbackFrom,omitempty"`
 	// Cached means no request was needed (the cache was fresh).
 	Cached bool `json:"cached"`
 }
 
-// NewSource returns the runtime source for a data dir. The ref is the running
-// build's own tag, so a binary is only ever offered tool versions that existed
-// when it was built; `SUWU_TOOLS_REF` overrides it, and an untagged build
-// (version "dev") reads master.
+// NewSource returns the runtime source for a data dir. The catalog is always
+// read at master on GitHub's raw host, so a build is never stuck with a copy
+// from a tag cut before tools/catalog.json existed; `SUWU_TOOLS_REF` overrides
+// the ref for development.
 func NewSource(dataDir string) *Source {
 	rawBase := strings.TrimSpace(os.Getenv(RawBaseEnv))
 	if rawBase == "" {
@@ -96,22 +94,15 @@ func NewSource(dataDir string) *Source {
 	}
 }
 
+// defaultRef is the ref the catalog is read at. It is always master rather
+// than this build's tag: a release tag cut before tools/catalog.json existed
+// would 404 forever, and the catalog is maintained in master without a release.
+// `SUWU_TOOLS_REF` can override it for development.
 func defaultRef() string {
 	if ref := strings.TrimSpace(os.Getenv(RefEnv)); ref != "" {
 		return ref
 	}
-	v := strings.TrimSpace(version.Version)
-	if v == "" || v == "dev" {
-		return "master"
-	}
-	// Release builds carry "0.1.19" while the tag is "v0.1.19". Reading master
-	// from a released binary would offer a catalog newer than the validator this
-	// build carries — which is exactly how a valid catalog gets rejected as
-	// "unreachable" — so the tag is the default and master is only for dev.
-	if strings.HasPrefix(v, "v") {
-		return v
-	}
-	return "v" + v
+	return masterRef
 }
 
 // cached is the on-disk cache document.
@@ -140,8 +131,8 @@ func (s *Source) Load(ctx context.Context) (*Catalog, Origin, error) {
 
 	cat, etag, fetchedAt, err := s.fetch(ctx, cacheETag(cache))
 	if errors.Is(err, ErrNotFound) && s.Ref != masterRef {
-		// The tag predates the catalog (or predates a format this build reads).
-		// master is the maintained copy; the caller is told where it came from.
+		// An overridden ref has no catalog (e.g. a tag cut before the catalog
+		// existed). master is the maintained copy; the answer records the ref.
 		fallback := *s
 		fallback.Ref = masterRef
 		cat, origin, ferr := fallback.Load(ctx)

@@ -11,8 +11,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"suwu/pkg/version"
 )
 
 func testCatalogJSON(t *testing.T, version string) []byte {
@@ -159,24 +157,12 @@ func TestOfflineIsTheEmbeddedCatalog(t *testing.T) {
 	}
 }
 
-// A release build reads its own tag, never master: master can carry a catalog
-// this build's validator does not understand, which would look like "GitHub is
-// unreachable" instead of "this catalog is newer than me".
-func TestDefaultRefFollowsTheBuild(t *testing.T) {
+// The catalog is always read from master, regardless of the build's version:
+// a release tag cut before tools/catalog.json existed would 404 forever.
+func TestDefaultRefIsMasterUnlessOverridden(t *testing.T) {
 	t.Setenv(RefEnv, "")
-	original := version.Version
-	t.Cleanup(func() { version.Version = original })
-
-	for buildVersion, want := range map[string]string{
-		"0.1.19":  "v0.1.19",
-		"v0.1.19": "v0.1.19",
-		"dev":     "master",
-		"":        "master",
-	} {
-		version.Version = buildVersion
-		if got := defaultRef(); got != want {
-			t.Errorf("version %q: ref %q, want %q", buildVersion, got, want)
-		}
+	if got := defaultRef(); got != masterRef {
+		t.Errorf("default ref %q, want %q", got, masterRef)
 	}
 	t.Setenv(RefEnv, "v9.9.9")
 	if got := defaultRef(); got != "v9.9.9" {

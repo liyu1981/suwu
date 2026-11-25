@@ -614,7 +614,7 @@ today.
 | # | Decision | Recommendation |
 | --- | --- | --- |
 | D1 | Catalog location/shape | `tools/catalog.json`, one manifest, single source for the builders too |
-| D2 | Ref the server reads | its own release tag, `master` fallback, `SUWU_TOOLS_REF` for dev |
+| D2 | Ref the server reads | `master` (the raw GitHub copy), `SUWU_TOOLS_REF` for dev |
 | D3 | Fail closed on a missing sha256 | yes — an unpinned asset is not installable |
 | D4 | `suwu exec` resolution | managed-only, `--system` to opt out (predictable for agents) |
 | D5 | rc block for `~/.suwu/bin` | opt-in, page toggle, own `# >>> suwu-bin >>>` markers; `suwu-max` no longer adds this dir |
@@ -683,9 +683,10 @@ Deviations from the plan, and why:
 - **The catalog is keyed `<goos>-<goarch>`** (not per-arch maps) and omits
   platforms a vendor does not build for (`witr` is Linux-only). That is what lets
   the page show "not for this device" instead of a dead button.
-- **Ref selection defaults to this build's tag**, with `SUWU_TOOLS_REF` for
-  development. A `dev` build reads `master`, which is how the feature is
-  exercised before a release tag exists.
+- **Ref selection defaults to `master`**, with `SUWU_TOOLS_REF` for development.
+  Reading the build's own tag was tried first, but a tag cut before
+  `tools/catalog.json` existed has no catalog at all, so that build stayed stale
+  forever — even on Refresh. The maintained copy in `master` is the useful source.
 - **No SSE.** Installs are synchronous POSTs; the largest tool is a few tens of
   MiB. The installer still carries a progress callback
   (`tools.Options.Progress`), so adding `/api/tools/events` later is additive.

@@ -55,6 +55,10 @@ type Catalog struct {
 	Schema    int    `json:"schema"`
 	UpdatedAt string `json:"updatedAt"`
 	Tools     []Tool `json:"tools"`
+	// Manual lists tools Suwu cannot install itself (a package manager or a
+	// runtime owns them). The Tools screen shows detection and an instruction
+	// instead of an Install button.
+	Manual []ManualTool `json:"manual,omitempty"`
 }
 
 // Tool is one installable binary.
@@ -147,7 +151,7 @@ func (c *Catalog) Validate() error {
 	if len(c.Tools) == 0 {
 		return errors.New("catalog lists no tools")
 	}
-	seen := make(map[string]bool, len(c.Tools))
+	seen := make(map[string]bool, len(c.Tools)+len(c.Manual))
 	// owner maps an owned file to the tool that claims it: two tools writing the
 	// same path would make install order decide the winner.
 	owner := make(map[string]string)
@@ -168,6 +172,46 @@ func (c *Catalog) Validate() error {
 				owner[e.File] = t.Name
 			}
 		}
+	}
+	for i := range c.Manual {
+		m := &c.Manual[i]
+		if err := m.validate(); err != nil {
+			return err
+		}
+		if seen[m.Name] {
+			return fmt.Errorf("tool %q is listed more than once (catalog or manual)", m.Name)
+		}
+		seen[m.Name] = true
+	}
+	return nil
+}
+
+// ManualTool is a tool Suwu cannot install: it is not a single binary, so the
+// catalog carries the detection rule and the instruction instead of a pin.
+type ManualTool struct {
+	Name    string `json:"name"`
+	Label   string `json:"label"`
+	Summary string `json:"summary"`
+	// CheckBinary is the executable that proves the tool is present.
+	CheckBinary string `json:"check_binary,omitempty"`
+	// CheckCmd is the fallback for tools without a single binary.
+	CheckCmd string `json:"check_cmd,omitempty"`
+	// Command is the instruction shown verbatim in the UI and in onboarding.
+	Command string `json:"command"`
+}
+
+func (m *ManualTool) validate() error {
+	if !nameRe.MatchString(m.Name) {
+		return fmt.Errorf("manual tool name %q must be lowercase letters, digits, '-' or '_'", m.Name)
+	}
+	if strings.TrimSpace(m.Command) == "" {
+		return fmt.Errorf("manual tool %q has no install instruction", m.Name)
+	}
+	if strings.TrimSpace(m.CheckBinary) == "" && strings.TrimSpace(m.CheckCmd) == "" {
+		return fmt.Errorf("manual tool %q has no detection rule", m.Name)
+	}
+	if m.CheckBinary != "" && !safeName(m.CheckBinary) {
+		return fmt.Errorf("manual tool %q: check_binary %q is not a plain file name", m.Name, m.CheckBinary)
 	}
 	return nil
 }

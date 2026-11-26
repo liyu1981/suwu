@@ -630,5 +630,49 @@
         }
       }
     }
+  ],
+  "manual":   [
+    {
+      "name": "git",
+      "label": "git",
+      "summary": "Version control system.",
+      "check_binary": "git",
+      "command": "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y git; elif command -v dnf >/dev/null 2>&1; then dnf install -y git; elif command -v yum >/dev/null 2>&1; then yum install -y git; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm git; elif command -v apk >/dev/null 2>&1; then apk add git; else echo 'install git with your package manager' && exit 1; fi"
+    },
+    {
+      "name": "vim",
+      "label": "vim",
+      "summary": "Terminal text editor.",
+      "check_binary": "vim",
+      "command": "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y vim; elif command -v dnf >/dev/null 2>&1; then dnf install -y vim-enhanced; elif command -v yum >/dev/null 2>&1; then yum install -y vim-enhanced; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm vim; elif command -v apk >/dev/null 2>&1; then apk add vim; else echo 'install vim with your package manager' && exit 1; fi"
+    },
+    {
+      "name": "nodejs",
+      "label": "nodejs",
+      "summary": "Node.js LTS via asdf (install asdf from the catalog first).",
+      "check_binary": "node",
+      "command": "asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git && asdf install nodejs 24.21.0 && asdf set -u nodejs 24.21.0 && asdf reshim nodejs"
+    },
+    {
+      "name": "pnpm",
+      "label": "pnpm",
+      "summary": "Frontend package manager.",
+      "check_binary": "pnpm",
+      "command": "curl -fsSL https://get.pnpm.io/install.sh | sh -"
+    },
+    {
+      "name": "pi",
+      "label": "pi",
+      "summary": "Minimal terminal AI coding agent.",
+      "check_binary": "pi",
+      "command": "npm install -g @mariozechner/pi-coding-agent && asdf reshim"
+    },
+    {
+      "name": "opencode",
+      "label": "opencode",
+      "summary": "AI coding assistant for the terminal.",
+      "check_binary": "opencode",
+      "command": "curl -fsSL https://opencode.ai/install | bash"
+    }
   ]
 }

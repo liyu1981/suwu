@@ -7,75 +7,13 @@ import (
 	"strings"
 )
 
-// ManualTool is a tool Suwu cannot install because it is not a single binary:
-// a package-manager install, a language runtime, or an npm global. The Tools
-// screen still lists it, detects whether it is already on PATH and shows the
-// command the user has to run. It never gets an Install button.
-type ManualTool struct {
-	Name    string `json:"name"`
-	Label   string `json:"label"`
-	Summary string `json:"summary"`
-	// Command is the instruction shown verbatim in the UI and in onboarding.
-	Command string `json:"command"`
-	// CheckBinary is the executable that proves the tool is present.
-	CheckBinary string `json:"-"`
-	// CheckCmd is the fallback for tools without a single binary.
-	CheckCmd string `json:"-"`
-}
-
-// manualTools is the onboarding-era list that the tool catalog does not cover.
-// It lives here, beside the catalog, so the Tools screen and `suwu onboard
-// --tools` cannot drift apart.
-var manualTools = []ManualTool{
-	{
-		Name:        "git",
-		Label:       "git",
-		Summary:     "Version control system.",
-		CheckBinary: "git",
-		Command:     "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y git; elif command -v dnf >/dev/null 2>&1; then dnf install -y git; elif command -v yum >/dev/null 2>&1; then yum install -y git; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm git; elif command -v apk >/dev/null 2>&1; then apk add git; else echo 'install git with your package manager' && exit 1; fi",
-	},
-	{
-		Name:        "vim",
-		Label:       "vim",
-		Summary:     "Terminal text editor.",
-		CheckBinary: "vim",
-		Command:     "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y vim; elif command -v dnf >/dev/null 2>&1; then dnf install -y vim-enhanced; elif command -v yum >/dev/null 2>&1; then yum install -y vim-enhanced; elif command -v pacman >/dev/null 2>&1; then pacman -S --noconfirm vim; elif command -v apk >/dev/null 2>&1; then apk add vim; else echo 'install vim with your package manager' && exit 1; fi",
-	},
-	{
-		Name:        "nodejs",
-		Label:       "nodejs",
-		Summary:     "Node.js LTS via asdf (install asdf from the catalog first).",
-		CheckBinary: "node",
-		Command:     "asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git && asdf install nodejs 24.21.0 && asdf set -u nodejs 24.21.0 && asdf reshim nodejs",
-	},
-	{
-		Name:        "pnpm",
-		Label:       "pnpm",
-		Summary:     "Frontend package manager.",
-		CheckBinary: "pnpm",
-		Command:     "curl -fsSL https://get.pnpm.io/install.sh | sh -",
-	},
-	{
-		Name:        "pi",
-		Label:       "pi",
-		Summary:     "Minimal terminal AI coding agent.",
-		CheckBinary: "pi",
-		Command:     "npm install -g @mariozechner/pi-coding-agent && asdf reshim",
-	},
-	{
-		Name:        "opencode",
-		Label:       "opencode",
-		Summary:     "AI coding assistant for the terminal.",
-		CheckBinary: "opencode",
-		Command:     "curl -fsSL https://opencode.ai/install | bash",
-	},
-}
-
-// ManualTools returns the tools Suwu can only instruct the user to install.
+// ManualTools returns the non-installable tools the catalog carries.
 func ManualTools() []ManualTool {
-	out := make([]ManualTool, len(manualTools))
-	copy(out, manualTools)
-	return out
+	cat, err := Builtin()
+	if err != nil {
+		return nil
+	}
+	return cat.Manual
 }
 
 // Installed reports whether the tool is already reachable. Suwu's own bin

@@ -184,7 +184,7 @@ func toolsList(args []string) int {
 		fmt.Fprintf(os.Stderr, "tools: %v\n", err)
 		return 1
 	}
-	list = append(list, tools.ManualStatuses()...)
+	list = append(list, tools.ManualStatuses(cat)...)
 	if f.asJSON {
 		out := struct {
 			BinDir string         `json:"binDir"`

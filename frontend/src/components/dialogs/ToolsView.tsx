@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckIcon, RefreshIcon, TrashIcon } from '../icons';
+import { CheckIcon, RefreshIcon, SearchIcon, TrashIcon } from '../icons';
 import {
   type ToolSetupState,
   type ToolStatus,
@@ -55,6 +55,7 @@ export function ToolsView() {
   const [loading, setLoading] = useState(true);
   /** The tool name currently being installed, removed or configured. */
   const [busy, setBusy] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
@@ -123,6 +124,19 @@ export function ToolsView() {
     [run, t],
   );
 
+  // The catalog mixes catalog rows and the non-installable manual rows; one
+  // query filters both by name, label, summary or version.
+  const filtered = useMemo(() => {
+    const tools = data?.tools ?? [];
+    const q = query.trim().toLowerCase();
+    if (!q) return tools;
+    return tools.filter((tool) =>
+      [tool.name, tool.label, tool.summary, tool.version].some((value) =>
+        value?.toLowerCase().includes(q),
+      ),
+    );
+  }, [data, query]);
+
   if (loading && !data) {
     return <p className={sectionHint}>{t('tools.loading')}</p>;
   }
@@ -173,8 +187,22 @@ export function ToolsView() {
           </div>
         )}
 
-        <div className="mt-3">
-          {(data.tools ?? []).map((tool) => (
+        <div className="relative mt-3">
+          <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-muted-foreground/60">
+            <SearchIcon className="h-3.5 w-3.5" />
+          </span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('tools.filterPlaceholder')}
+            aria-label={t('tools.filterPlaceholder')}
+            className="w-full rounded border border-white/10 bg-black/30 py-1.5 pr-2 pl-7 text-xs text-popover-foreground outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-sky-400/50 focus:ring-1 focus:ring-sky-400/20"
+          />
+        </div>
+
+        <div className="mt-2">
+          {filtered.map((tool) => (
             <ToolRow
               key={tool.name}
               tool={tool}
@@ -186,6 +214,9 @@ export function ToolsView() {
               onToggleSetup={(setup) => void toggleSetup(tool, setup)}
             />
           ))}
+          {filtered.length === 0 && query.trim() !== '' && (
+            <p className={sectionHint}>{t('tools.noMatches', { query: query.trim() })}</p>
+          )}
         </div>
       </div>
 

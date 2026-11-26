@@ -76,9 +76,13 @@ func TestManualStatusesCarryInstructions(t *testing.T) {
 	t.Setenv("SUWU_VAR", "")
 	t.Setenv("ASDF_DATA_DIR", "")
 
-	statuses := ManualStatuses()
-	if len(statuses) != len(ManualTools()) {
-		t.Fatalf("statuses = %d, manual tools = %d", len(statuses), len(ManualTools()))
+	cat, err := Builtin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	statuses := ManualStatuses(cat)
+	if len(statuses) != len(cat.Manual) {
+		t.Fatalf("statuses = %d, catalog manual tools = %d", len(statuses), len(cat.Manual))
 	}
 	seen := map[string]bool{}
 	for _, s := range statuses {

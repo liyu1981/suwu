@@ -172,7 +172,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, r *http.Request) {
 	}
 	// Tools Suwu cannot install (they are not a single binary) still belong on
 	// this screen: detection and an instruction, never an Install button.
-	list = append(list, tools.ManualStatuses()...)
+	list = append(list, tools.ManualStatuses(cat)...)
 	enabled, files := s.toolsPathState()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"os":     runtime.GOOS,

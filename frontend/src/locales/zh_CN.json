@@ -972,6 +972,8 @@
     "loadFailed": "无法读取工具目录。",
     "retry": "重试",
     "refresh": "刷新",
+    "filterPlaceholder": "筛选工具",
+    "noMatches": "没有匹配“{{query}}”的工具。",
     "stale": "无法刷新 {{ref}} 上的工具目录，这里显示的是随本版本打包的副本。安装时仍会校验固定的校验和。",
     "install": "安装",
     "reinstall": "重新安装",

@@ -106,3 +106,49 @@ func TestBundledSelection(t *testing.T) {
 		t.Fatalf("want exactly herdr-core in hcbin, got %v", hc)
 	}
 }
+
+// The non-installable tools live in the same catalog file, so an edit that
+// forgets the instruction or the detection rule is caught here.
+func TestBuiltinManualTools(t *testing.T) {
+	c, err := Builtin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]ManualTool{}
+	for _, m := range c.Manual {
+		byName[m.Name] = m
+	}
+	for _, name := range []string{"git", "vim", "nodejs", "pnpm", "pi", "opencode"} {
+		m, ok := byName[name]
+		if !ok {
+			t.Errorf("catalog manual list is missing %s", name)
+			continue
+		}
+		if m.Command == "" || m.CheckBinary == "" {
+			t.Errorf("%s: command=%q check_binary=%q", name, m.Command, m.CheckBinary)
+		}
+	}
+}
+
+func TestParseRejectsBadManualTools(t *testing.T) {
+	valid := `{"schema":1,"tools":[{"name":"rg","version":"1","platforms":{
+		"linux-amd64":{"archive":"none","url":"https://example.test/rg",
+		"sha256":"` + strings.Repeat("a", 64) + `","strip":0,
+		"entries":[{"file":"rg","mode":"0755"}]}}}],
+		"manual":[{"name":"git","check_binary":"git","command":"apt install git"}]}`
+	if _, err := Parse([]byte(valid)); err != nil {
+		t.Fatalf("valid manual entry rejected: %v", err)
+	}
+	cases := map[string]string{
+		"no command": strings.Replace(valid, `"command":"apt install git"`, `"command":""`, 1),
+		"no check":   strings.Replace(valid, `"check_binary":"git",`, ``, 1),
+		"bad name":   strings.Replace(valid, `"name":"git"`, `"name":"../git"`, 1),
+		"collides":   strings.Replace(valid, `"name":"git"`, `"name":"rg"`, 1),
+		"path check": strings.Replace(valid, `"check_binary":"git"`, `"check_binary":"../git"`, 1),
+	}
+	for name, body := range cases {
+		if _, err := Parse([]byte(body)); err == nil {
+			t.Errorf("%s: catalog accepted, want an error", name)
+		}
+	}
+}

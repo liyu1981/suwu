@@ -98,8 +98,19 @@ func Statuses(cat *Catalog, goos, goarch, dataDir string) ([]Status, error) {
 
 // ManualStatuses resolves the tools that are installable only by hand against
 // this machine, so the Tools screen can list them beside the catalog.
-func ManualStatuses() []Status {
-	manual := ManualTools()
+func ManualStatuses(cat *Catalog) []Status {
+	var manual []ManualTool
+	if cat != nil {
+		manual = cat.Manual
+	}
+	// A catalog fetched from an older ref predates the manual section. The
+	// embedded catalog carries the same file, so fall back to it rather than
+	// making the rows disappear until the next catalog publish.
+	if len(manual) == 0 {
+		if built, err := Builtin(); err == nil {
+			manual = built.Manual
+		}
+	}
 	out := make([]Status, 0, len(manual))
 	for _, m := range manual {
 		s := Status{

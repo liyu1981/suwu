@@ -69,10 +69,30 @@ for (const tool of catalog.tools) {
   }
 }
 
+// Manual tools cannot be installed by Suwu, so the catalog records only how to
+// detect them and what to tell the user to run. They still must not collide
+// with an installable tool or with each other.
+for (const manual of catalog.manual ?? []) {
+  assert.match(manual.name, NAME, `manual tool name ${manual.name}`);
+  assert.ok(!names.has(manual.name), `${manual.name} is both a tool and a manual tool`);
+  names.add(manual.name);
+  assert.ok(manual.summary, `${manual.name}: a one-line summary is required`);
+  assert.ok(manual.command, `${manual.name}: an install instruction is required`);
+  assert.ok(
+    manual.check_binary || manual.check_cmd,
+    `${manual.name}: a detection rule (check_binary or check_cmd) is required`,
+  );
+  if (manual.check_binary) {
+    assert.match(manual.check_binary, /^[A-Za-z0-9._-]+$/, `${manual.name}: check_binary is a plain name`);
+  }
+}
+
 // The tools Suwu itself relies on must be in the catalog: file search needs rg,
 // herdr sessions need herdr and herdr-core, and `suwu hc` reads the same pin.
 for (const required of ['rg', 'herdr', 'herdr-core']) {
   assert.ok(names.has(required), `catalog is missing ${required}`);
 }
 
-console.log(`check-tools-catalog: ok (${catalog.tools.length} tools)`);
+console.log(
+  `check-tools-catalog: ok (${catalog.tools.length} tools, ${(catalog.manual ?? []).length} manual)`,
+);

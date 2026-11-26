@@ -975,6 +975,8 @@
     "loadFailed": "The catalog could not be read.",
     "retry": "Retry",
     "refresh": "Refresh",
+    "filterPlaceholder": "Filter tools",
+    "noMatches": "No tool matches \"{{query}}\".",
     "stale": "The catalog at {{ref}} could not be refreshed, so this is the copy this build carries. Installs still verify their pinned checksums.",
     "install": "Install",
     "reinstall": "Reinstall",

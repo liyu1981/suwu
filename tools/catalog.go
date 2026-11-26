@@ -1,6 +1,7 @@
 // Package tools carries the tool catalog Suwu installs from: the versions,
 // per-platform download URLs and sha256 pins for the binaries Suwu looks up
-// (rg for file search, pig and herdr for agents, fzf and asdf for the shell).
+// (rg for file search, pig and herdr for agents, fzf and asdf for the shell),
+// plus the manual entries for tools it can only detect and explain.
 //
 // The catalog is one JSON file under tools/ so that three readers agree on it:
 // this package (embedded into the binary, so an offline server can still show

@@ -89,11 +89,15 @@ for (const state of ['installed', 'update', 'missing', 'unsupported', 'unmanaged
 assert.match(router, /strings\.HasPrefix\(r\.URL\.Path, "\/api\/tools"\)/, '/api/tools is not routed');
 assert.match(router, /handleTools/, 'the tools handler is not wired');
 
+// ── the list is filterable ──────────────────────────────────────────────
+assert.match(view, /filterPlaceholder/, 'the tools list has no filter');
+assert.match(view, /filtered\.map/, 'the filter result is not what gets rendered');
+
 // ── manual tools are instructions, never an Install button ──────────────
 assert.match(view, /tool\.manual/, 'the view does not special-case manual tools');
 assert.match(view, /tool\.instruction/, 'manual rows must show their instruction');
 assert.match(lib, /instruction\?: string/, 'ToolStatus is missing the manual instruction');
-assert.match(statusGo, /ManualStatuses\(\)/, 'pkg/tools does not merge manual tools');
+assert.match(statusGo, /ManualStatuses\(/, 'pkg/tools does not merge manual tools');
 
 // ── the PATH block is a notice, never an opt-in toggle ──────────────────
 assert.ok(!view.includes('setToolsPath'), 'the view still offers a PATH toggle');

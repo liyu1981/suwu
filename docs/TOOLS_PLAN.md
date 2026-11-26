@@ -186,6 +186,15 @@ installer and the stamp all speak one vocabulary:
         "darwin-arm64": { … }
       }
     }
+  ],
+  "manual": [                            // tools Suwu cannot install itself
+    {
+      "name": "git",
+      "label": "git",
+      "summary": "Version control system.",
+      "check_binary": "git",            // detection: binary on PATH (or check_cmd)
+      "command": "apt-get install -y git" // the instruction shown in the UI
+    }
   ]
 }
 ```
@@ -203,12 +212,17 @@ Notes that matter:
   here because we are extracting *files*, not a directory.
 - Optional `docs` (man pages) and `notes` (a one-line UI hint) as in
   `max-tools.json` today.
+- **`manual`** lists tools Suwu cannot install (git, nodejs, …): the catalog
+  carries their detection rule and install instruction instead of a pin, so
+  the Tools screen and onboarding read one file.
 
 ### 4.3 Validation, and who enforces what
 
 `pkg/tools` validates on load and refuses the whole catalog when a tool is
 malformed (bad name, no `platforms`, non-https URL, missing sha256, duplicate
-`name`, or two tools claiming the same owned file). A refusal is loud in the UI
+`name`, or two tools claiming the same owned file). Manual entries are validated
+too: a name collision, a missing instruction or a missing detection rule is a
+hard error. A refusal is loud in the UI
 and in `suwu tools list`, never silently skipped.
 
 A CI job (`scripts/check-tools-catalog.mjs`, run from `pnpm check`) does what a

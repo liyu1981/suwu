@@ -64,6 +64,7 @@
     "shortcuts": "Keyboard shortcuts",
     "appMenu": "App Menu",
     "appSettings": "App Settings",
+    "tools": "Tools",
     "settings": "System Settings",
     "about": "About"
   },
@@ -969,7 +970,7 @@
     "resizeSplit": "Resize the panel halves"
   },
   "tools": {
-    "title": "System tools",
+    "title": "Tools",
     "loading": "Loading the catalog…",
     "loadFailed": "The catalog could not be read.",
     "retry": "Retry",
@@ -987,14 +988,13 @@
     "removed": "{{name}} removed ({{files}})",
     "unmanagedHint": "{{path}} was not installed by Suwu, so it is left alone. Remove it yourself to let Suwu manage this tool.",
     "bundledHint": "Bundled by suwu-max as {{version}}. Installing here replaces it.",
-    "pathTitle": "Add the tool directory to your shell PATH",
-    "pathHint": "Suwu's own terminals already see these tools, and suwu exec always runs the managed copy. This only helps the shells you open outside Suwu.",
-    "pathEnable": "Enable",
-    "pathDisable": "Disable",
-    "pathPreview": "Preview the change",
-    "pathHidePreview": "Hide the preview",
-    "pathEnabled": "Added to {{files}}",
-    "pathDisabled": "Removed from {{files}}",
+    "pathTitle": "Tool directory on your shell PATH",
+    "pathNotice": "Always on. Suwu keeps this directory on the PATH of the shells you open outside Suwu, and refreshes the block whenever it starts or installs a tool.",
+    "setupHint": "Optional shell setup: {{command}}",
+    "setupAdd": "Add shell setup",
+    "setupRemove": "Remove shell setup",
+    "setupAdded": "Shell setup added to {{files}}",
+    "setupRemoved": "Shell setup removed from {{files}}",
     "state": {
       "installed": "Installed",
       "update": "Update available",

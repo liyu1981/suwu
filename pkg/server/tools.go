@@ -22,7 +22,7 @@ const (
 	toolsListRoute      = "/api/tools"
 	toolsInstallRoute   = "/api/tools/install"
 	toolsUninstallRoute = "/api/tools/uninstall"
-	toolsPathRoute      = "/api/tools/path"
+	toolsSetupRoute     = "/api/tools/setup"
 	toolsRefreshRoute   = "/api/tools/refresh"
 )
 
@@ -59,8 +59,8 @@ func (s *Server) handleTools(w http.ResponseWriter, r *http.Request) {
 		s.handleToolsInstall(w, r)
 	case toolsUninstallRoute:
 		s.handleToolsUninstall(w, r)
-	case toolsPathRoute:
-		s.handleToolsPath(w, r)
+	case toolsSetupRoute:
+		s.handleToolsSetup(w, r)
 	case toolsRefreshRoute:
 		s.handleToolsRefresh(w, r)
 	default:
@@ -99,14 +99,46 @@ func (s *Server) loadToolsCatalog(ctx context.Context, refresh bool) (*tools.Cat
 	return offline, origin, nil
 }
 
-// toolsPathState reports whether the opt-in rc block is installed. The slice is
-// always non-nil: a Go nil marshals to JSON `null`, and the page reads `.length`.
+// toolsPathState reports whether the managed rc block is installed. It is
+// always on: Suwu writes the block at startup and after every install, so the
+// page shows a notice rather than a toggle. The slice is always non-nil: a Go
+// nil marshals to JSON `null`, and the page reads `.length`.
 func (s *Server) toolsPathState() (enabled bool, files []string) {
 	files, err := bindir.PathFiles(bindir.ToolsBlock)
 	if err != nil || files == nil {
 		return false, []string{}
 	}
 	return len(files) > 0, files
+}
+
+// toolSetupState reports the optional shell integrations (fzf, asdf) so the page
+// can show an explicit add/remove action for each.
+func toolSetupState() map[string]any {
+	out := map[string]any{}
+	for _, setup := range bindir.ToolSetups() {
+		files, err := bindir.ToolSetupFiles(setup.Name)
+		if err != nil {
+			files = nil
+		}
+		out[setup.Name] = map[string]any{
+			"name":    setup.Name,
+			"enabled": len(files) > 0,
+			"files":   strList(files),
+			"command": setup.Command,
+		}
+	}
+	return out
+}
+
+// ensureToolsPath puts the managed tool directory on the interactive shell's
+// PATH. It is deliberately unconditional: the directory is part of the product,
+// not an option the user can forget to switch on.
+func ensureToolsPath(dataDir string) {
+	dir := bindir.Dir(dataDir)
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return
+	}
+	_, _ = bindir.EnsurePath(dir, bindir.ToolsBlock)
 }
 
 // strList always marshals as a JSON array, never null.
@@ -148,6 +180,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, r *http.Request) {
 			"enabled": enabled,
 			"files":   strList(files),
 		},
+		"setup": toolSetupState(),
 		"tools": list,
 	})
 }
@@ -208,6 +241,7 @@ func (s *Server) handleToolsInstall(w http.ResponseWriter, r *http.Request) {
 		writeToolsError(w, err)
 		return
 	}
+	ensureToolsPath(s.dataDir)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name":     res.Name,
 		"version":  res.Version,
@@ -248,8 +282,12 @@ func (s *Server) handleToolsUninstall(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"name": res.Name, "removed": strList(res.Files)})
 }
 
-// POST /api/tools/path {enabled}
-func (s *Server) handleToolsPath(w http.ResponseWriter, r *http.Request) {
+// POST /api/tools/setup {name, enabled}
+//
+// The optional shell integration of fzf and asdf: an explicit click, because it
+// changes shell behaviour beyond finding a binary. Unknown names are rejected
+// rather than turned into an arbitrary rc-file write.
+func (s *Server) handleToolsSetup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", "POST")
 		writePlain(w, http.StatusMethodNotAllowed, "Method Not Allowed")
@@ -259,34 +297,40 @@ func (s *Server) handleToolsPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Enabled bool `json:"enabled"`
+		Name    string `json:"name"`
+		Enabled bool   `json:"enabled"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
-	dir := bindir.Dir(s.dataDir)
-	if req.Enabled {
-		if _, err := os.Stat(dir); err != nil {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "nothing is installed yet; install a tool first"})
-			return
-		}
-		changed, err := bindir.EnsurePath(dir, bindir.ToolsBlock)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		enabled, files := s.toolsPathState()
-		writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "files": strList(files), "changed": strList(changed)})
+	name := strings.TrimSpace(req.Name)
+	setup, ok := bindir.ToolSetupFor(name)
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("%s has no shell setup", name)})
 		return
 	}
-	changed, err := bindir.RemovePath(bindir.ToolsBlock)
+	var (
+		changed []string
+		err     error
+	)
+	if req.Enabled {
+		changed, err = bindir.EnsureToolSetup(name)
+	} else {
+		changed, err = bindir.RemoveToolSetup(name)
+	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	enabled, files := s.toolsPathState()
-	writeJSON(w, http.StatusOK, map[string]any{"enabled": enabled, "files": strList(files), "changed": strList(changed)})
+	files, _ := bindir.ToolSetupFiles(name)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"name":    setup.Name,
+		"enabled": len(files) > 0,
+		"files":   strList(files),
+		"command": setup.Command,
+		"changed": strList(changed),
+	})
 }
 
 // POST /api/tools/refresh -> the catalog origin after a forced revalidation.

@@ -63,6 +63,16 @@ export interface ToolsSource {
   cached: boolean;
 }
 
+/** The optional shell integration of fzf and asdf. */
+export interface ToolSetupState {
+  name: string;
+  enabled: boolean;
+  /** Always an array; the server normalizes a nil slice to `[]`. */
+  files: string[];
+  /** The line the setup writes, for the UI hint. */
+  command: string;
+}
+
 export interface ToolsResponse {
   os: string;
   arch: string;
@@ -73,6 +83,8 @@ export interface ToolsResponse {
     /** Always an array; the server normalizes a nil slice to `[]`. */
     files: string[];
   };
+  /** Keyed by tool name; only fzf and asdf currently have an entry. */
+  setup: Record<string, ToolSetupState>;
   tools: ToolStatus[];
 }
 
@@ -84,9 +96,7 @@ export interface InstallResult {
   replaced: boolean;
 }
 
-export interface PathResult {
-  enabled: boolean;
-  files: string[];
+export interface ToolSetupResult extends ToolSetupState {
   changed?: string[];
 }
 
@@ -102,19 +112,10 @@ export function uninstallTool(name: string): Promise<{ name: string; removed: st
   return postJson<{ name: string; removed: string[] }>('/api/tools/uninstall', { name });
 }
 
-export function setToolsPath(enabled: boolean): Promise<PathResult> {
-  return postJson<PathResult>('/api/tools/path', { enabled });
-}
-
 /**
- * The block `suwu tools path --enable` writes, shown to the user before the
- * click. It is prose here, not the source of truth: the server writes it.
+ * Add or remove a tool's optional shell setup. The tool directory itself is
+ * always on PATH; this is the extra integration fzf and asdf need.
  */
-export function pathBlockPreview(binDir: string): string {
-  return [
-    '# >>> suwu-bin >>>',
-    `case ":$PATH:" in *":${binDir}:"*) ;; *) PATH="${binDir}:$PATH" ;; esac`,
-    'export PATH',
-    '# <<< suwu-bin <<<',
-  ].join('\n');
+export function setToolSetup(name: string, enabled: boolean): Promise<ToolSetupResult> {
+  return postJson<ToolSetupResult>('/api/tools/setup', { name, enabled });
 }

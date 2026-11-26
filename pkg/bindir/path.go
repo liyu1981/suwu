@@ -7,9 +7,9 @@ import (
 )
 
 // Block is one managed rc-file block: the two marker lines that delimit it.
-// Two blocks may coexist in one file (suwu-max adds the app's directory, the
-// tools page optionally adds the tool directory), so each has its own markers
-// and removing one never disturbs the other.
+// Several blocks may coexist in one file (suwu-max's app directory, the tool
+// directory, and per-tool shell setup), so each has its own markers and
+// removing one never disturbs the others.
 type Block struct {
 	Start string
 	End   string
@@ -18,19 +18,29 @@ type Block struct {
 	Tag string
 }
 
-// MaxBlock is `suwu-max`'s block. It adds ~/.local/bin (where the app lives),
-// and under the bootstrap model it no longer adds the tool directory.
+// MaxBlock is `suwu-max`'s block. It adds ~/.local/bin (where the app lives).
 var MaxBlock = Block{Start: "# >>> suwu-max >>>", End: "# <<< suwu-max <<<", Tag: "suwu-max"}
 
-// ToolsBlock is the tools page's block, adding the managed tool directory to an
-// interactive shell. It is opt-in: Suwu's own sessions get the directory from
-// the server's PATH, and `suwu exec` needs no PATH at all.
+// ToolsBlock puts the managed tool directory on an interactive shell's PATH.
+// It is not optional: Suwu writes it when it starts and after every install, so
+// the tools it manages work in shells opened outside Suwu too. `suwu exec` never
+// depends on it.
 var ToolsBlock = Block{Start: "# >>> suwu-bin >>>", End: "# <<< suwu-bin <<<", Tag: "suwu-bin"}
+
+// FzfBlock and AsdfBlock carry the optional shell setup of those two tools.
+// Their integration is a separate, explicit click in the Tools page because it
+// changes shell behaviour beyond finding a binary.
+var (
+	FzfBlock  = Block{Start: "# >>> suwu-fzf >>>", End: "# <<< suwu-fzf <<<", Tag: "suwu-fzf"}
+	AsdfBlock = Block{Start: "# >>> suwu-asdf >>>", End: "# <<< suwu-asdf <<<", Tag: "suwu-asdf"}
+)
 
 type shellSyntax int
 
 const (
 	posixSyntax shellSyntax = iota
+	bashSyntax
+	zshSyntax
 	fishSyntax
 )
 
@@ -39,18 +49,125 @@ type rcTarget struct {
 	syntax shellSyntax
 }
 
+// bodyBuilder renders the lines inside a managed block for one shell. An empty
+// result means the block does not apply to that shell and is skipped.
+type bodyBuilder func(syntax shellSyntax, home string) string
+
+// ToolSetup is one optional shell integration snippet.
+type ToolSetup struct {
+	Name string
+	// Command is the line users see in the UI and docs (the POSIX form).
+	Command string
+	block   Block
+	posix   string
+	bash    string
+	zsh     string
+	fish    string
+}
+
+// ToolSetups returns the shell setups Suwu can add for a managed tool.
+func ToolSetups() []ToolSetup {
+	return []ToolSetup{
+		{
+			Name:    "fzf",
+			Command: `eval "$(fzf --bash)"`,
+			block:   FzfBlock,
+			bash:    `eval "$(fzf --bash)"`,
+			zsh:     `eval "$(fzf --zsh)"`,
+			posix:   `eval "$(fzf --bash)"`,
+			fish:    `fzf --fish | source`,
+		},
+		{
+			Name:    "asdf",
+			Command: `export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"`,
+			block:   AsdfBlock,
+			bash:    `export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"`,
+			zsh:     `export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"`,
+			posix:   `export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"`,
+			fish:    `if test -d "$HOME/.asdf/shims"; set -gx PATH "$HOME/.asdf/shims" $PATH; end`,
+		},
+	}
+}
+
+// ToolSetupFor looks up the optional shell setup for a tool name.
+func ToolSetupFor(name string) (ToolSetup, bool) {
+	for _, setup := range ToolSetups() {
+		if setup.Name == name {
+			return setup, true
+		}
+	}
+	return ToolSetup{}, false
+}
+
+func (s ToolSetup) body(syntax shellSyntax) string {
+	switch syntax {
+	case fishSyntax:
+		return s.fish
+	case zshSyntax:
+		if s.zsh != "" {
+			return s.zsh
+		}
+		return s.posix
+	default:
+		if s.bash != "" {
+			return s.bash
+		}
+		return s.posix
+	}
+}
+
 // EnsurePath adds (or refreshes) this block so dir is on PATH for the shells
 // configured on this machine. Only rc files that already exist are touched,
 // except that ~/.profile is created when none exist at all. It is idempotent
 // and returns the files it changed.
 func EnsurePath(dir string, block Block) ([]string, error) {
+	return ensureBlock(block, func(syntax shellSyntax, home string) string {
+		return renderPathBody(syntax, displayPath(dir, home))
+	})
+}
+
+// EnsureToolSetup adds the optional shell integration for one managed tool.
+func EnsureToolSetup(name string) ([]string, error) {
+	setup, ok := ToolSetupFor(name)
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return ensureBlock(setup.block, func(syntax shellSyntax, _ string) string {
+		return setup.body(syntax)
+	})
+}
+
+// RemoveToolSetup removes the optional shell integration for one managed tool.
+func RemoveToolSetup(name string) ([]string, error) {
+	setup, ok := ToolSetupFor(name)
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return RemovePath(setup.block)
+}
+
+// ToolSetupFiles lists the rc files that currently carry this tool's setup.
+func ToolSetupFiles(name string) ([]string, error) {
+	setup, ok := ToolSetupFor(name)
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return PathFiles(setup.block)
+}
+
+// ensureBlock writes a managed block built by body into every existing rc file
+// whose shell the body supports.
+func ensureBlock(block Block, body bodyBuilder) ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	display := displayPath(dir, home)
 	var changed []string
 	for _, target := range rcTargets(home) {
+		inner := body(target.syntax, home)
+		if strings.TrimSpace(inner) == "" {
+			continue
+		}
 		original, err := os.ReadFile(target.file)
 		if err != nil {
 			if !os.IsNotExist(err) {
@@ -58,7 +175,7 @@ func EnsurePath(dir string, block Block) ([]string, error) {
 			}
 			original = nil
 		}
-		next, didChange := upsertBlock(string(original), renderBlock(target.syntax, display, block), block)
+		next, didChange := upsertBlock(string(original), wrapBlock(block, inner), block)
 		if !didChange {
 			continue
 		}
@@ -156,11 +273,11 @@ func OnPath(dir string) bool {
 // created when the account has none.
 func rcTargets(home string) []rcTarget {
 	candidates := []rcTarget{
-		{filepath.Join(home, ".bashrc"), posixSyntax},
-		{filepath.Join(home, ".bash_profile"), posixSyntax},
+		{filepath.Join(home, ".bashrc"), bashSyntax},
+		{filepath.Join(home, ".bash_profile"), bashSyntax},
 		{filepath.Join(home, ".profile"), posixSyntax},
-		{filepath.Join(home, ".zshrc"), posixSyntax},
-		{filepath.Join(home, ".zshenv"), posixSyntax},
+		{filepath.Join(home, ".zshrc"), zshSyntax},
+		{filepath.Join(home, ".zshenv"), zshSyntax},
 		{filepath.Join(home, ".config", "fish", "config.fish"), fishSyntax},
 	}
 	var existing []rcTarget
@@ -183,22 +300,22 @@ func displayPath(dir, home string) string {
 	return filepath.ToSlash(dir)
 }
 
-func renderBlock(syntax shellSyntax, display string, block Block) string {
+func renderPathBody(syntax shellSyntax, display string) string {
 	if syntax == fishSyntax {
 		return strings.Join([]string{
-			block.Start,
 			`if not contains "` + display + `" $PATH`,
 			`    set -gx PATH "` + display + `" $PATH`,
 			`end`,
-			block.End,
 		}, "\n")
 	}
 	return strings.Join([]string{
-		block.Start,
 		`case ":$PATH:" in *":` + display + `:"*) ;; *) PATH="` + display + `:$PATH" ;; esac`,
 		`export PATH`,
-		block.End,
 	}, "\n")
+}
+
+func wrapBlock(block Block, inner string) string {
+	return block.Start + "\n" + inner + "\n" + block.End
 }
 
 // upsertBlock replaces an existing managed block or appends one, returning the
@@ -253,7 +370,8 @@ func findBlock(content string, markers Block) (start, end int, ok bool) {
 // This is how a server makes installed tools visible to everything it spawns —
 // PTY sessions, git hooks, the gq runner — without touching a single rc file: the
 // scope is this process and its children, which is the polite amount of
-// surprise. `suwu exec` and the opt-in rc block cover the other two cases.
+// surprise. The managed rc block covers shells opened outside Suwu, and
+// `suwu exec` covers scripts.
 func PrependProcessPATH(dir string) bool {
 	if dir == "" {
 		return false

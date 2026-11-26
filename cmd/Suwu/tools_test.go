@@ -175,33 +175,36 @@ func TestToolsUsageIsAPathNotADownload(t *testing.T) {
 	}
 }
 
-func TestToolsPathEnableDisable(t *testing.T) {
+func TestToolsPathIsNotOptional(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	if err := os.WriteFile(filepath.Join(home, ".bashrc"), []byte("export EDITOR=vim\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	dataDir := t.TempDir()
-	// The tools block is opt-in and names the managed directory.
-	if code := toolsPath([]string{"--enable", "--data-dir", dataDir}); code != 0 {
-		t.Fatalf("enable exit %d", code)
+	// There is no enable/disable switch: the command always ensures the block
+	// naming the managed directory.
+	if code := toolsPath([]string{"--data-dir", dataDir}); code != 0 {
+		t.Fatalf("path exit %d", code)
 	}
 	body, _ := os.ReadFile(filepath.Join(home, ".bashrc"))
 	if !strings.Contains(string(body), bindir.ToolsBlock.Start) || !strings.Contains(string(body), bindir.Dir(dataDir)) {
 		t.Fatalf("block missing:\n%s", body)
 	}
-	if code := toolsPath([]string{"--disable", "--data-dir", dataDir}); code != 0 {
-		t.Fatalf("disable exit %d", code)
+	// Idempotent: a second run neither duplicates the block nor loses content.
+	if code := toolsPath([]string{"--data-dir", dataDir}); code != 0 {
+		t.Fatalf("second path exit %d", code)
 	}
 	body, _ = os.ReadFile(filepath.Join(home, ".bashrc"))
-	if strings.Contains(string(body), bindir.ToolsBlock.Start) {
-		t.Fatalf("block not removed:\n%s", body)
+	if strings.Count(string(body), bindir.ToolsBlock.Start) != 1 {
+		t.Fatalf("duplicate block:\n%s", body)
 	}
 	if !strings.Contains(string(body), "export EDITOR=vim") {
 		t.Fatal("unrelated content lost")
 	}
-	if code := toolsPath([]string{"--enable", "--disable", "--data-dir", dataDir}); code != 64 {
-		t.Fatalf("exclusive flags: exit %d", code)
+	// The old opt-out must not silently keep working.
+	if code := toolsPath([]string{"--disable", "--data-dir", dataDir}); code != 64 {
+		t.Fatalf("removed --disable: exit %d", code)
 	}
 }
 

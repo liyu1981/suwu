@@ -1,24 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckIcon, RefreshIcon, TrashIcon } from '../icons';
 import {
+  type ToolSetupState,
   type ToolStatus,
   type ToolsResponse,
   fetchTools,
   installTool,
-  pathBlockPreview,
-  setToolsPath,
+  setToolSetup,
   uninstallTool,
 } from '../../lib/tools';
 
 /**
- * System Settings › System tools.
+ * Tools (a top-level screen, next to System Settings).
  *
  * The tools Suwu knows how to install, resolved by the server against this
- * machine: what the catalog offers, what is installed here, and the one opt-in
- * that puts `~/.suwu/bin` on a login shell's PATH. Every action is a POST and
- * the page re-reads the server afterwards — the state lives on disk, never in
- * this component (docs/TOOLS_PLAN.md §9).
+ * machine: what the catalog offers, what is installed here, and the optional
+ * shell integration fzf and asdf need. The tool directory's PATH block is not a
+ * choice — Suwu keeps it in place — so this screen states that as a notice
+ * instead of offering a toggle. Every action is a POST and the page re-reads
+ * the server afterwards: the state lives on disk, never in this component
+ * (docs/TOOLS_PLAN.md §9).
  */
 
 // The shared settings vocabulary: Label at 12 px, Caption at 11 px, the same
@@ -45,15 +47,14 @@ const dangerBtn =
 
 const badge = 'rounded px-1.5 py-0.5 text-[11px] font-medium';
 
-export function SystemToolsView() {
+export function ToolsView() {
   const { t } = useTranslation();
   const [data, setData] = useState<ToolsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  /** The tool name currently being installed or removed. */
+  /** The tool name currently being installed, removed or configured. */
   const [busy, setBusy] = useState<string | null>(null);
-  const [pathOpen, setPathOpen] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
@@ -111,31 +112,16 @@ export function SystemToolsView() {
     [run, t],
   );
 
-  const togglePath = useCallback(
-    async (enabled: boolean) => {
-      setBusy('path');
-      setNotice(null);
-      setError(null);
-      try {
-        const res = await setToolsPath(enabled);
-        await load();
-        setNotice(
-          enabled
-            ? t('tools.pathEnabled', { files: (res.files ?? []).join(', ') })
-            : t('tools.pathDisabled', {
-                files: (res.changed ?? []).join(', ') || (res.files ?? []).join(', '),
-              }),
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setBusy(null);
-      }
-    },
-    [load, t],
+  const toggleSetup = useCallback(
+    (tool: ToolStatus, setup: ToolSetupState) =>
+      run(tool.name, async () => {
+        const res = await setToolSetup(tool.name, !setup.enabled);
+        return setup.enabled
+          ? t('tools.setupRemoved', { files: (res.changed ?? []).join(', ') || '—' })
+          : t('tools.setupAdded', { files: (res.files ?? []).join(', ') || '—' });
+      }),
+    [run, t],
   );
-
-  const preview = useMemo(() => (data ? pathBlockPreview(data.binDir) : ''), [data]);
 
   if (loading && !data) {
     return <p className={sectionHint}>{t('tools.loading')}</p>;
@@ -192,47 +178,23 @@ export function SystemToolsView() {
             <ToolRow
               key={tool.name}
               tool={tool}
+              setup={data.setup?.[tool.name]}
               busy={busy === tool.name}
               disabled={busy !== null && busy !== tool.name}
               onInstall={() => void install(tool)}
               onRemove={() => void remove(tool)}
+              onToggleSetup={(setup) => void toggleSetup(tool, setup)}
             />
           ))}
         </div>
       </div>
 
-      {/* ── PATH ────────────────────────────────────────────────────────── */}
+      {/* ── PATH notice ─────────────────────────────────────────────────── */}
       <div className={section}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <span className={sectionLabel}>{t('tools.pathTitle')}</span>
-            <p className={sectionHint}>{t('tools.pathHint')}</p>
-            {(data.path.files ?? []).length > 0 && (
-              <p className={`${sectionHint} font-mono`}>{(data.path.files ?? []).join(', ')}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            className={data.path.enabled ? smallBtn : primaryBtn}
-            role="switch"
-            aria-checked={data.path.enabled}
-            disabled={busy !== null}
-            onClick={() => void togglePath(!data.path.enabled)}
-          >
-            {data.path.enabled ? t('tools.pathDisable') : t('tools.pathEnable')}
-          </button>
-        </div>
-        <button
-          type="button"
-          className={`${sectionHint} underline decoration-dotted underline-offset-2 hover:text-popover-foreground`}
-          onClick={() => setPathOpen((open) => !open)}
-        >
-          {pathOpen ? t('tools.pathHidePreview') : t('tools.pathPreview')}
-        </button>
-        {pathOpen && (
-          <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 text-[11px] leading-relaxed text-muted-foreground">
-            {preview}
-          </pre>
+        <span className={sectionLabel}>{t('tools.pathTitle')}</span>
+        <p className={sectionHint}>{t('tools.pathNotice')}</p>
+        {(data.path.files ?? []).length > 0 && (
+          <p className={`${sectionHint} font-mono`}>{data.path.files.join(', ')}</p>
         )}
       </div>
 
@@ -248,16 +210,20 @@ export function SystemToolsView() {
 
 function ToolRow({
   tool,
+  setup,
   busy,
   disabled,
   onInstall,
   onRemove,
+  onToggleSetup,
 }: {
   tool: ToolStatus;
+  setup?: ToolSetupState;
   busy: boolean;
   disabled: boolean;
   onInstall: () => void;
   onRemove: () => void;
+  onToggleSetup: (setup: ToolSetupState) => void;
 }) {
   const { t } = useTranslation();
   const installedVersion = tool.installed?.version;
@@ -286,6 +252,30 @@ function ToolRow({
         )}
         {bundled && tool.state !== 'installed' && (
           <p className={sectionHint}>{t('tools.bundledHint', { version: installedVersion })}</p>
+        )}
+        {setup && (tool.installed || setup.enabled) && (
+          <div className="mt-2 rounded border border-white/5 bg-black/20 px-2 py-1.5">
+            <p className={`${sectionHint} mt-0`}>
+              {t('tools.setupHint', { command: setup.command })}
+            </p>
+            {setup.files.length > 0 && (
+              <p className={`${sectionHint} mt-1 font-mono text-[10px]`}>
+                {setup.files.join(', ')}
+              </p>
+            )}
+            <button
+              type="button"
+              className={`mt-1.5 ${setup.enabled ? smallBtn : primaryBtn}`}
+              disabled={inFlight}
+              onClick={() => onToggleSetup(setup)}
+            >
+              {busy
+                ? t('tools.working')
+                : setup.enabled
+                  ? t('tools.setupRemove')
+                  : t('tools.setupAdd')}
+            </button>
+          </div>
         )}
       </div>
 

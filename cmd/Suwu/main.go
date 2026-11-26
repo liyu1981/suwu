@@ -225,7 +225,7 @@ Usage:
   suwu gencerts [--hosts <list>] [--out <dir>] [--no-env] [--force]
                            generate a TLS certificate pair (interactive by default)
   suwu version             print version and exit
-  suwu onboard [--server|--password|--tls|--runtime|--tools|--shell]
+  suwu onboard [--server|--password|--tls|--runtime|--tools]
                            interactive setup wizard; pass section flags to
                            update only those parts of the configuration
   suwu change-password     change the web access password (shortcut for
@@ -674,11 +674,20 @@ func run(debugCfg debugConfig) error {
 
 	// Tools installed into <dataDir>/bin are on this process's PATH from here on,
 	// so every child — a PTY session, a git hook, `suwu gq` — finds them without
-	// an rc file. `suwu exec` covers scripts, and the tools page owns the opt-in
-	// shell block (docs/TOOLS_PLAN.md §7.1).
+	// an rc file. The same directory is written into the user's rc files below:
+	// shells opened outside Suwu get the tools too, without an opt-in toggle.
 	if bindir.PrependProcessPATH(bindir.Dir(dataDir)) {
 		logging.Debug("prepended the managed tool directory to PATH",
 			slog.String("dir", bindir.Dir(dataDir)))
+	}
+	if info, statErr := os.Stat(bindir.Dir(dataDir)); statErr == nil && info.IsDir() {
+		if changed, pathErr := bindir.EnsurePath(bindir.Dir(dataDir), bindir.ToolsBlock); pathErr != nil {
+			logging.Debug("could not add the managed tool directory to the shell PATH",
+				slog.String("error", pathErr.Error()))
+		} else if len(changed) > 0 {
+			logging.Debug("added the managed tool directory to the shell PATH",
+				slog.String("files", strings.Join(changed, ", ")))
+		}
 	}
 
 	// Keyed PTY sessions with server-side terminal state (libghostty-vt), so

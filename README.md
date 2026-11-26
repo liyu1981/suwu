@@ -89,7 +89,7 @@ Short captures of Suwu in daily use. Click a preview to watch the full clip on
     zip. Archives are validated with the same resolvers the server uses, so a
     broken install never lands.
 
-11. **The tools it needs, installed and pinned** — System Settings → Tools
+11. **The tools it needs, installed and pinned** — Tools
     installs ripgrep, fzf, asdf, witr, pig, herdr and herdr-core into
     `~/.suwu/bin` from a catalog pinned by version and sha256. `suwu exec <tool>`
     always runs those copies, never whatever happens to be first on `PATH`, and
@@ -110,7 +110,8 @@ curl -fsSL https://raw.githubusercontent.com/liyu1981/suwu/refs/heads/master/ins
 This downloads the latest release binary to `~/.local/bin/suwu` and runs
 an interactive `suwu onboard` wizard. Onboarding requires an attached
 terminal; it collects the complete setup plan, shows a review, and only then
-writes configuration or installs selected tools.
+writes configuration. Development tools come from the Tools screen; anything
+the catalog does not cover is printed as a manual step.
 
 On Linux there is also `suwu-max`, a single self-extracting file: run it once and
 it installs the app to `~/.local/bin/suwu` and the tools above to `~/.suwu/bin`,
@@ -126,8 +127,7 @@ suwu onboard --password   # same thing, as an onboarding section
 suwu onboard --server     # bind host, ports, session timeout
 suwu onboard --tls        # TLS certificate
 suwu onboard --runtime    # data directory and systemd service
-suwu onboard --tools      # development tools
-suwu onboard --shell      # shell integration
+suwu onboard --tools      # development tools and manual setup steps
 ```
 
 Section runs prompt only for that part, show the resulting configuration, and

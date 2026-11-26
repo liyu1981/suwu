@@ -34,9 +34,10 @@ Commands:
       install every tool whose catalog version differs from the installed one
   suwu tools remove <name>...
       delete exactly the files the tool's stamp owns
-  suwu tools path [--enable | --disable | --status]
-      put <data dir>/bin on the PATH of your login shells, in a managed block
-      marked "suwu-bin" (opt-in: Suwu's own sessions already see the directory)
+  suwu tools path
+      make sure <data dir>/bin is on the PATH of your login shells, in a
+      managed block marked "suwu-bin"; the server keeps this block in place
+      automatically, and this command is for inspecting or repairing it
 
 Flags:
   --data-dir <dir>   data directory (default ~/.suwu, or $SUWU_VAR)
@@ -301,6 +302,9 @@ func toolsInstall(args []string, update bool) int {
 			fmt.Printf("  %s %s installed (%s)\n", name, res.Version, strings.Join(res.Files, ", "))
 		}
 	}
+	if !f.dryRun {
+		ensureToolsPath(dataDir)
+	}
 	if failures > 0 {
 		return 1
 	}
@@ -386,15 +390,8 @@ func toolsRemove(args []string) int {
 func toolsPath(args []string) int {
 	fl := flag.NewFlagSet("tools path", flag.ContinueOnError)
 	fl.SetOutput(os.Stderr)
-	enable := fl.Bool("enable", false, "add the tool directory to your shell PATH")
-	disable := fl.Bool("disable", false, "remove that managed block")
-	status := fl.Bool("status", false, "show what is configured")
 	dataDirFlag := fl.String("data-dir", "", "data directory (default ~/.suwu)")
 	if err := fl.Parse(args); err != nil {
-		return 64
-	}
-	if *enable && *disable {
-		fmt.Fprintln(os.Stderr, "tools path: --enable and --disable are exclusive")
 		return 64
 	}
 	dataDir, err := (&toolsFlags{dataDir: *dataDirFlag}).resolveDataDir()
@@ -403,45 +400,41 @@ func toolsPath(args []string) int {
 		return 1
 	}
 	dir := bindir.Dir(dataDir)
-	switch {
-	case *disable:
-		changed, err := bindir.RemovePath(bindir.ToolsBlock)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "tools: %v\n", err)
-			return 1
-		}
-		if len(changed) == 0 {
-			fmt.Println("No suwu-bin PATH block found.")
-			return 0
-		}
-		fmt.Printf("Removed the suwu-bin PATH block from %s\n", strings.Join(changed, ", "))
-	case *enable:
-		changed, err := bindir.EnsurePath(dir, bindir.ToolsBlock)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "tools: %v\n", err)
-			return 1
-		}
-		if len(changed) == 0 {
-			fmt.Printf("%s is already on PATH.\n", dir)
-			return 0
-		}
-		fmt.Printf("Added %s to PATH in %s\n", dir, strings.Join(changed, ", "))
-		fmt.Println("Open a new shell (or source that file) to use the tools there.")
-	default:
-		_ = status
-		files, err := bindir.PathFiles(bindir.ToolsBlock)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "tools: %v\n", err)
-			return 1
-		}
-		fmt.Printf("Tool directory: %s\n", dir)
-		if len(files) == 0 {
-			fmt.Println("PATH block:     not installed (Suwu's own sessions and 'suwu exec' do not need it)")
-			return 0
-		}
-		fmt.Printf("PATH block:     %s\n", strings.Join(files, ", "))
+	changed, err := bindir.EnsurePath(dir, bindir.ToolsBlock)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "tools: %v\n", err)
+		return 1
 	}
+	files, err := bindir.PathFiles(bindir.ToolsBlock)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "tools: %v\n", err)
+		return 1
+	}
+	fmt.Printf("Tool directory: %s\n", dir)
+	if len(changed) > 0 {
+		fmt.Printf("PATH block:     added to %s\n", strings.Join(files, ", "))
+		fmt.Println("Open a new shell (or source that file) to use the tools there.")
+		return 0
+	}
+	if len(files) == 0 {
+		fmt.Println("PATH block:     not found")
+		return 0
+	}
+	fmt.Printf("PATH block:     %s\n", strings.Join(files, ", "))
 	return 0
+}
+
+// ensureToolsPath keeps the managed tool directory on the interactive shell's
+// PATH. It is not optional: the server and the CLI both call it after an
+// install, so the tools are usable outside Suwu without a toggle.
+func ensureToolsPath(dataDir string) {
+	dir := bindir.Dir(dataDir)
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return
+	}
+	if _, err := bindir.EnsurePath(dir, bindir.ToolsBlock); err != nil {
+		fmt.Fprintf(os.Stderr, "tools: could not update the shell PATH: %v\n", err)
+	}
 }
 
 // execMain implements `suwu exec`: the managed copy of a tool, never PATH.

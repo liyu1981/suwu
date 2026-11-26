@@ -22,7 +22,7 @@ it removes almost all of the special-casing the first draft of this plan needed
 (§7).
 
 ```
-Settings › System tools        ~/.suwu/bin/          ~/.local/bin/
+Tools (top-level menu)        ~/.suwu/bin/          ~/.local/bin/
 ┌────────────────────────┐       rg                      suwu  ← the app
 │ ripgrep   15.2.0 [ins] │       fzf
 │ fzf       0.74.5 ✓     │       pig                     (suwu-max writes both
@@ -58,7 +58,7 @@ suwu exec rg --json -n TODO .      # runs ~/.suwu/bin/rg, no PATH guessing
    instead of the network.
 4. **Three ways to reach the tools**, from narrowest to widest: `suwu exec <name>`
    for scripts and agents, the server's own environment (so sessions and
-   `/api/files/search` see them), and an opt-in shell rc block for interactive
+   `/api/files/search` see them), and an always-on shell rc block for interactive
    shells outside Suwu.
 
 Out of scope for v1: a general package manager, arbitrary URLs (a user can still
@@ -100,14 +100,14 @@ workflow). §4 makes the catalog the single source.
 - `pkg/tools`: catalog parse/validate/lookup, per-platform resolution,
   install/update/uninstall against a bin dir, stamps.
 - Server endpoints `GET /api/tools`, `POST /api/tools/install`,
-  `POST /api/tools/uninstall`, `POST /api/tools/path` (enable/disable the rc
-  block), plus a bin-dir aware `PATH` for PTY sessions and for the server's own
+  `POST /api/tools/uninstall`, `POST /api/tools/setup` (optional per-tool shell
+  integration), plus a bin-dir aware `PATH` for PTY sessions and for the server's own
   `exec.LookPath` calls.
 - `suwu exec <name> [args…]`, `suwu tools list|install|update|remove`,
-  `suwu tools path --enable|--disable`.
-- Settings › System tools page: catalog list, per-platform availability,
+  `suwu tools path` (always on; re-asserts the block).
+- Tools page (top-level menu, above System Settings): catalog list, per-platform availability,
   installed/update/bundled states, install & update & uninstall, the PATH
-  toggle with a preview of the block it writes.
+  notice for the always-on PATH block, plus explicit add/remove for fzf and asdf shell setup.
 - Precedence rules with `suwu-max` (§7) so a seeded tool and an installed tool
   cannot silently fight over `~/.suwu/bin`, and the wrapper's move to
   `~/.local/bin/suwu` does not turn into a second source of `suwu` binaries.
@@ -354,11 +354,12 @@ Flags: `--list` (installed tools + versions, one per line, machine-readable),
 look like flags. Why strict: agents and extensions call this, and "which rg did
 I get" must never depend on the user's `PATH` order.
 
-### 6.3 Layer 3 — the rc block, opt-in
+### 6.3 Layer 3 — the rc block, always on
 
-For shells the user opens outside Suwu, the page has one toggle. Enabling writes
-a managed block into the rc files that already exist (bash, zsh, fish, profile —
-reuse `rcTargets`), after backing each file up once:
+For shells the user opens outside Suwu, Suwu keeps a managed block in the rc
+files that already exist (bash, zsh, fish, profile — reuse `rcTargets`), after
+backing each file up once. It is written at startup and after every install:
+the tool directory is part of the product, not an option:
 
 ```sh
 # >>> suwu-bin >>>
@@ -367,11 +368,9 @@ case ":$PATH:" in *":$HOME/.suwu/bin:"*) ;; *) export PATH="$HOME/.suwu/bin:$PAT
 ```
 
 Distinct markers from `suwu-max`'s block (so each can remove its own), guarded
-against a duplicate entry, idempotent, and removable
-(`suwu tools path --disable`). Since the `suwu-max` installer now puts
-`~/.local/bin` — not this directory — on the user's PATH (§7.2), the two blocks
-no longer overlap: this one is purely "do you also want the tools in your own
-shell".
+against a duplicate entry and idempotent. `suwu tools path` re-asserts and
+prints the block. Since the `suwu-max` installer now puts `~/.local/bin` — not
+this directory — on the user's PATH (§7.2), the two blocks do not overlap.
 
 ### 6.4 The lock
 
@@ -452,7 +451,7 @@ environment (§6.1, §6.2). So the next `suwu-max` run:
    `~/.zshrc: already on PATH, removed the suwu-max block`).
 
 Anyone who wants `rg` and friends in their interactive shell flips the *tools*
-toggle (§6.3), which writes the separate `# >>> suwu-bin >>>` block. The two
+block (§6.3), which is written automatically as `# >>> suwu-bin >>>`. The two
 blocks now point at different directories, so the dedupe problem the first draft
 of this plan worried about simply does not arise — but the migration does have to
 be explicit, because a stale block is invisible until someone wonders why `rg`
@@ -477,7 +476,7 @@ GET  /api/tools
 
 POST /api/tools/install     { name, refresh? }  → { name, version, files }      (200)
 POST /api/tools/uninstall   { name }            → { name, removed: [files] }     (200)
-POST /api/tools/path        { enabled: bool }   → { enabled, files, via }        (200)
+POST /api/tools/setup       { name, enabled }   → { name, enabled, files, … }    (200)
 POST /api/tools/refresh                         → { source }                     (200)
 ```
 
@@ -495,14 +494,14 @@ POST /api/tools/refresh                         → { source }                  
 
 ---
 
-## 9. Settings › System tools
+## 9. Tools (top-level menu)
 
 A new section in System Settings next to Fonts/Theme/Backgrounds, rendered by
 `frontend/src/components/dialogs/SystemToolsView.tsx`, following the tile type
 scale (Heading 16, Label 12, Caption 11) and the existing row idiom.
 
 ```
-┌ System tools ──────────────────────────────  ~/.suwu/bin  [refresh] ┐
+┌ Tools ─────────────────────────────────────  ~/.suwu/bin  [refresh] ┐
 │ ripgrep        15.2.0 · MIT OR Unlicense      [read the source]      │
 │ Recursive search, used by file search…              [Install]        │
 │ fzf            0.74.5 · MIT                   ✓ installed in 0.74.5  │
@@ -512,7 +511,7 @@ scale (Heading 16, Label 12, Caption 11) and the existing row idiom.
 │ herdr          0.9.5 · Apache-2.0             bundled by suwu-max    │
 │ witr           0.3.4 · Apache-2.0             not available on macOS │
 │                                                                     │
-│ Add ~/.suwu/bin to your shell PATH        [toggle]   bash, fish       │
+│ ~/.suwu/bin is always on your shell PATH   bash, fish                  │
 │   writes a small block in ~/.bashrc — preview                          │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -522,9 +521,9 @@ scale (Heading 16, Label 12, Caption 11) and the existing row idiom.
   hidden (so a user knows the tool exists and why it is not offered).
 - **Install/update/uninstall** call the endpoints above and re-render from a
   fresh `GET /api/tools`; no optimistic state, because the truth is on disk.
-- **The PATH toggle** shows the files it will edit *before* the click (a
-  disclosure with the exact block), and after the click lists what changed
-  ("added to ~/.bashrc, ~/.config/fish/config.fish").
+- **The PATH notice** names the files Suwu keeps the block in (a
+  always-on notice naming the files it is written to). The optional fzf/asdf
+  shell setup has its own add/remove button and shows the line it writes.
 - **Empty/offline/error states** are first-class: "no catalog (offline) —
   installed tools: rg 15.2.0", "the catalog lists no tools for this platform".
 - i18n under `tools.*` in `en.json` + `zh_CN.json`; every string in both files
@@ -596,7 +595,7 @@ extracted file list compared).
 | P0 — bundle split (separate change, prerequisite for P6) | `suwu-max` writes `~/.local/bin/suwu` + per-tool payloads and execs the app; its PATH block repointed at `~/.local/bin`; stamps moved to `.tools/` | `suwu-max` run once leaves a normal `suwu` install; a second run is a no-op except for missing tools; `suwu upgrade` still works afterwards |
 | P1 — catalog + pins | `tools/catalog.json`, schema validation, `check-tools-catalog.mjs`, fold `max-tools.json` and `herdr-core-lock.json` into it, teach `build-max.sh`/`fetch-herdr-core.sh` to read it | a release builds from the catalog alone; CI proves every pin; no duplicated version numbers in the tree |
 | P2 — `pkg/tools` core | catalog load/cache, platform resolution, `InstallFromURL` + `InstallFromReader`, stamp, install/update/uninstall, shared `pkg/bindir` lock | unit + httptest suites green; hostile-archive cases covered; one extractor, no second one in `pkg/maxbundle` |
-| P3 — CLI | `suwu exec`, `suwu tools list/install/update/remove/path`, help text, exit codes, non-TTY behaviour | `suwu exec rg --version` works on a machine with no system rg; `suwu tools path --enable` is idempotent |
+| P3 — CLI | `suwu exec`, `suwu tools list/install/update/remove/path`, help text, exit codes, non-TTY behaviour | `suwu exec rg --version` works on a machine with no system rg; `suwu tools path` is idempotent |
 | P4 — PATH layer 1 | server startup prepends the bin dir; `userToolDirs` gains `.suwu/bin`; PTY env test | `/api/files/search` succeeds right after `suwu tools install rg`, with the server untouched otherwise |
 | P5 — API + page | four endpoints, `SystemToolsView`, settings entry, i18n (en/zh), manual states (offline, unsupported, update, unmanaged) | every state of §9 rendered from a mocked server in a headless check; install from the page lands a stamped binary |
 | P6 — precedence + docs | skip-on-`origin: "tools"` in the bundle extraction, `--force` override, `suwu upgrade` lock, PATH migration of the old block, website `suwu-cli` + README + release notes | a `suwu-max` re-run over a tool-installed `rg` prints one skip line and leaves the file alone; the docs no longer describe a launcher |
@@ -617,7 +616,7 @@ today.
 | D2 | Ref the server reads | `master` (the raw GitHub copy), `SUWU_TOOLS_REF` for dev |
 | D3 | Fail closed on a missing sha256 | yes — an unpinned asset is not installable |
 | D4 | `suwu exec` resolution | managed-only, `--system` to opt out (predictable for agents) |
-| D5 | rc block for `~/.suwu/bin` | opt-in, page toggle, own `# >>> suwu-bin >>>` markers; `suwu-max` no longer adds this dir |
+| D5 | rc block for `~/.suwu/bin` | always on, page notice, own `# >>> suwu-bin >>>` markers; `suwu-max` no longer adds this dir |
 | D6 | Precedence | explicit install beats the bundle; the bundle seeds only what is missing, `--force` overrides |
 | D7 | Downloads in the server, not the browser | yes (the browser cannot write the bin dir) |
 | D8 | Progress reporting | blocking POST in v1; SSE only if a tool outgrows it |

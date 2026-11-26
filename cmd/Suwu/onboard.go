@@ -81,7 +81,6 @@ const (
 	sectionTLS      onboardSection = "tls"
 	sectionRuntime  onboardSection = "runtime"
 	sectionTools    onboardSection = "tools"
-	sectionShell    onboardSection = "shell"
 )
 
 // onboardSectionOrder is the order sections run in when several are selected.
@@ -91,7 +90,6 @@ var onboardSectionOrder = []onboardSection{
 	sectionTLS,
 	sectionRuntime,
 	sectionTools,
-	sectionShell,
 }
 
 func onboardSectionLabel(section onboardSection) string {
@@ -106,8 +104,6 @@ func onboardSectionLabel(section onboardSection) string {
 		return "data directory and service"
 	case sectionTools:
 		return "development tools"
-	case sectionShell:
-		return "shell integration"
 	default:
 		return string(section)
 	}
@@ -161,27 +157,25 @@ type onboardPlan struct {
 	certDir               string
 	// originalEnvPath is where the configuration was read from, so a runtime
 	// section that moves the data dir can carry the file to its new home.
-	originalEnvPath  string
-	profile          onboardProfile
-	host             string
-	mode             string
-	httpsPort        int
-	httpPort         int
-	extraHosts       string
-	sessionTTL       time.Duration
-	varDir           string
-	password         string
-	authHash         string
-	existingAuth     bool
-	generateTLS      bool
-	certFile         string
-	keyFile          string
-	installService   bool
-	startService     bool
-	shellIntegration bool
-	devenv           devenvPlan
-	existingService  bool
-	legacyKeys       []string
+	originalEnvPath string
+	profile         onboardProfile
+	host            string
+	mode            string
+	httpsPort       int
+	httpPort        int
+	extraHosts      string
+	sessionTTL      time.Duration
+	varDir          string
+	password        string
+	authHash        string
+	existingAuth    bool
+	generateTLS     bool
+	certFile        string
+	keyFile         string
+	installService  bool
+	startService    bool
+	existingService bool
+	legacyKeys      []string
 }
 
 const changePasswordUsageText = `Usage: suwu change-password
@@ -240,7 +234,7 @@ func onboard(args []string) error {
 }
 
 func printOnboardUsage() {
-	fmt.Print(`Usage: suwu onboard [--server] [--password] [--tls] [--runtime] [--tools] [--shell]
+	fmt.Print(`Usage: suwu onboard [--server] [--password] [--tls] [--runtime] [--tools]
 
 Interactive setup wizard. Requires an attached terminal.
 
@@ -256,8 +250,7 @@ Sections:
   --password   Connection password (keep, generate or set a new one)
   --tls        TLS certificate setup
   --runtime    Data directory and systemd service
-  --tools      Development tools
-  --shell      Shell integration
+  --tools      Development tools: catalog tools and manual setup steps
 `)
 }
 
@@ -270,8 +263,7 @@ func parseOnboardSections(args []string) ([]onboardSection, error) {
 	password := fs.Bool("password", false, "connection password (keep, generate or set)")
 	tls := fs.Bool("tls", false, "TLS certificate setup")
 	runtime := fs.Bool("runtime", false, "data directory and systemd service")
-	tools := fs.Bool("tools", false, "development tools")
-	shell := fs.Bool("shell", false, "shell integration")
+	tools := fs.Bool("tools", false, "development tools and manual setup steps")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil, errOnboardHelp
@@ -279,7 +271,7 @@ func parseOnboardSections(args []string) ([]onboardSection, error) {
 		return nil, err
 	}
 	if fs.NArg() > 0 {
-		return nil, fmt.Errorf("unexpected argument %q; choose a section with --server, --password, --tls, --runtime, --tools or --shell", fs.Arg(0))
+		return nil, fmt.Errorf("unexpected argument %q; choose a section with --server, --password, --tls, --runtime or --tools", fs.Arg(0))
 	}
 
 	selected := map[onboardSection]bool{
@@ -288,7 +280,6 @@ func parseOnboardSections(args []string) ([]onboardSection, error) {
 		sectionTLS:      *tls,
 		sectionRuntime:  *runtime,
 		sectionTools:    *tools,
-		sectionShell:    *shell,
 	}
 	// Server mode and TLS are coupled: switching to HTTPS needs certificates,
 	// so selecting the server section also runs the TLS section.
@@ -381,14 +372,9 @@ func onboardFull(plan *onboardPlan) error {
 	if err := collectOnboardRuntime(plan); err != nil {
 		return err
 	}
-	devenv, err := collectDevenvPlan()
-	if err != nil {
-		return err
-	}
-	plan.devenv = devenv
-	if err := collectOnboardShellIntegration(plan); err != nil {
-		return err
-	}
+	// Catalog tools are installed from the Tools screen, and everything the
+	// catalog does not cover is printed as a manual step instead. Onboarding
+	// no longer installs development tools itself.
 
 	confirmed, err := reviewOnboardPlan(plan)
 	if err != nil {
@@ -453,13 +439,9 @@ func collectOnboardSection(plan *onboardPlan, section onboardSection) error {
 	case sectionRuntime:
 		return collectOnboardRuntime(plan)
 	case sectionTools:
-		devenv, err := collectDevenvPlan()
-		if err == nil {
-			plan.devenv = devenv
-		}
-		return err
-	case sectionShell:
-		return collectOnboardShellIntegration(plan)
+		// Nothing to ask: the Tools screen owns installation, and the manual
+		// steps are printed when the run finishes.
+		return nil
 	default:
 		return fmt.Errorf("unknown onboarding section %q", section)
 	}
@@ -839,21 +821,6 @@ func collectOnboardRuntime(plan *onboardPlan) error {
 	return nil
 }
 
-func collectOnboardShellIntegration(plan *onboardPlan) error {
-	apply := true
-	form := huh.NewForm(huh.NewGroup(
-		huh.NewConfirm().
-			Title("Apply shell integration?").
-			Description("Add ~/.local/bin and asdf shims to your shell configuration.").
-			Value(&apply),
-	)).WithTheme(tuiTheme())
-	if err := form.Run(); err != nil {
-		return fmt.Errorf("shell integration prompt: %w", err)
-	}
-	plan.shellIntegration = apply
-	return nil
-}
-
 func printOnboardReview(plan onboardPlan) {
 	fmt.Println("\n  ── review onboarding plan ──")
 	fmt.Printf("\n  Server\n    Profile:        %s\n    Bind:           %s\n    Mode:           %s\n    HTTPS port:     %d\n    HTTP port:      %d\n    Session TTL:    %s\n", plan.profile, plan.host, plan.mode, plan.httpsPort, plan.httpPort, plan.sessionTTL)
@@ -866,14 +833,10 @@ func printOnboardReview(plan onboardPlan) {
 	} else {
 		fmt.Printf("    TLS:            keep %s\n", plan.certFile)
 	}
-	fmt.Printf("\n  Runtime\n    Data directory: %s\n    Config file:    %s\n    Cert directory: %s\n    Systemd:        %s\n    Start service:  %s\n    Shell changes:  %s\n", plan.varDir, plan.envPath, plan.certDir, yesNo(plan.installService || plan.existingService), yesNo(plan.startService), yesNo(plan.shellIntegration))
-	fmt.Println("\n  Advanced tools")
-	selected := selectedDevenvNames(plan.devenv)
-	if len(selected) == 0 {
-		fmt.Println("    none selected")
-	} else {
-		fmt.Printf("    %s\n", strings.Join(selected, ", "))
-	}
+	fmt.Printf("\n  Runtime\n    Data directory: %s\n    Config file:    %s\n    Cert directory: %s\n    Systemd:        %s\n    Start service:  %s\n", plan.varDir, plan.envPath, plan.certDir, yesNo(plan.installService || plan.existingService), yesNo(plan.startService))
+	fmt.Println("\n  Development tools")
+	fmt.Println("    Catalog tools are installed from the Tools screen; everything else is printed")
+	fmt.Println("    as a manual step when onboarding finishes.")
 	if len(plan.legacyKeys) > 0 {
 		fmt.Printf("\n  ⚠️  Legacy keys will be reviewed during configuration write: %s\n", strings.Join(plan.legacyKeys, ", "))
 	}
@@ -932,8 +895,6 @@ func editOnboardSection(plan *onboardPlan) error {
 				huh.NewOption("Authentication", string(sectionPassword)),
 				huh.NewOption("TLS", string(sectionTLS)),
 				huh.NewOption("Runtime and service", string(sectionRuntime)),
-				huh.NewOption("Development tools", string(sectionTools)),
-				huh.NewOption("Shell integration", string(sectionShell)),
 			).
 			Value(&section),
 	)).WithTheme(tuiTheme())
@@ -941,16 +902,6 @@ func editOnboardSection(plan *onboardPlan) error {
 		return fmt.Errorf("edit section prompt: %w", err)
 	}
 	return collectOnboardSection(plan, onboardSection(section))
-}
-
-func selectedDevenvNames(plan devenvPlan) []string {
-	var names []string
-	for _, item := range plan.Items {
-		if item.Category == "advanced" && plan.Selected[item.ID] {
-			names = append(names, item.Name)
-		}
-	}
-	return names
 }
 
 func passwordReview(plan onboardPlan) string {
@@ -975,9 +926,8 @@ func yesNo(value bool) string {
 }
 
 func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
-	const total = 7
+	const total = 5
 	step := 0
-	warnings := []string{}
 	runStep := func(label string, action func() error) error {
 		step++
 		started := time.Now()
@@ -1059,37 +1009,6 @@ func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
 		return err
 	}
 
-	if onboardHasSection(sections, sectionShell) {
-		if err := runStep("Applying shell integration", func() error {
-			if !plan.shellIntegration {
-				fmt.Println("    skipped by user")
-				return nil
-			}
-			ensureLocalBinInPath(plan.home, true)
-			ensureAsdfDataDir(plan.home, true)
-			return nil
-		}); err != nil {
-			return err
-		}
-	} else {
-		step++
-		fmt.Printf("\n  [%d/%d] Applying shell integration... skipped\n", step, total)
-	}
-
-	if onboardHasSection(sections, sectionTools) {
-		if err := runStep("Installing development tools", func() error {
-			if err := installDevenvPlan(plan.devenv); err != nil {
-				warnings = append(warnings, err.Error())
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	} else {
-		step++
-		fmt.Printf("\n  [%d/%d] Installing development tools... skipped\n", step, total)
-	}
-
 	if onboardHasSection(sections, sectionRuntime) {
 		if err := runStep("Configuring background service", func() error {
 			if !plan.installService && !plan.startService {
@@ -1136,11 +1055,8 @@ func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
 	fmt.Println("  ▶️  suwu daemon logs")
 	fmt.Println("  ℹ️  if you upgraded from an older install, run 'suwu onboard --runtime'")
 	fmt.Println("      (or 'suwu service install') so the service uses the data-dir paths")
-	if len(warnings) > 0 {
-		fmt.Println("\n  ⚠️  Warnings:")
-		for _, warning := range warnings {
-			fmt.Printf("     - %s\n", warning)
-		}
+	if onboardHasSection(sections, sectionTools) {
+		printOnboardTools()
 	}
 	return nil
 }
@@ -1249,78 +1165,6 @@ func generatePassword() (string, error) {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-// ensureLocalBinInPath adds ~/.local/bin to PATH in shell config files when
-// persist is true, and always updates the current process PATH.
-func ensureLocalBinInPath(home string, persist bool) {
-	localBin := home + "/.local/bin"
-	pathLine := `export PATH="$HOME/.local/bin:$PATH"`
-	alreadyInPath := false
-	for _, p := range strings.Split(os.Getenv("PATH"), ":") {
-		if p == localBin {
-			alreadyInPath = true
-			break
-		}
-	}
-	if persist && !alreadyInPath {
-		for _, cfg := range []string{".bashrc", ".profile", ".zshrc"} {
-			path := home + "/" + cfg
-			data, err := os.ReadFile(path)
-			if err != nil {
-				continue
-			}
-			if strings.Contains(string(data), ".local/bin") {
-				alreadyInPath = true
-				break
-			}
-			f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
-			if err == nil {
-				fmt.Fprintf(f, "\n# Suwu: add ~/.local/bin to PATH\n%s\n", pathLine)
-				f.Close()
-				fmt.Printf("    added ~/.local/bin to ~/%s\n", cfg)
-				alreadyInPath = true
-				break
-			}
-		}
-	}
-	if !alreadyInPath && persist {
-		path := home + "/.profile"
-		if f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
-			fmt.Fprintf(f, "# Suwu: add ~/.local/bin to PATH\n%s\n", pathLine)
-			f.Close()
-			fmt.Println("    added ~/.local/bin to ~/.profile")
-		}
-	}
-	os.Setenv("PATH", localBin+":"+os.Getenv("PATH"))
-}
-
-// ensureAsdfDataDir configures asdf for the current process and optionally
-// persists the setting in a shell profile.
-func ensureAsdfDataDir(home string, persist bool) {
-	asdfDir := home + "/.asdf"
-	envLine := `export ASDF_DATA_DIR="$HOME/.asdf"`
-	os.Setenv("ASDF_DATA_DIR", asdfDir)
-	if !persist {
-		return
-	}
-	for _, cfg := range []string{".bashrc", ".profile", ".zshrc"} {
-		path := home + "/" + cfg
-		data, err := os.ReadFile(path)
-		if err == nil && strings.Contains(string(data), "ASDF_DATA_DIR") {
-			return
-		}
-		if err != nil {
-			continue
-		}
-		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
-		if err == nil {
-			fmt.Fprintf(f, "\n# Suwu: set ASDF_DATA_DIR\n%s\n", envLine)
-			f.Close()
-			fmt.Printf("    set ASDF_DATA_DIR in ~/%s\n", cfg)
-			return
-		}
-	}
 }
 
 func upsertEnv(path string, kv map[string]string) error {

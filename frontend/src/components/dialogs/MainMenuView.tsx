@@ -3,7 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRightIcon } from '../icons';
 
 /** The sub-screens reachable from the menu list. */
-export type MenuSelection = 'shortcuts' | 'settings' | 'appMenu' | 'appSettings' | 'about';
+export type MenuSelection =
+  | 'shortcuts'
+  | 'settings'
+  | 'tools'
+  | 'appMenu'
+  | 'appSettings'
+  | 'about';
 
 const menuRow =
   'flex w-full cursor-pointer select-none items-center justify-between gap-2 rounded px-3 py-2 text-left ' +
@@ -78,6 +84,10 @@ export default function MainMenuView(props: { onSelect: (view: MenuSelection) =>
         onClick={() => onSelect('appSettings')}
       >
         {t('menu.appSettings')}
+        <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
+      </button>
+      <button type="button" role="menuitem" className={menuRow} onClick={() => onSelect('tools')}>
+        {t('menu.tools')}
         <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
       </button>
       <button

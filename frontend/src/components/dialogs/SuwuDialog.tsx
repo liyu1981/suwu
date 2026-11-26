@@ -8,6 +8,7 @@ import AppMenuView from './AppMenuView';
 import AppSettingsView from './AppSettingsView';
 import MainMenuView from './MainMenuView';
 import SettingsView from './SettingsView';
+import { ToolsView } from './ToolsView';
 import ShortcutsView from './ShortcutsView';
 import { ChevronLeftIcon, CloseIcon } from '../icons';
 
@@ -52,6 +53,7 @@ export default function SuwuDialog() {
     appMenu: t('menu.appMenu'),
     appSettings: t('menu.appSettings'),
     settings: t('menu.settings'),
+    tools: t('menu.tools'),
     about: t('menu.about'),
   };
 
@@ -110,6 +112,7 @@ export default function SuwuDialog() {
             {view === 'shortcuts' && <ShortcutsView />}
             {view === 'appMenu' && <AppMenuView />}
             {view === 'settings' && <SettingsView />}
+            {view === 'tools' && <ToolsView />}
             {view === 'about' && <AboutView />}
           </div>
         ) : (

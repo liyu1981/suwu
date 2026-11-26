@@ -63,6 +63,7 @@
     "shortcuts": "键盘快捷键",
     "appMenu": "应用菜单",
     "appSettings": "应用设置",
+    "tools": "工具",
     "settings": "系统设置",
     "about": "关于"
   },
@@ -966,7 +967,7 @@
     "resizeSplit": "调整面板上下比例"
   },
   "tools": {
-    "title": "系统工具",
+    "title": "工具",
     "loading": "正在读取工具目录…",
     "loadFailed": "无法读取工具目录。",
     "retry": "重试",
@@ -984,14 +985,13 @@
     "removed": "已移除 {{name}}（{{files}}）",
     "unmanagedHint": "{{path}} 不是 Suwu 安装的，因此不作处理。想交给 Suwu 管理，请自行删除它。",
     "bundledHint": "由 suwu-max 附带（{{version}}）。在此安装会替换它。",
-    "pathTitle": "把工具目录加入 shell 的 PATH",
-    "pathHint": "Suwu 自己的终端已经能用到这些工具，suwu exec 也总是运行 Suwu 管理的副本。这一项只影响你在 Suwu 之外打开的 shell。",
-    "pathEnable": "启用",
-    "pathDisable": "停用",
-    "pathPreview": "预览将要写入的内容",
-    "pathHidePreview": "收起预览",
-    "pathEnabled": "已加入 {{files}}",
-    "pathDisabled": "已从 {{files}} 移除",
+    "pathTitle": "工具目录已在 shell 的 PATH 中",
+    "pathNotice": "始终启用。Suwu 会把这个目录写进你在 Suwu 之外打开的 shell 的 PATH，并在每次启动或安装工具后刷新该配置块。",
+    "setupHint": "可选的 shell 配置：{{command}}",
+    "setupAdd": "添加 shell 配置",
+    "setupRemove": "移除 shell 配置",
+    "setupAdded": "已把 shell 配置加入 {{files}}",
+    "setupRemoved": "已从 {{files}} 移除 shell 配置",
     "state": {
       "installed": "已安装",
       "update": "可更新",

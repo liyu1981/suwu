@@ -1,7 +1,8 @@
 package server
 
 // Tests for /api/tools: the list (catalog ∪ installed, per-platform states), the
-// install/uninstall actions, and the opt-in PATH block. The installer itself is
+// install/uninstall actions, the always-on PATH block and the optional shell
+// setups. The installer itself is
 // covered in pkg/tools; here the contract with the browser is what matters —
 // authentication, status codes, and that a failed install leaves no stamp.
 
@@ -185,41 +186,63 @@ func TestToolsUninstallRemovesAStampedTool(t *testing.T) {
 	}
 }
 
-func TestToolsPathToggle(t *testing.T) {
-	ts, _, dataDir := extTestServerDir(t, nil)
+func TestToolsPathIsAlwaysOn(t *testing.T) {
+	_, _, dataDir := extTestServerDir(t, nil)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	if err := os.WriteFile(filepath.Join(home, ".bashrc"), []byte("export EDITOR=vim\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// Nothing installed yet: enabling is a conflict with a reason.
-	if status, _ := postJSON(t, ts.URL+"/api/tools/path?token=testtoken", map[string]any{"enabled": true}); status != http.StatusConflict {
-		t.Fatalf("enable without tools: status %d", status)
-	}
-
+	// The directory must exist before the block is written; the server calls
+	// this at startup and after every successful install.
 	stageFakeTool(t, dataDir, "rg", "15.2.0")
-	status, body := postJSON(t, ts.URL+"/api/tools/path?token=testtoken", map[string]any{"enabled": true})
-	if status != http.StatusOK || body["enabled"] != true {
-		t.Fatalf("enable: %d %v", status, body)
-	}
+	ensureToolsPath(dataDir)
 	rc, _ := os.ReadFile(filepath.Join(home, ".bashrc"))
 	if !strings.Contains(string(rc), bindir.ToolsBlock.Start) || !strings.Contains(string(rc), bindir.Dir(dataDir)) {
 		t.Fatalf("block missing:\n%s", rc)
 	}
-	// The list reports it, so the page's toggle can render the truth.
+	// The list reports it, so the page renders a notice rather than a toggle.
+	ts, _, _ := extTestServerDir(t, nil)
 	_, list := getTools(t, ts.URL, "?token=testtoken")
 	path, _ := list["path"].(map[string]any)
 	if path["enabled"] != true {
 		t.Fatalf("list does not report the block: %v", path)
 	}
+}
 
-	status, body = postJSON(t, ts.URL+"/api/tools/path?token=testtoken", map[string]any{"enabled": false})
+func TestToolsSetupToggle(t *testing.T) {
+	ts, _, _ := extTestServerDir(t, nil)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.WriteFile(filepath.Join(home, ".bashrc"), []byte("export EDITOR=vim\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Only fzf and asdf have shell setup; anything else is a 404.
+	if status, _ := postJSON(t, ts.URL+"/api/tools/setup?token=testtoken", map[string]any{"name": "rg", "enabled": true}); status != http.StatusNotFound {
+		t.Fatalf("rg setup: status %d", status)
+	}
+	status, body := postJSON(t, ts.URL+"/api/tools/setup?token=testtoken", map[string]any{"name": "fzf", "enabled": true})
+	if status != http.StatusOK || body["enabled"] != true {
+		t.Fatalf("enable: %d %v", status, body)
+	}
+	rc, _ := os.ReadFile(filepath.Join(home, ".bashrc"))
+	if !strings.Contains(string(rc), bindir.FzfBlock.Start) || !strings.Contains(string(rc), `eval "$(fzf --bash)"`) {
+		t.Fatalf("fzf block missing:\n%s", rc)
+	}
+	_, list := getTools(t, ts.URL, "?token=testtoken")
+	setup, _ := list["setup"].(map[string]any)
+	fzf, _ := setup["fzf"].(map[string]any)
+	if fzf["enabled"] != true {
+		t.Fatalf("list does not report the fzf setup: %v", fzf)
+	}
+
+	status, body = postJSON(t, ts.URL+"/api/tools/setup?token=testtoken", map[string]any{"name": "fzf", "enabled": false})
 	if status != http.StatusOK || body["enabled"] != false {
 		t.Fatalf("disable: %d %v", status, body)
 	}
 	rc, _ = os.ReadFile(filepath.Join(home, ".bashrc"))
-	if strings.Contains(string(rc), bindir.ToolsBlock.Start) {
-		t.Fatalf("block not removed:\n%s", rc)
+	if strings.Contains(string(rc), bindir.FzfBlock.Start) {
+		t.Fatalf("fzf block not removed:\n%s", rc)
 	}
 	if !strings.Contains(string(rc), "export EDITOR=vim") {
 		t.Fatal("unrelated content lost")
@@ -262,7 +285,7 @@ func TestToolsListSurvivesAnUnreachableCatalog(t *testing.T) {
 // joins) these arrays — which is how an empty rc state crashed the Tools tab.
 // The API must always answer with arrays.
 func TestToolsArraysAreNeverNull(t *testing.T) {
-	ts, _, dataDir := extTestServerDir(t, nil)
+	ts, _, _ := extTestServerDir(t, nil)
 	home := t.TempDir()
 	t.Setenv("HOME", home) // no rc file has the block
 
@@ -271,18 +294,15 @@ func TestToolsArraysAreNeverNull(t *testing.T) {
 	if files, ok := path["files"].([]any); !ok || files == nil {
 		t.Fatalf("path.files is not an array: %#v", path["files"])
 	}
-	for _, name := range []string{"tools", "path"} {
+	for _, name := range []string{"tools", "path", "setup"} {
 		if raw, exists := body[name]; !exists || raw == nil {
 			t.Errorf("%s is null", name)
 		}
 	}
 
-	// The toggle answers with arrays too, on both directions.
-	for _, enabled := range []bool{false, true, false} {
-		if enabled {
-			stageFakeTool(t, dataDir, "rg", "15.2.0")
-		}
-		status, out := postJSON(t, ts.URL+"/api/tools/path?token=testtoken", map[string]any{"enabled": enabled})
+	// The setup action answers with arrays too, on both directions.
+	for _, enabled := range []bool{true, false} {
+		status, out := postJSON(t, ts.URL+"/api/tools/setup?token=testtoken", map[string]any{"name": "asdf", "enabled": enabled})
 		if status != http.StatusOK {
 			t.Fatalf("enabled=%v: status %d (%v)", enabled, status, out)
 		}

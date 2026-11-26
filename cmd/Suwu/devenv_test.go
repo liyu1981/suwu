@@ -82,3 +82,32 @@ func TestEnvWithToolDirsPrependsSuwuBin(t *testing.T) {
 		t.Fatalf("PATH does not start with %q: %v", dir, env)
 	}
 }
+
+// Onboarding no longer installs development tools. Catalog tools are the Tools
+// screen's job; everything else is an instruction, so the partition must not
+// leak a catalog tool into the manual list or drop an uncovered one.
+func TestManualSetupStepsExcludeCatalogTools(t *testing.T) {
+	steps, err := manualSetupSteps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]manualSetupStep{}
+	for _, step := range steps {
+		byName[step.Name] = step
+	}
+	for _, covered := range []string{"ripgrep", "fzf", "asdf", "witr", "PiG", "herdr", "fresh", "lazygit", "oxker"} {
+		if _, ok := byName[covered]; ok {
+			t.Errorf("%s is in the catalog but was listed as a manual step", covered)
+		}
+	}
+	for _, manual := range []string{"git", "vim", "pnpm", "asdf nodejs", "pi", "opencode"} {
+		step, ok := byName[manual]
+		if !ok {
+			t.Errorf("%s is not covered by the catalog but has no manual step", manual)
+			continue
+		}
+		if step.Command == "" {
+			t.Errorf("%s has no command to show", manual)
+		}
+	}
+}

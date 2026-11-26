@@ -247,6 +247,12 @@ func Install(bundle fs.FS, opt Options) (*Result, error) {
 	if err := writeRecord(res, manifest); err != nil {
 		return res, err
 	}
+	// The tool directory is not optional: a shell opened outside Suwu should
+	// find the tools the bundle just installed. `--no-path` only concerns the
+	// app's own directory, which is a separate block.
+	if _, err := bindir.EnsurePath(opt.BinDir, bindir.ToolsBlock); err != nil {
+		fmt.Fprintf(os.Stderr, "suwu-max: could not update PATH for the tool directory: %v\n", err)
+	}
 	if !opt.NoPath {
 		changed, removed, err := syncPath(opt.AppDir)
 		if err != nil {
@@ -482,11 +488,11 @@ func writeRecord(res *Result, manifest *Manifest) error {
 // syncPath puts the app's directory on PATH, and drops a block that a previous
 // suwu-max left pointing at the tool directory.
 //
-// The old launcher added ~/.suwu/bin. Under the bootstrap model a login shell
-// needs ~/.local/bin (where `suwu` lives), not the tool directory: Suwu's own
-// sessions get that from the server, and `suwu exec` needs no PATH at all.
-// Rewriting the same block is what makes the migration automatic, and removing
-// it entirely is right when the directory is already on PATH some other way.
+// The old launcher added ~/.suwu/bin. Under the bootstrap model this block
+// only needs ~/.local/bin (where `suwu` lives); the tool directory has its own
+// block, written unconditionally by Install. Rewriting the same block is what
+// makes the migration automatic, and removing it entirely is right when the
+// app directory is already on PATH some other way.
 func syncPath(appDir string) (changed, removed []string, err error) {
 	if bindir.OnPath(appDir) {
 		removed, err = bindir.RemovePath(bindir.MaxBlock)

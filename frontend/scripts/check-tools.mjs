@@ -1,4 +1,4 @@
-// Static checks for the System tools page.
+// Static checks for the Tools page.
 //
 // The page is thin over four endpoints, and the things that used to go wrong in
 // this codebase are all visible in the source: a component that calls a route
@@ -11,8 +11,9 @@ import { readFileSync } from 'node:fs';
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
 const lib = read('../src/lib/tools.ts');
-const view = read('../src/components/dialogs/SystemToolsView.tsx');
-const settings = read('../src/components/dialogs/SettingsView.tsx');
+const view = read('../src/components/dialogs/ToolsView.tsx');
+const dialog = read('../src/components/dialogs/SuwuDialog.tsx');
+const menu = read('../src/components/dialogs/MainMenuView.tsx');
 const server = read('../../pkg/server/tools.go');
 const statusGo = read('../../pkg/tools/status.go');
 const router = read('../../pkg/server/server.go');
@@ -21,7 +22,7 @@ const router = read('../../pkg/server/server.go');
 // Matches the path part of a URL, quoted or inside a template literal (the
 // list request appends `?refresh=1` when asked to refresh).
 const clientRoutes = new Set([...lib.matchAll(/\/api\/tools[a-z/]*/g)].map((m) => m[0]));
-const expected = ['/api/tools', '/api/tools/install', '/api/tools/uninstall', '/api/tools/path'];
+const expected = ['/api/tools', '/api/tools/install', '/api/tools/uninstall', '/api/tools/setup'];
 for (const route of expected) {
   assert.ok(clientRoutes.has(route), `the client does not call ${route}`);
   assert.ok(server.includes(`"${route}"`), `the server does not serve ${route}`);
@@ -31,15 +32,17 @@ assert.deepEqual(
   [...expected].sort(),
   'the client calls a tools route that is not in the four this page owns',
 );
-// The page is reachable: a settings tab renders it.
-assert.match(settings, /<SystemToolsView \/>/, 'the settings page renders the tools view');
-assert.match(settings, /settings\.toolsTab/, 'the tab is labelled from i18n');
+// The page is reachable as its own menu screen, above System Settings.
+assert.match(dialog, /<ToolsView \/>/, 'the menu does not render the tools view');
+assert.match(menu, /onSelect\('tools'\)/, 'the menu has no Tools row');
+const settings = read('../src/components/dialogs/SettingsView.tsx');
+assert.ok(!settings.includes('ToolsView'), 'Tools must not live inside System Settings');
 
 // ── the page never talks to the network itself ───────────────────────────
 // Every request goes through lib/api, which attaches the token and turns a
 // non-2xx into the server's own message.
 assert.ok(!/\bfetch\(/.test(view), 'the view must go through lib/api, not fetch()');
-for (const helper of ['fetchTools', 'installTool', 'uninstallTool', 'setToolsPath']) {
+for (const helper of ['fetchTools', 'installTool', 'uninstallTool', 'setToolSetup']) {
   assert.match(view, new RegExp(`${helper}\\(`), `the view does not use ${helper}`);
 }
 
@@ -85,5 +88,9 @@ for (const state of ['installed', 'update', 'missing', 'unsupported', 'unmanaged
 // ── the routes are mounted ───────────────────────────────────────────────
 assert.match(router, /strings\.HasPrefix\(r\.URL\.Path, "\/api\/tools"\)/, '/api/tools is not routed');
 assert.match(router, /handleTools/, 'the tools handler is not wired');
+
+// ── the PATH block is a notice, never an opt-in toggle ──────────────────
+assert.ok(!view.includes('setToolsPath'), 'the view still offers a PATH toggle');
+assert.match(view, /tools\.pathNotice/, 'the PATH section must explain that it is always on');
 
 console.log('check-tools: ok');

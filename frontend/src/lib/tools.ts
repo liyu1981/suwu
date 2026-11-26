@@ -6,7 +6,7 @@ import { fetchJson, postJson } from './api';
  * the page re-reads the truth afterwards (docs/TOOLS_PLAN.md §9).
  */
 
-export type ToolState = 'installed' | 'update' | 'missing' | 'unsupported' | 'unmanaged';
+export type ToolState = 'installed' | 'update' | 'missing' | 'unsupported' | 'unmanaged' | 'manual';
 
 export interface ToolFileStamp {
   file: string;
@@ -46,6 +46,10 @@ export interface ToolStatus {
   installed?: ToolStamp;
   path: string;
   platforms: string[];
+  /** True for a tool Suwu cannot install: it only points at the instruction. */
+  manual?: boolean;
+  /** The command a manual row asks the user to run. */
+  instruction?: string;
 }
 
 export interface ToolsSource {

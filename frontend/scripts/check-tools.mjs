@@ -63,7 +63,7 @@ const en = JSON.parse(read('../src/locales/en.json'));
 const zh = JSON.parse(read('../src/locales/zh_CN.json'));
 const keys = new Set([...view.matchAll(/t\('([a-zA-Z0-9_.]+)'/g)].map((m) => m[1]));
 // The state badges are built from a template, so they are listed explicitly.
-for (const state of ['installed', 'update', 'missing', 'unsupported', 'unmanaged']) {
+for (const state of ['installed', 'update', 'missing', 'unsupported', 'unmanaged', 'manual']) {
   keys.add(`tools.state.${state}`);
 }
 assert.ok(keys.size > 0, 'no i18n keys found in the view');
@@ -77,7 +77,7 @@ for (const key of keys) {
 
 // ── the page has a state for every tool state the server can send ────────
 // pkg/tools decides the state; the page must be able to render each one.
-for (const state of ['installed', 'update', 'missing', 'unsupported', 'unmanaged']) {
+for (const state of ['installed', 'update', 'missing', 'unsupported', 'unmanaged', 'manual']) {
   assert.ok(lib.includes(`'${state}'`), `ToolState is missing ${state}`);
   assert.ok(
     statusGo.includes(`State = "${state}"`),
@@ -88,6 +88,12 @@ for (const state of ['installed', 'update', 'missing', 'unsupported', 'unmanaged
 // ── the routes are mounted ───────────────────────────────────────────────
 assert.match(router, /strings\.HasPrefix\(r\.URL\.Path, "\/api\/tools"\)/, '/api/tools is not routed');
 assert.match(router, /handleTools/, 'the tools handler is not wired');
+
+// ── manual tools are instructions, never an Install button ──────────────
+assert.match(view, /tool\.manual/, 'the view does not special-case manual tools');
+assert.match(view, /tool\.instruction/, 'manual rows must show their instruction');
+assert.match(lib, /instruction\?: string/, 'ToolStatus is missing the manual instruction');
+assert.match(statusGo, /ManualStatuses\(\)/, 'pkg/tools does not merge manual tools');
 
 // ── the PATH block is a notice, never an opt-in toggle ──────────────────
 assert.ok(!view.includes('setToolsPath'), 'the view still offers a PATH toggle');

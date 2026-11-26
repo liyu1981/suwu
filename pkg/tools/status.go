@@ -23,6 +23,10 @@ const (
 	// stamp owns it: somebody installed it by hand, and the installer will not
 	// touch it without --force.
 	StateUnmanaged State = "unmanaged"
+	// StateManual means the tool cannot be installed by Suwu (it is not a
+	// single binary) and is not detected on this machine yet. The row shows
+	// the instruction instead of an Install button.
+	StateManual State = "manual"
 )
 
 // Status is one catalog entry resolved against this machine.
@@ -44,6 +48,10 @@ type Status struct {
 	Installed *Stamp   `json:"installed,omitempty"`
 	Path      string   `json:"path"`
 	Platforms []string `json:"platforms"`
+	// Manual marks a tool Suwu cannot install itself, only point at.
+	Manual bool `json:"manual,omitempty"`
+	// Instruction is the command a manual row asks the user to run.
+	Instruction string `json:"instruction,omitempty"`
 }
 
 // Statuses resolves every catalog entry against a platform and a data dir.
@@ -86,6 +94,29 @@ func Statuses(cat *Catalog, goos, goarch, dataDir string) ([]Status, error) {
 		out = append(out, s)
 	}
 	return out, nil
+}
+
+// ManualStatuses resolves the tools that are installable only by hand against
+// this machine, so the Tools screen can list them beside the catalog.
+func ManualStatuses() []Status {
+	manual := ManualTools()
+	out := make([]Status, 0, len(manual))
+	for _, m := range manual {
+		s := Status{
+			Name:        m.Name,
+			Label:       m.Label,
+			Summary:     m.Summary,
+			State:       StateManual,
+			Path:        m.ResolvedPath(),
+			Manual:      true,
+			Instruction: m.Command,
+		}
+		if m.Installed() {
+			s.State = StateInstalled
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 func label(t *Tool) string {

@@ -236,10 +236,20 @@ function ToolRow({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-xs font-medium text-popover-foreground">{tool.label}</span>
           <span className="font-mono text-[11px] text-muted-foreground">{tool.name}</span>
-          <span className="font-mono text-[11px] text-muted-foreground">{tool.version}</span>
+          {tool.version && (
+            <span className="font-mono text-[11px] text-muted-foreground">{tool.version}</span>
+          )}
           <StateBadge tool={tool} />
         </div>
         <p className={sectionHint}>{tool.summary}</p>
+        {tool.manual && tool.instruction && (
+          <div className="mt-2 rounded border border-white/5 bg-black/20 px-2 py-1.5">
+            <p className={`${sectionHint} mt-0`}>{t('tools.manualHint')}</p>
+            <pre className="mt-1 overflow-x-auto text-[11px] leading-relaxed whitespace-pre-wrap break-words text-muted-foreground">
+              {tool.instruction}
+            </pre>
+          </div>
+        )}
         {tool.requires && tool.requires.length > 0 && (
           <p className={`${sectionHint} text-amber-300/70`}>
             {t('tools.requires', { list: tool.requires.join(', ') })}
@@ -321,6 +331,13 @@ function StateBadge({ tool }: { tool: ToolStatus }) {
     missing: 'bg-white/5 text-muted-foreground',
     unsupported: 'bg-white/5 text-muted-foreground',
     unmanaged: 'bg-amber-500/15 text-amber-300',
+    manual: 'bg-white/5 text-muted-foreground',
   };
-  return <span className={`${badge} ${style[tool.state]}`}>{t(`tools.state.${tool.state}`)}</span>;
+  // A manual row that is present is not Suwu-managed, so "installed" alone
+  // would overclaim. Say what was actually observed.
+  const key =
+    tool.manual && tool.state === 'installed'
+      ? 'tools.state.detected'
+      : `tools.state.${tool.state}`;
+  return <span className={`${badge} ${style[tool.state]}`}>{t(key)}</span>;
 }

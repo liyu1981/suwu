@@ -331,3 +331,29 @@ func TestToolsListReportsWhyTheCatalogIsStale(t *testing.T) {
 		t.Fatalf("no reason in the stale source: %v", source)
 	}
 }
+
+// Tools Suwu cannot install still appear on the screen: detection plus the
+// command to run, and no install action.
+func TestToolsListIncludesManualTools(t *testing.T) {
+	ts, _, _ := extTestServerDir(t, nil)
+	status, body := getTools(t, ts.URL, "?token=testtoken")
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	for _, name := range []string{"git", "vim", "nodejs", "pnpm", "pi", "opencode"} {
+		row := toolByName(body, name)
+		if row == nil {
+			t.Errorf("%s is missing from the tools list", name)
+			continue
+		}
+		if row["manual"] != true {
+			t.Errorf("%s manual = %v, want true", name, row["manual"])
+		}
+		if row["available"] != false {
+			t.Errorf("%s available = %v, want false", name, row["available"])
+		}
+		if instruction, _ := row["instruction"].(string); instruction == "" {
+			t.Errorf("%s has no instruction", name)
+		}
+	}
+}

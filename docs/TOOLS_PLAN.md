@@ -521,6 +521,9 @@ scale (Heading 16, Label 12, Caption 11) and the existing row idiom.
   hidden (so a user knows the tool exists and why it is not offered).
 - **Install/update/uninstall** call the endpoints above and re-render from a
   fresh `GET /api/tools`; no optimistic state, because the truth is on disk.
+- **Manual tools** (git, vim, nodejs, pnpm, pi, opencode) are rows too: PATH
+  detection, an instruction, and no Install button, because they are not a
+  single binary. `pkg/tools/manual.go` is the shared list onboarding also uses.
 - **The PATH notice** names the files Suwu keeps the block in (a
   always-on notice naming the files it is written to). The optional fzf/asdf
   shell setup has its own add/remove button and shows the line it writes.

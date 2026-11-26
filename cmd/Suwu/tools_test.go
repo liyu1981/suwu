@@ -215,6 +215,7 @@ func TestStateLabels(t *testing.T) {
 		tools.StateMissing:     "available",
 		tools.StateUnsupported: "not for this platform",
 		tools.StateUnmanaged:   "unmanaged file",
+		tools.StateManual:      "manual install",
 	}
 	for state, want := range cases {
 		if got := stateLabel(tools.Status{State: state}); got != want {

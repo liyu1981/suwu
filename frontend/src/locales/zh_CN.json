@@ -992,12 +992,15 @@
     "setupRemove": "移除 shell 配置",
     "setupAdded": "已把 shell 配置加入 {{files}}",
     "setupRemoved": "已从 {{files}} 移除 shell 配置",
+    "manualHint": "这一项不是单个二进制文件，Suwu 无法代为安装。请自行运行：",
     "state": {
       "installed": "已安装",
       "update": "可更新",
       "missing": "未安装",
       "unsupported": "此设备不支持",
-      "unmanaged": "非 Suwu 管理"
+      "unmanaged": "非 Suwu 管理",
+      "manual": "需手动安装",
+      "detected": "已检测到"
     },
     "refFallback": "本版本在 {{from}} 上还没有工具目录，因此使用 {{ref}}。"
   },

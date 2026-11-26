@@ -995,12 +995,15 @@
     "setupRemove": "Remove shell setup",
     "setupAdded": "Shell setup added to {{files}}",
     "setupRemoved": "Shell setup removed from {{files}}",
+    "manualHint": "Suwu cannot install this one because it is not a single binary. Run this yourself:",
     "state": {
       "installed": "Installed",
       "update": "Update available",
       "missing": "Not installed",
       "unsupported": "Not for this device",
-      "unmanaged": "Unmanaged file"
+      "unmanaged": "Unmanaged file",
+      "manual": "Install manually",
+      "detected": "Detected"
     },
     "refFallback": "This build has no catalog at {{from}} yet, so {{ref}} is being used."
   },

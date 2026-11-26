@@ -184,6 +184,7 @@ func toolsList(args []string) int {
 		fmt.Fprintf(os.Stderr, "tools: %v\n", err)
 		return 1
 	}
+	list = append(list, tools.ManualStatuses()...)
 	if f.asJSON {
 		out := struct {
 			BinDir string         `json:"binDir"`
@@ -222,6 +223,8 @@ func stateLabel(s tools.Status) string {
 		return "not for this platform"
 	case tools.StateUnmanaged:
 		return "unmanaged file"
+	case tools.StateManual:
+		return "manual install"
 	default:
 		return "available"
 	}

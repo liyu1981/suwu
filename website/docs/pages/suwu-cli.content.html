@@ -174,6 +174,7 @@ suwu tools path                 # ensures/prints the always-on PATH block</code>
 
         <p>The same list, with Install and Remove buttons, is <strong>Tools</strong> in the Suwu menu. Installing needs no server restart: Suwu's own terminals already see the directory, and <code>/api/files/search</code> picks up <code>rg</code> immediately. A tool the catalog has no build for on your platform is shown and inert rather than hidden, and a file nobody's stamp owns is left alone.</p>
         <p>The tool directory is always on your login shell's PATH — <code>suwu</code> keeps a managed block in your shell configs and refreshes it at startup and after every install. fzf and asdf need one more optional step beyond finding the binary; the Tools screen offers an <em>Add shell setup</em> action for each (<code>eval "$(fzf --bash)"</code> and the asdf shims line).</p>
+        <p>Tools that are not a single binary — git, vim, nodejs, pnpm, pi and opencode — still appear on the Tools screen. Suwu detects whether they are already installed and shows the command to run; it never offers to download them.</p>
 
         <h2><code>suwu exec</code></h2>
         <p>Run the copy of a tool that Suwu manages, never the one on <code>PATH</code>. Agents and extensions use this so "which <code>rg</code> did I get" never depends on PATH order.</p>

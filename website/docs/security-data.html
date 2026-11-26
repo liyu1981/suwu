@@ -127,19 +127,19 @@
               <td>The Suwu binary</td>
             </tr>
             <tr>
-              <td><code>~/.config/suwu/.env</code></td>
+              <td><code>~/.suwu/suwu.env</code></td>
               <td>Environment configuration (host, port, TLS paths, password hash)</td>
             </tr>
             <tr>
-              <td><code>~/.config/suwu/theme.json</code></td>
+              <td><code>~/.suwu/theme.json</code></td>
               <td>Custom theme (optional)</td>
             </tr>
             <tr>
-              <td><code>~/.config/suwu/sessions/</code></td>
-              <td>Persisted terminal sessions, tile layouts, scrollback buffers</td>
+              <td><code>~/.suwu/auth/sessions.json</code></td>
+              <td>Signed-in device sessions (login sessions)</td>
             </tr>
             <tr>
-              <td><code>~/.config/suwu/certs/</code></td>
+              <td><code>~/.suwu/cert/</code></td>
               <td>Self-signed TLS certificates (if generated)</td>
             </tr>
           </tbody>
@@ -158,7 +158,7 @@
 
         <h2 id="authentication">Authentication</h2>
         <ul>
-          <li><strong>Password auth</strong> — required by onboarding. Choose or generate it with <code>suwu onboard</code>; only its hash is stored in <code>~/.config/suwu/.env</code>.</li>
+          <li><strong>Password auth</strong> — required by onboarding. Choose or generate it with <code>suwu onboard</code>; only its hash is stored in <code>~/.suwu/suwu.env</code>.</li>
           <li><strong>Per-run tokens</strong> — displayed at server startup, valid for the current run only.</li>
           <li><strong>Host validation</strong> — requests must use an allowed machine host or an <code>EXTRA_HOSTS</code> entry.</li>
         </ul>
@@ -190,19 +190,14 @@
         <p>Never expose Suwu on a public port without some form of authentication in front of it.</p>
 
         <h2 id="session-data">Session Data</h2>
-        <p>Terminal sessions are persisted under <code>~/.config/suwu/sessions/</code>. This includes:</p>
-        <ul>
-          <li>Shell process state and environment.</li>
-          <li>Visible scrollback buffer (the text that was displayed).</li>
-          <li>Tile layout and working directories.</li>
-        </ul>
+        <p>Terminal sessions live in the server process and are not written to disk; a restart starts fresh shells. What is persisted is the list of signed-in devices, at <code>~/.suwu/auth/sessions.json</code>, so a restart does not sign every browser out.</p>
 
         <p>This data is stored in plain text on disk. If your machine is shared, other users with read access to your home directory could inspect session data.</p>
 
         <h2 id="tls-certificates">TLS Certificates</h2>
-        <p>If you generate self-signed certificates with <code>suwu gencerts</code>, they are stored in <code>~/.config/suwu/certs/</code>. The private key is in plain text. For production use, provide your own certificates and restrict file permissions:</p>
+        <p>If you generate self-signed certificates with <code>suwu gencerts</code>, they are stored in <code>~/.suwu/cert/</code>. The private key is in plain text. For production use, provide your own certificates and restrict file permissions:</p>
 
-<pre><code>chmod 600 ~/.config/suwu/certs/key.pem</code></pre>
+<pre><code>chmod 600 ~/.suwu/cert/tls-key.pem</code></pre>
 
         <h2 id="updates">Updates</h2>
         <p><code>suwu upgrade</code> downloads binaries from GitHub releases. The download is verified via checksum. No telemetry or usage data is sent.</p>
@@ -235,7 +230,7 @@
             </tr>
             <tr>
               <td>Session persistence</td>
-              <td>Plain text on disk under <code>~/.config/suwu/</code></td>
+              <td>Plain text on disk under <code>~/.suwu/</code></td>
             </tr>
             <tr>
               <td>Designed for</td>

@@ -19,8 +19,8 @@ VAR=./var
 LOG="$VAR/suwu.log"
 PID="$VAR/suwu.pid"
 
-# User-global config dir (mirror of certs.DefaultDir in cmd/Suwu).
-GLOBAL_CFG="${SUWU_CONFIG_DIR:-$HOME/.config/suwu}"
+# User-global data dir (mirror of pkg/suwudir). Config and certs live here.
+GLOBAL_CFG="${SUWU_VAR:-$HOME/.suwu}"
 
 # Print the value of KEY from FILE (first occurrence, quotes stripped), or
 # nothing when the file/key is missing. Mirrors envfile.Load parsing.
@@ -35,7 +35,7 @@ env_file_value_from() {
 }
 
 # Effective file value: project ./.env wins, then the user-global
-# ~/.config/suwu/.env — same chain the server binary loads.
+# ~/.suwu/suwu.env — same chain the server binary loads.
 env_file_value() {
   local key="$1" v
   v=$(env_file_value_from .env "$key")
@@ -43,7 +43,7 @@ env_file_value() {
     printf '%s' "$v"
     return 0
   fi
-  env_file_value_from "$GLOBAL_CFG/.env" "$key"
+  env_file_value_from "$GLOBAL_CFG/suwu.env" "$key"
 }
 
 # Effective host: shell env beats .env, then the dev default.
@@ -66,9 +66,9 @@ HTTP_PORT="${HTTP_PORT:-8000}"
 TLS_CERT_FILE="${TLS_CERT_FILE:-$(env_file_value TLS_CERT_FILE)}"
 TLS_KEY_FILE="${TLS_KEY_FILE:-$(env_file_value TLS_KEY_FILE)}"
 if [[ -z "$TLS_CERT_FILE" && -z "$TLS_KEY_FILE" ]] \
-   && [[ -f "$GLOBAL_CFG/tls-cert.pem" && -f "$GLOBAL_CFG/tls-key.pem" ]]; then
-  TLS_CERT_FILE="$GLOBAL_CFG/tls-cert.pem"
-  TLS_KEY_FILE="$GLOBAL_CFG/tls-key.pem"
+   && [[ -f "$GLOBAL_CFG/cert/tls-cert.pem" && -f "$GLOBAL_CFG/cert/tls-key.pem" ]]; then
+  TLS_CERT_FILE="$GLOBAL_CFG/cert/tls-cert.pem"
+  TLS_KEY_FILE="$GLOBAL_CFG/cert/tls-key.pem"
 fi
 
 # Wildcard binds are reachable via loopback; display a clickable URL but

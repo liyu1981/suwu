@@ -5,7 +5,7 @@
 #
 # Expects the binary at ~/.local/bin/suwu (override with SUWU_BIN).
 # PID and logs live in ~/.suwu/ (override with SUWU_VAR).
-# Config resolution: shell env → ~/.config/suwu/.env → defaults.
+# Config resolution: shell env → ~/.suwu/suwu.env → defaults.
 set -euo pipefail
 
 CMD="${1:-start}"
@@ -16,7 +16,7 @@ LOG="$VAR/suwu.log"
 PID="$VAR/suwu.pid"
 MAX_LOG_BYTES="${MAX_LOG_BYTES:-5242880}"
 
-GLOBAL_CFG="${SUWU_CONFIG_DIR:-$HOME/.config/suwu}"
+GLOBAL_CFG="${SUWU_VAR:-$HOME/.suwu}"
 
 # ---------------------------------------------------------------------------
 # Env resolution — mirrors the binary's precedence chain
@@ -34,11 +34,11 @@ env_file_value() {
 
 env_value() {
   local key="$1" v
-  v=$(env_file_value "$GLOBAL_CFG/.env" "$key")
+  	v=$(env_file_value "$GLOBAL_CFG/suwu.env" "$key")
   printf '%s' "$v"
 }
 
-# Effective host: shell env beats ~/.config/suwu/.env, then production default.
+# Effective host: shell env beats ~/.suwu/suwu.env, then production default.
 if [[ -n "${HOST:-}" ]]; then
   RESOLVED_HOST="$HOST"
 else
@@ -46,7 +46,7 @@ else
   RESOLVED_HOST="${RESOLVED_HOST:-127.0.0.1}"
 fi
 
-# Effective server mode and ports: shell env beats ~/.config/suwu/.env.
+# Effective server mode and ports: shell env beats ~/.suwu/suwu.env.
 SERVER_MODE="${SERVER_MODE:-$(env_value SERVER_MODE)}"
 SERVER_MODE="${SERVER_MODE:-https}"
 HTTPS_PORT="${HTTPS_PORT:-$(env_value HTTPS_PORT)}"
@@ -58,9 +58,9 @@ HTTP_PORT="${HTTP_PORT:-8180}"
 TLS_CERT_FILE="${TLS_CERT_FILE:-$(env_value TLS_CERT_FILE)}"
 TLS_KEY_FILE="${TLS_KEY_FILE:-$(env_value TLS_KEY_FILE)}"
 if [[ -z "$TLS_CERT_FILE" && -z "$TLS_KEY_FILE" ]] \
-   && [[ -f "$GLOBAL_CFG/tls-cert.pem" && -f "$GLOBAL_CFG/tls-key.pem" ]]; then
-  TLS_CERT_FILE="$GLOBAL_CFG/tls-cert.pem"
-  TLS_KEY_FILE="$GLOBAL_CFG/tls-key.pem"
+   && [[ -f "$GLOBAL_CFG/cert/tls-cert.pem" && -f "$GLOBAL_CFG/cert/tls-key.pem" ]]; then
+  TLS_CERT_FILE="$GLOBAL_CFG/cert/tls-cert.pem"
+  TLS_KEY_FILE="$GLOBAL_CFG/cert/tls-key.pem"
 fi
 case "$SERVER_MODE" in
   https)      SCHEME=https ;;

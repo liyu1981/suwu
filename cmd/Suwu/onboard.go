@@ -20,9 +20,10 @@ import (
 	"suwu/pkg/certs"
 	"suwu/pkg/envfile"
 	"suwu/pkg/gencerts"
+	"suwu/pkg/suwudir"
 )
 
-// envExample is the default ~/.config/suwu/.env template written by onboard.
+// envExample is the default ~/.suwu/suwu.env template written by onboard.
 const envExample = `# Suwu user-global configuration.
 # Values already present in the shell environment take precedence over this file.
 
@@ -44,7 +45,8 @@ HTTP_PORT=8180
 # Example: EXTRA_HOSTS=terminal.example.com,*.lan.example
 #EXTRA_HOSTS=
 
-# Data directory for logs and PID (default ~/.suwu).
+# Data directory for configuration, certificates, logs and PID (default
+# ~/.suwu). Keep it writable by your user; the service reads suwu.env from here.
 #SUWU_VAR=
 
 # Password hash (sha256 hex). Required for web access and configured by
@@ -52,7 +54,8 @@ HTTP_PORT=8180
 #AUTH_PASS=
 
 # TLS certificates for the default HTTPS mode. Onboarding generates a pair
-# automatically; run 'suwu gencerts' to regenerate or set both paths explicitly.
+# under ~/.suwu/cert/ automatically; run 'suwu gencerts' to regenerate or set
+# both paths explicitly.
 # Browsers expose clipboard APIs on secure contexts, so HTTPS is recommended
 # for non-localhost access.
 #TLS_CERT_FILE=
@@ -155,26 +158,59 @@ var errOnboardHelp = errors.New("onboard help requested")
 
 type onboardPlan struct {
 	home, cfgDir, envPath string
-	profile               onboardProfile
-	host                  string
-	mode                  string
-	httpsPort             int
-	httpPort              int
-	extraHosts            string
-	sessionTTL            time.Duration
-	varDir                string
-	password              string
-	authHash              string
-	existingAuth          bool
-	generateTLS           bool
-	certFile              string
-	keyFile               string
-	installService        bool
-	startService          bool
-	shellIntegration      bool
-	devenv                devenvPlan
-	existingService       bool
-	legacyKeys            []string
+	certDir               string
+	// originalEnvPath is where the configuration was read from, so a runtime
+	// section that moves the data dir can carry the file to its new home.
+	originalEnvPath  string
+	profile          onboardProfile
+	host             string
+	mode             string
+	httpsPort        int
+	httpPort         int
+	extraHosts       string
+	sessionTTL       time.Duration
+	varDir           string
+	password         string
+	authHash         string
+	existingAuth     bool
+	generateTLS      bool
+	certFile         string
+	keyFile          string
+	installService   bool
+	startService     bool
+	shellIntegration bool
+	devenv           devenvPlan
+	existingService  bool
+	legacyKeys       []string
+}
+
+const changePasswordUsageText = `Usage: suwu change-password
+
+Change the web access password. This is a shortcut for 'suwu onboard --password':
+it prompts for a new connection password (keep, generate or choose one), stores
+its SHA-256 hash as AUTH_PASS in the Suwu configuration and leaves every other
+setting untouched. It requires an interactive terminal.
+
+Changing the password signs out every device: each one is asked for the new
+password on its next request.
+`
+
+func printChangePasswordUsage() { fmt.Print(changePasswordUsageText) }
+
+// changePassword is the 'suwu change-password' shortcut. It takes no
+// arguments of its own and delegates to the onboarding password section.
+func changePassword(args []string) error {
+	for _, arg := range args {
+		switch arg {
+		case "-h", "--help", "help":
+			printChangePasswordUsage()
+			return nil
+		}
+	}
+	if len(args) > 0 {
+		return fmt.Errorf("unexpected argument %q; 'suwu change-password' takes no arguments", args[0])
+	}
+	return onboard([]string{"--password"})
 }
 
 func onboard(args []string) error {
@@ -211,6 +247,9 @@ Interactive setup wizard. Requires an attached terminal.
 Without flags the complete wizard runs. With one or more section flags only
 the selected sections are prompted and written, leaving every other setting
 as it is on disk.
+
+To change only the connection password, 'suwu change-password' is a shortcut
+for 'suwu onboard --password'.
 
 Sections:
   --server     Deployment profile, bind host, ports, session timeout
@@ -272,17 +311,17 @@ func loadOnboardPlan() (onboardPlan, error) {
 	if err != nil {
 		return onboardPlan{}, fmt.Errorf("resolve home: %w", err)
 	}
-	cfgDir := filepath.Join(home, ".config", "suwu")
-	envPath := filepath.Join(cfgDir, ".env")
-	values, err := readOnboardEnv(envPath)
+	defaultDataDir, err := suwudir.DataDir()
+	if err != nil {
+		return onboardPlan{}, fmt.Errorf("resolve data directory: %w", err)
+	}
+	values, err := readOnboardEnv(suwudir.ConfigFile(defaultDataDir))
 	if err != nil {
 		return onboardPlan{}, fmt.Errorf("read existing configuration: %w", err)
 	}
 
 	plan := onboardPlan{
 		home:            home,
-		cfgDir:          cfgDir,
-		envPath:         envPath,
 		profile:         profileLocal,
 		host:            envValue(values, "HOST", "127.0.0.1"),
 		mode:            envValue(values, "SERVER_MODE", "https"),
@@ -290,24 +329,38 @@ func loadOnboardPlan() (onboardPlan, error) {
 		httpPort:        onboardPort(envValue(values, "HTTP_PORT", "8180"), 8180),
 		extraHosts:      values["EXTRA_HOSTS"],
 		sessionTTL:      onboardDuration(envValue(values, "SESSION_TTL", "24h"), 24*time.Hour),
-		varDir:          envValue(values, "SUWU_VAR", filepath.Join(home, ".suwu")),
+		varDir:          envValue(values, "SUWU_VAR", defaultDataDir),
 		authHash:        values["AUTH_PASS"],
 		existingAuth:    values["AUTH_PASS"] != "",
 		certFile:        values["TLS_CERT_FILE"],
 		keyFile:         values["TLS_KEY_FILE"],
 		existingService: hasSystemdUserService(),
 	}
-	if plan.certFile == "" {
-		plan.certFile = filepath.Join(cfgDir, "tls-cert.pem")
-	}
-	if plan.keyFile == "" {
-		plan.keyFile = filepath.Join(cfgDir, "tls-key.pem")
-	}
+	plan.originalEnvPath = suwudir.ConfigFile(defaultDataDir)
+	plan.setDataDir(plan.varDir)
 	if plan.mode != "https" && plan.mode != "http" && plan.mode != "https+http" {
 		plan.mode = "https"
 	}
 	plan.legacyKeys = findLegacyOnboardKeys(values)
 	return plan, nil
+}
+
+// setDataDir points the configuration, environment and default certificate
+// paths at dir. Explicit certificate paths outside the previous default cert
+// directory are kept: they belong to the user, not to the data dir.
+func (plan *onboardPlan) setDataDir(dir string) {
+	previousCertDir := plan.certDir
+	plan.varDir = dir
+	plan.cfgDir = dir
+	plan.envPath = suwudir.ConfigFile(dir)
+	plan.certDir = certs.CertDir(dir)
+	certPath, keyPath := certs.PairPaths(plan.certDir)
+	if plan.certFile == "" || (previousCertDir != "" && filepath.Dir(plan.certFile) == previousCertDir) {
+		plan.certFile = certPath
+	}
+	if plan.keyFile == "" || (previousCertDir != "" && filepath.Dir(plan.keyFile) == previousCertDir) {
+		plan.keyFile = keyPath
+	}
 }
 
 // onboardFull runs the complete wizard: every section is prompted, reviewed
@@ -727,7 +780,7 @@ func collectOnboardRuntime(plan *onboardPlan) error {
 			Title("Where should logs and PID files live?").
 			Options(
 				huh.NewOption("~/.suwu — recommended, no sudo needed", "home"),
-				huh.NewOption("/var/log/suwu — system-wide", "system"),
+				huh.NewOption("/var/log/suwu — system-wide (must be writable by your user)", "system"),
 				huh.NewOption("Custom directory", "custom"),
 			).
 			Value(&varDirChoice),
@@ -753,6 +806,9 @@ func collectOnboardRuntime(plan *onboardPlan) error {
 			return fmt.Errorf("data directory cannot be empty")
 		}
 	}
+	// Configuration and certificates live in the data directory, so moving it
+	// moves them (unless the user pinned explicit certificate paths).
+	plan.setDataDir(plan.varDir)
 
 	if hasSystemctl() {
 		install := !plan.existingService
@@ -810,7 +866,7 @@ func printOnboardReview(plan onboardPlan) {
 	} else {
 		fmt.Printf("    TLS:            keep %s\n", plan.certFile)
 	}
-	fmt.Printf("\n  Runtime\n    Data directory: %s\n    Systemd:        %s\n    Start service:  %s\n    Shell changes:  %s\n", plan.varDir, yesNo(plan.installService || plan.existingService), yesNo(plan.startService), yesNo(plan.shellIntegration))
+	fmt.Printf("\n  Runtime\n    Data directory: %s\n    Config file:    %s\n    Cert directory: %s\n    Systemd:        %s\n    Start service:  %s\n    Shell changes:  %s\n", plan.varDir, plan.envPath, plan.certDir, yesNo(plan.installService || plan.existingService), yesNo(plan.startService), yesNo(plan.shellIntegration))
 	fmt.Println("\n  Advanced tools")
 	selected := selectedDevenvNames(plan.devenv)
 	if len(selected) == 0 {
@@ -938,6 +994,20 @@ func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
 		if err := os.MkdirAll(plan.cfgDir, 0o700); err != nil {
 			return err
 		}
+		if err := os.MkdirAll(plan.certDir, 0o700); err != nil {
+			return fmt.Errorf("create certificate directory %s: %w", plan.certDir, err)
+		}
+		// A runtime-only run can move the data dir, and the configuration
+		// lives inside it now: carry the existing file over instead of
+		// starting from the template (which would drop the password hash).
+		if plan.originalEnvPath != "" && plan.envPath != plan.originalEnvPath && !fileExists(plan.envPath) {
+			if data, err := os.ReadFile(plan.originalEnvPath); err == nil {
+				if err := os.WriteFile(plan.envPath, data, 0o600); err != nil {
+					return fmt.Errorf("copy configuration to %s: %w", plan.envPath, err)
+				}
+				fmt.Printf("    copied configuration: %s -> %s\n", plan.originalEnvPath, plan.envPath)
+			}
+		}
 		if err := os.MkdirAll(plan.varDir, 0o755); err != nil {
 			return fmt.Errorf("create data directory %s: %w", plan.varDir, err)
 		}
@@ -964,7 +1034,7 @@ func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
 		if err := runStep("Generating TLS certificate", func() error {
 			hosts := onboardingTLSHosts(plan)
 			fmt.Printf("    hosts: %s\n", strings.Join(hosts, ", "))
-			return generateCerts(plan.cfgDir, hosts)
+			return generateCerts(plan.certDir, hosts)
 		}); err != nil {
 			return err
 		}
@@ -1064,6 +1134,8 @@ func executeOnboardPlan(plan onboardPlan, sections []onboardSection) error {
 	fmt.Printf("\n  Open: %s://%s:%d\n", onboardScheme(plan.mode), displayOnboardHost(plan.host), onboardDisplayPort(plan))
 	fmt.Println("  ▶️  suwu daemon status")
 	fmt.Println("  ▶️  suwu daemon logs")
+	fmt.Println("  ℹ️  if you upgraded from an older install, run 'suwu onboard --runtime'")
+	fmt.Println("      (or 'suwu service install') so the service uses the data-dir paths")
 	if len(warnings) > 0 {
 		fmt.Println("\n  ⚠️  Warnings:")
 		for _, warning := range warnings {
@@ -1098,10 +1170,10 @@ func onboardingTLSHosts(plan onboardPlan) []string {
 	return hosts
 }
 
-func generateCerts(cfgDir string, hosts []string) error {
+func generateCerts(certDir string, hosts []string) error {
 	if err := gencerts.Run([]string{
 		"--hosts", strings.Join(hosts, ","),
-		"--out", cfgDir,
+		"--out", certDir,
 		"--force",
 		"--no-env",
 	}); err != nil {

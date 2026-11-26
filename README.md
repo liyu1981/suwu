@@ -121,7 +121,8 @@ To change one part of an existing setup without re-running the whole wizard,
 pass a section flag:
 
 ```sh
-suwu onboard --password   # reset the connection password
+suwu change-password      # reset the connection password
+suwu onboard --password   # same thing, as an onboarding section
 suwu onboard --server     # bind host, ports, session timeout
 suwu onboard --tls        # TLS certificate
 suwu onboard --runtime    # data directory and systemd service
@@ -190,7 +191,7 @@ precedence over `.env`.
 | `EXTRA_HOSTS`           | —                  | Comma-separated additional allowed hosts, e.g. `example.com,*.lan.example`. |
 | `AUTH_PASS`             | —                  | SHA-256 hash of the required web password; set by `suwu onboard`.   |
 | `DEMO_PORT`             | `8000`             | Port the Vite dev server proxies `/api` and `/ws` to.               |
-| `TLS_CERT_FILE`         | —                  | TLS certificate for HTTPS modes. `suwu gencerts` writes both paths into `~/.config/suwu/.env`. |
+| `TLS_CERT_FILE`         | —                  | TLS certificate for HTTPS modes. `suwu gencerts` writes both paths into `~/.suwu/suwu.env`. |
 | `TLS_KEY_FILE`          | —                  | TLS private key; must be set together with `TLS_CERT_FILE`.         |
 
 Browser-visible hostnames need no configuration: loopback names plus the
@@ -200,7 +201,9 @@ terminal works via `localhost`, the LAN IP, or the hostname out of the box.
 ### Configuration locations
 
 `suwu serve` loads, in order of precedence: shell environment → `./.env`
-(project) → `~/.config/suwu/.env` (user-global, created by `suwu gencerts`).
+(project) → `~/.suwu/suwu.env` (user-global, created by `suwu onboard` and
+`suwu gencerts`). The data directory is `~/.suwu` (override with `SUWU_VAR`);
+configuration, certificates, logs and PID files all live there.
 
 ## Static previews
 
@@ -232,10 +235,10 @@ suwu gencerts        # interactive: pick hosts (auto-detected) and output dir
 suwu serve           # now serves https://, certs picked up automatically
 ```
 
-`gencerts` creates a persistent local CA under `~/.config/suwu/CA/` and signs
+`gencerts` creates a persistent local CA under `~/.suwu/cert/CA/` and signs
 a server certificate for the hosts you select (default
-`~/.config/suwu/tls-cert.pem` + `tls-key.pem`). Client devices only need to
-trust the CA once (`~/.config/suwu/CA/rootCA.pem`). Flags allow non-interactive
+`~/.suwu/cert/tls-cert.pem` + `tls-key.pem`). Client devices only need to
+trust the CA once (`~/.suwu/cert/CA/rootCA.pem`). Flags allow non-interactive
 use: `--hosts a.com,192.168.0.5 --out <dir> --no-env --force`.
 
 ## Development

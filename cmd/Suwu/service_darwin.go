@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"suwu/pkg/suwudir"
 )
 
 const launchdLabel = "com.suwu.suwu"
@@ -35,7 +37,7 @@ func hasLaunchdUserService() bool {
 	return err == nil
 }
 
-func renderLaunchdPlist(bin, varDir, configDir string) (string, error) {
+func renderLaunchdPlist(bin, dataDir string) (string, error) {
 	tmpl := `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -48,23 +50,21 @@ func renderLaunchdPlist(bin, varDir, configDir string) (string, error) {
     <string>serve</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>{{.ConfigDir}}</string>
+  <string>{{.Dir}}</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>{{.VarDir}}/suwu.log</string>
+  <string>{{.Dir}}/suwu.log</string>
   <key>StandardErrorPath</key>
-  <string>{{.VarDir}}/suwu.log</string>
+  <string>{{.Dir}}/suwu.log</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>SUWU_BIN</key>
     <string>{{.Bin}}</string>
     <key>SUWU_VAR</key>
-    <string>{{.VarDir}}</string>
-    <key>SUWU_CONFIG_DIR</key>
-    <string>{{.ConfigDir}}</string>
+    <string>{{.Dir}}</string>
   </dict>
 </dict>
 </plist>
@@ -75,11 +75,10 @@ func renderLaunchdPlist(bin, varDir, configDir string) (string, error) {
 	}
 	var buf strings.Builder
 	data := struct {
-		Label     string
-		Bin       string
-		VarDir    string
-		ConfigDir string
-	}{launchdLabel, bin, varDir, configDir}
+		Label string
+		Bin   string
+		Dir   string
+	}{launchdLabel, bin, dataDir}
 	if err := t.Execute(&buf, data); err != nil {
 		return "", err
 	}
@@ -90,7 +89,7 @@ func installLaunchdService() error {
 	if !hasLaunchctl() {
 		return fmt.Errorf("launchctl not found")
 	}
-	bin, varDir, configDir, err := servicePathsDarwin()
+	bin, dataDir, err := servicePathsDarwin()
 	if err != nil {
 		return err
 	}
@@ -101,10 +100,10 @@ func installLaunchdService() error {
 	if err := os.MkdirAll(filepath.Dir(plist), 0o755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(varDir, 0o755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return err
 	}
-	content, err := renderLaunchdPlist(bin, varDir, configDir)
+	content, err := renderLaunchdPlist(bin, dataDir)
 	if err != nil {
 		return err
 	}
@@ -185,28 +184,20 @@ func logsLaunchdService() error {
 }
 
 // servicePathsDarwin returns canonical paths (no systemd service file).
-func servicePathsDarwin() (bin, varDir, configDir string, err error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", "", "", err
-	}
+func servicePathsDarwin() (bin, dataDir string, err error) {
 	binPath, err := os.Executable()
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
 	binPath, err = filepath.EvalSymlinks(binPath)
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
-	varDir = filepath.Join(home, ".suwu")
-	if v := os.Getenv("SUWU_VAR"); v != "" {
-		varDir = v
+	dataDir, err = suwudir.DataDir()
+	if err != nil {
+		return "", "", err
 	}
-	configDir = filepath.Join(home, ".config", "suwu")
-	if v := os.Getenv("SUWU_CONFIG_DIR"); v != "" {
-		configDir = v
-	}
-	return binPath, varDir, configDir, nil
+	return binPath, dataDir, nil
 }
 
 func hasUserService() bool        { return hasLaunchctl() }

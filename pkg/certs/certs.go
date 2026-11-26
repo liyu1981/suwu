@@ -1,7 +1,7 @@
 // Package certs generates and manages the local certificate authority and
 // server certificate pairs used by 'suwu gencerts' and consumed by
 // 'suwu serve'. It is mkcert-style: a persistent local CA is created once
-// under the suwu config directory and reused, so client devices only need
+// under the suwu data directory and reused, so client devices only need
 // to trust the CA a single time for every cert this tool issues.
 package certs
 
@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"suwu/pkg/suwudir"
 )
 
 const (
@@ -30,8 +32,8 @@ const (
 	CertFileName = "tls-cert.pem"
 	KeyFileName  = "tls-key.pem"
 
-	// CADirName is the sub-directory (inside the suwu config directory)
-	// holding the local CA pair.
+	// CADirName is the sub-directory (inside the cert directory) holding the
+	// local CA pair.
 	CADirName = "CA"
 
 	CACertFileName = "rootCA.pem"
@@ -48,14 +50,10 @@ const (
 	leafValidFor = 825 * 24 * time.Hour
 )
 
-// DefaultDir returns the suwu config directory (XDG_CONFIG_HOME aware):
-// ~/.config/suwu by default.
-func DefaultDir() (string, error) {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve config dir: %w", err)
-	}
-	return filepath.Join(base, "suwu"), nil
+// CertDir returns the directory holding Suwu's TLS material inside the data
+// directory (~/.suwu/cert by default).
+func CertDir(dataDir string) string {
+	return filepath.Join(dataDir, suwudir.CertDirName)
 }
 
 // ExpandPath resolves a leading ~ or ~/ to the user's home directory.
@@ -82,8 +80,8 @@ type CA struct {
 	Key  crypto.Signer
 }
 
-// CADir returns the directory holding the local CA pair inside the suwu
-// config directory.
+// CADir returns the directory holding the local CA pair inside a cert
+// directory.
 func CADir(configDir string) string {
 	return filepath.Join(configDir, CADirName)
 }

@@ -7,15 +7,17 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"suwu/pkg/suwudir"
 )
 
 // systemdServiceTemplate is the unit file for the Suwu user service.
 // ExecStart uses the absolute path to the binary so systemd can find it
 // even without a login session. WorkingDirectory pins the process to the
-// config directory so `suwu serve` resolves its default `./.env` to the
-// onboard-written file, and EnvironmentFile loads that same file as real
-// process environment (optional, so a missing file is not fatal). Together
-// they stop a stray `$HOME/.env` from shadowing the global configuration.
+// data directory, where suwu.env and cert/ live, and EnvironmentFile loads
+// that same configuration as real process environment (optional, so a missing
+// file is not fatal). Together they stop a stray `$HOME/.env` from shadowing
+// the global configuration.
 // systemdServicePath is the PATH the service runs with. systemd user services
 // get a minimal PATH that omits user bin directories, so tools git shells out
 // to (git-lfs above all) are not found and pushes fail with "git-lfs was not
@@ -29,14 +31,13 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory={{.ConfigDir}}
-EnvironmentFile=-{{.ConfigDir}}/.env
+WorkingDirectory={{.Dir}}
+EnvironmentFile=-{{.Dir}}/suwu.env
 ExecStart={{.Bin}} serve
 Restart=on-failure
 RestartSec=2
 Environment=SUWU_BIN={{.Bin}}
-Environment=SUWU_VAR={{.VarDir}}
-Environment=SUWU_CONFIG_DIR={{.ConfigDir}}
+Environment=SUWU_VAR={{.Dir}}
 Environment=PATH={{.Path}}
 
 [Install]
@@ -44,13 +45,13 @@ WantedBy=default.target
 `
 
 // renderSystemdService renders the user service unit for the given paths.
-func renderSystemdService(bin, varDir, configDir string) (string, error) {
+func renderSystemdService(bin, dataDir string) (string, error) {
 	tmpl, err := template.New("service").Parse(systemdServiceTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parse template: %w", err)
 	}
 	var buf strings.Builder
-	data := struct{ Bin, VarDir, ConfigDir, Path string }{bin, varDir, configDir, systemdServicePath}
+	data := struct{ Bin, Dir, Path string }{bin, dataDir, systemdServicePath}
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("render service file: %w", err)
 	}
@@ -58,35 +59,30 @@ func renderSystemdService(bin, varDir, configDir string) (string, error) {
 }
 
 // servicePaths returns the canonical paths used by the systemd integration.
-func servicePaths() (bin, varDir, configDir, serviceFile string, err error) {
+func servicePaths() (bin, dataDir, serviceFile string, err error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("resolve home: %w", err)
+		return "", "", "", fmt.Errorf("resolve home: %w", err)
 	}
 
 	binPath, err := os.Executable()
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("resolve executable: %w", err)
+		return "", "", "", fmt.Errorf("resolve executable: %w", err)
 	}
 	binPath, err = filepath.EvalSymlinks(binPath)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("resolve symlinks: %w", err)
+		return "", "", "", fmt.Errorf("resolve symlinks: %w", err)
 	}
 
-	varDir = filepath.Join(home, ".suwu")
-	if v := os.Getenv("SUWU_VAR"); v != "" {
-		varDir = v
-	}
-
-	configDir = filepath.Join(home, ".config", "suwu")
-	if v := os.Getenv("SUWU_CONFIG_DIR"); v != "" {
-		configDir = v
+	dataDir, err = suwudir.DataDir()
+	if err != nil {
+		return "", "", "", err
 	}
 
 	serviceDir := filepath.Join(home, ".config", "systemd", "user")
 	serviceFile = filepath.Join(serviceDir, "suwu.service")
 
-	return binPath, varDir, configDir, serviceFile, nil
+	return binPath, dataDir, serviceFile, nil
 }
 
 // hasSystemctl returns true if the systemctl binary is in PATH.
@@ -97,7 +93,7 @@ func hasSystemctl() bool {
 
 // hasSystemdUserService returns true if the service file is installed.
 func hasSystemdUserService() bool {
-	_, _, _, serviceFile, err := servicePaths()
+	_, _, serviceFile, err := servicePaths()
 	if err != nil {
 		return false
 	}
@@ -120,7 +116,7 @@ func isLingerEnabled() bool {
 // installSystemdService writes the service file, reloads the daemon, enables
 // the service, and enables linger so it starts on boot.
 func installSystemdService() error {
-	bin, varDir, configDir, serviceFile, err := servicePaths()
+	bin, dataDir, serviceFile, err := servicePaths()
 	if err != nil {
 		return err
 	}
@@ -132,7 +128,7 @@ func installSystemdService() error {
 	}
 
 	// Render the service file from the template.
-	content, err := renderSystemdService(bin, varDir, configDir)
+	content, err := renderSystemdService(bin, dataDir)
 	if err != nil {
 		return err
 	}
@@ -179,7 +175,7 @@ func installSystemdService() error {
 // uninstallSystemdService stops the service, disables it, removes the file,
 // and reloads the daemon.
 func uninstallSystemdService() error {
-	_, _, _, serviceFile, err := servicePaths()
+	_, _, serviceFile, err := servicePaths()
 	if err != nil {
 		return err
 	}

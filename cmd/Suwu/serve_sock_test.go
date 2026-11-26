@@ -107,7 +107,6 @@ func serverEnv(dir, port string, extra ...string) []string {
 		"HOST=127.0.0.1",
 		"HTTP_PORT=" + port,
 		"SUWU_VAR=" + dir,
-		"SUWU_CONFIG_DIR=" + filepath.Join(dir, "config"),
 		"SUWU_LOG_LEVEL=info",
 	}
 	return append(env, extra...)

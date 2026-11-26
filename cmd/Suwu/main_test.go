@@ -82,8 +82,8 @@ func TestResolveTLSEnvironmentMissingFile(t *testing.T) {
 }
 
 func TestResolveTLSDefaultPair(t *testing.T) {
-	configRoot := t.TempDir() // becomes XDG_CONFIG_HOME; default dir is $XDG_CONFIG_HOME/suwu
-	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	dataDir := t.TempDir()
+	t.Setenv("SUWU_VAR", dataDir)
 	t.Setenv("TLS_CERT_FILE", "")
 	t.Setenv("TLS_KEY_FILE", "")
 
@@ -93,7 +93,7 @@ func TestResolveTLSDefaultPair(t *testing.T) {
 	}
 
 	// Create the default pair -> picked up.
-	pairDir := filepath.Join(configRoot, "suwu")
+	pairDir := filepath.Join(dataDir, "cert")
 	if err := os.MkdirAll(pairDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -113,16 +113,16 @@ func TestResolveTLSDefaultPair(t *testing.T) {
 	if cert != certPath || key != keyPath {
 		t.Errorf("resolveTLS = %q, %q; want %q, %q", cert, key, certPath, keyPath)
 	}
-	if source != "~/.config/suwu" {
+	if source != "~/.suwu/cert" {
 		t.Errorf("source = %q", source)
 	}
 }
 
 func TestResolveTLSEnvironmentBeatsDefaultPair(t *testing.T) {
-	configRoot := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	dataDir := t.TempDir()
+	t.Setenv("SUWU_VAR", dataDir)
 
-	pairDir := filepath.Join(configRoot, "suwu")
+	pairDir := filepath.Join(dataDir, "cert")
 	if err := os.MkdirAll(pairDir, 0o700); err != nil {
 		t.Fatal(err)
 	}

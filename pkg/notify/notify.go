@@ -20,6 +20,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"suwu/pkg/suwudir"
 )
 
 // probeTimeout bounds the liveness check against an existing socket path.
@@ -90,13 +92,9 @@ func SocketPath() (string, error) {
 	if p := strings.TrimSpace(os.Getenv("SUWU_SOCK_PATH")); p != "" {
 		return p, nil
 	}
-	dir := strings.TrimSpace(os.Getenv("SUWU_VAR"))
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve home dir: %w", err)
-		}
-		dir = filepath.Join(home, ".suwu")
+	dir, err := suwudir.DataDir()
+	if err != nil {
+		return "", err
 	}
 	name := "suwu.sock"
 	if os.Getenv("SUWU_DEV") == "true" {

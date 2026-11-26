@@ -17,10 +17,10 @@
 //
 // SUWU_DEV=true in the .env file enables the dev banner and air rebuild
 // message. Configuration is resolved in order of precedence:
-// shell environment, then ./.env (project), then ~/.config/suwu/.env
-// (user-global, written by 'suwu gencerts'). TLS certificates come from
-// TLS_CERT_FILE/TLS_KEY_FILE when set, falling back to the default pair
-// 'suwu gencerts' writes into ~/.config/suwu/.
+// shell environment, then ./.env (project), then ~/.suwu/suwu.env
+// (user-global, written by 'suwu onboard' and 'suwu gencerts'). TLS
+// certificates come from TLS_CERT_FILE/TLS_KEY_FILE when set, falling back
+// to the default pair 'suwu gencerts' writes into ~/.suwu/cert/.
 package main
 
 import (
@@ -57,6 +57,7 @@ import (
 	"suwu/pkg/server"
 	"suwu/pkg/session"
 	"suwu/pkg/staticserve"
+	"suwu/pkg/suwudir"
 	"suwu/pkg/version"
 	"suwu/pkg/xdisplay"
 )
@@ -94,6 +95,11 @@ func main() {
 		case "onboard":
 			if err := onboard(os.Args[2:]); err != nil {
 				log.Fatalf("onboard: %v", err)
+			}
+			return
+		case "change-password":
+			if err := changePassword(os.Args[2:]); err != nil {
+				log.Fatalf("change-password: %v", err)
 			}
 			return
 		case "install-to":
@@ -222,6 +228,9 @@ Usage:
   suwu onboard [--server|--password|--tls|--runtime|--tools|--shell]
                            interactive setup wizard; pass section flags to
                            update only those parts of the configuration
+  suwu change-password     change the web access password (shortcut for
+                           'suwu onboard --password'); every signed-in device
+                           is signed out and asked for the new password
   suwu install-to [--port <n>] [--identity <file>] <user>@<host>
                            copy this binary to a remote machine and run its
                            onboarding wizard over SSH; the transfer is refused
@@ -269,9 +278,9 @@ Usage:
 
 Configuration precedence:
   --env-file explicitly given → that file only
-  --env-file default (empty) → ./.env → ~/.config/suwu/.env → defaults
+  --env-file default (empty) → ./.env → ~/.suwu/suwu.env → defaults
   SUWU_DEV=true              → ./.env only (global skipped)
-TLS: TLS_CERT_FILE/TLS_KEY_FILE, else the default pair in ~/.config/suwu/
+TLS: TLS_CERT_FILE/TLS_KEY_FILE, else the default pair in ~/.suwu/cert/
 HTTP: SERVER_MODE selects https, http, or https+http; HTTPS_PORT defaults to 8181 and HTTP_PORT to 8180.
 `)
 }
@@ -437,8 +446,8 @@ and signs a leaf certificate for your machine.
 
 Flags:
   --hosts <list>    Comma-separated list of hostnames/IPs
-  --out <dir>       Output directory (default ~/.config/suwu/)
-  --no-env          Don't write cert paths to ~/.config/suwu/.env
+  --out <dir>       Output directory (default ~/.suwu/cert/)
+  --no-env          Don't write cert paths to ~/.suwu/suwu.env
   --force           Overwrite existing certificates
 
 Examples:
@@ -448,6 +457,8 @@ Examples:
 `)
 	case "onboard":
 		printOnboardUsage()
+	case "change-password":
+		printChangePasswordUsage()
 	case "install-to":
 		printInstallToUsage()
 	case "daemon":
@@ -578,11 +589,11 @@ func serveMain() {
 		slog.String("SUWU_LOG_LEVEL", os.Getenv("SUWU_LOG_LEVEL")),
 	)
 
-	// Load the user-global ~/.config/suwu/.env only when no explicit
+	// Load the user-global ~/.suwu/suwu.env only when no explicit
 	// --env-file was given and SUWU_DEV is not set.
 	if *envFile == "" && os.Getenv("SUWU_DEV") != "true" {
-		if dir, err := certs.DefaultDir(); err == nil {
-			globalEnv := filepath.Join(dir, ".env")
+		if dir, err := suwudir.DataDir(); err == nil {
+			globalEnv := suwudir.ConfigFile(dir)
 			logging.Debug("loading global env",
 				slog.String("path", globalEnv),
 			)
@@ -656,11 +667,9 @@ func run(debugCfg debugConfig) error {
 	}
 
 	// Data directory (default ~/.suwu, override with SUWU_VAR).
-	dataDir := os.Getenv("SUWU_VAR")
-	if dataDir == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			dataDir = filepath.Join(home, ".suwu")
-		}
+	dataDir, err := suwudir.DataDir()
+	if err != nil {
+		return fmt.Errorf("resolve data directory: %w", err)
 	}
 
 	// Tools installed into <dataDir>/bin are on this process's PATH from here on,
@@ -869,16 +878,16 @@ func run(debugCfg debugConfig) error {
 
 // resolveTLS decides which certificate pair the server should use.
 // Precedence: TLS_CERT_FILE/TLS_KEY_FILE from the environment chain, then
-// the default pair 'suwu gencerts' writes into the suwu config directory.
+// the default pair 'suwu gencerts' writes into the suwu cert directory.
 // localCACertificate returns the PEM of Suwu's local CA when it signed the leaf at
 // certFile, and nil otherwise (a certificate from another CA has no business being
 // published as ours — a device that trusts it would still see a warning).
 func localCACertificate(certFile string) []byte {
-	configDir, err := certs.DefaultDir()
+	dataDir, err := suwudir.DataDir()
 	if err != nil {
 		return nil
 	}
-	return certs.CACertForLeaf(certFile, certs.CADir(configDir))
+	return certs.CACertForLeaf(certFile, certs.CADir(certs.CertDir(dataDir)))
 }
 
 func resolveTLS() (certFile, keyFile, source string, err error) {
@@ -907,18 +916,19 @@ func resolveTLS() (certFile, keyFile, source string, err error) {
 		return certFile, keyFile, "TLS_CERT_FILE/TLS_KEY_FILE", nil
 	}
 
-	configDir, err := certs.DefaultDir()
+	dataDir, err := suwudir.DataDir()
 	if err != nil {
-		return "", "", "", fmt.Errorf("cannot determine config directory: %w", err)
+		return "", "", "", fmt.Errorf("cannot determine data directory: %w", err)
 	}
-	certPath, keyPath := certs.PairPaths(configDir)
+	certDir := certs.CertDir(dataDir)
+	certPath, keyPath := certs.PairPaths(certDir)
 	if _, err := os.Stat(certPath); err != nil {
-		return "", "", "", fmt.Errorf("no certificates found in %s: %w\nhint: run 'suwu gencerts' to create a certificate pair", configDir, err)
+		return "", "", "", fmt.Errorf("no certificates found in %s: %w\nhint: run 'suwu gencerts' to create a certificate pair", certDir, err)
 	}
 	if _, err := os.Stat(keyPath); err != nil {
-		return "", "", "", fmt.Errorf("no key found in %s: %w\nhint: run 'suwu gencerts' to create a certificate pair", configDir, err)
+		return "", "", "", fmt.Errorf("no key found in %s: %w\nhint: run 'suwu gencerts' to create a certificate pair", certDir, err)
 	}
-	return certPath, keyPath, "~/.config/suwu", nil
+	return certPath, keyPath, "~/.suwu/cert", nil
 }
 
 func parsePort(value string, def int, name string) int {

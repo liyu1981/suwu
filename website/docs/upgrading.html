@@ -148,11 +148,12 @@ suwu upgrade --force</code></pre>
 alias sup='suwu upgrade'</code></pre>
 
         <h2 id="configuration">Configuration</h2>
-        <p>Suwu stores its configuration in <code>~/.config/suwu/</code>:</p>
+        <p>Suwu stores its configuration in <code>~/.suwu/</code>:</p>
         <ul>
-          <li><code>.env</code> — environment variables (host, port, TLS paths).</li>
+          <li><code>suwu.env</code> — environment variables (host, port, TLS paths).</li>
+          <li><code>cert/</code> — the local CA and the TLS certificate pair.</li>
+          <li><code>auth/sessions.json</code> — signed-in device sessions.</li>
           <li><code>theme.json</code> — custom theme (optional).</li>
-          <li><code>sessions/</code> — persisted session data.</li>
         </ul>
 
         <p>You can edit these files directly, or use the CLI and web UI settings panel. See <a href="security-data.html">Security &amp; Data</a> for details on what is stored and where.</p>
@@ -192,8 +193,8 @@ alias sup='suwu upgrade'</code></pre>
               <td>Generate self-signed TLS certificates</td>
             </tr>
             <tr>
-              <td><code>suwu onboard --password</code></td>
-              <td>Set or change the web access password</td>
+              <td><code>suwu change-password</code></td>
+              <td>Set or change the web access password (shortcut for <code>suwu onboard --password</code>)</td>
             </tr>
             <tr>
               <td><code>suwu daemon {start|stop|status|logs}</code></td>

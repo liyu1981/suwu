@@ -24,6 +24,7 @@ import (
 
 	"suwu/pkg/extension"
 	"suwu/pkg/install"
+	"suwu/pkg/suwudir"
 )
 
 // installExitUsage is the usage-error exit code, matching `suwu gq`.
@@ -382,18 +383,11 @@ func (f *installFlags) tokenOrEnv() string {
 
 // installDataDir resolves the data directory the same way the server does.
 func installDataDir() (string, error) {
-	if v := strings.TrimSpace(os.Getenv("SUWU_VAR")); v != "" {
-		abs, err := filepath.Abs(v)
-		if err != nil {
-			return "", err
-		}
-		return abs, nil
-	}
-	home, err := os.UserHomeDir()
+	dir, err := suwudir.DataDir()
 	if err != nil {
 		return "", fmt.Errorf("locate the data directory: %w", err)
 	}
-	return filepath.Join(home, ".suwu"), nil
+	return dir, nil
 }
 
 // loadCatalog fetches the catalog, showing a spinner-free progress line because

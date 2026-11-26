@@ -517,7 +517,7 @@ alone (both of these fail against the old code), a regular file is never
 deleted, and the path resolution matrix.
 
 `cmd/Suwu/serve_sock_test.go` (end to end, bounded): the real binary is built and
-run in a temp `SUWU_VAR`/`HOME`/`SUWU_CONFIG_DIR` with `--env-file /dev/null`, so
+run in a temp `SUWU_VAR`/`HOME` with `--env-file /dev/null`, so
 nothing from the developer's shell or config leaks in. Every child goes through
 `exec.CommandContext` with a deadline and every "must fail" case asserts it exits
 *within* that deadline — a run that instead starts serving fails the test rather

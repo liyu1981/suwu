@@ -250,7 +250,7 @@ New `cmd/Suwu/launchd.go`, mirroring `systemd.go`:
 - Label `dev.suwu.server`, file
   `~/Library/LaunchAgents/dev.suwu.server.plist`.
 - `ProgramArguments` = `[<bin>, serve]`, `WorkingDirectory` = config dir,
-  `EnvironmentVariables` = `SUWU_BIN`/`SUWU_VAR`/`SUWU_CONFIG_DIR` (same values
+  `EnvironmentVariables` = `SUWU_BIN`/`SUWU_VAR` (same values
   the systemd unit sets), `RunAtLoad=true`, `KeepAlive` (use
   `<dict><key>SuccessfulExit</key><false/></dict>` to mirror
   `Restart=on-failure`), `StandardOutPath`/`StandardErrorPath` =
@@ -355,7 +355,7 @@ Keep the HTTP handler signature unchanged.
   `launchctl print …` instead of `systemctl --user is-active`.
 - `ensureLocalBinInPath`/`ensureAsdfDataDir`: also consider `.bash_profile` and
   prefer `$SHELL`'s rc on macOS. Keep the log/pid/data dirs unchanged
-  (`~/.suwu`, `~/.config/suwu`).
+  (`~/.suwu` is the single root: config, certs, logs).
 - Local profile on macOS keeps `HOST=127.0.0.1`; the browser is on the same
   machine, so no host-display change is needed.
 

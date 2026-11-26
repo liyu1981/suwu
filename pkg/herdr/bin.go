@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"suwu/pkg/suwudir"
 	"suwu/pkg/tools"
 )
 
@@ -121,13 +122,9 @@ func resolveUncached() (Binary, error) {
 
 // ManagedDir is where Suwu keeps tools it downloaded or extracted.
 func ManagedDir() (string, error) {
-	dir := strings.TrimSpace(os.Getenv("SUWU_VAR"))
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve home dir: %w", err)
-		}
-		dir = filepath.Join(home, ".suwu")
+	dir, err := suwudir.DataDir()
+	if err != nil {
+		return "", err
 	}
 	return filepath.Join(dir, "bin"), nil
 }

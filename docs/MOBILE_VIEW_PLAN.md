@@ -480,7 +480,7 @@ throughput.
 ### 13.3 Trusting Suwu's local CA on an iPhone
 
 `suwu serve` uses HTTPS with a leaf certificate signed by a **persistent local CA**
-(`pkg/certs`: `~/.config/suwu/CA/rootCA.pem`, ten years, named "suwu local CA"),
+(`pkg/certs`: `~/.suwu/cert/CA/rootCA.pem`, ten years, named "suwu local CA"),
 because a private IP cannot get a public certificate. Browsers show a warning until
 the device trusts that CA — and until then iOS will not reliably fetch the
 home-screen icon, Chrome will not offer to install, and the service worker does not
@@ -490,7 +490,7 @@ falls into place.
 The CA **certificate** is public; the key next to it must stay on the server. So
 `suwu serve` publishes the certificate itself at **`/ca.crt`** — public, DER,
 `Content-Disposition: attachment; filename="suwu-local-ca.crt"` — whenever the CA
-in `~/.config/suwu/CA` cryptographically signed the leaf it is serving
+in `~/.suwu/cert/CA` cryptographically signed the leaf it is serving
 (`certs.CACertForLeaf`). A leaf from some other CA publishes nothing and the route
 is a 404, because a device that trusted an unrelated certificate would still see
 the warning.
@@ -509,7 +509,7 @@ If the phone cannot reach the server (or the CA has to be installed before the
 browser will talk to it), the same certificate can be exported by hand:
 
 ```sh
-openssl x509 -in ~/.config/suwu/CA/rootCA.pem -outform DER -out suwu-local-ca.crt
+openssl x509 -in ~/.suwu/cert/CA/rootCA.pem -outform DER -out suwu-local-ca.crt
 ```
 
 If everything above is done and Safari still refuses, check the certificate's

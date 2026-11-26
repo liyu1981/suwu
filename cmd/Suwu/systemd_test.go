@@ -10,22 +10,20 @@ import (
 // must pin the working directory and load the config file explicitly.
 func TestRenderSystemdServicePinsEnvFile(t *testing.T) {
 	const (
-		bin       = "/home/u/.local/bin/suwu"
-		varDir    = "/home/u/.suwu"
-		configDir = "/home/u/.config/suwu"
+		bin = "/home/u/.local/bin/suwu"
+		dir = "/home/u/.suwu"
 	)
-	unit, err := renderSystemdService(bin, varDir, configDir)
+	unit, err := renderSystemdService(bin, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
 		"[Service]",
-		"WorkingDirectory=" + configDir,
-		"EnvironmentFile=-" + configDir + "/.env",
+		"WorkingDirectory=" + dir,
+		"EnvironmentFile=-" + dir + "/suwu.env",
 		"ExecStart=" + bin + " serve",
 		"Environment=SUWU_BIN=" + bin,
-		"Environment=SUWU_VAR=" + varDir,
-		"Environment=SUWU_CONFIG_DIR=" + configDir,
+		"Environment=SUWU_VAR=" + dir,
 		"Environment=PATH=",
 		"%h/.local/bin",
 		"[Install]",
@@ -34,6 +32,9 @@ func TestRenderSystemdServicePinsEnvFile(t *testing.T) {
 		if !strings.Contains(unit, want) {
 			t.Errorf("unit missing %q:\n%s", want, unit)
 		}
+	}
+	if strings.Contains(unit, "SUWU_CONFIG_DIR") {
+		t.Errorf("unit must not set SUWU_CONFIG_DIR any more:\n%s", unit)
 	}
 	if strings.Count(unit, "EnvironmentFile=") != 1 {
 		t.Errorf("expected exactly one EnvironmentFile line:\n%s", unit)

@@ -1,6 +1,6 @@
 // Package gencerts implements the 'suwu gencerts' flow: an interactive TUI
 // (or flag-driven) generation of a TLS certificate pair signed by suwu's
-// persistent local CA, stored under the suwu config directory and picked up
+// persistent local CA, stored under the suwu data directory and picked up
 // automatically by 'suwu serve'.
 package gencerts
 
@@ -17,6 +17,7 @@ import (
 
 	"suwu/pkg/certs"
 	"suwu/pkg/envfile"
+	"suwu/pkg/suwudir"
 )
 
 // ErrAborted reports that the user cancelled an interactive prompt.
@@ -25,15 +26,15 @@ var ErrAborted = errors.New("cancelled")
 const usageText = `Usage: suwu gencerts [flags]
 
 Generates a TLS certificate pair signed by suwu's persistent local CA
-(~/.config/suwu/CA). By default the pair is written to
-~/.config/suwu/tls-cert.pem and tls-key.pem and recorded in
-~/.config/suwu/.env, so 'suwu serve' enables https automatically.
+(~/.suwu/cert/CA). By default the pair is written to
+~/.suwu/cert/tls-cert.pem and tls-key.pem and recorded in
+~/.suwu/suwu.env, so 'suwu serve' enables https automatically.
 
 Flags:
   --hosts   comma/space-separated hosts and IPs for the certificate SANs
             (skips the interactive prompts)
-  --out     output directory (default ~/.config/suwu)
-  --no-env  do not write TLS_CERT_FILE/TLS_KEY_FILE into ~/.config/suwu/.env
+  --out     output directory (default ~/.suwu/cert)
+  --no-env  do not write TLS_CERT_FILE/TLS_KEY_FILE into ~/.suwu/suwu.env
   --force   overwrite an existing certificate pair
 `
 
@@ -48,8 +49,8 @@ type options struct {
 func Run(args []string) error {
 	fs := flag.NewFlagSet("gencerts", flag.ContinueOnError)
 	hostsFlag := fs.String("hosts", "", "comma/space-separated hosts and IPs for the certificate SANs (skips interactive prompts)")
-	outFlag := fs.String("out", "", "output directory for the certificate pair (default ~/.config/suwu)")
-	noEnv := fs.Bool("no-env", false, "do not write TLS_CERT_FILE/TLS_KEY_FILE into ~/.config/suwu/.env")
+	outFlag := fs.String("out", "", "output directory for the certificate pair (default ~/.suwu/cert)")
+	noEnv := fs.Bool("no-env", false, "do not write TLS_CERT_FILE/TLS_KEY_FILE into ~/.suwu/suwu.env")
 	force := fs.Bool("force", false, "overwrite an existing certificate pair")
 	fs.Usage = func() { fmt.Fprint(fs.Output(), usageText) }
 	if err := fs.Parse(args); err != nil {
@@ -60,10 +61,11 @@ func Run(args []string) error {
 		return fmt.Errorf("unexpected argument %q", fs.Arg(0))
 	}
 
-	configDir, err := certs.DefaultDir()
+	dataDir, err := suwudir.DataDir()
 	if err != nil {
 		return err
 	}
+	certDir := certs.CertDir(dataDir)
 
 	opts := options{
 		hosts:  *hostsFlag,
@@ -83,7 +85,7 @@ func Run(args []string) error {
 		writeEnv bool
 	)
 	if interactive {
-		hosts, outDir, writeEnv, err = collectInteractive(configDir, opts)
+		hosts, outDir, writeEnv, err = collectInteractive(dataDir, certDir, opts)
 		if err != nil {
 			return err
 		}
@@ -94,7 +96,7 @@ func Run(args []string) error {
 		}
 		outDir = strings.TrimSpace(opts.outDir)
 		if outDir == "" {
-			outDir = configDir
+			outDir = certDir
 		}
 		writeEnv = !opts.noEnv
 	}
@@ -123,7 +125,7 @@ func Run(args []string) error {
 		}
 	}
 
-	ca, caCreated, err := certs.LoadOrCreateCA(certs.CADir(configDir))
+	ca, caCreated, err := certs.LoadOrCreateCA(certs.CADir(certDir))
 	if err != nil {
 		return err
 	}
@@ -137,18 +139,18 @@ func Run(args []string) error {
 
 	certPath, keyPath := certs.PairPaths(outDir)
 	if writeEnv {
-		if err := writeConfigEnv(configDir, certPath, keyPath); err != nil {
+		if err := writeConfigEnv(dataDir, certPath, keyPath); err != nil {
 			return err
 		}
 	}
 
-	printSummary(configDir, outDir, hosts, caCreated, writeEnv)
+	printSummary(dataDir, outDir, hosts, caCreated, writeEnv)
 	return nil
 }
 
 // collectInteractive runs the form that gathers hosts, the output directory,
 // and whether the global config file should be updated.
-func collectInteractive(configDir string, opts options) (hosts []string, outDir string, writeEnv bool, err error) {
+func collectInteractive(dataDir, certDir string, opts options) (hosts []string, outDir string, writeEnv bool, err error) {
 	detected := certs.DetectHosts()
 	hostOptions := make([]huh.Option[string], 0, len(detected))
 	for _, h := range detected {
@@ -163,7 +165,7 @@ func collectInteractive(configDir string, opts options) (hosts []string, outDir 
 		write      = !opts.noEnv
 	)
 	if outInput == "" {
-		outInput = configDir
+		outInput = certDir
 	}
 
 	fields := []huh.Field{
@@ -204,7 +206,7 @@ func collectInteractive(configDir string, opts options) (hosts []string, outDir 
 			}),
 	}
 	if confirmEnv {
-		globalEnv := filepath.Join(configDir, ".env")
+		globalEnv := suwudir.ConfigFile(dataDir)
 		fields = append(fields, huh.NewConfirm().
 			Title("Update "+globalEnv+"?").
 			Description("Records TLS_CERT_FILE/TLS_KEY_FILE so 'suwu serve' enables https automatically.").
@@ -253,8 +255,8 @@ func confirmOverwrite(dir string) (bool, error) {
 
 // writeConfigEnv records the certificate paths in the user-global config
 // file and warns when a project-local .env would override them.
-func writeConfigEnv(configDir, certPath, keyPath string) error {
-	globalEnv := filepath.Join(configDir, ".env")
+func writeConfigEnv(dataDir, certPath, keyPath string) error {
+	globalEnv := suwudir.ConfigFile(dataDir)
 	if err := envfile.Upsert(globalEnv, map[string]string{
 		"TLS_CERT_FILE": certPath,
 		"TLS_KEY_FILE":  keyPath,
@@ -279,7 +281,7 @@ func envFileKeys(path string) map[string]bool {
 	return keys
 }
 
-func printSummary(configDir, outDir string, hosts []string, caCreated, writeEnv bool) {
+func printSummary(dataDir, outDir string, hosts []string, caCreated, writeEnv bool) {
 	certPath, keyPath := certs.PairPaths(outDir)
 	caState := "reused"
 	if caCreated {
@@ -291,14 +293,15 @@ func printSummary(configDir, outDir string, hosts []string, caCreated, writeEnv 
 	fmt.Printf("     cert: %s\n", certPath)
 	fmt.Printf("     key:  %s  (chmod 600)\n", keyPath)
 	fmt.Printf("     SANs: %s\n", strings.Join(hosts, ", "))
-	fmt.Printf("     local CA (%s): %s\n", caState, filepath.Join(certs.CADir(configDir), certs.CACertFileName))
+	caPath := filepath.Join(certs.CADir(certs.CertDir(dataDir)), certs.CACertFileName)
+	fmt.Printf("     local CA (%s): %s\n", caState, caPath)
 	if writeEnv {
-		fmt.Printf("     recorded in: %s\n", filepath.Join(configDir, ".env"))
+		fmt.Printf("     recorded in: %s\n", suwudir.ConfigFile(dataDir))
 	}
 	fmt.Println()
 	fmt.Printf("  ▶️  Start the server: suwu serve   (https is picked up automatically)\n")
 	fmt.Println("  🔑 Client devices must trust the local CA once to avoid browser warnings:")
-	fmt.Printf("     copy %s to the device and install it as a CA certificate\n", filepath.Join(certs.CADir(configDir), certs.CACertFileName))
+	fmt.Printf("     copy %s to the device and install it as a CA certificate\n", caPath)
 	fmt.Println("     Linux: sudo cp <rootCA.pem> /usr/local/share/ca-certificates/suwu-local.crt && sudo update-ca-certificates")
 }
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"suwu/pkg/certs"
 )
 
 func TestDevelopmentToolCategoriesAndDefaults(t *testing.T) {
@@ -320,5 +322,45 @@ func TestCollectOnboardSectionRejectsUnknown(t *testing.T) {
 	var plan onboardPlan
 	if err := collectOnboardSection(&plan, onboardSection("bogus")); err == nil {
 		t.Fatal("expected an error for an unknown section")
+	}
+}
+
+// A custom data directory moves the config file and the default cert pair with
+// it, but never rewrites certificate paths the user pinned elsewhere.
+func TestSetDataDirFollowsDefaultsOnly(t *testing.T) {
+	plan := onboardPlan{certDir: certs.CertDir("/old")}
+	plan.certFile, plan.keyFile = certs.PairPaths(plan.certDir)
+
+	plan.setDataDir("/new")
+	if plan.cfgDir != "/new" || plan.varDir != "/new" {
+		t.Errorf("cfgDir/varDir = %q/%q, want /new", plan.cfgDir, plan.varDir)
+	}
+	if want := filepath.Join("/new", "suwu.env"); plan.envPath != want {
+		t.Errorf("envPath = %q, want %q", plan.envPath, want)
+	}
+	if want := certs.CertDir("/new"); plan.certDir != want {
+		t.Errorf("certDir = %q, want %q", plan.certDir, want)
+	}
+	certPath, keyPath := certs.PairPaths(certs.CertDir("/new"))
+	if plan.certFile != certPath || plan.keyFile != keyPath {
+		t.Errorf("cert pair = %q/%q, want %q/%q", plan.certFile, plan.keyFile, certPath, keyPath)
+	}
+
+	pinned := onboardPlan{certDir: certs.CertDir("/old"), certFile: "/etc/ssl/suwu.pem", keyFile: "/etc/ssl/suwu-key.pem"}
+	pinned.setDataDir("/new")
+	if pinned.certFile != "/etc/ssl/suwu.pem" || pinned.keyFile != "/etc/ssl/suwu-key.pem" {
+		t.Errorf("pinned cert paths were rewritten: %q/%q", pinned.certFile, pinned.keyFile)
+	}
+}
+
+// 'suwu change-password' is a shortcut with no arguments of its own: anything
+// extra is a usage error, reported without touching the configuration.
+func TestChangePasswordRejectsArguments(t *testing.T) {
+	err := changePassword([]string{"hunter2"})
+	if err == nil {
+		t.Fatal("changePassword with an argument = nil error, want usage error")
+	}
+	if !strings.Contains(err.Error(), "takes no arguments") {
+		t.Fatalf("error = %q, want it to mention that no arguments are accepted", err)
 	}
 }

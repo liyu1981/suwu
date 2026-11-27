@@ -62,7 +62,7 @@ function MessageRow({
               ? t('notifications.openGitGraph')
               : n.data?.payload.type === 'staticserve'
                 ? t('notifications.openStaticBrowser')
-                : t('notifications.openInViewr');
+                : t('notifications.openInSuwu');
 
   return (
     <div className="group relative rounded px-3 py-2 transition hover:bg-white/5">

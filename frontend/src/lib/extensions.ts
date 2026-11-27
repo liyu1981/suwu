@@ -85,17 +85,21 @@ function loadExtensions(): Promise<Extension[]> {
  */
 export async function findExtensionForFile(path: string): Promise<string | null> {
   const lower = path.toLowerCase();
-  let list: Extension[];
+  const match = (list: Extension[]) =>
+    list.find((ext) => (ext.fileExtensions ?? []).some((suffix) => lower.endsWith(suffix)))?.id ??
+    null;
+  const hadCache = cached !== null;
   try {
-    list = await loadExtensions();
+    const hit = match(await loadExtensions());
+    if (hit) return hit;
+    // A miss against a cached list may simply mean the extension was installed
+    // during this session (`suwu install`), so ask once more before falling
+    // back to the generic viewer.
+    if (!hadCache) return null;
+    return match(await reloadExtensions());
   } catch {
     return null;
   }
-  for (const ext of list) {
-    const claimed = ext.fileExtensions ?? [];
-    if (claimed.some((suffix) => lower.endsWith(suffix))) return ext.id;
-  }
-  return null;
 }
 
 /**

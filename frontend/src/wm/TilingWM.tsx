@@ -55,7 +55,7 @@ import {
   type Rect,
 } from './layout';
 import { applyWmAction, wmAction } from './shortcuts';
-import { openViewer, openFileBrowser, openTile } from '../lib/actionResolver';
+import { openFile, openFileBrowser, openTile } from '../lib/actionResolver';
 import { logout } from '../lib/api';
 import { TileTools } from './TileTools';
 import { usePaneGhosts } from './hooks/usePaneGhosts';
@@ -661,7 +661,8 @@ export default function TilingWM() {
         // set type and initialPath directly on the store.
         if (d.sourcePane) store.set(focusedIdAtom, d.sourcePane);
         if (d.tileType === 'fileviewer') {
-          openViewer(d.path, store);
+          // An extension that claims this suffix wins over the generic viewer.
+          void openFile(d.path, store);
         } else if (d.tileType === 'filebrowser') {
           openFileBrowser(d.path, store);
         }

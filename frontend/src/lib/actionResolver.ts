@@ -109,6 +109,22 @@ export function openFileBrowser(path: string, store: Store): string | null {
 }
 
 /**
+ * Open a file wherever it belongs: the extension that claims its suffix
+ * (`suwu.fileExtensions`, e.g. .excalidraw), else the generic File Viewer.
+ *
+ * This is the one entry point used by notifications and by any tile that asks
+ * the WM to open a file, so an installed extension always wins over the
+ * viewer.
+ */
+export async function openFile(path: string, store: Store): Promise<string | null> {
+  const extId = await findExtensionForFile(path);
+  if (extId) {
+    return openTile('extension', store, undefined, { id: extId, file: path });
+  }
+  return openViewer(path, store);
+}
+
+/**
  * Open a viewer tile showing the given file path.
  */
 export function openViewer(path: string, store: Store): string | null {
@@ -290,18 +306,12 @@ export async function resolveAction(
       if (!autoResolve.filebrowser) return false;
       openFileBrowser(payload.path, store);
       return true;
-    case 'file': {
+    case 'file':
+      if (!autoResolve.fileviewer) return false;
       // An installed extension may claim this suffix (e.g. .excalidraw) and
       // take the file into its own tile with a `file` parameter.
-      const extId = await findExtensionForFile(payload.path);
-      if (!autoResolve.fileviewer) return false;
-      if (extId) {
-        openTile('extension', store, undefined, { id: extId, file: payload.path });
-      } else {
-        openViewer(payload.path, store);
-      }
+      await openFile(payload.path, store);
       return true;
-    }
     case 'forward':
       if (!autoResolve.forward) return false;
       openForward(store);
@@ -341,15 +351,9 @@ export async function executeAction(data: NotificationData, store: Store): Promi
     case 'code':
       openCode(payload.files, store, payload.dir);
       break;
-    case 'file': {
-      const extId = await findExtensionForFile(payload.path);
-      if (extId) {
-        openTile('extension', store, undefined, { id: extId, file: payload.path });
-      } else {
-        openViewer(payload.path, store);
-      }
+    case 'file':
+      await openFile(payload.path, store);
       break;
-    }
     case 'staticserve':
       openStaticBrowse(payload.id, payload.path, store);
       break;

@@ -112,6 +112,11 @@ func main() {
 				log.Fatalf("daemon: %v", err)
 			}
 			return
+		case "service-install":
+			if err := serviceInstallMain(os.Args[2:]); err != nil {
+				log.Fatalf("service-install: %v", err)
+			}
+			return
 		case "send":
 			if err := sendMsg(os.Args[2:]); err != nil {
 				log.Fatalf("send: %v", err)
@@ -1073,6 +1078,11 @@ type openAction struct {
 type openPayload struct {
 	Type string `json:"type"`
 	Path string `json:"path"`
+}
+
+// service-install installs the systemd user service for suwu.
+func serviceInstallMain(args []string) error {
+	return installUserService()
 }
 
 func openMain(args []string) error {
